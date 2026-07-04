@@ -1,0 +1,38 @@
+name: Actualizar datos del CRM
+
+on:
+  schedule:
+    # 11:30 UTC = 6:30 AM Ecuador, todos los días
+    - cron: '30 11 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: pip install openpyxl requests
+
+      - name: Leer el Excel maestro y regenerar los datos
+        env:
+          EXCEL_URL: ${{ secrets.EXCEL_URL }}
+        run: python scripts/actualizar_datos.py
+
+      - name: Publicar cambios (solo si hay datos nuevos)
+        run: |
+          git config user.name "robot-fap"
+          git config user.email "actions@users.noreply.github.com"
+          git add crm/contratos_export.json
+          git diff --cached --quiet || git commit -m "Actualización automática de contratos"
+          git push
