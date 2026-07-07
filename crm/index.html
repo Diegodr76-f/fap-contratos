@@ -395,7 +395,11 @@ function montoEnLetras(n){
     if(rc>0) partes.push(tres(rc));
     entero=partes.join(" ").trim();
   }
-  return `${entero} CON ${String(cent).padStart(2,"0")}/100 DÓLARES DE LOS ESTADOS UNIDOS DE AMÉRICA`;
+  const bruto = `${entero} CON ${String(cent).padStart(2,"0")}/100 DÓLARES DE LOS ESTADOS UNIDOS DE AMÉRICA`;
+  // Formato oración: mayúscula inicial, resto minúsculas, excepto el nombre propio del país
+  let s = bruto.charAt(0) + bruto.slice(1).toLowerCase();
+  s = s.replace(/estados unidos de américa/i, "Estados Unidos de América");
+  return s;
 }
 /* Campo para completar manualmente en el borrador (resaltado, visible en Word) */
 function manual(txt){ return `<span style="background:#FCF3DD;color:#8A5E06;padding:1px 4px;border-radius:3px">[COMPLETAR: ${esc(txt)}]</span>`; }
