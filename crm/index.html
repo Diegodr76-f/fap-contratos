@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/pizzip@3.2.0/dist/pizzip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.66.4/docxtemplater.min.js"></script>
 <style>
   :root{
     --navy:#00249C; --ink:#0B153F; --bg:#F4F6FB; --card:#ffffff;
@@ -151,6 +153,7 @@
   .route-acta{background:var(--greenbg);border-color:#BCE6CE;color:#15703F}
   .route-adenda{background:var(--amberbg);border-color:#F0DCA6;color:#8A5E06}
   .route-block{background:var(--redbg);border-color:#F3C0C0;color:#A32020}
+  .secdiv{font-size:11.5px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line2)}
   .catchip{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.2px;white-space:nowrap}
   .adchip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:#EEF1FB;color:var(--navy);border:1px solid #C9D3F2;white-space:nowrap}
   .steps{background:#F4F7FE;border:1px solid #D7DFF5;border-radius:12px;padding:14px 16px;margin-top:14px}
@@ -397,6 +400,8 @@ function montoEnLetras(n){
 /* Campo para completar manualmente en el borrador (resaltado, visible en Word) */
 function manual(txt){ return `<span style="background:#FCF3DD;color:#8A5E06;padding:1px 4px;border-radius:3px">[COMPLETAR: ${esc(txt)}]</span>`; }
 function manualIf(val, label){ return (val&&String(val).trim())?esc(val):manual(label); }
+/* Para plantillas .docx reales: texto plano (docxtemplater no interpreta HTML) */
+function manualDocx(txt){ return `«COMPLETAR: ${txt}»`; }
 const esc=s=> (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function fdate(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); const M=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]; return `${+d} ${M[+m-1]} ${y}`; }
 function longDate(iso){ if(!iso) iso=new Date().toISOString().slice(0,10); const [y,m,d]=iso.split("-"); const M=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]; return `${+d} de ${M[+m-1]} de ${y}`; }
@@ -789,7 +794,6 @@ function closeModal(el){ (el.closest(".overlay")||el).remove(); }
 /* --- Modificar --- */
 function modalModificar(c){
   const consult=isConsultoria(c);
-  // opciones: nunca objeto
   const opciones=[
     {v:"monto",   t:"Aumento de monto", d:"Incremento en el valor del contrato", informe:"aumento"},
     {v:"plazogen",t:"Ampliación de plazo general", d:"Extiende la vigencia total del contrato", informe:"adenda"},
@@ -807,20 +811,31 @@ function modalModificar(c){
       </div>
       <div style="font-size:12px;color:var(--muted);margin-top:8px">Las modificaciones <b>no pueden ser del objeto</b> del contrato.</div>
     </div>
-    <div class="frow" id="montoRow">
-      <label>Valor del incremento (USD, incl. IVA)</label>
-      <input id="inc" type="number" min="0" step="0.01" placeholder="0.00">
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Monto original: <b>${money(c.monto)}</b>${montoDe(c)!==c.monto?` · Valor total vigente (con adendas): <b>${money(montoDe(c))}</b>`:""}</div>
-      <div class="frow2" style="display:flex;gap:10px;margin-top:10px">
-        <div class="frow" style="flex:1;margin:0"><label>RUC del proveedor (opcional)</label><input id="rucM" type="text" placeholder="N.º de RUC"></div>
-        <div class="frow" style="flex:1;margin:0"><label>Nombre del contrato (opcional)</label><input id="nombreCtr" type="text" placeholder="Ej.: contrato civil de prestación de servicios…" value="${esc(c.detalle)}"></div>
+    <div id="montoRow">
+      <div class="frow">
+        <label>Valor del incremento (USD, incl. IVA)</label>
+        <input id="inc" type="number" min="0" step="0.01" placeholder="0.00">
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Monto original: <b>${money(c.monto)}</b>${montoDe(c)!==c.monto?` · Valor total vigente (con adendas): <b>${money(montoDe(c))}</b>`:""}</div>
       </div>
+      <div class="secdiv">Datos para el informe (formato oficial FAP-2026-11)</div>
+      <div class="frow2" style="display:flex;gap:10px">
+        <div class="frow" style="flex:1;margin:0"><label>RUC del proveedor</label><input id="rucM" type="text" placeholder="N.º de RUC"></div>
+        <div class="frow" style="flex:1;margin:0"><label>Siglas del área</label><input id="siglas" type="text" placeholder="Ej.: PNC"></div>
+      </div>
+      <div class="frow"><label>Nombre del contrato</label><input id="nombreCtr" type="text" placeholder="Ej.: contrato civil de prestación de servicios…" value="${esc(c.detalle)}"></div>
+      <div class="secdiv">Datos presupuestarios (reprogramación PAG)</div>
+      <div class="frow2" style="display:flex;gap:10px">
+        <div class="frow" style="flex:1;margin:0"><label>Fecha de reprogramación PAG</label><input id="fechaReprog" type="date"></div>
+        <div class="frow" style="flex:1;margin:0"><label>Código de partida</label><input id="partida" type="text" placeholder="Ej.: 5.3.01"></div>
+      </div>
+      <div class="frow"><label>Nombre de la línea presupuestaria</label><input id="lineaNombre" type="text" placeholder="Nombre de la partida en el PAG"></div>
+      <div class="note" style="margin:2px 0 4px">Si aún no tienes algún dato presupuestario, déjalo vacío: quedará marcado en el Word para completarlo antes de enviar.</div>
     </div>
     <div class="frow" id="plazoRow" style="display:none">
       <label>Plazo adicional / nueva fecha</label>
       <input id="plazoTxt" type="text" placeholder="Ej.: 60 días adicionales · nueva finalización 30 nov 2026">
     </div>
-    <div class="frow"><label>Justificación de la modificación</label><textarea id="just" placeholder="Motivo técnico y contractual…"></textarea></div>
+    <div class="frow"><label>Justificación de la modificación (opcional)</label><textarea id="just" placeholder="Motivo técnico y contractual adicional…"></textarea></div>
     <div id="routebox"></div>
     <div class="modal-foot">
       <button class="btn line" id="cancel">Cancelar</button>
@@ -847,7 +862,7 @@ function modalModificar(c){
       instrumento = "Adenda modificatoria";
     }
     const isAdenda=instrumento==="Adenda modificatoria";
-    const infTxt = informe==="aumento" ? "Informe de justificación de aumento de monto" : "Informe de justificación de adenda";
+    const infTxt = informe==="aumento" ? "Informe de aumento de monto (FAP-2026-11)" : "Informe de justificación de adenda";
     if(blocked){
       routebox.innerHTML=`<div class="routebox route-block">
         <b>Modificación no permitida.</b><br>
@@ -873,40 +888,75 @@ function modalModificar(c){
   });
   inc.oninput=route; route();
   $("#cancel",o).onclick=()=>closeModal(o);
-  $("#gen",o).onclick=()=>{
+  $("#gen",o).onclick=async()=>{
     const just=$("#just",o).value.trim();
     const d=o._data;
     if(d.blocked){ alert("Modificación no permitida: superaría el 50% acumulado del monto original."); return; }
     if(d.v==="monto" && !(parseFloat(inc.value)>0)){ alert("Ingresa el valor del incremento."); return; }
     if(d.v!=="monto" && !$("#plazoTxt",o).value.trim()){ alert("Indica el plazo adicional o la nueva fecha."); return; }
-    if(!just){ alert("Ingresa la justificación."); return; }
-    const payload={
-      v:d.v, informe:d.informe, instrumento:d.instrumento, pct:d.pct, pctAcum:d.pctAcum,
-      inc:parseFloat(inc.value)||0, plazoTxt:$("#plazoTxt",o).value.trim(), just,
-      ruc:$("#rucM",o)?$("#rucM",o).value.trim():"", nombreCtr:$("#nombreCtr",o)?$("#nombreCtr",o).value.trim():""
-    };
-    const titulo = d.informe==="aumento" ? "Informe de justificación de aumento de monto" : "Informe de justificación de adenda";
-    downloadDoc(`BORRADOR_${d.informe==="aumento"?"Informe_aumento_monto":"Informe_adenda"}_${cleanNro(c.nro)}`, titulo, informeModificacionDoc(c,payload,titulo));
-    o.querySelector(".modal").innerHTML=`
-      <h2>✅ Borrador generado</h2>
-      <p class="sub">${esc(titulo)} · ${esc(c.nro)}</p>
-      <div class="steps">
-        <h3>Próximos pasos — envío a la Unidad Operativa</h3>
-        <ol>
-          <li><b>Abre el borrador</b> descargado en Word y completa/ajusta la justificación si hace falta.</li>
-          <li><b>Envíalo por correo a la Unidad Operativa del FAP</b>, adjuntando: el borrador del informe y el <b>contrato firmado</b> ${c.link?`(<a href="${esc(c.link)}" target="_blank" rel="noopener">ábrelo aquí</a>)`:"(descárgalo desde SharePoint)"}.</li>
-          <li>En el asunto escribe: <b>"Solicitud de ${esc(d.instrumento)} — ${esc(c.nro)}"</b>.</li>
-          <li>La Unidad Operativa revisa y <b>Legal FAP elabora el instrumento</b> (${esc(d.instrumento)}) para firma de las partes.</li>
-          <li>Cuando te devuelvan el instrumento firmado, guárdalo en la carpeta del contrato y avisa para que se <b>actualice el Excel maestro</b>.</li>
-        </ol>
-      </div>
-      <div class="note" style="margin-top:12px">Recuerda: hazlo <b>antes del vencimiento</b> del contrato (${fdate(c.fin)}). El borrador no modifica nada por sí solo.</div>
-      <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
-    $("#okpasos",o).onclick=()=>closeModal(o);
-    toast(`Borrador generado · ${titulo}`);
+
+    if(d.v==="monto"){
+      /* === Informe oficial FAP-2026-11 con la plantilla .docx real === */
+      const inc_v=parseFloat(inc.value)||0;
+      const montoOriginal=c.monto||0, montoTotal=montoOriginal+inc_v;
+      const M=(v)=>manualDocx(v); // marca [COMPLETAR ...] si viene vacío
+      const data={
+        contratoNro:c.nro,
+        objeto:c.detalle||"",
+        proveedor:c.proveedor||"",
+        proveedorRuc:$("#rucM",o).value.trim()||M("RUC del proveedor"),
+        ac:c.ac||"",
+        area:c.area||"",
+        siglas:$("#siglas",o).value.trim()||M("siglas del área"),
+        fecha:longDate(todayISO()),
+        fechaContrato:longDate(c.firma),
+        fechaReprog:$("#fechaReprog",o).value?longDate($("#fechaReprog",o).value):M("fecha de reprogramación PAG"),
+        partida:$("#partida",o).value.trim()||M("código de partida"),
+        lineaNombre:$("#lineaNombre",o).value.trim()||M("nombre de la línea PAG"),
+        montoOriginal:money(montoOriginal).replace("$",""),
+        montoOriginalLetras:montoEnLetras(montoOriginal),
+        montoAumento:money(inc_v).replace("$",""),
+        montoAumentoLetras:montoEnLetras(inc_v),
+        montoTotal:money(montoTotal).replace("$",""),
+        montoTotalLetras:montoEnLetras(montoTotal)
+      };
+      try{
+        await generarDocx("14_Informe_adenda.docx", data, `BORRADOR_Informe_aumento_monto_${cleanNro(c.nro)}`);
+      }catch(err){ alert("No se pudo generar el documento: "+err.message); return; }
+      pasosModificacion(o,c,d,"Informe de aumento de monto (FAP-2026-11)");
+      toast("Borrador generado · Informe FAP-2026-11");
+    } else {
+      /* Cambio de plazo: aún sin plantilla oficial → informe HTML provisional */
+      if(!just){ alert("Ingresa la justificación."); return; }
+      const payload={ v:d.v, informe:d.informe, instrumento:d.instrumento, pct:d.pct, pctAcum:d.pctAcum,
+        inc:0, plazoTxt:$("#plazoTxt",o).value.trim(), just, ruc:"", nombreCtr:"" };
+      const titulo="Informe de justificación de adenda (formato provisional)";
+      downloadDoc(`BORRADOR_Informe_adenda_${cleanNro(c.nro)}`, titulo, informeModificacionDoc(c,payload,titulo));
+      pasosModificacion(o,c,d,titulo);
+      toast(`Borrador generado · ${titulo}`);
+    }
   };
 }
+function pasosModificacion(o,c,d,titulo){
+  o.querySelector(".modal").innerHTML=`
+    <h2>✅ Borrador generado</h2>
+    <p class="sub">${esc(titulo)} · ${esc(c.nro)}</p>
+    <div class="steps">
+      <h3>Próximos pasos — envío a la Unidad Operativa</h3>
+      <ol>
+        <li><b>Abre el borrador</b> descargado en Word y completa los campos marcados con «COMPLETAR» si los hay.</li>
+        <li><b>Envíalo por correo a la Unidad Operativa del FAP</b>, adjuntando: el borrador del informe y el <b>contrato firmado</b> ${c.link?`(<a href="${esc(c.link)}" target="_blank" rel="noopener">ábrelo aquí</a>)`:"(descárgalo desde SharePoint)"}.</li>
+        <li>En el asunto escribe: <b>"Solicitud de ${esc(d.instrumento)} — ${esc(c.nro)}"</b>.</li>
+        <li>La Unidad Operativa revisa y <b>Legal FAP elabora el instrumento</b> (${esc(d.instrumento)}) para firma de las partes.</li>
+        <li>Cuando te devuelvan el instrumento firmado, guárdalo en la carpeta del contrato y avisa para que se <b>actualice el Excel maestro</b>.</li>
+      </ol>
+    </div>
+    <div class="note" style="margin-top:12px">Recuerda: hazlo <b>antes del vencimiento</b> del contrato (${fdate(c.fin)}). El borrador no modifica nada por sí solo.</div>
+    <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
+  $("#okpasos",o).onclick=()=>closeModal(o);
+}
 
+/* --- Terminar --- */
 /* --- Terminar --- */
 function modalTerminar(c){
   const causales=[
@@ -923,23 +973,23 @@ function modalTerminar(c){
         ${causales.map((x,i)=>`<label class="radio ${i===0?"sel":""}"><input type="radio" name="cz" value="${esc(x[0])}" data-nov="${esc(x[2])}" ${i===0?"checked":""}><span><span class="rt">${x[0]}</span><span class="rd">${x[1]}</span></span></label>`).join("")}
       </div>
     </div>
+    <div class="secdiv">Comparecientes y datos del acta (formato oficial FAP-2026-12)</div>
     <div class="frow2" style="display:flex;gap:10px">
-      <div class="frow" style="flex:1"><label>Fecha de terminación</label><input id="fter" type="date" value="${todayISO()}"></div>
-      <div class="frow" style="flex:1"><label>Fecha real de entrega/culminación</label><input id="frec" type="date" value="${todayISO()}"></div>
+      <div class="frow" style="flex:1;margin:0"><label>Cédula de la AC</label><input id="cedulaAc" type="text" placeholder="N.º de cédula"></div>
+      <div class="frow" style="flex:1;margin:0"><label>RUC del proveedor</label><input id="ruc" type="text" placeholder="N.º de RUC"></div>
     </div>
+    <div class="frow"><label>Administrador/a del área (MAE)</label><input id="jefe" type="text" placeholder="Nombre de quien administra el área por el MAE"></div>
     <div class="frow"><label>Ciudad de suscripción del acta</label><input id="ciudad" type="text" value="Quito"></div>
     <div class="frow2" style="display:flex;gap:10px">
-      <div class="frow" style="flex:1"><label>Cédula de la AC (opcional)</label><input id="cedulaAc" type="text" placeholder="N.º de cédula"></div>
-      <div class="frow" style="flex:1"><label>RUC del proveedor (opcional)</label><input id="ruc" type="text" placeholder="N.º de RUC"></div>
+      <div class="frow" style="flex:1;margin:0"><label>Fecha del acta / terminación</label><input id="fter" type="date" value="${todayISO()}"></div>
+      <div class="frow" style="flex:1;margin:0"><label>Fecha real de entrega/culminación</label><input id="frec" type="date" value="${todayISO()}"></div>
     </div>
-    <div class="frow"><label>Administrador/a del área (MAE) (opcional)</label><input id="jefe" type="text" placeholder="Nombre de quien administra el área por el MAE"></div>
-    <div class="frow"><label>Novedades de ejecución (se usa el texto sugerido si lo dejas así)</label><textarea id="obs" placeholder="Retrasos justificados, entregas parciales, validaciones del MAE, etc."></textarea></div>
+    <div class="secdiv">Liquidación económica</div>
     <div class="frow2" style="display:flex;gap:10px">
-      <div class="frow" style="flex:1"><label>¿Hay multas, descuentos o retenciones?</label><select id="multas"><option value="no">No aplica</option><option value="si">Sí, detallar</option></select></div>
-      <div class="frow" style="flex:1"><label>Saldo no ejecutado (opcional)</label><input id="saldo" type="text" placeholder="Ej. USD 0,00 o dejar vacío"></div>
+      <div class="frow" style="flex:1;margin:0"><label>Valor total liquidado (USD)</label><input id="total" type="number" step="0.01" value="${montoDe(c).toFixed(2)}"></div>
+      <div class="frow" style="flex:1;margin:0"><label>Novedades (opcional)</label><input id="obs" type="text" placeholder="Se usa el texto sugerido si lo dejas vacío"></div>
     </div>
-    <div id="multasDet" style="display:none"><div class="frow"><label>Detalle de multas/descuentos</label><textarea id="multasTxt" placeholder="Cálculo, periodo, causal, valor y respaldo"></textarea></div></div>
-    <div class="note">Al terminar se genera el <b>borrador del acta de entrega-recepción y liquidación</b> (formato oficial FAP-2026-12) y se habilita el <b>protocolo de calificación del proveedor</b>. Los campos que dejes vacíos quedan marcados en amarillo en el Word para que Legal FAP los complete.</div>
+    <div class="note">Se genera el <b>borrador del acta oficial (FAP-2026-12)</b> con la plantilla real. Los campos vacíos quedan marcados con «COMPLETAR» en el Word. Al terminar se habilita la <b>calificación del proveedor</b>.</div>
     <div class="modal-foot">
       <button class="btn line" id="cancel">Cancelar</button>
       <button class="btn danger" id="gen">Terminar y generar acta</button>
@@ -949,26 +999,45 @@ function modalTerminar(c){
     o.querySelectorAll(".radio").forEach(l=>l.classList.remove("sel"));
     r.closest(".radio").classList.add("sel");
   });
-  $("#multas",o).onchange=e=>{ $("#multasDet",o).style.display=e.target.value==="si"?"":"none"; };
   $("#cancel",o).onclick=()=>closeModal(o);
-  $("#gen",o).onclick=()=>{
+  $("#gen",o).onclick=async()=>{
     const sel=[...o.querySelectorAll('input[name=cz]')].find(r=>r.checked);
     const causal=sel.value, novDefault=sel.dataset.nov;
-    const fter=$("#fter",o).value, obs=$("#obs",o).value.trim();
+    const fter=$("#fter",o).value, obs=$("#obs",o).value.trim()||novDefault;
     const frec=$("#frec",o).value, ciudad=$("#ciudad",o).value.trim()||"Quito";
-    const cedulaAc=$("#cedulaAc",o).value.trim(), ruc=$("#ruc",o).value.trim(), jefe=$("#jefe",o).value.trim();
-    const multas=$("#multas",o).value, multasTxt=$("#multasTxt",o)?$("#multasTxt",o).value.trim():"";
-    const saldo=$("#saldo",o).value.trim();
+    const totalLiq=parseFloat($("#total",o).value)||montoDe(c);
+    const M=(v)=>manualDocx(v);
+    const data={
+      contratoNro:c.nro,
+      objeto:c.detalle||"",
+      proveedor:c.proveedor||"",
+      proveedorRuc:$("#ruc",o).value.trim()||M("RUC del proveedor"),
+      ac:c.ac||"",
+      cedulaAc:$("#cedulaAc",o).value.trim()||M("cédula de la AC"),
+      area:c.area||"",
+      jefe:$("#jefe",o).value.trim()||M("administrador/a del área — MAE"),
+      ciudad:ciudad,
+      fechaActa:longDate(fter),
+      fechaContrato:longDate(c.firma),
+      fechaInicioContrato:longDate(c.inicio),
+      fechaFin:longDate(c.fin),
+      fechaRecepcion:longDate(frec),
+      fechaAdenda:tieneAdenda(c)&&c.firmaAdenda?longDate(c.firmaAdenda):M("fecha de adenda, si existió"),
+      montoTotal:money(montoDe(c)).replace("$",""),
+      montoTotalLetras:montoEnLetras(montoDe(c)),
+      total:money(totalLiq).replace("$","")
+    };
     c._terminado=true; c._causal=causal; c._fter=fter;
-    downloadDoc(`BORRADOR_Acta_terminacion_${cleanNro(c.nro)}`,"Acta de entrega-recepción definitiva y liquidación",
-      actaTerminacionDoc(c,{causal,fter,obs:obs||novDefault,frec,ciudad,cedulaAc,ruc,jefe,multas,multasTxt,saldo}));
+    try{
+      await generarDocx("15_Acta_de_terminacion.docx", data, `BORRADOR_Acta_terminacion_${cleanNro(c.nro)}`);
+    }catch(err){ alert("No se pudo generar el acta: "+err.message); c._terminado=false; return; }
     o.querySelector(".modal").innerHTML=`
       <h2>✅ Borrador de acta generado</h2>
-      <p class="sub">Acta de entrega-recepción y liquidación · ${esc(c.nro)}</p>
+      <p class="sub">Acta de entrega-recepción y liquidación (FAP-2026-12) · ${esc(c.nro)}</p>
       <div class="steps">
         <h3>Próximos pasos — envío a la Unidad Operativa</h3>
         <ol>
-          <li><b>Revisa el borrador</b> del acta en Word y completa los campos marcados en amarillo (documentos habilitantes, adenda si existió, declaración de conformidad).</li>
+          <li><b>Revisa el borrador</b> del acta en Word y completa los campos marcados con «COMPLETAR».</li>
           <li><b>Envíalo por correo a la Unidad Operativa del FAP</b>, adjuntando el acta y el <b>contrato firmado</b> ${c.link?`(<a href="${esc(c.link)}" target="_blank" rel="noopener">ábrelo aquí</a>)`:""}.</li>
           <li>Asunto sugerido: <b>"Terminación de contrato — ${esc(c.nro)}"</b>.</li>
           <li>Legal FAP valida la causal y formaliza la terminación/liquidación con las 3 firmas (AC, administrador/a de área MAE, proveedor).</li>
@@ -981,7 +1050,6 @@ function modalTerminar(c){
   };
 }
 
-/* --- Calificar --- */
 /* --- Calificar --- */
 function modalCalificar(c){
   /* Metodología oficial FAP/FIAS — hoja "Evaluación Proveedor" (FO-AD-ABC-017), 13 criterios en 4 indicadores.
@@ -1108,6 +1176,33 @@ function modalCalificar(c){
 
 /* ================= DOC GENERATION (Word, offline) ================= */
 function cleanNro(n){ return String(n).replace(/[^0-9A-Za-z]+/g,"_").replace(/^_|_$/g,""); }
+
+/* ===== Motor de plantillas .docx reales (mismo enfoque que La Mágica) ===== */
+function docxEngineReady(){ return !!(window.PizZip && (window.docxtemplater||window.Docxtemplater)); }
+const TPL_CACHE={};
+async function loadTemplate(nombre){
+  if(TPL_CACHE[nombre]) return TPL_CACHE[nombre];
+  const res=await fetch(`./plantillas/${nombre}`,{cache:"no-store"});
+  if(!res.ok) throw new Error(`No se encontró la plantilla ${nombre} (HTTP ${res.status})`);
+  const buf=await res.arrayBuffer();
+  TPL_CACHE[nombre]=buf;
+  return buf;
+}
+async function generarDocx(nombrePlantilla, data, nombreSalida){
+  if(!docxEngineReady()) throw new Error("El motor de documentos no cargó. Revisa tu conexión a internet e inténtalo de nuevo.");
+  const buf=await loadTemplate(nombrePlantilla);
+  const zip=new PizZip(buf.slice(0));
+  const DT=window.docxtemplater||window.Docxtemplater;
+  const doc=new DT(zip,{paragraphLoop:true,linebreaks:true,delimiters:{start:"{",end:"}"}});
+  doc.render(data);
+  const out=doc.getZip().generate({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+  const url=URL.createObjectURL(out);
+  const a=document.createElement("a"); a.href=url; a.download=nombreSalida+".docx";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+/* fecha larga en formato del acta: "8 de junio de 2026" (ya existe longDate) */
+
 function docShell(inner, nro){
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
   <style>
