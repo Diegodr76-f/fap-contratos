@@ -463,10 +463,12 @@ function isConsultoria(c){
 
 /* ================= STATE ================= */
 let AC=null, MODE="ac", current=null, filter="all", catFilter="all", q="", viewMode="cards";
+let sendUnidad=null;
 
 /* ================= ROUTER ================= */
 function render(){
   if(!AC){ renderLogin(); return; }
+  if(sendUnidad){ renderEnvioUnidad(); return; }
   if(current!==null){ renderDetail(); return; }
   renderList();
 }
@@ -770,6 +772,10 @@ function renderDetail(){
               <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7Z"/></svg></span>
               <span><span class="at">Calificar proveedor</span><span class="ad">${(c._terminado||c.cerrado)?(c._evaluado?"Calificación registrada ✓":"Protocolo de calificación"):"Disponible al terminar"}</span></span>
             </button>
+            <button class="actbtn" id="a-env" ${!c._pendienteEnvio?"disabled":""}>
+              <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg></span>
+              <span><span class="at">Enviar a la Unidad Operativa</span><span class="ad">${c._pendienteEnvio?("Pendiente: "+esc(c._pendienteEnvio.tipoEnvio)):"Se habilita al generar un borrador"}</span></span>
+            </button>
           </div>
           ${c._evaluado?`<div class="note" style="margin-top:14px">Calificación del proveedor: <b>${c._score}/100</b> · ${esc(c._sem)}</div>`:
           c.cerrado?`<div class="note">Contrato <b>cerrado</b> según el Excel maestro. Solo queda disponible la <b>calificación del proveedor</b>.</div>`:
@@ -784,6 +790,7 @@ function renderDetail(){
   $("#srcbtn").onclick=pickExcel;
   if(!(c._terminado||c.cerrado)){ $("#a-mod").onclick=()=>modalModificar(c); $("#a-ter").onclick=()=>modalTerminar(c); }
   if((c._terminado||c.cerrado)&&!c._evaluado){ $("#a-cal").onclick=()=>modalCalificar(c); }
+  if(c._pendienteEnvio){ $("#a-env").onclick=()=>abrirEnvioUnidad(c,c._pendienteEnvio); }
 }
 
 /* ================= MODALS ================= */
@@ -942,6 +949,7 @@ function modalModificar(c){
   };
 }
 function pasosModificacion(o,c,d,titulo){
+  c._pendienteEnvio={tipoEnvio:titulo, instrumento:d.instrumento};
   o.querySelector(".modal").innerHTML=`
     <h2>✅ Borrador generado</h2>
     <p class="sub">${esc(titulo)} · ${esc(c.nro)}</p>
@@ -949,15 +957,18 @@ function pasosModificacion(o,c,d,titulo){
       <h3>Próximos pasos — envío a la Unidad Operativa</h3>
       <ol>
         <li><b>Abre el borrador</b> descargado en Word y completa los campos marcados con «COMPLETAR» si los hay.</li>
-        <li><b>Envíalo por correo a la Unidad Operativa del FAP</b>, adjuntando: el borrador del informe y el <b>contrato firmado</b> ${c.link?`(<a href="${esc(c.link)}" target="_blank" rel="noopener">ábrelo aquí</a>)`:"(descárgalo desde SharePoint)"}.</li>
-        <li>En el asunto escribe: <b>"Solicitud de ${esc(d.instrumento)} — ${esc(c.nro)}"</b>.</li>
+        <li><b>Súbelo aquí mismo</b> con el botón de abajo, junto con el <b>contrato firmado</b> ${c.link?`(<a href="${esc(c.link)}" target="_blank" rel="noopener">ábrelo aquí</a>)`:"(descárgalo desde SharePoint)"}.</li>
         <li>La Unidad Operativa revisa y <b>Legal FAP elabora el instrumento</b> (${esc(d.instrumento)}) para firma de las partes.</li>
         <li>Cuando te devuelvan el instrumento firmado, guárdalo en la carpeta del contrato y avisa para que se <b>actualice el Excel maestro</b>.</li>
       </ol>
     </div>
     <div class="note" style="margin-top:12px">Recuerda: hazlo <b>antes del vencimiento</b> del contrato (${fdate(c.fin)}). El borrador no modifica nada por sí solo.</div>
-    <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
+    <div class="modal-foot">
+      <button class="btn line" id="okpasos">Ahora no</button>
+      <button class="btn" id="irEnviar">Enviar a la Unidad Operativa →</button>
+    </div>`;
   $("#okpasos",o).onclick=()=>closeModal(o);
+  $("#irEnviar",o).onclick=()=>{ closeModal(o); abrirEnvioUnidad(c,{tipoEnvio:titulo, instrumento:d.instrumento}); };
 }
 
 /* --- Terminar --- */
@@ -1035,6 +1046,7 @@ function modalTerminar(c){
     try{
       await generarDocx("15_Acta_de_terminacion.docx", data, `BORRADOR_Acta_terminacion_${cleanNro(c.nro)}`);
     }catch(err){ alert("No se pudo generar el acta: "+err.message); c._terminado=false; return; }
+    c._pendienteEnvio={tipoEnvio:"Acta de terminación (FAP-2026-12)", instrumento:"Acta de terminación y liquidación"};
     o.querySelector(".modal").innerHTML=`
       <h2>✅ Borrador de acta generado</h2>
       <p class="sub">Acta de entrega-recepción y liquidación (FAP-2026-12) · ${esc(c.nro)}</p>
@@ -1042,14 +1054,18 @@ function modalTerminar(c){
         <h3>Próximos pasos — envío a la Unidad Operativa</h3>
         <ol>
           <li><b>Revisa el borrador</b> del acta en Word y completa los campos marcados con «COMPLETAR».</li>
-          <li><b>Envíalo por correo a la Unidad Operativa del FAP</b>, adjuntando el acta y el <b>contrato firmado</b> ${c.link?`(<a href="${esc(c.link)}" target="_blank" rel="noopener">ábrelo aquí</a>)`:""}.</li>
+          <li><b>Súbelo aquí mismo</b> con el botón de abajo, junto con el acta y el <b>contrato firmado</b> ${c.link?`(<a href="${esc(c.link)}" target="_blank" rel="noopener">ábrelo aquí</a>)`:""}.</li>
           <li>Asunto sugerido: <b>"Terminación de contrato — ${esc(c.nro)}"</b>.</li>
           <li>Legal FAP valida la causal y formaliza la terminación/liquidación con las 3 firmas (AC, administrador/a de área MAE, proveedor).</li>
           <li>No olvides <b>calificar al proveedor</b> — el botón ya quedó habilitado en el detalle del contrato.</li>
         </ol>
       </div>
-      <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
+      <div class="modal-foot">
+        <button class="btn line" id="okpasos">Ahora no</button>
+        <button class="btn" id="irEnviar">Enviar a la Unidad Operativa →</button>
+      </div>`;
     $("#okpasos",o).onclick=()=>{ closeModal(o); render(); };
+    $("#irEnviar",o).onclick=()=>{ closeModal(o); abrirEnvioUnidad(c,{tipoEnvio:"Acta de terminación (FAP-2026-12)", instrumento:"Acta de terminación y liquidación"}); };
     toast("Contrato terminado · Acta generada");
   };
 }
@@ -1439,6 +1455,120 @@ function downloadDoc(filename, titulo, htmlBody){
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a"); a.href=url; a.download=filename+".doc"; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
+/* ================= ENVÍO A LA UNIDAD OPERATIVA ================= */
+// URL del flujo de Power Automate para la SUBIDA DE DOCUMENTOS a revisión de la
+// Unidad Operativa. Debe ser LA MISMA URL que se configura en generador/index.html
+// (constante FLOW_DOCS_URL allá), para que ambas herramientas entreguen al mismo
+// flujo y a la misma carpeta de SharePoint/OneDrive. Si la dejas vacía (''), esta
+// vista prepara el envío igual pero no lo sube (útil para probar).
+var FLOW_DOCS_URL = '';
+
+function abrirEnvioUnidad(c, ctx){ sendUnidad = Object.assign({c:c}, ctx); render(); }
+function cerrarEnvioUnidad(){ sendUnidad=null; render(); }
+
+function fileToB64(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>res(String(fr.result).split(",")[1]||"");
+    fr.onerror=()=>rej(fr.error||new Error("lectura"));
+    fr.readAsDataURL(file);
+  });
+}
+
+function uoCarpetaCRM(c){
+  return String((c.nro||"contrato")+"_"+(sendUnidad.tipoEnvio||"envio")).replace(/[\\/:*?"<>|\s]+/g,"_");
+}
+
+function uoListFilesCRM(){
+  const el=document.getElementById("uoFilesCRM"), box=document.getElementById("uoFileListCRM");
+  if(!el||!box) return;
+  const fs=el.files;
+  if(!fs||!fs.length){ box.innerHTML=`<span style="color:var(--muted2)">Ningún archivo seleccionado.</span>`; return; }
+  let total=0,rows="";
+  for(let i=0;i<fs.length;i++){ total+=fs[i].size; rows+=`<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0"><span style="color:var(--ink)">${esc(fs[i].name)}</span><span style="color:var(--muted2)">${Math.round(fs[i].size/1024)} KB</span></div>`; }
+  box.innerHTML=rows+`<div style="border-top:1px solid var(--line2);margin-top:6px;padding-top:6px;font-weight:700;color:var(--navy)">${fs.length} archivo(s) · ${(Math.round(total/1024/1024*10)/10)} MB</div>`;
+}
+
+function renderEnvioUnidad(){
+  const c=sendUnidad.c;
+  const f=(id,label,val)=>`<div class="frow"><label>${label}</label><input id="${id}" type="text" value="${esc(val||"")}"></div>`;
+  document.getElementById("app").innerHTML = topBar() + `
+  <div class="wrap up">
+    <button class="back" id="backUO">← Volver al contrato</button>
+    <div class="panel" style="max-width:720px;margin:0 auto">
+      <span class="eyebrow">Envío a revisión</span>
+      <h1 style="margin-top:12px">Enviar a la Unidad Operativa</h1>
+      <p class="lead">${esc(sendUnidad.tipoEnvio||"Envío")} · ${esc(c.nro)}. Los datos vienen del contrato ya registrado; solo revisa y adjunta los archivos (el borrador que acabas de descargar y el contrato firmado).</p>
+      <div class="note" style="margin-bottom:18px"><b>Instrumento a elaborar:</b> ${esc(sendUnidad.instrumento||"—")}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        ${f("uoContrato","N.º de contrato",c.nro)}
+        ${f("uoArea","Área protegida",c.area)}
+        ${f("uoAc","Administradora/or (AC)",c.ac)}
+        ${f("uoCorreo","Correo electrónico",c.correo)}
+        ${f("uoProveedor","Proveedor",c.proveedor)}
+        ${f("uoMonto","Monto vigente (USD)",montoDe(c).toFixed(2))}
+      </div>
+      <div class="frow"><label>Objeto del contrato</label><textarea id="uoObjeto">${esc(c.detalle||"")}</textarea></div>
+      <div class="frow"><label>Observaciones para la Unidad Operativa (opcional)</label><textarea id="uoObs" placeholder="Notas adicionales"></textarea></div>
+      <div class="frow">
+        <label>Adjunta los archivos (borrador generado + contrato firmado)</label>
+        <input type="file" id="uoFilesCRM" multiple accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,image/*" onchange="uoListFilesCRM()" style="padding:10px;border:1.5px dashed #C7D0EC;border-radius:10px;background:var(--bg)">
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Hasta 10 archivos, 100 MB cada uno.</div>
+        <div id="uoFileListCRM" style="margin-top:8px;font-size:13px"><span style="color:var(--muted2)">Ningún archivo seleccionado.</span></div>
+      </div>
+      <button class="btn block" id="uoEnviarBtn" style="margin-top:8px">Enviar a la Unidad Operativa</button>
+      <p id="uoStatusCRM" style="margin-top:12px;font-weight:700;font-size:14px" role="status" aria-live="polite"></p>
+    </div>
+  </div>`;
+  $("#backUO").onclick=()=>cerrarEnvioUnidad();
+  const lg=$("#logout"); if(lg) lg.onclick=()=>{ AC=null; current=null; sendUnidad=null; render(); };
+  const sp=$("#srcbtn"); if(sp) sp.onclick=pickExcel;
+  $("#uoEnviarBtn").onclick=enviarUnidadCRM;
+}
+
+async function enviarUnidadCRM(){
+  const c=sendUnidad.c;
+  const status=document.getElementById("uoStatusCRM");
+  const setS=(t,color)=>{ if(status){ status.textContent=t; status.style.color=color||"var(--green)"; } };
+  const filesEl=document.getElementById("uoFilesCRM");
+  const files=filesEl?filesEl.files:null;
+  if(!files||!files.length){ setS("Adjunta al menos un archivo.","var(--red)"); toast("Adjunta al menos un archivo."); return; }
+  if(files.length>10){ setS("El límite es de 10 archivos por envío.","var(--red)"); return; }
+  for(let i=0;i<files.length;i++){ if(files[i].size>100*1024*1024){ setS(`El archivo «${files[i].name}» supera los 100 MB.`,"var(--red)"); return; } }
+  const val=id=>{ const e=document.getElementById(id); return e?String(e.value).trim():""; };
+  const meta={
+    origen:"CRM",
+    idEnvio:(c.nro||"")+"|"+new Date().toISOString(),
+    codigoProceso:c.nro||"",
+    area:val("uoArea"), ac:val("uoAc"), acCorreo:val("uoCorreo"),
+    tipoEnvio:sendUnidad.tipoEnvio||"", instrumento:sendUnidad.instrumento||"",
+    proveedor:val("uoProveedor"), monto:val("uoMonto"),
+    objeto:val("uoObjeto"), observaciones:val("uoObs"),
+    nombreCarpeta:uoCarpetaCRM(c), fecha:new Date().toISOString()
+  };
+  setS(`Preparando ${files.length} archivo(s)…`,"var(--navy)");
+  const arr=[...files];
+  try{
+    const archivos = await Promise.all(arr.map(fl=>fileToB64(fl).then(b=>({nombre:fl.name, tipo:fl.type||"application/octet-stream", tamanio:fl.size, contenido:b}))));
+    const payload=Object.assign({},meta,{archivos});
+    if(!FLOW_DOCS_URL){
+      console.log("Envío a Unidad Operativa (configura FLOW_DOCS_URL para subirlo):",payload);
+      setS(`Envío preparado (${archivos.length} archivo(s)). Falta configurar la URL del flujo.`,"var(--amber)");
+      toast("Envío preparado. Falta configurar la URL del flujo.");
+      return;
+    }
+    setS("Enviando a la Unidad Operativa…","var(--navy)");
+    const r=await fetch(FLOW_DOCS_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    c._pendienteEnvio=null;
+    setS(`✓ Enviado a la Unidad Operativa. Se subieron ${archivos.length} archivo(s).`,"var(--green)");
+    toast("Enviado a la Unidad Operativa.");
+  }catch(e){
+    setS("No se pudo enviar ("+((e&&e.message)||"error")+"). Revisa la conexión e inténtalo de nuevo.","var(--red)");
+    toast("No se pudo enviar.");
+  }
 }
 
 /* ================= TOAST ================= */
