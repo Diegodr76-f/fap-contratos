@@ -957,7 +957,7 @@ function gen(id){var doc=documents().find(function(x){return x.id===id;});if(doc
 // HTTP"). Reemplaza SOLO esta línea con la URL de tu flujo (debe incluir el
 // parámetro sig=... completo). Si la dejas vacía (''), la herramienta prepara el
 // envío igual pero sin subirlo (útil para probar).
-var FLOW_DOCS_URL = '';
+var FLOW_DOCS_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/08/workflows/d9ab249ef28a41c69d9bb7a5ee32a00e/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fhmL_aMEe5PETXXKDZuiYMg47xFWoa0RygIxFWFzCwI';
 
 // Mapea el tipo de proceso de La Mágica a las opciones del Forms actual de envío.
 function uoTipoForms(){ return D().tipoProceso==='Comparación de precios' ? 'Comparación de precios' : 'Contratación directa'; }
