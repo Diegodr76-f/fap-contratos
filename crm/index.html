@@ -1463,7 +1463,7 @@ function downloadDoc(filename, titulo, htmlBody){
 // (constante FLOW_DOCS_URL allá), para que ambas herramientas entreguen al mismo
 // flujo y a la misma carpeta de SharePoint/OneDrive. Si la dejas vacía (''), esta
 // vista prepara el envío igual pero no lo sube (útil para probar).
-var FLOW_DOCS_URL = '';
+var FLOW_DOCS_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/08/workflows/d9ab249ef28a41c69d9bb7a5ee32a00e/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fhmL_aMEe5PETXXKDZuiYMg47xFWoa0RygIxFWFzCwI';
 
 function abrirEnvioUnidad(c, ctx){ sendUnidad = Object.assign({c:c}, ctx); render(); }
 function cerrarEnvioUnidad(){ sendUnidad=null; render(); }
