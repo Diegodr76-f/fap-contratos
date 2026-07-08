@@ -239,8 +239,8 @@ function firmaDirector(){return montoConIva()>8000;}
 // 30 días, la orden NO aplica: el expediente se formaliza mediante contrato y
 // debe enviarse a la Unidad Operativa para la elaboración del instrumento jurídico.
 function puedeOrden(){ var d=D(); if(d.desierto) return false; if(esContrato()) return false; if(num(d.plazo)>30) return false; return true; }
-function requiereUnidadOperativa(){ var d=D(); return !d.desierto && !!d.tipoProceso && !puedeOrden(); }
-function motivoUnidadOperativa(){ var d=D(); if(esContrato()) return 'Con garantías (anticipo y/o fiel cumplimiento) el proceso va por CONTRATO: la orden de compra/servicio no aplica.'; if(num(d.plazo)>30) return 'El plazo supera los 30 días: la orden de compra/servicio no aplica y el proceso se formaliza mediante contrato.'; return 'Este proceso se formaliza mediante contrato.'; }
+function requiereUnidadOperativa(){ var d=D(); return !d.desierto && !!d.tipoProceso && (!puedeOrden() || firmaDirector()); }
+function motivoUnidadOperativa(){ var d=D(); if(esContrato()) return 'Con garantías (anticipo y/o fiel cumplimiento) el proceso va por CONTRATO: la orden de compra/servicio no aplica.'; if(num(d.plazo)>30) return 'El plazo supera los 30 días: la orden de compra/servicio no aplica y el proceso se formaliza mediante contrato.'; if(firmaDirector()) return 'El monto supera USD 8.000 (con IVA): la orden la firma el Director Ejecutivo. El expediente va a la Unidad Operativa para la toma de firmas.'; return 'Este proceso se formaliza mediante contrato.'; }
 
 //===================== DOCUMENTOS =====================
 function documents(){
@@ -924,7 +924,7 @@ function renderDocumentos(){
   var html=warn+"<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Generador de documentos</h1><p style='font-size:15px;color:#6B7180;margin:0 0 24px'>Cada documento rellena TU plantilla. Si falta cargarla, te lleva a <a href='#' onclick=\"go('plantillas');return false\" style='color:#00249C;font-weight:700'>Plantillas</a>.</p>";
   if(requiereUnidadOperativa()){
     html+="<div class='card' style='border:1.5px solid #C7D0EC;background:#EEF1FB;margin-bottom:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap'>"
-     +"<div style='flex:1;min-width:240px'><div style='font-weight:700;font-size:16px;color:#00249C;margin-bottom:4px'>Este proceso va por contrato</div><div style='font-size:13px;color:#5A6072;line-height:1.45'>"+esc(motivoUnidadOperativa())+" No se emite orden de compra/servicio: env\u00eda el expediente a la Unidad Operativa para la elaboraci\u00f3n del instrumento jur\u00eddico.</div></div>"
+     +"<div style='flex:1;min-width:240px'><div style='font-weight:700;font-size:16px;color:#00249C;margin-bottom:4px'>"+(puedeOrden()?'Esta orden la firma el Director Ejecutivo':'Este proceso va por contrato')+"</div><div style='font-size:13px;color:#5A6072;line-height:1.45'>"+esc(motivoUnidadOperativa())+"</div></div>"
      +"<button onclick=\"go('unidad')\" style='all:unset;cursor:pointer;flex:0 0 auto;background:#00249C;color:#fff;font-weight:700;font-size:14px;padding:12px 20px;border-radius:10px'>Enviar a la Unidad Operativa \u2192</button>"
      +"</div>";
   }
@@ -966,10 +966,11 @@ function fileToB64(file){ return new Promise(function(res,rej){ var fr=new FileR
 
 function renderUnidad(){
   var d=D(),ar=A(),c=ST.cfg;
+  var lead = puedeOrden() ? 'El monto supera USD 8.000 (con IVA): la orden la firma el Director Ejecutivo, por lo que el expediente va a la Unidad Operativa para la toma de firmas.' : 'Este proceso se formaliza mediante <b>contrato</b>, por lo que no se emite orden de compra/servicio; el expediente va a la Unidad Operativa para la elaboraci\u00f3n del instrumento jur\u00eddico.';
   var f=function(id,label,val,ph){ return "<div><label class='fl'>"+label+"</label><input class='inp' id='"+id+"' value=\""+esc(val||'')+"\" placeholder=\""+esc(ph||'')+"\"></div>"; };
   return "<a href='#' onclick=\"go('documentos');return false\" style='display:inline-block;font-size:13px;font-weight:700;color:#00249C;text-decoration:none;margin-bottom:10px'>\u2190 Volver a Documentos</a>"
    +"<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Enviar a la Unidad Operativa</h1>"
-   +"<p style='font-size:15px;color:#6B7180;margin:0 0 16px;max-width:720px;line-height:1.5'>Este proceso se formaliza mediante <b>contrato</b>, por lo que no se emite orden de compra/servicio. Env\u00eda el expediente a la Unidad Operativa para la elaboraci\u00f3n del instrumento jur\u00eddico. Los datos vienen del proceso ya capturado en La M\u00e1gica; solo revisa y adjunta los archivos.</p>"
+   +"<p style='font-size:15px;color:#6B7180;margin:0 0 16px;max-width:720px;line-height:1.5'>"+lead+" Los datos vienen del proceso ya capturado en La M\u00e1gica; solo revisa y adjunta los archivos.</p>"
    +"<div class='card' style='background:#FBF1E1;border-color:#F0E0C0;margin-bottom:18px'><div style='font-size:13px;color:#8A5210;line-height:1.45'><b>\u00bfPor qu\u00e9 va a la Unidad Operativa?</b> "+esc(motivoUnidadOperativa())+"</div></div>"
    +"<div class='card' style='padding:20px'>"
      +"<div class='gridf' style='gap:16px'>"
