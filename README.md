@@ -26,6 +26,13 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
     descargan todos los Word de una vez en un ZIP.
   - **Contrapartes**: directorio local de proveedores/instituciones (con validación de
     cédula/RUC) para no volver a tipear sus datos.
+  - **Repositorio de cláusulas**: cláusulas aprobadas organizadas por categoría, cada una
+    con variantes (p. ej. garantía con letra de cambio vs. garantía técnica). Se insertan
+    con 📋 en la plantilla o en el documento final (donde sus variables se llenan solas con
+    los datos del formulario); 📌 guarda el texto seleccionado de cualquier documento como
+    variante nueva, y 🔢 renumera las cláusulas (PRIMERA, SEGUNDA…) tras insertar o quitar.
+  - **Editar documento final**: tras llenar el formulario se puede retocar a mano el texto
+    exacto que se descargará, con barra completa de formato (tablas, sangrías, mayúsculas).
   - **Datos fijos** (representante FIAS, lugar…) que se escriben una sola vez, sugerencia
     automática del siguiente número correlativo y montos en letras calculados solos.
   Las rutas donde busca el registro se configuran en la constante `RUTAS_REGISTRO`

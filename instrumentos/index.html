@@ -13330,15 +13330,43 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 
 /* ---------- Editor ---------- */
 .ed-meta{display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px;margin-bottom:12px}
-#toolbar{display:flex;gap:4px;flex-wrap:wrap;background:#fff;border:1px solid var(--borde);border-bottom:none;border-radius:8px 8px 0 0;padding:7px}
-#toolbar button{font-family:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border:1px solid var(--borde);border-radius:5px;background:#fff;cursor:pointer;color:var(--texto)}
-#toolbar button:hover{background:var(--azul-claro)}
-#toolbar .sep{width:1px;background:var(--borde);margin:0 4px}
-#editor{background:#fff;border:1px solid var(--borde);border-radius:0 0 8px 8px;min-height:400px;padding:26px 32px;font-size:13.5px;line-height:1.6;outline:none}
-#editor h1{color:var(--azul);font-size:17px;text-align:center;margin-bottom:14px}
-#editor h2{color:var(--azul);font-size:14.5px;margin:14px 0 6px}
-#editor p{margin-bottom:8px}
-#editor ul,#editor ol{margin:0 0 8px 22px}
+.toolbar{display:flex;gap:4px;flex-wrap:wrap;background:#fff;border:1px solid var(--borde);border-bottom:none;border-radius:8px 8px 0 0;padding:7px}
+.toolbar button{font-family:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;border:1px solid var(--borde);border-radius:5px;background:#fff;cursor:pointer;color:var(--texto)}
+.toolbar button:hover{background:var(--azul-claro)}
+.toolbar .sep{width:1px;background:var(--borde);margin:0 4px}
+.toolbar select{font-family:inherit;font-size:12px;border:1px solid var(--borde);border-radius:5px;padding:4px;background:#fff;cursor:pointer}
+#editor,#rep-editor{background:#fff;border:1px solid var(--borde);border-radius:0 0 8px 8px;min-height:400px;padding:26px 32px;font-size:13.5px;line-height:1.6;outline:none}
+#editor h1,#rep-editor h1{color:var(--azul);font-size:17px;text-align:center;margin-bottom:14px}
+#editor h2,#rep-editor h2{color:var(--azul);font-size:14.5px;margin:14px 0 6px}
+#editor p,#rep-editor p{margin-bottom:8px}
+#editor ul,#editor ol,#rep-editor ul,#rep-editor ol{margin:0 0 8px 22px}
+#preview table,#editor table,#rep-editor table{border-collapse:collapse;width:100%;margin:8px 0}
+#preview td,#preview th,#editor td,#editor th,#rep-editor td,#rep-editor th{border:1px solid #8895BD;padding:4px 8px;font-size:13px;text-align:left}
+#preview th,#editor th,#rep-editor th{color:var(--azul);background:var(--azul-claro)}
+#preview.editando{border-radius:0 0 10px 10px;outline:none}
+.banner-edicion{background:var(--azul-claro);border:1px solid var(--azul);color:var(--azul);font-size:12.5px;font-weight:600;border-radius:7px;padding:8px 12px;margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ---------- Repositorio de cláusulas ---------- */
+.rep-cat-titulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gris);margin:14px 0 4px}
+.rep-cat-titulo:first-child{margin-top:0}
+.rep-clausula{margin-bottom:4px}
+.rep-clausula-nombre{padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.rep-clausula-nombre:hover{background:var(--azul-claro)}
+.rep-clausula-nombre .n-var{margin-left:auto;font-size:11px;font-weight:400;color:var(--gris)}
+.rep-clausula-nombre .del{color:var(--peligro);font-weight:400;font-size:12px;padding:0 2px}
+.rep-variantes{padding-left:14px;margin:2px 0 6px}
+.rep-variante{padding:6px 10px;font-size:12.5px;border-radius:6px;cursor:pointer;color:var(--texto)}
+.rep-variante:hover{background:var(--azul-claro)}
+.rep-variante.sel{background:var(--azul);color:#fff;font-weight:600}
+.rep-variante.nueva{color:var(--azul);font-weight:600}
+.chip-var{display:inline-block;font-size:10.5px;font-weight:700;background:var(--azul-claro);color:var(--azul);border-radius:4px;padding:1px 6px;margin:2px 3px 0 0}
+.modal-cat{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gris);margin:14px 0 6px}
+.modal-cat:first-child{margin-top:0}
+.modal-clausula{border:1px solid var(--borde);border-radius:8px;margin-bottom:8px;overflow:hidden}
+.modal-clausula-titulo{padding:8px 12px;font-weight:600;font-size:13px;background:var(--azul-claro);color:var(--azul-osc)}
+.modal-variante{padding:8px 12px;font-size:13px;cursor:pointer;border-top:1px solid var(--borde)}
+.modal-variante:hover{background:var(--azul-claro)}
+.modal-variante .mv-extracto{font-size:11.5px;color:var(--gris);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .ed-acciones{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
 .ed-acciones .estado{font-size:12px;color:var(--ok);font-weight:600;margin-left:auto}
 .ayuda-var{font-size:12px;color:var(--gris);background:var(--azul-claro);border-radius:7px;padding:9px 12px;margin-top:10px;line-height:1.5}
@@ -13425,6 +13453,7 @@ tr:hover td{background:var(--azul-claro)}
       <button class="tab" data-tab="lote" onclick="cambiarTab('lote')">Lote (varios a la vez)</button>
       <button class="tab" data-tab="contrapartes" onclick="cambiarTab('contrapartes')">Contrapartes</button>
       <button class="tab" data-tab="editar" onclick="cambiarTab('editar')">Editar plantilla</button>
+      <button class="tab" data-tab="repositorio" onclick="cambiarTab('repositorio')">Cláusulas</button>
       <button class="tab" data-tab="historial" onclick="cambiarTab('historial')">Historial</button>
     </div>
     <div id="contenido"></div>
@@ -13556,6 +13585,50 @@ function avisoIdentificacion(val){
 }
 const esIdVar = v => /cedula|ruc|identificacion/i.test(v);
 
+/* ============ Cláusulas semilla ============ */
+function clausulasSemilla(){
+  const cl = (categoria, nombre, variantes) => ({ id: uid(), categoria, nombre, variantes: variantes.map(v => ({ id: uid(), nombre: v[0], cuerpo: v[1] })) });
+  return [
+    cl('Comparecientes', 'Comparecientes', [
+      ['Contrato (FIAS y proveedor)', '<h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen a la celebración del presente contrato, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, a través del Programa Fondo de Áreas Protegidas (FAP), representado por {{representante_fias}}, a quien en adelante se denominará "EL CONTRATANTE"; y, por otra parte, {{nombre_proveedor}}, con RUC/C.C. N.º {{cedula_ruc}}, a quien en adelante se denominará "EL CONTRATISTA".</p>'],
+      ['Convenio (FIAS e institución)', '<h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen a la celebración del presente convenio, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, representado por {{representante_fias}}; y, por otra parte, {{institucion}}, representada por {{representante_institucion}}, a quienes en adelante se les denominará conjuntamente "LAS PARTES".</p>']
+    ]),
+    cl('Antecedentes', 'Antecedentes', [
+      ['Proceso de contratación (comparación / selección directa)', '<h2>CLÁUSULA SEGUNDA: ANTECEDENTES</h2><p>Mediante proceso de {{tipo_proceso}}, ejecutado en beneficio del área protegida {{area_protegida}}, se adjudicó a EL CONTRATISTA el objeto contractual, de conformidad con el Manual Operativo del FAP y la normativa de contrataciones del FIAS.</p>'],
+      ['Convenio interinstitucional', '<h2>CLÁUSULA SEGUNDA: ANTECEDENTES</h2><p>{{antecedentes}}</p>']
+    ]),
+    cl('Objeto', 'Objeto', [
+      ['Servicios', '<h2>CLÁUSULA TERCERA: OBJETO</h2><p>EL CONTRATISTA se obliga a prestar los siguientes servicios: {{objeto}}.</p>'],
+      ['Bienes', '<h2>CLÁUSULA SEGUNDA: OBJETO</h2><p>EL VENDEDOR se obliga a entregar al COMPRADOR, en beneficio del área protegida {{area_protegida}}, los siguientes bienes: {{detalle_bienes}}, conforme a las especificaciones técnicas del proceso de {{tipo_proceso}}.</p>'],
+      ['Convenio', '<h2>CLÁUSULA TERCERA: OBJETO</h2><p>El presente convenio tiene por objeto {{objeto}}, en beneficio del área protegida {{area_protegida}} y en el marco del Programa Fondo de Áreas Protegidas (FAP).</p>']
+    ]),
+    cl('Monto y forma de pago', 'Monto y forma de pago', [
+      ['Pago único contra entrega', '<h2>CLÁUSULA CUARTA: MONTO Y FORMA DE PAGO</h2><p>El valor total del presente contrato asciende a USD {{monto}} ({{monto_en_letras}}), incluidos impuestos de ley, que será cancelado contra entrega a satisfacción de EL CONTRATANTE y previa presentación de la factura correspondiente.</p>'],
+      ['Pago por avance / hitos', '<h2>CLÁUSULA CUARTA: MONTO Y FORMA DE PAGO</h2><p>El valor total del presente contrato asciende a USD {{monto}} ({{monto_en_letras}}), que será cancelado conforme al siguiente cronograma de pagos parciales, contra avance verificado del objeto contractual: {{cronograma_pagos}}.</p>']
+    ]),
+    cl('Plazo', 'Plazo / Vigencia', [
+      ['Plazo en días desde suscripción', '<h2>CLÁUSULA QUINTA: PLAZO</h2><p>El plazo de ejecución es de {{plazo_dias}} días, contados a partir de la suscripción del presente contrato.</p>'],
+      ['Vigencia (convenios)', '<h2>CLÁUSULA QUINTA: PLAZO</h2><p>El presente convenio tendrá una vigencia de {{vigencia}}, contada desde su suscripción, pudiendo renovarse por acuerdo escrito de LAS PARTES.</p>']
+    ]),
+    cl('Garantía', 'Garantía', [
+      ['Letra de cambio (menor a USD 10.000)', '<h2>CLÁUSULA SEXTA: GARANTÍA</h2><p>Para asegurar el fiel cumplimiento del contrato, EL CONTRATISTA suscribe a favor de EL CONTRATANTE una letra de cambio por el valor total del contrato, la cual será devuelta una vez suscrita el acta de entrega-recepción definitiva.</p>'],
+      ['Garantía técnica de bienes', '<h2>CLÁUSULA QUINTA: GARANTÍA TÉCNICA</h2><p>EL VENDEDOR otorga una garantía técnica de {{garantia_tecnica}} sobre los bienes entregados, contada desde la suscripción del acta de entrega-recepción.</p>'],
+      ['Sin garantía exigible (convenios)', '<h2>CLÁUSULA SEXTA: GARANTÍAS</h2><p>Dada la naturaleza de cooperación interinstitucional del presente convenio, las partes acuerdan que no se exigirán garantías económicas entre sí.</p>']
+    ]),
+    cl('Terminación', 'Terminación', [
+      ['Estándar (cumplimiento / mutuo acuerdo / incumplimiento)', '<h2>CLÁUSULA SÉPTIMA: TERMINACIÓN</h2><p>El presente contrato terminará por: a) cumplimiento del objeto; b) mutuo acuerdo; c) incumplimiento de las obligaciones de cualquiera de las partes, previa notificación escrita.</p>'],
+      ['Convenios (aviso de 30 días)', '<h2>CLÁUSULA SEXTA: TERMINACIÓN</h2><p>El convenio podrá terminar por cumplimiento del plazo, por mutuo acuerdo, o por decisión unilateral notificada por escrito con al menos treinta (30) días de anticipación.</p>']
+    ]),
+    cl('Controversias', 'Solución de controversias', [
+      ['Mediación Quito (estándar)', '<h2>CLÁUSULA OCTAVA: CONTROVERSIAS</h2><p>En caso de controversias, las partes procurarán una solución directa y amistosa; de no lograrla, se someterán a mediación en un centro legalmente autorizado de la ciudad de Quito.</p>']
+    ]),
+    cl('Firmas', 'Cierre y firmas', [
+      ['Dos firmas (contratante / contratista)', '<p>Para constancia, las partes suscriben el presente contrato en {{lugar}}, a {{fecha_suscripcion}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{nombre_proveedor}}</strong><br>C.C./RUC {{cedula_ruc}}</p>'],
+      ['Convenio (FIAS / institución)', '<p>Para constancia, LAS PARTES suscriben el presente convenio en {{lugar}}, a {{fecha_suscripcion}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS<br><br><br>_______________________<br><strong>{{representante_institucion}}</strong><br>{{institucion}}</p>']
+    ])
+  ];
+}
+
 /* ============ Plantillas semilla ============ */
 function plantillasSemilla(){
   return [
@@ -13596,6 +13669,7 @@ function plantillasSemilla(){
 let plantillas = [];
 let historial = [];
 let contrapartes = [];
+let clausulas = [];
 let fijos = {};
 let seleccion = null;
 let tabActual = 'generar';
@@ -13604,6 +13678,12 @@ let datosForm = {};
 let registro = [];
 let registroEstado = 'cargando'; // cargando | ok | error
 let loteFilas = [];
+let editandoDoc = false;
+let docEditado = '';
+let clausulaAbierta = null;
+let varianteSel = null;
+let insertTarget = null;
+let repoFiltro = '';
 
 function cargar(){
   const p = store.get('fap_gen_plantillas');
@@ -13611,12 +13691,14 @@ function cargar(){
   const c = store.get('fap_gen_contrapartes');
   const f = store.get('fap_gen_fijos');
   const l = store.get('fap_gen_lote');
+  const cl = store.get('fap_gen_clausulas');
   plantillas = p ? JSON.parse(p) : plantillasSemilla();
   historial = h ? JSON.parse(h) : [];
   contrapartes = c ? JSON.parse(c) : [];
   fijos = f ? JSON.parse(f) : { representante_fias:'', lugar:'Quito D.M.' };
   loteFilas = l ? JSON.parse(l) : [];
-  if(!p) guardar();
+  clausulas = cl ? JSON.parse(cl) : clausulasSemilla();
+  if(!p || !cl) guardar();
 }
 function guardar(){
   store.set('fap_gen_plantillas', JSON.stringify(plantillas));
@@ -13624,6 +13706,7 @@ function guardar(){
   store.set('fap_gen_contrapartes', JSON.stringify(contrapartes));
   store.set('fap_gen_fijos', JSON.stringify(fijos));
   store.set('fap_gen_lote', JSON.stringify(loteFilas));
+  store.set('fap_gen_clausulas', JSON.stringify(clausulas));
 }
 
 /* ============ Registro de contratos (CRM / Excel maestro) ============ */
@@ -13735,16 +13818,16 @@ function renderLista(){
     </div>`).join('');
 }
 function seleccionar(id){
-  seleccion = id; datosForm = {};
+  seleccion = id; datosForm = {}; editandoDoc = false; docEditado = '';
   const p = plActual();
   if(p) aplicarFijos(extraerVariables(p.cuerpo), datosForm);
-  if(tabActual === 'historial' || tabActual === 'contrapartes') tabActual = 'generar';
+  if(tabActual === 'historial' || tabActual === 'contrapartes' || tabActual === 'repositorio') tabActual = 'generar';
   renderLista(); renderTabs(); renderContenido();
 }
 function plActual(){ return plantillas.find(p => p.id === seleccion) || null; }
 
 /* ============ Tabs ============ */
-function cambiarTab(t){ tabActual = t; renderTabs(); renderContenido(); }
+function cambiarTab(t){ tabActual = t; if(t !== 'generar'){ editandoDoc = false; docEditado = ''; } renderTabs(); renderContenido(); }
 function renderTabs(){
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('activo', b.dataset.tab === tabActual));
 }
@@ -13754,14 +13837,16 @@ function renderContenido(){
   const c = document.getElementById('contenido');
   if(tabActual === 'historial'){ renderHistorial(c); return; }
   if(tabActual === 'contrapartes'){ renderContrapartes(c); return; }
+  if(tabActual === 'repositorio'){ renderRepositorio(c); return; }
   const p = plActual();
   if(!p){
     c.innerHTML = `<div class="vacio">
       <b>¿Cómo genero un documento?</b><br>
       1 · Elige una plantilla en la lista de la izquierda.<br>
       2 · Toma los datos del <b>registro de contratos</b> o de una <b>contraparte guardada</b> (se llenan solos).<br>
-      3 · Completa lo que falte y descarga el Word.<br><br>
-      Para las renovaciones de inicio de año usa la pestaña <b>Lote</b>: marca varios contratos del registro<br>y descarga todos los documentos de una sola vez.
+      3 · Completa lo que falte, ajusta cláusulas si hace falta y descarga el Word.<br><br>
+      Para las renovaciones de inicio de año usa la pestaña <b>Lote</b>: marca varios contratos del registro<br>y descarga todos los documentos de una sola vez.<br><br>
+      En <b>Cláusulas</b> vive tu repositorio de cláusulas aprobadas, con variantes<br>(p. ej. garantía con letra de cambio vs. garantía técnica) listas para insertar en cualquier documento.
     </div>`;
     return;
   }
@@ -13772,6 +13857,18 @@ function renderContenido(){
 
 /* ============ Generar (uno) ============ */
 function renderGenerar(c, p){
+  if(editandoDoc){
+    c.innerHTML = `
+      <div class="banner-edicion">✏ Estás editando el documento final: lo que ves es exactamente lo que se descargará. Puedes insertar cláusulas del repositorio (📋) y renumerar (🔢).
+        <button class="btn sec mini" style="margin-left:auto" onclick="salirEdicionDoc()">← Volver al formulario</button>
+      </div>
+      ${buildToolbar('preview', false, false)}
+      <div id="preview" class="editando" contenteditable="true">${docEditado}</div>
+      <div class="acciones-gen">
+        <button class="btn" onclick="descargarWord()">⬇ Descargar Word (.docx)</button>
+      </div>`;
+    return;
+  }
   const vars = extraerVariables(p.cuerpo);
   const editables = vars.filter(v => !esLetras(v));
   const llenos = editables.filter(v => String(datosForm[v]||'').trim()).length;
@@ -13807,6 +13904,7 @@ function renderGenerar(c, p){
         </div>
         <div class="acciones-gen">
           <button class="btn" onclick="descargarWord()">⬇ Descargar Word (.docx)</button>
+          <button class="btn sec" onclick="editarDocumento()" title="Retocar el texto final: cambiar redacción, insertar o quitar cláusulas">✏ Editar documento final</button>
           <button class="btn sec" onclick="limpiarForm()">Limpiar campos</button>
         </div>
       </div>
@@ -13844,9 +13942,20 @@ function actualizarCampo(v, val){
   if(prev) prev.innerHTML = rellenarDatos(p.cuerpo, datosForm, true);
 }
 function limpiarForm(){
-  datosForm = {};
+  datosForm = {}; editandoDoc = false; docEditado = '';
   const p = plActual();
   if(p) aplicarFijos(extraerVariables(p.cuerpo), datosForm);
+  renderContenido();
+}
+function editarDocumento(){
+  const p = plActual(); if(!p) return;
+  docEditado = rellenarDatos(p.cuerpo, datosForm, false);
+  editandoDoc = true;
+  renderContenido();
+}
+function salirEdicionDoc(){
+  if(!confirm('Al volver al formulario se descartan los cambios manuales hechos al documento. ¿Continuar?')) return;
+  editandoDoc = false; docEditado = '';
   renderContenido();
 }
 function aplicarNumeroSugerido(){
@@ -14168,14 +14277,19 @@ function generarLote(){
 }
 
 /* ============ Descarga Word ============ */
-function construirDocx(p, datos){
-  const cuerpo = rellenarDatos(p.cuerpo, datos, false);
+function construirDocx(p, datos, cuerpoOverride){
+  // cuerpoOverride: HTML ya editado a mano; igual se pasa por rellenarDatos para
+  // completar variables sueltas (p. ej. de una cláusula recién insertada).
+  const cuerpo = rellenarDatos(cuerpoOverride !== undefined ? cuerpoOverride : p.cuerpo, datos, false);
   const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
     body{font-family:'Titillium Web',Calibri,sans-serif;font-size:11pt;color:#101A3D;line-height:1.45}
     h1{color:#00249C;font-size:13pt;text-align:center;text-transform:uppercase}
     h2{color:#00249C;font-size:11.5pt;margin:14pt 0 4pt}
     p{text-align:justify;margin:0 0 8pt}
     ul,ol{margin:0 0 8pt 24pt}
+    table{border-collapse:collapse;width:100%;margin:6pt 0}
+    td,th{border:1pt solid #8895BD;padding:3pt 6pt;font-size:10.5pt;text-align:left}
+    th{color:#00249C}
   </style></head><body>${cuerpo}</body></html>`;
   return htmlDocx.asBlob(docHtml, { orientation:'portrait', margins:{ top:1134, right:1134, bottom:1134, left:1134 } });
 }
@@ -14195,10 +14309,16 @@ function descargarBlob(blob, nombre){
 function descargarWord(){
   const p = plActual(); if(!p) return;
   const vars = extraerVariables(p.cuerpo);
-  const pendientes = vars.filter(v => !valorDe(datosForm, v));
-  if(pendientes.length && !confirm('Campos sin completar: ' + pendientes.map(etiqueta).join(', ') + '.\n\n¿Generar de todas formas? (aparecerán como líneas en blanco)')) return;
+  let cuerpoOverride;
+  if(editandoDoc){
+    docEditado = document.getElementById('preview').innerHTML;
+    cuerpoOverride = docEditado;
+  } else {
+    const pendientes = vars.filter(v => !valorDe(datosForm, v));
+    if(pendientes.length && !confirm('Campos sin completar: ' + pendientes.map(etiqueta).join(', ') + '.\n\n¿Generar de todas formas? (aparecerán como líneas en blanco)')) return;
+  }
   try{
-    const blob = construirDocx(p, datosForm);
+    const blob = construirDocx(p, datosForm, cuerpoOverride);
     const archivo = nombreArchivo(p, datosForm, null);
     descargarBlob(blob, archivo);
     historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(datosForm)) });
@@ -14259,23 +14379,9 @@ function renderEditar(c, p){
       <div class="campo"><label>Categoría</label><input id="ed-cat" list="cats-dl" value="${esc(p.categoria)}"><datalist id="cats-dl">${categorias().filter(x=>x!=='Todas').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
       <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
-    <div id="toolbar">
-      <button onclick="fmt('bold')" title="Negrita"><b>N</b></button>
-      <button onclick="fmt('italic')" title="Cursiva"><i>C</i></button>
-      <button onclick="fmt('underline')" title="Subrayado"><u>S</u></button>
-      <div class="sep"></div>
-      <button onclick="fmt('formatBlock','h1')">Título</button>
-      <button onclick="fmt('formatBlock','h2')">Cláusula</button>
-      <button onclick="fmt('formatBlock','p')">Párrafo</button>
-      <div class="sep"></div>
-      <button onclick="fmt('justifyCenter')">Centrar</button>
-      <button onclick="fmt('insertUnorderedList')">• Lista</button>
-      <button onclick="fmt('insertOrderedList')">1. Lista</button>
-      <div class="sep"></div>
-      <button onclick="insertarVariable()" style="color:var(--azul)">{{ Insertar variable }}</button>
-    </div>
+    ${buildToolbar('editor', true, false)}
     <div id="editor" contenteditable="true">${p.cuerpo}</div>
-    <div class="ayuda-var">Escribe variables entre llaves dobles, por ejemplo <code>{{numero_contrato}}</code> o <code>{{fecha_suscripcion}}</code>. Reglas automáticas: los campos con <code>fecha</code> se muestran como calendario y se escriben en letras largas; los que empiezan con <code>monto</code>, <code>precio</code> o <code>valor</code> son numéricos; y un campo <code>{{X_en_letras}}</code> se calcula solo a partir de <code>{{X}}</code> (p. ej. <code>{{monto_en_letras}}</code>). Si usas los nombres <code>numero_contrato</code>, <code>nombre_proveedor</code>, <code>objeto</code>, <code>area_protegida</code>, <code>monto</code>, <code>plazo_dias</code>, <code>fecha_suscripcion</code>… la plantilla se llenará sola desde el registro de contratos.</div>
+    <div class="ayuda-var">Escribe variables entre llaves dobles, por ejemplo <code>{{numero_contrato}}</code> o <code>{{fecha_suscripcion}}</code>. Reglas automáticas: los campos con <code>fecha</code> se muestran como calendario y se escriben en letras largas; los que empiezan con <code>monto</code>, <code>precio</code> o <code>valor</code> son numéricos; y un campo <code>{{X_en_letras}}</code> se calcula solo a partir de <code>{{X}}</code> (p. ej. <code>{{monto_en_letras}}</code>). Si usas los nombres <code>numero_contrato</code>, <code>nombre_proveedor</code>, <code>objeto</code>, <code>area_protegida</code>, <code>monto</code>, <code>plazo_dias</code>, <code>fecha_suscripcion</code>… la plantilla se llenará sola desde el registro de contratos. Con <b>📋 Cláusula</b> insertas cláusulas del repositorio, con <b>📌 Guardar cláusula</b> mandas el texto seleccionado al repositorio, y <b>🔢 Renumerar</b> corrige la numeración de las cláusulas.</div>
     <div class="ed-acciones">
       <button class="btn" onclick="guardarPlantilla()">💾 Guardar cambios</button>
       <button class="btn sec" onclick="duplicarPlantilla()">Duplicar</button>
@@ -14284,13 +14390,305 @@ function renderEditar(c, p){
       <span class="estado" id="ed-estado"></span>
     </div>`;
 }
-function fmt(cmd, val){ document.execCommand(cmd, false, val || null); document.getElementById('editor').focus(); }
-function insertarVariable(){
+function buildToolbar(target, conVariables, esRepo){
+  const b = (cmd, val, rot, tit) => `<button onclick="fmtEn('${target}','${cmd}'${val?`,'${val}'`:''})" title="${tit||''}">${rot}</button>`;
+  return `<div class="toolbar">
+    ${b('undo',null,'↶','Deshacer')}${b('redo',null,'↷','Rehacer')}
+    <div class="sep"></div>
+    ${b('bold',null,'<b>N</b>','Negrita')}${b('italic',null,'<i>C</i>','Cursiva')}${b('underline',null,'<u>S</u>','Subrayado')}
+    <select onchange="if(this.value)fmtEn('${target}','fontSize',this.value);this.selectedIndex=0" title="Tamaño de letra">
+      <option value="">Tamaño</option><option value="1">Pequeño</option><option value="3">Normal</option><option value="4">Grande</option><option value="5">Muy grande</option>
+    </select>
+    <div class="sep"></div>
+    ${b('formatBlock','h1','Título')}${b('formatBlock','h2','Cláusula')}${b('formatBlock','p','Párrafo')}
+    <div class="sep"></div>
+    ${b('justifyLeft',null,'⮜','Alinear a la izquierda')}${b('justifyCenter',null,'↔','Centrar')}${b('justifyFull',null,'☰','Justificar')}
+    ${b('insertUnorderedList',null,'• Lista')}${b('insertOrderedList',null,'1. Lista')}
+    ${b('outdent',null,'⇤','Reducir sangría')}${b('indent',null,'⇥','Aumentar sangría')}
+    <div class="sep"></div>
+    <button onclick="insertarTabla('${target}')" title="Insertar tabla">▦ Tabla</button>
+    <button onclick="mayusculas('${target}')" title="Convertir selección a mayúsculas">AA</button>
+    ${b('removeFormat',null,'✘ Formato','Quitar formato de la selección')}
+    ${conVariables ? `<div class="sep"></div><button onclick="insertarVariable('${target}')" style="color:var(--azul);font-weight:700">{{ Variable }}</button>` : ''}
+    ${!esRepo ? `<div class="sep"></div><button onclick="abrirModalClausulas('${target}')" style="color:var(--azul);font-weight:700" title="Insertar una cláusula del repositorio">📋 Cláusula</button><button onclick="guardarSeleccionComoClausula('${target}')" title="Guarda el texto seleccionado como cláusula del repositorio">📌 Guardar cláusula</button><button onclick="renumerarClausulas('${target}')" title="Renumera automáticamente los encabezados de cláusula">🔢 Renumerar</button>` : ''}
+  </div>`;
+}
+function fmtEn(target, cmd, val){ document.getElementById(target).focus(); document.execCommand(cmd, false, val || null); }
+function insertarTabla(target){
+  const f = parseInt(prompt('Número de filas (incluye encabezado):','3')) || 0;
+  const c = parseInt(prompt('Número de columnas:','3')) || 0;
+  if(f < 1 || c < 1) return;
+  let t = '<table><tbody>';
+  for(let i = 0; i < f; i++){
+    t += '<tr>';
+    for(let j = 0; j < c; j++) t += (i === 0 ? '<th>&nbsp;</th>' : '<td>&nbsp;</td>');
+    t += '</tr>';
+  }
+  t += '</tbody></table><p><br></p>';
+  document.getElementById(target).focus();
+  document.execCommand('insertHTML', false, t);
+}
+function mayusculas(target){
+  const sel = window.getSelection();
+  if(!sel.rangeCount || sel.isCollapsed){ alert('Selecciona primero el texto que quieres convertir a mayúsculas.'); return; }
+  document.getElementById(target).focus();
+  document.execCommand('insertText', false, sel.toString().toUpperCase());
+}
+function insertarVariable(target){
   const n = prompt('Nombre de la variable (sin espacios, usa guion_bajo):','nombre_variable');
   if(!n) return;
   const limpio = n.trim().replace(/\s+/g,'_');
-  document.getElementById('editor').focus();
+  document.getElementById(target || 'editor').focus();
   document.execCommand('insertText', false, `{{${limpio}}}`);
+}
+
+/* ============ Renumeración automática de cláusulas ============ */
+const ORDINALES = ['PRIMERA','SEGUNDA','TERCERA','CUARTA','QUINTA','SEXTA','SÉPTIMA','OCTAVA','NOVENA','DÉCIMA','DÉCIMA PRIMERA','DÉCIMA SEGUNDA','DÉCIMA TERCERA','DÉCIMA CUARTA','DÉCIMA QUINTA','DÉCIMA SEXTA','DÉCIMA SÉPTIMA','DÉCIMA OCTAVA','DÉCIMA NOVENA','VIGÉSIMA'];
+function renumerarClausulas(target){
+  const cont = document.getElementById(target);
+  const h2s = Array.from(cont.querySelectorAll('h2'));
+  if(!h2s.length){ alert('No se encontraron cláusulas (encabezados de nivel 2) para renumerar.'); return; }
+  const primerTexto = h2s[0].textContent.trim();
+  const esNumerico = /^\d+\s*\./.test(primerTexto);
+  h2s.forEach((h, i) => {
+    const texto = h.textContent;
+    if(esNumerico){
+      const resto = texto.replace(/^\d+\s*\.\s*/, '');
+      h.textContent = `${i + 1}. ${resto}`;
+    } else {
+      const resto = texto.replace(/^CL[ÁA]USULA\s+[^:]+:\s*/i, '');
+      const ord = ORDINALES[i] || `${i + 1}.ª`;
+      h.textContent = `CLÁUSULA ${ord}: ${resto}`;
+    }
+  });
+}
+
+/* ============ Insertar cláusula del repositorio ============ */
+function extracto(html){
+  const div = document.createElement('div'); div.innerHTML = html;
+  return (div.textContent || '').trim().slice(0, 160);
+}
+function abrirModalClausulas(target){
+  insertTarget = target;
+  abrirModal(`
+    <div class="m-cab"><h3>📋 Insertar cláusula del repositorio</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <div class="campo" style="margin-bottom:10px"><input type="search" id="mc-busq" placeholder="Buscar cláusula por nombre, categoría o texto…" oninput="renderModalClausulas()"></div>
+      <div id="mc-lista"></div>
+    </div>`);
+  renderModalClausulas();
+}
+function renderModalClausulas(){
+  const cont = document.getElementById('mc-lista');
+  const q = normalizar(document.getElementById('mc-busq').value || '');
+  if(!clausulas.length){
+    cont.innerHTML = '<p style="color:var(--gris);font-size:13px">Aún no hay cláusulas guardadas. Ve a la pestaña <b>Cláusulas</b> para crear la primera, o usa 📌 para guardar un texto seleccionado.</p>';
+    return;
+  }
+  const cats = {};
+  clausulas.forEach(cl => {
+    const variantes = cl.variantes.filter(v =>
+      !q || normalizar(`${cl.categoria} ${cl.nombre} ${v.nombre}`).includes(q) || normalizar(extracto(v.cuerpo)).includes(q)
+    );
+    if(variantes.length) (cats[cl.categoria] = cats[cl.categoria] || []).push({ cl, variantes });
+  });
+  const claves = Object.keys(cats).sort();
+  if(!claves.length){ cont.innerHTML = '<p style="color:var(--gris);font-size:13px">Sin resultados para esa búsqueda.</p>'; return; }
+  cont.innerHTML = claves.map(cat => `
+    <div class="modal-cat">${esc(cat)}</div>
+    ${cats[cat].map(({cl, variantes}) => `
+      <div class="modal-clausula">
+        <div class="modal-clausula-titulo">${esc(cl.nombre)}</div>
+        ${variantes.map(v => `
+          <div class="modal-variante" onclick="insertarClausulaEnDoc('${cl.id}','${v.id}')">
+            <div><b>${esc(v.nombre)}</b> ${extraerVariables(v.cuerpo).map(x => `<span class="chip-var">${esc(x)}</span>`).join('')}</div>
+            <div class="mv-extracto">${esc(extracto(v.cuerpo))}</div>
+          </div>`).join('')}
+      </div>`).join('')}`
+  ).join('');
+}
+function insertarClausulaEnDoc(clId, varId){
+  const cl = clausulas.find(c => c.id === clId);
+  const v = cl && cl.variantes.find(x => x.id === varId);
+  if(!v) return;
+  let cuerpo = v.cuerpo;
+  if(insertTarget === 'preview'){
+    // En el documento final las variables ya conocidas se llenan al instante;
+    // las que falten quedan visibles como {{variable}} y se completan al descargar.
+    const datos = { ...fijos, ...datosForm };
+    cuerpo = cuerpo.replace(/\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g, (m, x) => {
+      let val = datos[x] || '';
+      if(esFecha(x) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
+      if(!val && esLetras(x) && datos[baseLetras(x)]) val = numeroALetras(datos[baseLetras(x)]);
+      return val ? `<strong>${esc(val)}</strong>` : m;
+    });
+  }
+  const el = document.getElementById(insertTarget);
+  el.focus();
+  document.execCommand('insertHTML', false, cuerpo + '<p><br></p>');
+  cerrarModal();
+}
+function guardarSeleccionComoClausula(target){
+  const cont = document.getElementById(target);
+  const sel = window.getSelection();
+  if(!sel.rangeCount || sel.isCollapsed || !cont.contains(sel.getRangeAt(0).commonAncestorContainer)){
+    alert('Selecciona primero, dentro del texto, la cláusula que quieres guardar en el repositorio.');
+    return;
+  }
+  const div = document.createElement('div');
+  div.appendChild(sel.getRangeAt(0).cloneContents());
+  const cuerpo = div.innerHTML;
+  const categoria = prompt('Categoría de la cláusula (ej. Garantía, Plazo, Confidencialidad):');
+  if(!categoria) return;
+  const nombre = prompt('Nombre de la cláusula:', categoria.trim()) || categoria.trim();
+  const variante = prompt('Nombre de esta variante (ej. «Versión convenios»):', 'Variante 1') || 'Variante 1';
+  // Si ya existe una cláusula con ese nombre, el texto entra como variante nueva
+  const existente = clausulas.find(c => normalizar(c.categoria) === normalizar(categoria) && normalizar(c.nombre) === normalizar(nombre));
+  if(existente){
+    existente.variantes.push({ id: uid(), nombre: variante.trim(), cuerpo });
+    clausulaAbierta = existente.id;
+  } else {
+    const cl = { id: uid(), categoria: categoria.trim(), nombre: nombre.trim(), variantes: [{ id: uid(), nombre: variante.trim(), cuerpo }] };
+    clausulas.unshift(cl);
+    clausulaAbierta = cl.id;
+  }
+  guardar();
+  alert(`Cláusula guardada en el repositorio (${categoria.trim()} · ${nombre.trim()} · ${variante.trim()}).`);
+}
+
+/* ============ Repositorio de cláusulas ============ */
+function renderRepositorio(c){
+  c.innerHTML = `
+    <div class="gen-grid" style="grid-template-columns:330px 1fr">
+      <div>
+        <div class="card" style="max-height:66vh;overflow-y:auto">
+          <h3>Cláusulas por categoría</h3>
+          <div class="campo" style="margin-bottom:10px"><input type="search" id="rep-busq" placeholder="Buscar cláusula…" value="${esc(repoFiltro)}" oninput="repoFiltro=this.value;document.getElementById('lista-clausulas').innerHTML=listaClausulasHtml()"></div>
+          <div id="lista-clausulas">${listaClausulasHtml()}</div>
+        </div>
+        <div class="acciones-gen">
+          <button class="btn sec" onclick="nuevaCategoriaClausula()">+ Nueva cláusula</button>
+        </div>
+      </div>
+      <div id="editor-variante">${varianteActual() ? renderVarianteEditorHtml() : `<div class="vacio" style="margin-top:30px">Selecciona una variante de la izquierda,<br>o crea una cláusula nueva.<br><br>Cada cláusula puede tener varias <b>variantes</b> (p. ej. garantía para bienes vs. servicios).<br>Desde el editor de plantillas o desde el documento final, el botón <b>📋 Cláusula</b><br>inserta cualquiera de estas variantes donde la necesites,<br>y <b>📌 Guardar cláusula</b> trae aquí el texto que selecciones en un documento.</div>`}</div>
+    </div>`;
+}
+function listaClausulasHtml(){
+  if(!clausulas.length) return '<p style="font-size:13px;color:var(--gris)">Repositorio vacío. Crea tu primera cláusula.</p>';
+  const q = normalizar(repoFiltro || '');
+  const cats = {};
+  clausulas.forEach(cl => {
+    if(q && !normalizar(`${cl.categoria} ${cl.nombre} ${cl.variantes.map(v=>v.nombre).join(' ')}`).includes(q) && !cl.variantes.some(v => normalizar(extracto(v.cuerpo)).includes(q))) return;
+    (cats[cl.categoria] = cats[cl.categoria] || []).push(cl);
+  });
+  const claves = Object.keys(cats).sort();
+  if(!claves.length) return '<p style="font-size:13px;color:var(--gris)">Sin resultados.</p>';
+  return claves.map(cat => `
+    <div class="rep-cat-titulo">${esc(cat)}</div>
+    ${cats[cat].map(cl => `
+      <div class="rep-clausula">
+        <div class="rep-clausula-nombre">
+          <span onclick="toggleClausula('${cl.id}')" style="flex:1">${esc(cl.nombre)}</span>
+          <span class="n-var">${cl.variantes.length} var.</span>
+          <span class="del" onclick="eliminarClausulaCompleta('${cl.id}')" title="Eliminar cláusula completa">🗑</span>
+        </div>
+        <div class="rep-variantes" style="display:${clausulaAbierta === cl.id || q ? 'block' : 'none'}">
+          ${cl.variantes.map(v => `<div class="rep-variante ${varianteSel && varianteSel.clId === cl.id && varianteSel.varId === v.id ? 'sel' : ''}" onclick="seleccionarVariante('${cl.id}','${v.id}')">${esc(v.nombre)}</div>`).join('')}
+          <div class="rep-variante nueva" onclick="nuevaVariante('${cl.id}')">+ Nueva variante</div>
+        </div>
+      </div>`).join('')}`
+  ).join('');
+}
+function toggleClausula(id){
+  clausulaAbierta = clausulaAbierta === id ? null : id;
+  document.getElementById('lista-clausulas').innerHTML = listaClausulasHtml();
+}
+function varianteActual(){
+  if(!varianteSel) return null;
+  const cl = clausulas.find(c => c.id === varianteSel.clId);
+  const v = cl && cl.variantes.find(x => x.id === varianteSel.varId);
+  return v ? { cl, v } : null;
+}
+function seleccionarVariante(clId, varId){
+  clausulaAbierta = clId; varianteSel = { clId, varId };
+  renderContenido();
+}
+function renderVarianteEditorHtml(){
+  const { cl, v } = varianteActual();
+  const vars = extraerVariables(v.cuerpo);
+  return `
+    <div class="card">
+      <h3>Editar variante</h3>
+      <div class="campo"><label>Cláusula</label><input value="${esc(cl.categoria)} · ${esc(cl.nombre)}" readonly></div>
+      <div class="campo"><label>Nombre de esta variante</label><input id="rep-var-nombre" value="${esc(v.nombre)}"></div>
+      <div class="campo"><label>Variables que pide esta variante</label><div id="rep-var-chips">${vars.length ? vars.map(x => `<span class="chip-var">${esc(x)}</span>`).join('') : '<span style="font-size:12px;color:var(--gris)">Ninguna (texto fijo)</span>'}</div></div>
+    </div>
+    ${buildToolbar('rep-editor', true, true)}
+    <div id="rep-editor" contenteditable="true" oninput="refrescarChipsVariante()">${v.cuerpo}</div>
+    <div class="ed-acciones">
+      <button class="btn" onclick="guardarVariante()">💾 Guardar variante</button>
+      <button class="btn sec" onclick="duplicarVariante()">Duplicar</button>
+      <button class="btn peligro" onclick="eliminarVariante()">Eliminar variante</button>
+      <span class="estado" id="rep-estado"></span>
+    </div>`;
+}
+function refrescarChipsVariante(){
+  const chips = document.getElementById('rep-var-chips');
+  if(!chips) return;
+  const vars = extraerVariables(document.getElementById('rep-editor').innerHTML);
+  chips.innerHTML = vars.length ? vars.map(x => `<span class="chip-var">${esc(x)}</span>`).join('') : '<span style="font-size:12px;color:var(--gris)">Ninguna (texto fijo)</span>';
+}
+function nuevaCategoriaClausula(){
+  const categoria = prompt('Categoría de la cláusula (ej. Garantía, Objeto, Plazo):');
+  if(!categoria) return;
+  const nombre = prompt('Nombre de la cláusula (ej. Garantía técnica):', categoria) || categoria;
+  const cl = { id: uid(), categoria: categoria.trim(), nombre: nombre.trim(),
+    variantes: [{ id: uid(), nombre: 'Variante 1', cuerpo: '<h2>NOMBRE DE LA CLÁUSULA</h2><p>Redacta aquí el texto. Puedes usar variables como {{variable}}.</p>' }] };
+  clausulas.unshift(cl); guardar();
+  clausulaAbierta = cl.id; varianteSel = { clId: cl.id, varId: cl.variantes[0].id };
+  renderContenido();
+}
+function nuevaVariante(clId){
+  const cl = clausulas.find(c => c.id === clId); if(!cl) return;
+  const nombre = prompt('Nombre de la nueva variante:', 'Variante ' + (cl.variantes.length + 1));
+  if(!nombre) return;
+  const v = { id: uid(), nombre: nombre.trim(), cuerpo: '<p>Redacta aquí el texto de esta variante. Puedes usar variables como {{variable}}.</p>' };
+  cl.variantes.push(v); guardar();
+  clausulaAbierta = clId; varianteSel = { clId, varId: v.id };
+  renderContenido();
+}
+function guardarVariante(){
+  const act = varianteActual(); if(!act) return;
+  act.v.nombre = document.getElementById('rep-var-nombre').value.trim() || act.v.nombre;
+  act.v.cuerpo = document.getElementById('rep-editor').innerHTML;
+  guardar();
+  document.getElementById('lista-clausulas').innerHTML = listaClausulasHtml();
+  const e = document.getElementById('rep-estado');
+  if(e){ e.textContent = '✓ Guardado'; setTimeout(() => { if(e) e.textContent = ''; }, 2500); }
+}
+function duplicarVariante(){
+  const act = varianteActual(); if(!act) return;
+  const copia = { id: uid(), nombre: act.v.nombre + ' (copia)', cuerpo: act.v.cuerpo };
+  act.cl.variantes.push(copia); guardar();
+  varianteSel = { clId: act.cl.id, varId: copia.id };
+  renderContenido();
+}
+function eliminarVariante(){
+  const act = varianteActual(); if(!act) return;
+  if(!confirm(`¿Eliminar la variante «${act.v.nombre}»?`)) return;
+  act.cl.variantes = act.cl.variantes.filter(x => x.id !== act.v.id);
+  varianteSel = null;
+  if(!act.cl.variantes.length) clausulas = clausulas.filter(c => c.id !== act.cl.id);
+  guardar();
+  renderContenido();
+}
+function eliminarClausulaCompleta(clId){
+  const cl = clausulas.find(c => c.id === clId); if(!cl) return;
+  if(!confirm(`¿Eliminar la cláusula «${cl.nombre}» y todas sus ${cl.variantes.length} variante(s)? Esta acción no se puede deshacer.`)) return;
+  clausulas = clausulas.filter(c => c.id !== clId);
+  if(varianteSel && varianteSel.clId === clId) varianteSel = null;
+  guardar();
+  renderContenido();
 }
 function guardarPlantilla(){
   const p = plActual(); if(!p) return;
@@ -14365,7 +14763,7 @@ function descargarJSON(obj, nombre){
   descargarBlob(blob, nombre);
 }
 function exportarBiblioteca(){
-  descargarJSON({ tipo:'biblioteca_fap', version:2, exportado:new Date().toISOString(), plantillas, historial, contrapartes, fijos }, `biblioteca-instrumentos-fap-${hoy()}.json`);
+  descargarJSON({ tipo:'biblioteca_fap', version:3, exportado:new Date().toISOString(), plantillas, clausulas, historial, contrapartes, fijos }, `biblioteca-instrumentos-fap-${hoy()}.json`);
 }
 function importarBiblioteca(ev){
   const file = ev.target.files[0]; if(!file) return;
@@ -14386,13 +14784,18 @@ function importarBiblioteca(ev){
             const cn = new Set(contrapartes.map(x => normalizar(x.nombre)));
             data.contrapartes.forEach(x => { if(!cn.has(normalizar(x.nombre))) contrapartes.push(x); });
           }
+          if(Array.isArray(data.clausulas)){
+            const nomCl = new Set(clausulas.map(c => normalizar(c.categoria + '|' + c.nombre)));
+            data.clausulas.forEach(c => { if(!nomCl.has(normalizar(c.categoria + '|' + c.nombre))){ c.id = uid(); (c.variantes||[]).forEach(v => v.id = uid()); clausulas.push(c); } });
+          }
           if(data.fijos) fijos = { ...data.fijos, ...fijos };
         } else {
           plantillas = data.plantillas;
           if(Array.isArray(data.historial)) historial = data.historial;
           if(Array.isArray(data.contrapartes)) contrapartes = data.contrapartes;
+          if(Array.isArray(data.clausulas)) clausulas = data.clausulas;
           if(data.fijos) fijos = data.fijos;
-          seleccion = null;
+          seleccion = null; varianteSel = null; clausulaAbierta = null;
         }
         alert('Biblioteca importada correctamente.');
       } else { alert('El archivo no tiene un formato reconocido.'); return; }
