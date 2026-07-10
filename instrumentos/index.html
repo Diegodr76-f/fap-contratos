@@ -13265,7 +13265,11 @@ header button:hover{background:rgba(255,255,255,.22)}
 
 /* ---------- Layout ---------- */
 main{flex:1;display:flex;min-height:0}
-aside{width:290px;background:#fff;border-right:1px solid var(--borde);display:flex;flex-direction:column;flex-shrink:0}
+aside{width:290px;background:#fff;border-right:1px solid var(--borde);flex-shrink:0;overflow:hidden;transition:width .22s ease}
+aside .aside-inner{width:290px;height:100%;display:flex;flex-direction:column}
+body.aside-oculto aside{width:0;border-right:none}
+#btn-aside{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:16px;line-height:1;padding:6px 10px;border-radius:6px;cursor:pointer}
+#btn-aside:hover{background:rgba(255,255,255,.22)}
 aside .busq{padding:12px;border-bottom:1px solid var(--borde)}
 aside input[type=search]{width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:6px;font-family:inherit;font-size:13px}
 aside .cats{display:flex;flex-wrap:wrap;gap:5px;padding:10px 12px 4px}
@@ -13360,6 +13364,13 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .rep-variante.sel{background:var(--azul);color:#fff;font-weight:600}
 .rep-variante.nueva{color:var(--azul);font-weight:600}
 .chip-var{display:inline-block;font-size:10.5px;font-weight:700;background:var(--azul-claro);color:var(--azul);border-radius:4px;padding:1px 6px;margin:2px 3px 0 0}
+.var-fila{display:flex;gap:10px;align-items:baseline;padding:7px 10px;border-radius:7px;cursor:pointer;font-size:13px}
+.var-fila:hover{background:var(--azul-claro)}
+.var-fila.sel{background:var(--azul);color:#fff}
+.var-fila.sel .var-desc,.var-fila.sel code{color:#fff;background:rgba(255,255,255,.15)}
+.var-fila code{background:var(--azul-claro);color:var(--azul);font-weight:700;font-size:12px;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.var-fila .var-desc{color:var(--gris);font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tipo-pill{font-size:10px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:4px;background:#EEF1F8;color:var(--gris);white-space:nowrap}
 .modal-cat{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gris);margin:14px 0 6px}
 .modal-cat:first-child{margin-top:0}
 .modal-clausula{border:1px solid var(--borde);border-radius:8px;margin-bottom:8px;overflow:hidden}
@@ -13417,12 +13428,14 @@ tr:hover td{background:var(--azul-claro)}
 @media(max-width:900px){
   .gen-grid{grid-template-columns:1fr}
   aside{width:230px}
+  aside .aside-inner{width:230px}
 }
 </style>
 </head>
 <body>
 
 <header>
+  <button id="btn-aside" onclick="toggleAside()" title="Mostrar / ocultar la biblioteca de plantillas">☰</button>
   <div>
     <div class="logo">FAP <span>· Generador de Instrumentos Legales</span></div>
     <div class="sub">Fondo de Áreas Protegidas — Unidad Legal</div>
@@ -13439,11 +13452,13 @@ tr:hover td{background:var(--azul-claro)}
 
 <main>
   <aside>
-    <div class="busq"><input type="search" id="busqueda" placeholder="Buscar plantilla…" oninput="renderLista()"></div>
-    <div class="cats" id="cats"></div>
-    <div id="lista-plantillas"></div>
-    <div class="pie">
-      <button class="btn" style="flex:1" onclick="nuevaPlantilla()">+ Nueva plantilla</button>
+    <div class="aside-inner">
+      <div class="busq"><input type="search" id="busqueda" placeholder="Buscar plantilla…" oninput="renderLista()"></div>
+      <div class="cats" id="cats"></div>
+      <div id="lista-plantillas"></div>
+      <div class="pie">
+        <button class="btn" style="flex:1" onclick="nuevaPlantilla()">+ Nueva plantilla</button>
+      </div>
     </div>
   </aside>
 
@@ -13454,6 +13469,7 @@ tr:hover td{background:var(--azul-claro)}
       <button class="tab" data-tab="contrapartes" onclick="cambiarTab('contrapartes')">Contrapartes</button>
       <button class="tab" data-tab="editar" onclick="cambiarTab('editar')">Editar plantilla</button>
       <button class="tab" data-tab="repositorio" onclick="cambiarTab('repositorio')">Cláusulas</button>
+      <button class="tab" data-tab="variables" onclick="cambiarTab('variables')">Variables</button>
       <button class="tab" data-tab="historial" onclick="cambiarTab('historial')">Historial</button>
     </div>
     <div id="contenido"></div>
@@ -13473,24 +13489,28 @@ const RUTAS_REGISTRO = [
   'https://diegodr76-f.github.io/fap-contratos/crm/contratos_export.json'
 ];
 
-/* Cómo se llenan las variables de plantilla desde una fila del registro */
+/* Cómo se llenan las variables de plantilla desde una fila del registro.
+   Nombres canónicos del Catálogo de Tags FAP primero; los alias antiguos
+   (numero_contrato, area_protegida…) se conservan por compatibilidad. */
 const MAPA_REGISTRO = {
-  numero_contrato:'nro', numero_documento:'nro',
+  contratoNro:'nro', numero_contrato:'nro', numero_documento:'nro',
   objeto:'detalle', detalle_bienes:'detalle',
-  area_protegida:'area',
-  monto:'monto', monto_original:'monto',
-  plazo_dias:'plazo',
-  fecha_suscripcion:'firma', fecha_contrato:'firma',
-  fecha_inicio:'inicio', fecha_fin:'fin',
-  nombre_proveedor:'proveedor', institucion:'proveedor'
+  area:'area', area_protegida:'area',
+  montoTotal:'montoTotal', monto:'monto', montoOriginal:'monto', monto_original:'monto',
+  plazo:'plazo', plazo_dias:'plazo',
+  fechaContrato:'firma', fecha_suscripcion:'firma', fecha_contrato:'firma',
+  fechaInicio:'inicio', fecha_inicio:'inicio',
+  fechaFin:'fin', fecha_fin:'fin',
+  proveedor:'proveedor', nombre_proveedor:'proveedor', institucion:'proveedor',
+  ac:'ac', acCorreo:'correo'
 };
 
 /* Cómo se llenan las variables desde una contraparte guardada */
 const MAPA_CONTRAPARTE = {
-  nombre_proveedor:'nombre', institucion:'nombre',
-  cedula_ruc:'identificacion',
+  proveedor:'nombre', nombre_proveedor:'nombre', institucion:'nombre', invitado:'nombre',
+  proveedorRuc:'identificacion', cedula_ruc:'identificacion',
   representante_institucion:'representante',
-  correo:'email', direccion:'direccion'
+  acCorreo:'email', correo:'email', direccion:'direccion'
 };
 
 /* ============ Almacenamiento seguro ============ */
@@ -13585,29 +13605,102 @@ function avisoIdentificacion(val){
 }
 const esIdVar = v => /cedula|ruc|identificacion/i.test(v);
 
-/* ============ Cláusulas semilla ============ */
+/* ============ Repositorio de variables (Catálogo de Tags FAP + locales) ============ */
+function variablesSemilla(){
+  const V = (grupo, nombre, descripcion, ejemplo, tipo) => ({ id: uid(), grupo, nombre, descripcion, ejemplo: ejemplo||'', tipo: tipo||'texto' });
+  return [
+    // — Catálogo FAP (docxtemplater / La Mágica / CRM) —
+    V('Área y firmantes','area','Nombre del área protegida','Parque Nacional Cotacachi Cayapas'),
+    V('Área y firmantes','siglas','Siglas del área protegida','PNCC'),
+    V('Área y firmantes','ciudad','Ciudad','Quito'),
+    V('Área y firmantes','jefe','Nombre del responsable del AP (MAE)','Juan Pérez'),
+    V('Área y firmantes','ac','Nombre del/la Administrador/a Contador/a (FIAS)','Yesenia Ruiz Vera'),
+    V('Área y firmantes','acCorreo','Correo del/la AC','ac@fias.org.ec'),
+    V('Área y firmantes','cedulaAc','Cédula del/la AC','1712345678'),
+    V('Proceso','objeto','Objeto del proceso / detalle de lo contratado','Abastecimiento de combustible…'),
+    V('Proceso','partida','Código de la línea presupuestaria (PAG)','3.1.3.1'),
+    V('Proceso','lineaNombre','Nombre de la línea presupuestaria','Combustible'),
+    V('Proceso','fuente','Fuente de financiamiento','KfW'),
+    V('Proceso','plazo','Plazo de entrega en días','30','numero'),
+    V('Proceso','lugar','Lugar de entrega / prestación','Oficina técnica PNCC'),
+    V('Fechas','fechaInicio','Inicio del proceso (docs 1,2,5,9,10,11) · inicio de ejecución del contrato en doc 15 (la provee el CRM)','','fecha'),
+    V('Fechas','fechaInvitacion','Fecha de invitación al proveedor','','fecha'),
+    V('Fechas','fechaLimite','Fecha y hora límite de recepción de ofertas (incluye hora, se escribe completa)','15 de julio de 2026, 16h00','texto'),
+    V('Fechas','fechaAdj','Fecha de adjudicación','','fecha'),
+    V('Fechas','fechaRecepOferta','Fecha de recepción de la oferta adjudicada','','fecha'),
+    V('Fechas','fechaRecepcion','Fecha de recepción / entrega del servicio','','fecha'),
+    V('Fechas','fechaContrato','Fecha de firma del contrato — la provee el CRM','','fecha'),
+    V('Fechas','fechaFin','Fecha de terminación contractual (fin de vigencia) — la provee el CRM','','fecha'),
+    V('Fechas','fechaAdenda','Fecha de suscripción de la adenda','','fecha'),
+    V('Fechas','fechaActa','Fecha de suscripción del acta de terminación','','fecha'),
+    V('Fechas','fechaReprog','Fecha de reprogramación presupuestaria (adenda)','','fecha'),
+    V('Fechas','fecha','Fecha del informe de adenda (doc 14)','','fecha'),
+    V('Montos e IVA','presupuesto','Presupuesto referencial','850,00','numero'),
+    V('Montos e IVA','presupuestoLetras','Presupuesto referencial en letras — se calcula solo desde {{presupuesto}}','','letras'),
+    V('Montos e IVA','montoLetras','Monto adjudicado en letras','','letras'),
+    V('Montos e IVA','subtotal','Subtotal de la tabla de ítems','739,13','numero'),
+    V('Montos e IVA','ivaPct','Porcentaje de IVA','15','numero'),
+    V('Montos e IVA','iva','Valor del IVA','110,87','numero'),
+    V('Montos e IVA','total','Total con IVA · en doc 15: valor total liquidado/pagado','850,00','numero'),
+    V('Montos e IVA','montoOriginal','Monto original del contrato (docs 14/15)','690,00','numero'),
+    V('Montos e IVA','montoOriginalLetras','Monto original en letras — se calcula solo desde {{montoOriginal}}','','letras'),
+    V('Montos e IVA','montoAumento','Valor del aumento (adenda)','160,00','numero'),
+    V('Montos e IVA','montoAumentoLetras','Valor del aumento en letras — se calcula solo desde {{montoAumento}}','','letras'),
+    V('Montos e IVA','montoTotal','Monto total del contrato · regla: montoOriginal + montoAumento = montoTotal (columna Q del CRM; sobre estos se evalúan la regla del 25% y el tope del 150%)','850,00','numero'),
+    V('Montos e IVA','montoTotalLetras','Monto total en letras — se calcula solo desde {{montoTotal}}','','letras'),
+    V('Proveedor','invitado','Razón social del proveedor invitado (invitaciones 3,4)','Ferretería El Tornillo'),
+    V('Proveedor','proveedor','Razón social del proveedor adjudicado',''),
+    V('Proveedor','proveedorRuc','RUC del proveedor adjudicado','1791234567001'),
+    V('Proveedor','formaPago','Documentos / condiciones para el pago','Factura y acta de entrega-recepción'),
+    V('Contrato','contratoNro','Número del contrato','CONTRATO-FIAS-FAP-2026-001'),
+    V('Adjudicación (doc 5)','prov1','Razón social del proponente 1',''),
+    V('Adjudicación (doc 5)','fof1','Fecha de la oferta del proponente 1','','fecha'),
+    V('Adjudicación (doc 5)','monto1','Monto ofertado por el proponente 1','','numero'),
+    V('Adjudicación (doc 5)','prov2','Razón social del proponente 2',''),
+    V('Adjudicación (doc 5)','fof2','Fecha de la oferta del proponente 2','','fecha'),
+    V('Adjudicación (doc 5)','monto2','Monto ofertado por el proponente 2','','numero'),
+    V('Adjudicación (doc 5)','prov3','Razón social del proponente 3',''),
+    V('Adjudicación (doc 5)','fof3','Fecha de la oferta del proponente 3','','fecha'),
+    V('Adjudicación (doc 5)','monto3','Monto ofertado por el proponente 3','','numero'),
+    V('Ítems (repetible)','items','Bloque repetible {#items}…{/items} de docxtemplater con campos cantidad, desc, punit, ptotal. Nota: en esta herramienta HTML insértalo como texto de referencia; el bucle lo ejecuta docxtemplater en las plantillas Word.','','repetible'),
+    // — Variables locales de las plantillas HTML de esta herramienta —
+    V('Locales (plantillas HTML)','representante_fias','Representante del FIAS que suscribe','Director Ejecutivo del FIAS'),
+    V('Locales (plantillas HTML)','tipo_proceso','Tipo de proceso','comparación de precios / selección directa'),
+    V('Locales (plantillas HTML)','garantia_tecnica','Duración de la garantía técnica','un (1) año'),
+    V('Locales (plantillas HTML)','cronograma_pagos','Cronograma de pagos parciales',''),
+    V('Locales (plantillas HTML)','vigencia','Vigencia del convenio','dos (2) años'),
+    V('Locales (plantillas HTML)','institucion','Institución contraparte del convenio',''),
+    V('Locales (plantillas HTML)','representante_institucion','Representante de la institución contraparte',''),
+    V('Locales (plantillas HTML)','antecedentes','Antecedentes del convenio (texto libre)',''),
+    V('Locales (plantillas HTML)','justificacion','Justificación del ajuste (texto libre)',''),
+    V('Locales (plantillas HTML)','motivacion','Motivación de la terminación (texto libre)',''),
+    V('Locales (plantillas HTML)','liquidacion','Detalle de liquidación (texto libre)',''),
+    V('Locales (plantillas HTML)','numero_documento','Número del documento genérico','')
+  ];
+}
+
 function clausulasSemilla(){
   const cl = (categoria, nombre, variantes) => ({ id: uid(), categoria, nombre, variantes: variantes.map(v => ({ id: uid(), nombre: v[0], cuerpo: v[1] })) });
   return [
     cl('Comparecientes', 'Comparecientes', [
-      ['Contrato (FIAS y proveedor)', '<h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen a la celebración del presente contrato, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, a través del Programa Fondo de Áreas Protegidas (FAP), representado por {{representante_fias}}, a quien en adelante se denominará "EL CONTRATANTE"; y, por otra parte, {{nombre_proveedor}}, con RUC/C.C. N.º {{cedula_ruc}}, a quien en adelante se denominará "EL CONTRATISTA".</p>'],
+      ['Contrato (FIAS y proveedor)', '<h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen a la celebración del presente contrato, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, a través del Programa Fondo de Áreas Protegidas (FAP), representado por {{representante_fias}}, a quien en adelante se denominará "EL CONTRATANTE"; y, por otra parte, {{proveedor}}, con RUC/C.C. N.º {{proveedorRuc}}, a quien en adelante se denominará "EL CONTRATISTA".</p>'],
       ['Convenio (FIAS e institución)', '<h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen a la celebración del presente convenio, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, representado por {{representante_fias}}; y, por otra parte, {{institucion}}, representada por {{representante_institucion}}, a quienes en adelante se les denominará conjuntamente "LAS PARTES".</p>']
     ]),
     cl('Antecedentes', 'Antecedentes', [
-      ['Proceso de contratación (comparación / selección directa)', '<h2>CLÁUSULA SEGUNDA: ANTECEDENTES</h2><p>Mediante proceso de {{tipo_proceso}}, ejecutado en beneficio del área protegida {{area_protegida}}, se adjudicó a EL CONTRATISTA el objeto contractual, de conformidad con el Manual Operativo del FAP y la normativa de contrataciones del FIAS.</p>'],
+      ['Proceso de contratación (comparación / selección directa)', '<h2>CLÁUSULA SEGUNDA: ANTECEDENTES</h2><p>Mediante proceso de {{tipo_proceso}}, ejecutado en beneficio del área protegida {{area}}, se adjudicó a EL CONTRATISTA el objeto contractual, de conformidad con el Manual Operativo del FAP y la normativa de contrataciones del FIAS.</p>'],
       ['Convenio interinstitucional', '<h2>CLÁUSULA SEGUNDA: ANTECEDENTES</h2><p>{{antecedentes}}</p>']
     ]),
     cl('Objeto', 'Objeto', [
       ['Servicios', '<h2>CLÁUSULA TERCERA: OBJETO</h2><p>EL CONTRATISTA se obliga a prestar los siguientes servicios: {{objeto}}.</p>'],
-      ['Bienes', '<h2>CLÁUSULA SEGUNDA: OBJETO</h2><p>EL VENDEDOR se obliga a entregar al COMPRADOR, en beneficio del área protegida {{area_protegida}}, los siguientes bienes: {{detalle_bienes}}, conforme a las especificaciones técnicas del proceso de {{tipo_proceso}}.</p>'],
-      ['Convenio', '<h2>CLÁUSULA TERCERA: OBJETO</h2><p>El presente convenio tiene por objeto {{objeto}}, en beneficio del área protegida {{area_protegida}} y en el marco del Programa Fondo de Áreas Protegidas (FAP).</p>']
+      ['Bienes', '<h2>CLÁUSULA SEGUNDA: OBJETO</h2><p>EL VENDEDOR se obliga a entregar al COMPRADOR, en beneficio del área protegida {{area}}, los siguientes bienes: {{objeto}}, conforme a las especificaciones técnicas del proceso de {{tipo_proceso}}.</p>'],
+      ['Convenio', '<h2>CLÁUSULA TERCERA: OBJETO</h2><p>El presente convenio tiene por objeto {{objeto}}, en beneficio del área protegida {{area}} y en el marco del Programa Fondo de Áreas Protegidas (FAP).</p>']
     ]),
     cl('Monto y forma de pago', 'Monto y forma de pago', [
-      ['Pago único contra entrega', '<h2>CLÁUSULA CUARTA: MONTO Y FORMA DE PAGO</h2><p>El valor total del presente contrato asciende a USD {{monto}} ({{monto_en_letras}}), incluidos impuestos de ley, que será cancelado contra entrega a satisfacción de EL CONTRATANTE y previa presentación de la factura correspondiente.</p>'],
-      ['Pago por avance / hitos', '<h2>CLÁUSULA CUARTA: MONTO Y FORMA DE PAGO</h2><p>El valor total del presente contrato asciende a USD {{monto}} ({{monto_en_letras}}), que será cancelado conforme al siguiente cronograma de pagos parciales, contra avance verificado del objeto contractual: {{cronograma_pagos}}.</p>']
+      ['Pago único contra entrega', '<h2>CLÁUSULA CUARTA: MONTO Y FORMA DE PAGO</h2><p>El valor total del presente contrato asciende a USD {{montoTotal}} ({{montoTotalLetras}}), incluidos impuestos de ley, que será cancelado contra entrega a satisfacción de EL CONTRATANTE y previa presentación de la factura correspondiente.</p>'],
+      ['Pago por avance / hitos', '<h2>CLÁUSULA CUARTA: MONTO Y FORMA DE PAGO</h2><p>El valor total del presente contrato asciende a USD {{montoTotal}} ({{montoTotalLetras}}), que será cancelado conforme al siguiente cronograma de pagos parciales, contra avance verificado del objeto contractual: {{cronograma_pagos}}.</p>']
     ]),
     cl('Plazo', 'Plazo / Vigencia', [
-      ['Plazo en días desde suscripción', '<h2>CLÁUSULA QUINTA: PLAZO</h2><p>El plazo de ejecución es de {{plazo_dias}} días, contados a partir de la suscripción del presente contrato.</p>'],
+      ['Plazo en días desde suscripción', '<h2>CLÁUSULA QUINTA: PLAZO</h2><p>El plazo de ejecución es de {{plazo}} días, contados a partir de la suscripción del presente contrato.</p>'],
       ['Vigencia (convenios)', '<h2>CLÁUSULA QUINTA: PLAZO</h2><p>El presente convenio tendrá una vigencia de {{vigencia}}, contada desde su suscripción, pudiendo renovarse por acuerdo escrito de LAS PARTES.</p>']
     ]),
     cl('Garantía', 'Garantía', [
@@ -13623,44 +13716,43 @@ function clausulasSemilla(){
       ['Mediación Quito (estándar)', '<h2>CLÁUSULA OCTAVA: CONTROVERSIAS</h2><p>En caso de controversias, las partes procurarán una solución directa y amistosa; de no lograrla, se someterán a mediación en un centro legalmente autorizado de la ciudad de Quito.</p>']
     ]),
     cl('Firmas', 'Cierre y firmas', [
-      ['Dos firmas (contratante / contratista)', '<p>Para constancia, las partes suscriben el presente contrato en {{lugar}}, a {{fecha_suscripcion}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{nombre_proveedor}}</strong><br>C.C./RUC {{cedula_ruc}}</p>'],
-      ['Convenio (FIAS / institución)', '<p>Para constancia, LAS PARTES suscriben el presente convenio en {{lugar}}, a {{fecha_suscripcion}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS<br><br><br>_______________________<br><strong>{{representante_institucion}}</strong><br>{{institucion}}</p>']
+      ['Dos firmas (contratante / contratista)', '<p>Para constancia, las partes suscriben el presente contrato en {{ciudad}}, a {{fechaContrato}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{proveedor}}</strong><br>C.C./RUC {{proveedorRuc}}</p>'],
+      ['Convenio (FIAS / institución)', '<p>Para constancia, LAS PARTES suscriben el presente convenio en {{ciudad}}, a {{fechaContrato}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS<br><br><br>_______________________<br><strong>{{representante_institucion}}</strong><br>{{institucion}}</p>']
     ])
   ];
 }
 
-/* ============ Plantillas semilla ============ */
 function plantillasSemilla(){
   return [
   {
     id: uid(), nombre: 'Contrato de prestación de servicios', categoria: 'Contratos',
     descripcion: 'Formato base para servicios bajo comparación de precios o selección directa.',
     actualizado: hoy(),
-    cuerpo: `<h1>CONTRATO DE PRESTACIÓN DE SERVICIOS N.º {{numero_contrato}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen a la celebración del presente contrato, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, a través del Programa Fondo de Áreas Protegidas (FAP), representado por {{representante_fias}}, a quien en adelante se denominará "EL CONTRATANTE"; y, por otra parte, {{nombre_proveedor}}, con RUC/C.C. N.º {{cedula_ruc}}, a quien en adelante se denominará "EL CONTRATISTA".</p><h2>CLÁUSULA SEGUNDA: ANTECEDENTES</h2><p>Mediante proceso de {{tipo_proceso}}, ejecutado en beneficio del área protegida {{area_protegida}}, se adjudicó al CONTRATISTA la prestación de los servicios objeto del presente instrumento, de conformidad con el Manual Operativo del FAP y la normativa de contrataciones del FIAS.</p><h2>CLÁUSULA TERCERA: OBJETO</h2><p>El CONTRATISTA se obliga a prestar los siguientes servicios: {{objeto}}.</p><h2>CLÁUSULA CUARTA: MONTO Y FORMA DE PAGO</h2><p>El valor total del presente contrato asciende a USD {{monto}} ({{monto_en_letras}}), incluidos impuestos de ley, que será cancelado contra entrega de los productos/servicios a satisfacción del CONTRATANTE y previa presentación de la factura correspondiente.</p><h2>CLÁUSULA QUINTA: PLAZO</h2><p>El plazo de ejecución es de {{plazo_dias}} días, contados a partir de la suscripción del presente contrato.</p><h2>CLÁUSULA SEXTA: GARANTÍA</h2><p>Para asegurar el fiel cumplimiento del contrato, el CONTRATISTA suscribe a favor del CONTRATANTE una letra de cambio por el valor total del contrato, la cual será devuelta una vez suscrita el acta de entrega-recepción definitiva.</p><h2>CLÁUSULA SÉPTIMA: TERMINACIÓN</h2><p>El presente contrato terminará por: a) cumplimiento del objeto; b) mutuo acuerdo; c) incumplimiento de las obligaciones de cualquiera de las partes, previa notificación escrita.</p><h2>CLÁUSULA OCTAVA: CONTROVERSIAS</h2><p>En caso de controversias, las partes procurarán una solución directa y amistosa; de no lograrla, se someterán a mediación en un centro legalmente autorizado de la ciudad de Quito.</p><p>Para constancia, las partes suscriben el presente contrato en {{lugar}}, a {{fecha_suscripcion}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{nombre_proveedor}}</strong><br>C.C./RUC {{cedula_ruc}}</p>`
+    cuerpo: `<h1>CONTRATO DE PRESTACIÓN DE SERVICIOS N.º {{contratoNro}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen a la celebración del presente contrato, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, a través del Programa Fondo de Áreas Protegidas (FAP), representado por {{representante_fias}}, a quien en adelante se denominará "EL CONTRATANTE"; y, por otra parte, {{proveedor}}, con RUC/C.C. N.º {{proveedorRuc}}, a quien en adelante se denominará "EL CONTRATISTA".</p><h2>CLÁUSULA SEGUNDA: ANTECEDENTES</h2><p>Mediante proceso de {{tipo_proceso}}, ejecutado en beneficio del área protegida {{area}}, se adjudicó al CONTRATISTA la prestación de los servicios objeto del presente instrumento, de conformidad con el Manual Operativo del FAP y la normativa de contrataciones del FIAS.</p><h2>CLÁUSULA TERCERA: OBJETO</h2><p>El CONTRATISTA se obliga a prestar los siguientes servicios: {{objeto}}.</p><h2>CLÁUSULA CUARTA: MONTO Y FORMA DE PAGO</h2><p>El valor total del presente contrato asciende a USD {{montoTotal}} ({{montoTotalLetras}}), incluidos impuestos de ley, que será cancelado contra entrega de los productos/servicios a satisfacción del CONTRATANTE y previa presentación de la factura correspondiente.</p><h2>CLÁUSULA QUINTA: PLAZO</h2><p>El plazo de ejecución es de {{plazo}} días, contados a partir de la suscripción del presente contrato.</p><h2>CLÁUSULA SEXTA: GARANTÍA</h2><p>Para asegurar el fiel cumplimiento del contrato, el CONTRATISTA suscribe a favor del CONTRATANTE una letra de cambio por el valor total del contrato, la cual será devuelta una vez suscrita el acta de entrega-recepción definitiva.</p><h2>CLÁUSULA SÉPTIMA: TERMINACIÓN</h2><p>El presente contrato terminará por: a) cumplimiento del objeto; b) mutuo acuerdo; c) incumplimiento de las obligaciones de cualquiera de las partes, previa notificación escrita.</p><h2>CLÁUSULA OCTAVA: CONTROVERSIAS</h2><p>En caso de controversias, las partes procurarán una solución directa y amistosa; de no lograrla, se someterán a mediación en un centro legalmente autorizado de la ciudad de Quito.</p><p>Para constancia, las partes suscriben el presente contrato en {{ciudad}}, a {{fechaContrato}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{proveedor}}</strong><br>C.C./RUC {{proveedorRuc}}</p>`
   },
   {
     id: uid(), nombre: 'Contrato de adquisición de bienes', categoria: 'Contratos',
     descripcion: 'Formato base para compra de bienes (comparación de precios, compra directa).',
     actualizado: hoy(),
-    cuerpo: `<h1>CONTRATO DE ADQUISICIÓN DE BIENES N.º {{numero_contrato}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, a través del Programa Fondo de Áreas Protegidas (FAP), representado por {{representante_fias}} ("EL COMPRADOR"); y, por otra, {{nombre_proveedor}}, con RUC N.º {{cedula_ruc}} ("EL VENDEDOR").</p><h2>CLÁUSULA SEGUNDA: OBJETO</h2><p>EL VENDEDOR se obliga a entregar al COMPRADOR, en beneficio del área protegida {{area_protegida}}, los siguientes bienes: {{detalle_bienes}}, conforme a las especificaciones técnicas del proceso de {{tipo_proceso}}.</p><h2>CLÁUSULA TERCERA: PRECIO Y FORMA DE PAGO</h2><p>El precio total es de USD {{monto}} ({{monto_en_letras}}), incluido IVA, pagadero contra entrega de los bienes a entera satisfacción y suscripción del acta de entrega-recepción.</p><h2>CLÁUSULA CUARTA: PLAZO Y LUGAR DE ENTREGA</h2><p>Los bienes serán entregados en un plazo de {{plazo_dias}} días desde la suscripción del contrato, en {{lugar_entrega}}.</p><h2>CLÁUSULA QUINTA: GARANTÍA TÉCNICA</h2><p>EL VENDEDOR otorga una garantía técnica de {{garantia_tecnica}} sobre los bienes entregados, contada desde la suscripción del acta de entrega-recepción.</p><h2>CLÁUSULA SEXTA: CONTROVERSIAS</h2><p>Las controversias se resolverán de forma directa y amistosa; de no ser posible, mediante mediación en un centro legalmente autorizado de la ciudad de Quito.</p><p>Suscrito en {{lugar}}, a {{fecha_suscripcion}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{nombre_proveedor}}</strong><br>RUC {{cedula_ruc}}</p>`
+    cuerpo: `<h1>CONTRATO DE ADQUISICIÓN DE BIENES N.º {{contratoNro}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, a través del Programa Fondo de Áreas Protegidas (FAP), representado por {{representante_fias}} ("EL COMPRADOR"); y, por otra, {{proveedor}}, con RUC N.º {{proveedorRuc}} ("EL VENDEDOR").</p><h2>CLÁUSULA SEGUNDA: OBJETO</h2><p>EL VENDEDOR se obliga a entregar al COMPRADOR, en beneficio del área protegida {{area}}, los siguientes bienes: {{objeto}}, conforme a las especificaciones técnicas del proceso de {{tipo_proceso}}.</p><h2>CLÁUSULA TERCERA: PRECIO Y FORMA DE PAGO</h2><p>El precio total es de USD {{montoTotal}} ({{montoTotalLetras}}), incluido IVA, pagadero contra entrega de los bienes a entera satisfacción y suscripción del acta de entrega-recepción.</p><h2>CLÁUSULA CUARTA: PLAZO Y LUGAR DE ENTREGA</h2><p>Los bienes serán entregados en un plazo de {{plazo}} días desde la suscripción del contrato, en {{lugar}}.</p><h2>CLÁUSULA QUINTA: GARANTÍA TÉCNICA</h2><p>EL VENDEDOR otorga una garantía técnica de {{garantia_tecnica}} sobre los bienes entregados, contada desde la suscripción del acta de entrega-recepción.</p><h2>CLÁUSULA SEXTA: CONTROVERSIAS</h2><p>Las controversias se resolverán de forma directa y amistosa; de no ser posible, mediante mediación en un centro legalmente autorizado de la ciudad de Quito.</p><p>Suscrito en {{ciudad}}, a {{fechaContrato}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{proveedor}}</strong><br>RUC {{proveedorRuc}}</p>`
   },
   {
     id: uid(), nombre: 'Convenio de cooperación interinstitucional', categoria: 'Convenios',
     descripcion: 'Marco de cooperación entre FIAS/FAP y otra institución.',
     actualizado: hoy(),
-    cuerpo: `<h1>CONVENIO DE COOPERACIÓN INTERINSTITUCIONAL ENTRE EL FIAS Y {{institucion}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen a la celebración del presente convenio, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, representado por {{representante_fias}}; y, por otra parte, {{institucion}}, representada por {{representante_institucion}}, a quienes en adelante se les denominará conjuntamente "LAS PARTES".</p><h2>CLÁUSULA SEGUNDA: ANTECEDENTES</h2><p>{{antecedentes}}</p><h2>CLÁUSULA TERCERA: OBJETO</h2><p>El presente convenio tiene por objeto {{objeto}}, en beneficio del área protegida {{area_protegida}} y en el marco del Programa Fondo de Áreas Protegidas (FAP).</p><h2>CLÁUSULA CUARTA: COMPROMISOS DE LAS PARTES</h2><p><strong>Del FIAS:</strong> {{compromisos_fias}}</p><p><strong>De {{institucion}}:</strong> {{compromisos_institucion}}</p><h2>CLÁUSULA QUINTA: PLAZO</h2><p>El presente convenio tendrá una vigencia de {{vigencia}}, contada desde su suscripción, pudiendo renovarse por acuerdo escrito de LAS PARTES.</p><h2>CLÁUSULA SEXTA: TERMINACIÓN</h2><p>El convenio podrá terminar por cumplimiento del plazo, por mutuo acuerdo, o por decisión unilateral notificada por escrito con al menos treinta (30) días de anticipación.</p><h2>CLÁUSULA SÉPTIMA: CONTROVERSIAS</h2><p>Toda controversia será resuelta de manera directa y amistosa entre LAS PARTES; de no lograrse acuerdo, se someterán a mediación en un centro legalmente autorizado de la ciudad de Quito.</p><p>Para constancia, LAS PARTES suscriben el presente convenio en {{lugar}}, a {{fecha_suscripcion}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS<br><br><br>_______________________<br><strong>{{representante_institucion}}</strong><br>{{institucion}}</p>`
+    cuerpo: `<h1>CONVENIO DE COOPERACIÓN INTERINSTITUCIONAL ENTRE EL FIAS Y {{institucion}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Comparecen a la celebración del presente convenio, por una parte, el <strong>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE (FIAS)</strong>, representado por {{representante_fias}}; y, por otra parte, {{institucion}}, representada por {{representante_institucion}}, a quienes en adelante se les denominará conjuntamente "LAS PARTES".</p><h2>CLÁUSULA SEGUNDA: ANTECEDENTES</h2><p>{{antecedentes}}</p><h2>CLÁUSULA TERCERA: OBJETO</h2><p>El presente convenio tiene por objeto {{objeto}}, en beneficio del área protegida {{area}} y en el marco del Programa Fondo de Áreas Protegidas (FAP).</p><h2>CLÁUSULA CUARTA: COMPROMISOS DE LAS PARTES</h2><p><strong>Del FIAS:</strong> {{compromisos_fias}}</p><p><strong>De {{institucion}}:</strong> {{compromisos_institucion}}</p><h2>CLÁUSULA QUINTA: PLAZO</h2><p>El presente convenio tendrá una vigencia de {{vigencia}}, contada desde su suscripción, pudiendo renovarse por acuerdo escrito de LAS PARTES.</p><h2>CLÁUSULA SEXTA: TERMINACIÓN</h2><p>El convenio podrá terminar por cumplimiento del plazo, por mutuo acuerdo, o por decisión unilateral notificada por escrito con al menos treinta (30) días de anticipación.</p><h2>CLÁUSULA SÉPTIMA: CONTROVERSIAS</h2><p>Toda controversia será resuelta de manera directa y amistosa entre LAS PARTES; de no lograrse acuerdo, se someterán a mediación en un centro legalmente autorizado de la ciudad de Quito.</p><p>Para constancia, LAS PARTES suscriben el presente convenio en {{ciudad}}, a {{fechaContrato}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS<br><br><br>_______________________<br><strong>{{representante_institucion}}</strong><br>{{institucion}}</p>`
   },
   {
     id: uid(), nombre: 'Acta de ajuste de monto', categoria: 'Actas',
     descripcion: 'Ajuste del valor contractual conforme a la normativa de contrataciones del FIAS.',
     actualizado: hoy(),
-    cuerpo: `<h1>ACTA DE AJUSTE DE MONTO — CONTRATO N.º {{numero_contrato}}</h1><h2>1. COMPARECIENTES</h2><p>Comparecen a la suscripción de la presente acta, el <strong>FIAS</strong>, a través del Programa FAP, representado por {{representante_fias}}; y {{nombre_proveedor}}, con RUC/C.C. N.º {{cedula_ruc}}, en su calidad de contratista.</p><h2>2. ANTECEDENTES</h2><p>Con fecha {{fecha_contrato}}, las partes suscribieron el contrato N.º {{numero_contrato}}, cuyo objeto es {{objeto}}, por un valor de USD {{monto_original}}, en beneficio del área protegida {{area_protegida}}.</p><h2>3. JUSTIFICACIÓN DEL AJUSTE</h2><p>{{justificacion}}</p><h2>4. AJUSTE DE MONTO</h2><p>Las partes acuerdan ajustar el monto del contrato de USD {{monto_original}} a USD {{monto_ajustado}} ({{monto_ajustado_en_letras}}), lo que representa una variación que se enmarca en los límites permitidos por la normativa de contrataciones del FIAS.</p><h2>5. RATIFICACIÓN</h2><p>Las demás cláusulas del contrato principal permanecen inalteradas y plenamente vigentes.</p><p>Para constancia, las partes suscriben la presente acta en {{lugar}}, a {{fecha_suscripcion}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{nombre_proveedor}}</strong><br>C.C./RUC {{cedula_ruc}}</p>`
+    cuerpo: `<h1>ACTA DE AJUSTE DE MONTO — CONTRATO N.º {{contratoNro}}</h1><h2>1. COMPARECIENTES</h2><p>Comparecen a la suscripción de la presente acta, el <strong>FIAS</strong>, a través del Programa FAP, representado por {{representante_fias}}; y {{proveedor}}, con RUC/C.C. N.º {{proveedorRuc}}, en su calidad de contratista.</p><h2>2. ANTECEDENTES</h2><p>Con fecha {{fechaContrato}}, las partes suscribieron el contrato N.º {{contratoNro}}, cuyo objeto es {{objeto}}, por un valor de USD {{montoOriginal}}, en beneficio del área protegida {{area}}.</p><h2>3. JUSTIFICACIÓN DEL AJUSTE</h2><p>{{justificacion}}</p><h2>4. AJUSTE DE MONTO</h2><p>Las partes acuerdan ajustar el monto del contrato de USD {{montoOriginal}} a USD {{montoTotal}} ({{montoTotalLetras}}), lo que representa una variación que se enmarca en los límites permitidos por la normativa de contrataciones del FIAS.</p><h2>5. RATIFICACIÓN</h2><p>Las demás cláusulas del contrato principal permanecen inalteradas y plenamente vigentes.</p><p>Para constancia, las partes suscriben la presente acta en {{ciudad}}, a {{fechaActa}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{proveedor}}</strong><br>C.C./RUC {{proveedorRuc}}</p>`
   },
   {
     id: uid(), nombre: 'Acta de terminación por mutuo acuerdo', categoria: 'Actas',
     descripcion: 'Terminación anticipada y liquidación de contrato por mutuo acuerdo.',
     actualizado: hoy(),
-    cuerpo: `<h1>ACTA DE TERMINACIÓN POR MUTUO ACUERDO — CONTRATO N.º {{numero_contrato}}</h1><h2>1. COMPARECIENTES</h2><p>Comparecen el <strong>FIAS</strong>, a través del Programa FAP, representado por {{representante_fias}}; y {{nombre_proveedor}}, con RUC/C.C. N.º {{cedula_ruc}}.</p><h2>2. ANTECEDENTES</h2><p>Con fecha {{fecha_contrato}}, las partes suscribieron el contrato N.º {{numero_contrato}}, cuyo objeto es {{objeto}}, en beneficio del área protegida {{area_protegida}}.</p><h2>3. MOTIVACIÓN</h2><p>{{motivacion}}</p><h2>4. ACUERDO DE TERMINACIÓN</h2><p>Las partes, de manera libre y voluntaria, acuerdan dar por terminado el contrato N.º {{numero_contrato}} a partir de la suscripción de la presente acta, declarando que no existen valores pendientes de pago ni obligaciones exigibles entre ellas, salvo lo señalado en la liquidación siguiente: {{liquidacion}}.</p><h2>5. FINIQUITO</h2><p>Con la suscripción de la presente acta, las partes se otorgan mutuo y recíproco finiquito, renunciando a cualquier reclamo posterior derivado del contrato terminado.</p><p>Para constancia, las partes suscriben la presente acta en {{lugar}}, a {{fecha_suscripcion}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{nombre_proveedor}}</strong><br>C.C./RUC {{cedula_ruc}}</p>`
+    cuerpo: `<h1>ACTA DE TERMINACIÓN POR MUTUO ACUERDO — CONTRATO N.º {{contratoNro}}</h1><h2>1. COMPARECIENTES</h2><p>Comparecen el <strong>FIAS</strong>, a través del Programa FAP, representado por {{representante_fias}}; y {{proveedor}}, con RUC/C.C. N.º {{proveedorRuc}}.</p><h2>2. ANTECEDENTES</h2><p>Con fecha {{fechaContrato}}, las partes suscribieron el contrato N.º {{contratoNro}}, cuyo objeto es {{objeto}}, en beneficio del área protegida {{area}}.</p><h2>3. MOTIVACIÓN</h2><p>{{motivacion}}</p><h2>4. ACUERDO DE TERMINACIÓN</h2><p>Las partes, de manera libre y voluntaria, acuerdan dar por terminado el contrato N.º {{contratoNro}} a partir de la suscripción de la presente acta, declarando que no existen valores pendientes de pago ni obligaciones exigibles entre ellas, salvo lo señalado en la liquidación siguiente: {{liquidacion}}.</p><h2>5. FINIQUITO</h2><p>Con la suscripción de la presente acta, las partes se otorgan mutuo y recíproco finiquito, renunciando a cualquier reclamo posterior derivado del contrato terminado.</p><p>Para constancia, las partes suscriben la presente acta en {{ciudad}}, a {{fechaActa}}.</p><p style="text-align:center"><br><br>_______________________<br><strong>{{representante_fias}}</strong><br>FIAS – FAP<br><br><br>_______________________<br><strong>{{proveedor}}</strong><br>C.C./RUC {{proveedorRuc}}</p>`
   }
   ];
 }
@@ -13670,7 +13762,11 @@ let plantillas = [];
 let historial = [];
 let contrapartes = [];
 let clausulas = [];
+let variablesRepo = [];
 let fijos = {};
+let grupoVarFiltro = 'Todos';
+let varSelId = null;
+let varInsertTarget = null;
 let seleccion = null;
 let tabActual = 'generar';
 let catFiltro = 'Todas';
@@ -13686,27 +13782,32 @@ let insertTarget = null;
 let repoFiltro = '';
 
 function cargar(){
-  const p = store.get('fap_gen_plantillas');
+  // Claves _v2: las semillas cambiaron a los nombres canónicos del Catálogo de
+  // Tags FAP, así que se re-siembran aunque exista una biblioteca anterior.
+  const p = store.get('fap_gen_plantillas_v2');
   const h = store.get('fap_gen_historial');
   const c = store.get('fap_gen_contrapartes');
   const f = store.get('fap_gen_fijos');
   const l = store.get('fap_gen_lote');
-  const cl = store.get('fap_gen_clausulas');
+  const cl = store.get('fap_gen_clausulas_v2');
+  const vr = store.get('fap_gen_variables_v2');
   plantillas = p ? JSON.parse(p) : plantillasSemilla();
   historial = h ? JSON.parse(h) : [];
   contrapartes = c ? JSON.parse(c) : [];
-  fijos = f ? JSON.parse(f) : { representante_fias:'', lugar:'Quito D.M.' };
+  fijos = f ? JSON.parse(f) : { representante_fias:'', ciudad:'Quito' };
   loteFilas = l ? JSON.parse(l) : [];
   clausulas = cl ? JSON.parse(cl) : clausulasSemilla();
-  if(!p || !cl) guardar();
+  variablesRepo = vr ? JSON.parse(vr) : variablesSemilla();
+  if(!p || !cl || !vr) guardar();
 }
 function guardar(){
-  store.set('fap_gen_plantillas', JSON.stringify(plantillas));
+  store.set('fap_gen_plantillas_v2', JSON.stringify(plantillas));
   store.set('fap_gen_historial', JSON.stringify(historial));
   store.set('fap_gen_contrapartes', JSON.stringify(contrapartes));
   store.set('fap_gen_fijos', JSON.stringify(fijos));
   store.set('fap_gen_lote', JSON.stringify(loteFilas));
-  store.set('fap_gen_clausulas', JSON.stringify(clausulas));
+  store.set('fap_gen_clausulas_v2', JSON.stringify(clausulas));
+  store.set('fap_gen_variables_v2', JSON.stringify(variablesRepo));
 }
 
 /* ============ Registro de contratos (CRM / Excel maestro) ============ */
@@ -13770,11 +13871,22 @@ function extraerVariables(html){
   while((m = re.exec(texto)) !== null){ if(!vars.includes(m[1])) vars.push(m[1]); }
   return vars;
 }
-const esFecha = v => /fecha/i.test(v);
-const esMonto = v => /^(monto|precio|valor)/i.test(v) && !/letras/i.test(v);
-const esLetras = v => /_en_letras$/i.test(v);
-const baseLetras = v => v.replace(/_en_letras$/i,'');
-const etiqueta = v => v.replace(/_/g,' ').replace(/^\w/, c => c.toUpperCase());
+/* El tipo de cada variable lo dicta el repositorio (Catálogo de Tags FAP);
+   si no está registrada, se infiere por el nombre como antes. */
+const buscarVar = n => variablesRepo.find(x => x.nombre === n) || null;
+function tipoDe(v){
+  const r = buscarVar(v);
+  if(r) return r.tipo;
+  if(/_en_letras$/i.test(v) || /Letras$/.test(v)) return 'letras';
+  if(/fecha/i.test(v)) return 'fecha';
+  if(/^(monto|precio|valor|subtotal|iva|total|presupuesto)/i.test(v)) return 'numero';
+  return 'texto';
+}
+const esFecha = v => tipoDe(v) === 'fecha';
+const esMonto = v => tipoDe(v) === 'numero';
+const esLetras = v => tipoDe(v) === 'letras';
+const baseLetras = v => v.replace(/_en_letras$/i,'').replace(/Letras$/,'');
+const etiqueta = v => v.replace(/_/g,' ').replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g,'$1 $2').toLowerCase().replace(/^\w/, c => c.toUpperCase());
 
 /* Completa montos en letras dentro de un objeto de datos */
 function completarLetras(vars, datos){
@@ -13821,7 +13933,7 @@ function seleccionar(id){
   seleccion = id; datosForm = {}; editandoDoc = false; docEditado = '';
   const p = plActual();
   if(p) aplicarFijos(extraerVariables(p.cuerpo), datosForm);
-  if(tabActual === 'historial' || tabActual === 'contrapartes' || tabActual === 'repositorio') tabActual = 'generar';
+  if(['historial','contrapartes','repositorio','variables'].includes(tabActual)) tabActual = 'generar';
   renderLista(); renderTabs(); renderContenido();
 }
 function plActual(){ return plantillas.find(p => p.id === seleccion) || null; }
@@ -13838,6 +13950,7 @@ function renderContenido(){
   if(tabActual === 'historial'){ renderHistorial(c); return; }
   if(tabActual === 'contrapartes'){ renderContrapartes(c); return; }
   if(tabActual === 'repositorio'){ renderRepositorio(c); return; }
+  if(tabActual === 'variables'){ renderVariables(c); return; }
   const p = plActual();
   if(!p){
     c.innerHTML = `<div class="vacio">
@@ -13873,18 +13986,21 @@ function renderGenerar(c, p){
   const editables = vars.filter(v => !esLetras(v));
   const llenos = editables.filter(v => String(datosForm[v]||'').trim()).length;
   const pct = editables.length ? Math.round(llenos/editables.length*100) : 100;
-  const tieneNumero = vars.some(v => /numero/i.test(v));
+  const tieneNumero = vars.some(v => /numero|nro$/i.test(v));
 
   const campos = vars.map(v => {
+    const reg = buscarVar(v);
     if(esLetras(v)){
       const val = datosForm[v] || '';
       return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span></label><input readonly id="f_${v}" value="${esc(val)}"><div class="nota">Se calcula solo desde «${esc(baseLetras(v))}»</div></div>`;
     }
     const tipo = esFecha(v) ? 'date' : (esMonto(v) ? 'number' : 'text');
     const extra = esMonto(v) ? ' step="0.01" min="0"' : '';
+    const ph = reg && reg.ejemplo ? ` placeholder="${esc(reg.ejemplo)}"` : '';
     const tagFijo = fijos[v] ? ' <span class="tag-auto">fijo</span>' : '';
+    const nota = reg && reg.descripcion ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
     const warn = esIdVar(v) ? `<div class="warn-txt" id="w_${v}">${avisoIdentificacion(datosForm[v])}</div>` : '';
-    return `<div class="campo"><label>${esc(etiqueta(v))}${tagFijo}</label><input type="${tipo}"${extra} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)">${warn}</div>`;
+    return `<div class="campo"><label>${esc(etiqueta(v))} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${tagFijo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)">${nota}${warn}</div>`;
   }).join('');
 
   c.innerHTML = `
@@ -13962,7 +14078,7 @@ function aplicarNumeroSugerido(){
   const p = plActual(); if(!p) return;
   if(registroEstado !== 'ok'){ alert('Para sugerir el número siguiente necesito el registro de contratos cargado (botón «Registro» arriba a la derecha).'); return; }
   const num = sugerirNumero();
-  extraerVariables(p.cuerpo).forEach(v => { if(/numero/i.test(v)) datosForm[v] = num; });
+  extraerVariables(p.cuerpo).forEach(v => { if(/numero|nro$/i.test(v)) datosForm[v] = num; });
   renderContenido();
 }
 function valorDe(datos, v){
@@ -14295,8 +14411,8 @@ function construirDocx(p, datos, cuerpoOverride){
 }
 function nombreArchivo(p, datos, i){
   const vars = extraerVariables(p.cuerpo);
-  const nv = vars.find(v => /numero/i.test(v));
-  const id = (nv && datos[nv]) || datos.nombre_proveedor || datos.institucion || (i!=null ? 'fila' + (i+1) : hoy());
+  const nv = vars.find(v => /numero|nro$/i.test(v));
+  const id = (nv && datos[nv]) || datos.proveedor || datos.nombre_proveedor || datos.institucion || (i!=null ? 'fila' + (i+1) : hoy());
   const base = slugify(p.nombre) || 'documento';
   const suf = slugify(String(id)) || 'doc';
   return `${base}-${suf}.docx`;
@@ -14335,7 +14451,7 @@ function abrirFijos(){
   abrirModal(`
     <div class="m-cab"><h3>⚙ Datos fijos institucionales</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
-      <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">Escríbelos una sola vez. Cada variable de plantilla con este nombre (p. ej. <b>representante_fias</b>, <b>lugar</b>) se llenará sola en todos los documentos, incluido el lote. Siempre puedes editarla en el formulario antes de descargar.</p>
+      <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">Escríbelos una sola vez. Cada variable de plantilla con este nombre (p. ej. <b>representante_fias</b>, <b>ciudad</b>) se llenará sola en todos los documentos, incluido el lote. Siempre puedes editarla en el formulario antes de descargar.</p>
       <div id="fj-lista">${filas}</div>
       <button class="btn sec mini" onclick="agregarFijo()">+ Añadir dato fijo</button>
     </div>
@@ -14381,7 +14497,7 @@ function renderEditar(c, p){
     </div>
     ${buildToolbar('editor', true, false)}
     <div id="editor" contenteditable="true">${p.cuerpo}</div>
-    <div class="ayuda-var">Escribe variables entre llaves dobles, por ejemplo <code>{{numero_contrato}}</code> o <code>{{fecha_suscripcion}}</code>. Reglas automáticas: los campos con <code>fecha</code> se muestran como calendario y se escriben en letras largas; los que empiezan con <code>monto</code>, <code>precio</code> o <code>valor</code> son numéricos; y un campo <code>{{X_en_letras}}</code> se calcula solo a partir de <code>{{X}}</code> (p. ej. <code>{{monto_en_letras}}</code>). Si usas los nombres <code>numero_contrato</code>, <code>nombre_proveedor</code>, <code>objeto</code>, <code>area_protegida</code>, <code>monto</code>, <code>plazo_dias</code>, <code>fecha_suscripcion</code>… la plantilla se llenará sola desde el registro de contratos. Con <b>📋 Cláusula</b> insertas cláusulas del repositorio, con <b>📌 Guardar cláusula</b> mandas el texto seleccionado al repositorio, y <b>🔢 Renumerar</b> corrige la numeración de las cláusulas.</div>
+    <div class="ayuda-var">Escribe variables entre llaves dobles, por ejemplo <code>{{numero_contrato}}</code> o <code>{{fecha_suscripcion}}</code>. Reglas automáticas: los campos con <code>fecha</code> se muestran como calendario y se escriben en letras largas; los que empiezan con <code>monto</code>, <code>precio</code> o <code>valor</code> son numéricos; y un campo <code>{{X_en_letras}}</code> se calcula solo a partir de <code>{{X}}</code> (p. ej. <code>{{monto_en_letras}}</code>). Inserta variables solo desde el botón <b>{{ Variable }}</b>: ahí vive el repositorio único (el mismo catálogo de tags de La Mágica y el CRM). Con los nombres canónicos — <code>contratoNro</code>, <code>proveedor</code>, <code>proveedorRuc</code>, <code>objeto</code>, <code>area</code>, <code>montoTotal</code>, <code>plazo</code>, <code>fechaContrato</code>… — la plantilla se llena sola desde el registro de contratos. Con <b>📋 Cláusula</b> insertas cláusulas del repositorio, con <b>📌 Guardar cláusula</b> mandas el texto seleccionado al repositorio, y <b>🔢 Renumerar</b> corrige la numeración de las cláusulas.</div>
     <div class="ed-acciones">
       <button class="btn" onclick="guardarPlantilla()">💾 Guardar cambios</button>
       <button class="btn sec" onclick="duplicarPlantilla()">Duplicar</button>
@@ -14409,7 +14525,7 @@ function buildToolbar(target, conVariables, esRepo){
     <button onclick="insertarTabla('${target}')" title="Insertar tabla">▦ Tabla</button>
     <button onclick="mayusculas('${target}')" title="Convertir selección a mayúsculas">AA</button>
     ${b('removeFormat',null,'✘ Formato','Quitar formato de la selección')}
-    ${conVariables ? `<div class="sep"></div><button onclick="insertarVariable('${target}')" style="color:var(--azul);font-weight:700">{{ Variable }}</button>` : ''}
+    ${conVariables ? `<div class="sep"></div><button onclick="abrirModalVariables('${target}')" style="color:var(--azul);font-weight:700" title="Insertar una variable del repositorio (Catálogo de Tags FAP)">{{ Variable }}</button>` : ''}
     ${!esRepo ? `<div class="sep"></div><button onclick="abrirModalClausulas('${target}')" style="color:var(--azul);font-weight:700" title="Insertar una cláusula del repositorio">📋 Cláusula</button><button onclick="guardarSeleccionComoClausula('${target}')" title="Guarda el texto seleccionado como cláusula del repositorio">📌 Guardar cláusula</button><button onclick="renumerarClausulas('${target}')" title="Renumera automáticamente los encabezados de cláusula">🔢 Renumerar</button>` : ''}
   </div>`;
 }
@@ -14434,12 +14550,121 @@ function mayusculas(target){
   document.getElementById(target).focus();
   document.execCommand('insertText', false, sel.toString().toUpperCase());
 }
-function insertarVariable(target){
-  const n = prompt('Nombre de la variable (sin espacios, usa guion_bajo):','nombre_variable');
-  if(!n) return;
-  const limpio = n.trim().replace(/\s+/g,'_');
-  document.getElementById(target || 'editor').focus();
-  document.execCommand('insertText', false, `{{${limpio}}}`);
+/* ============ Repositorio de variables ============ */
+/* Insertar variable: siempre desde el repositorio, para que las plantillas y
+   cláusulas usen el mismo universo de variables que La Mágica y el CRM. */
+function abrirModalVariables(target){
+  varInsertTarget = target;
+  abrirModal(`
+    <div class="m-cab"><h3>{{ }} Insertar variable del repositorio</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <div class="campo" style="margin-bottom:10px"><input type="search" id="busq-var" placeholder="Buscar variable… (ej. proveedor, fecha, monto)" oninput="renderModalVariables()"></div>
+      <div id="modal-variables-body"></div>
+    </div>
+    <div class="m-pie" style="justify-content:flex-start">
+      <button class="btn sec mini" onclick="registrarVariableDesdeModal()">+ Registrar variable nueva en el repositorio</button>
+    </div>`);
+  renderModalVariables();
+}
+function renderModalVariables(){
+  const q = (document.getElementById('busq-var').value || '').toLowerCase();
+  const body = document.getElementById('modal-variables-body');
+  const filtradas = variablesRepo.filter(v =>
+    v.nombre.toLowerCase().includes(q) || (v.descripcion||'').toLowerCase().includes(q) || (v.grupo||'').toLowerCase().includes(q)
+  );
+  if(!filtradas.length){ body.innerHTML = '<p style="color:var(--gris);font-size:13px">Sin resultados. Puedes registrarla como variable nueva con el botón de abajo.</p>'; return; }
+  const grupos = {};
+  filtradas.forEach(v => { (grupos[v.grupo] = grupos[v.grupo] || []).push(v); });
+  body.innerHTML = Object.keys(grupos).map(g => `
+    <div class="modal-cat">${esc(g)}</div>
+    ${grupos[g].map(v => `<div class="var-fila" onclick="insertarVariableEnDoc('${esc(v.nombre)}')"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${esc(v.descripcion||'')}</span><span class="tipo-pill">${esc(v.tipo)}</span></div>`).join('')}`
+  ).join('');
+}
+function insertarVariableEnDoc(nombre){
+  const el = document.getElementById(varInsertTarget);
+  if(el){ el.focus(); document.execCommand('insertText', false, `{{${nombre}}}`); }
+  cerrarModal();
+}
+function registrarVariableDesdeModal(){
+  const v = registrarVariable(document.getElementById('busq-var').value.trim());
+  if(v) insertarVariableEnDoc(v.nombre);
+}
+function registrarVariable(sugerido){
+  const n = prompt('Nombre de la variable (sin espacios; usa camelCase para tags del catálogo FAP o guion_bajo para locales):', sugerido || '');
+  if(!n) return null;
+  const nombre = n.trim().replace(/\s+/g,'_').replace(/[{}]/g,'');
+  if(buscarVar(nombre)){ alert(`La variable {{${nombre}}} ya existe en el repositorio.`); return buscarVar(nombre); }
+  const descripcion = prompt('Descripción breve (qué contiene):','') || '';
+  let tipo = (prompt('Tipo: texto / numero / fecha / letras','texto') || 'texto').toLowerCase();
+  if(!['texto','numero','fecha','letras','repetible'].includes(tipo)) tipo = 'texto';
+  const grupo = prompt('Grupo o categoría:','Locales (plantillas HTML)') || 'Otros';
+  const v = { id: uid(), grupo: grupo.trim(), nombre, descripcion: descripcion.trim(), ejemplo: '', tipo };
+  variablesRepo.push(v); guardar();
+  return v;
+}
+
+/* ============ Pestaña: Repositorio de variables ============ */
+function gruposVar(){
+  return ['Todos', ...Array.from(new Set(variablesRepo.map(v => v.grupo)))];
+}
+function renderVariables(c){
+  const filtradas = variablesRepo.filter(v => grupoVarFiltro === 'Todos' || v.grupo === grupoVarFiltro);
+  const sel = variablesRepo.find(v => v.id === varSelId) || null;
+  const grupos = {};
+  filtradas.forEach(v => { (grupos[v.grupo] = grupos[v.grupo] || []).push(v); });
+  c.innerHTML = `
+    <div class="banner-edicion" style="margin-bottom:12px">Este es el diccionario único de variables del ecosistema FAP: el mismo catálogo de tags que usan las plantillas Word (docxtemplater), La Mágica y el CRM. Las plantillas y cláusulas de esta herramienta deben usar estos nombres para que todo el sistema hable el mismo idioma.</div>
+    <div class="cats" style="padding:0 0 10px">${gruposVar().map(g => `<button class="chip ${g===grupoVarFiltro?'activo':''}" onclick="grupoVarFiltro='${g.replace(/'/g,"\\'")}';renderContenido()">${esc(g)}</button>`).join('')}</div>
+    <div class="gen-grid" style="grid-template-columns:1fr 360px">
+      <div class="card" style="max-height:62vh;overflow-y:auto">
+        <h3>Variables (${filtradas.length})</h3>
+        ${Object.keys(grupos).map(g => `
+          <div class="rep-cat-titulo">${esc(g)}</div>
+          ${grupos[g].map(v => `<div class="var-fila ${varSelId===v.id?'sel':''}" onclick="varSelId='${v.id}';renderContenido()"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${esc(v.descripcion||'')}</span><span class="tipo-pill">${esc(v.tipo)}</span></div>`).join('')}`
+        ).join('')}
+      </div>
+      <div>
+        ${sel ? `
+        <div class="card">
+          <h3>Editar variable</h3>
+          <div class="campo"><label>Nombre (tag)</label><input id="var-ed-nombre" value="${esc(sel.nombre)}"></div>
+          <div class="campo"><label>Grupo</label><input id="var-ed-grupo" list="grupos-dl" value="${esc(sel.grupo)}"><datalist id="grupos-dl">${gruposVar().filter(x=>x!=='Todos').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
+          <div class="campo"><label>Descripción</label><textarea id="var-ed-desc" rows="3">${esc(sel.descripcion||'')}</textarea></div>
+          <div class="campo"><label>Ejemplo (se muestra como guía en el formulario)</label><input id="var-ed-ejemplo" value="${esc(sel.ejemplo||'')}"></div>
+          <div class="campo"><label>Tipo</label><select id="var-ed-tipo">${['texto','numero','fecha','letras','repetible'].map(t=>`<option ${sel.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div>
+          <div class="ed-acciones" style="margin-top:6px">
+            <button class="btn" onclick="guardarVariableEd()">💾 Guardar</button>
+            <button class="btn peligro" onclick="eliminarVariableEd()">Eliminar</button>
+            <span class="estado" id="var-estado"></span>
+          </div>
+        </div>` : `<div class="card"><h3>Detalle</h3><p style="font-size:13px;color:var(--gris)">Selecciona una variable de la lista para editarla, o crea una nueva.</p></div>`}
+        <div class="acciones-gen">
+          <button class="btn" onclick="if(registrarVariable()){renderContenido()}">+ Nueva variable</button>
+          <button class="btn sec" onclick="exportarVariables()">Exportar variables</button>
+        </div>
+      </div>
+    </div>`;
+}
+function guardarVariableEd(){
+  const v = variablesRepo.find(x => x.id === varSelId); if(!v) return;
+  const nuevoNombre = document.getElementById('var-ed-nombre').value.trim().replace(/\s+/g,'_').replace(/[{}]/g,'');
+  if(nuevoNombre !== v.nombre && buscarVar(nuevoNombre)){ alert(`Ya existe otra variable con el nombre {{${nuevoNombre}}}.`); return; }
+  if(nuevoNombre !== v.nombre && !confirm(`Vas a renombrar {{${v.nombre}}} a {{${nuevoNombre}}}. Ojo: las plantillas y cláusulas que ya usan el nombre anterior NO se actualizan solas; tendrías que corregirlas. ¿Continuar?`)) return;
+  v.nombre = nuevoNombre || v.nombre;
+  v.grupo = document.getElementById('var-ed-grupo').value.trim() || v.grupo;
+  v.descripcion = document.getElementById('var-ed-desc').value.trim();
+  v.ejemplo = document.getElementById('var-ed-ejemplo').value.trim();
+  v.tipo = document.getElementById('var-ed-tipo').value;
+  guardar(); renderContenido();
+}
+function eliminarVariableEd(){
+  const v = variablesRepo.find(x => x.id === varSelId); if(!v) return;
+  if(!confirm(`¿Eliminar {{${v.nombre}}} del repositorio? Las plantillas que la usen la tratarán como variable no registrada (campo de texto simple).`)) return;
+  variablesRepo = variablesRepo.filter(x => x.id !== varSelId);
+  varSelId = null; guardar(); renderContenido();
+}
+function exportarVariables(){
+  descargarJSON({ tipo:'variables_fap', version:1, exportado:new Date().toISOString(), variables: variablesRepo }, `variables-fap-${hoy()}.json`);
 }
 
 /* ============ Renumeración automática de cláusulas ============ */
@@ -14703,7 +14928,7 @@ function guardarPlantilla(){
 }
 function nuevaPlantilla(){
   const p = { id: uid(), nombre: 'Nueva plantilla', categoria: 'Otros', descripcion: '', actualizado: hoy(),
-    cuerpo: '<h1>TÍTULO DEL INSTRUMENTO N.º {{numero_documento}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Redacta aquí el contenido e inserta variables como {{nombre_proveedor}} donde corresponda.</p>' };
+    cuerpo: '<h1>TÍTULO DEL INSTRUMENTO N.º {{numero_documento}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Redacta aquí el contenido e inserta variables como {{proveedor}} donde corresponda.</p>' };
   plantillas.unshift(p); guardar();
   seleccion = p.id; tabActual = 'editar';
   renderCats(); renderLista(); renderTabs(); renderContenido();
@@ -14763,7 +14988,7 @@ function descargarJSON(obj, nombre){
   descargarBlob(blob, nombre);
 }
 function exportarBiblioteca(){
-  descargarJSON({ tipo:'biblioteca_fap', version:3, exportado:new Date().toISOString(), plantillas, clausulas, historial, contrapartes, fijos }, `biblioteca-instrumentos-fap-${hoy()}.json`);
+  descargarJSON({ tipo:'biblioteca_fap', version:4, exportado:new Date().toISOString(), plantillas, clausulas, variables: variablesRepo, historial, contrapartes, fijos }, `biblioteca-instrumentos-fap-${hoy()}.json`);
 }
 function importarBiblioteca(ev){
   const file = ev.target.files[0]; if(!file) return;
@@ -14775,6 +15000,10 @@ function importarBiblioteca(ev){
         data.plantilla.id = uid();
         plantillas.unshift(data.plantilla);
         alert(`Plantilla «${data.plantilla.nombre}» importada.`);
+      } else if(data.tipo === 'variables_fap' && Array.isArray(data.variables)){
+        let n = 0;
+        data.variables.forEach(v => { if(!buscarVar(v.nombre)){ v.id = uid(); variablesRepo.push(v); n++; } });
+        alert(`Variables importadas: ${n} nuevas (las que ya existían se conservaron).`);
       } else if(data.tipo === 'biblioteca_fap' && Array.isArray(data.plantillas)){
         const modo = confirm('Aceptar: FUSIONAR con la biblioteca actual (se agregan las plantillas nuevas).\nCancelar: REEMPLAZAR toda la biblioteca por la del archivo.');
         if(modo){
@@ -14788,14 +15017,18 @@ function importarBiblioteca(ev){
             const nomCl = new Set(clausulas.map(c => normalizar(c.categoria + '|' + c.nombre)));
             data.clausulas.forEach(c => { if(!nomCl.has(normalizar(c.categoria + '|' + c.nombre))){ c.id = uid(); (c.variantes||[]).forEach(v => v.id = uid()); clausulas.push(c); } });
           }
+          if(Array.isArray(data.variables)){
+            data.variables.forEach(v => { if(!buscarVar(v.nombre)){ v.id = uid(); variablesRepo.push(v); } });
+          }
           if(data.fijos) fijos = { ...data.fijos, ...fijos };
         } else {
           plantillas = data.plantillas;
           if(Array.isArray(data.historial)) historial = data.historial;
           if(Array.isArray(data.contrapartes)) contrapartes = data.contrapartes;
           if(Array.isArray(data.clausulas)) clausulas = data.clausulas;
+          if(Array.isArray(data.variables)) variablesRepo = data.variables;
           if(data.fijos) fijos = data.fijos;
-          seleccion = null; varianteSel = null; clausulaAbierta = null;
+          seleccion = null; varianteSel = null; clausulaAbierta = null; varSelId = null;
         }
         alert('Biblioteca importada correctamente.');
       } else { alert('El archivo no tiene un formato reconocido.'); return; }
@@ -14806,8 +15039,15 @@ function importarBiblioteca(ev){
   reader.readAsText(file);
 }
 
+/* ============ Menú lateral retraíble ============ */
+function toggleAside(){
+  const oculto = document.body.classList.toggle('aside-oculto');
+  store.set('fap_gen_aside_oculto', oculto ? '1' : '0');
+}
+
 /* ============ Inicio ============ */
 cargar();
+if(store.get('fap_gen_aside_oculto') === '1') document.body.classList.add('aside-oculto');
 renderCats();
 renderLista();
 renderContenido();

@@ -26,6 +26,14 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
     descargan todos los Word de una vez en un ZIP.
   - **Contrapartes**: directorio local de proveedores/instituciones (con validación de
     cédula/RUC) para no volver a tipear sus datos.
+  - **Repositorio de variables**: diccionario único del ecosistema FAP, sembrado desde el
+    Catálogo de Tags (los mismos tags docxtemplater de las 15 plantillas Word de La Mágica
+    y los campos del CRM: `{area}`, `{proveedor}`, `{proveedorRuc}`, `{contratoNro}`,
+    `{montoTotal}`…). Las variables se insertan siempre desde este repositorio (botón
+    «{{ Variable }}», con buscador), cada una define su tipo (texto/número/fecha/letras),
+    descripción y ejemplo que guían el formulario, y se pueden registrar nuevas. Las
+    plantillas y cláusulas semilla usan estos nombres canónicos, así el registro del CRM
+    las llena sin mapeos manuales.
   - **Repositorio de cláusulas**: cláusulas aprobadas organizadas por categoría, cada una
     con variantes (p. ej. garantía con letra de cambio vs. garantía técnica). Se insertan
     con 📋 en la plantilla o en el documento final (donde sus variables se llenan solas con
