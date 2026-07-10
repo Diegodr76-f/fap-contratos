@@ -16,6 +16,20 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
   con los datos del proceso para adjuntar los archivos y subirlos a un flujo de Power Automate
   (subida de documentos a revisión). La URL de ese flujo se configura en la constante
   `FLOW_DOCS_URL` dentro de `generador/index.html`.
+- **`/instrumentos/`** — Generador de Instrumentos Legales para la Unidad Legal
+  (`instrumentos/index.html`, funciona también abierto como archivo local, sin conexión).
+  Genera contratos, convenios y actas en Word a partir de plantillas con variables
+  `{{asi}}`. Está pensado para la campaña de inicio de año:
+  - **Toma los datos del registro de contratos** (`crm/contratos_export.json`): se elige
+    el contrato y se llenan solos número, proveedor, objeto, área, monto, plazo y fechas.
+  - **Lote**: se marcan varios contratos del registro (o se pegan filas desde Excel) y se
+    descargan todos los Word de una vez en un ZIP.
+  - **Contrapartes**: directorio local de proveedores/instituciones (con validación de
+    cédula/RUC) para no volver a tipear sus datos.
+  - **Datos fijos** (representante FIAS, lugar…) que se escriben una sola vez, sugerencia
+    automática del siguiente número correlativo y montos en letras calculados solos.
+  Las rutas donde busca el registro se configuran en la constante `RUTAS_REGISTRO`
+  dentro de `instrumentos/index.html`.
 
 ## URL pública
 
