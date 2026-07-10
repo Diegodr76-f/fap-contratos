@@ -13319,6 +13319,10 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 #preview p{margin-bottom:8px;text-align:justify}
 #preview ul,#preview ol{margin:0 0 8px 22px}
 .ph-pend{background:#FEF3C7;color:#92400E;border-radius:3px;padding:0 3px;font-weight:600}
+.membrete-prev{border-bottom:1px dashed var(--borde);padding-bottom:10px;margin-bottom:16px}
+.membrete-prev img{max-width:100%;display:block}
+.membrete-prev .mb-txt{font-weight:700;font-size:12.5px;margin-top:4px}
+.membrete-prev .mb-nota{font-size:10.5px;color:var(--gris);margin-top:4px;font-style:italic}
 .ph-ok{color:var(--texto);font-weight:700}
 .acciones-gen{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 
@@ -13444,6 +13448,7 @@ tr:hover td{background:var(--azul-claro)}
   <button id="chip-registro" onclick="clicChipRegistro()" title="Registro de contratos del CRM (Excel maestro)">📇 Registro: cargando…</button>
   <input type="file" id="reg-file" accept=".json" style="display:none" onchange="cargarRegistroArchivo(event)">
   <button onclick="abrirFijos()" title="Valores institucionales que se llenan solos en todos los documentos">⚙ Datos fijos</button>
+  <button onclick="abrirMembrete()" title="Encabezado institucional con logos que se repite en todas las páginas del Word">🖼 Membrete</button>
   <button onclick="exportarBiblioteca()">⬇ Exportar biblioteca</button>
   <button onclick="document.getElementById('imp-file').click()">⬆ Importar</button>
   <input type="file" id="imp-file" accept=".json" style="display:none" onchange="importarBiblioteca(event)">
@@ -13764,6 +13769,7 @@ let contrapartes = [];
 let clausulas = [];
 let variablesRepo = [];
 let fijos = {};
+let membrete = { activo:false, imagen:'', ancho:0, alto:0, texto:'' };
 let grupoVarFiltro = 'Todos';
 let varSelId = null;
 let varInsertTarget = null;
@@ -13798,6 +13804,8 @@ function cargar(){
   loteFilas = l ? JSON.parse(l) : [];
   clausulas = cl ? JSON.parse(cl) : clausulasSemilla();
   variablesRepo = vr ? JSON.parse(vr) : variablesSemilla();
+  const mb = store.get('fap_gen_membrete');
+  if(mb) membrete = JSON.parse(mb);
   if(!p || !cl || !vr) guardar();
 }
 function guardar(){
@@ -13808,6 +13816,7 @@ function guardar(){
   store.set('fap_gen_lote', JSON.stringify(loteFilas));
   store.set('fap_gen_clausulas_v2', JSON.stringify(clausulas));
   store.set('fap_gen_variables_v2', JSON.stringify(variablesRepo));
+  store.set('fap_gen_membrete', JSON.stringify(membrete));
 }
 
 /* ============ Registro de contratos (CRM / Excel maestro) ============ */
@@ -13975,6 +13984,7 @@ function renderGenerar(c, p){
       <div class="banner-edicion">✏ Estás editando el documento final: lo que ves es exactamente lo que se descargará. Puedes insertar cláusulas del repositorio (📋) y renumerar (🔢).
         <button class="btn sec mini" style="margin-left:auto" onclick="salirEdicionDoc()">← Volver al formulario</button>
       </div>
+      ${membreteHTMLPreview(datosForm) ? `<div style="background:#fff;border:1px solid var(--borde);border-radius:8px;padding:12px 32px 2px;margin-bottom:10px">${membreteHTMLPreview(datosForm)}</div>` : ''}
       ${buildToolbar('preview', false, false)}
       <div id="preview" class="editando" contenteditable="true">${docEditado}</div>
       <div class="acciones-gen">
@@ -14027,7 +14037,7 @@ function renderGenerar(c, p){
       <div>
         <div class="card" style="padding:0;border:none;background:transparent">
           <h3 style="padding:0 4px">Vista previa</h3>
-          <div id="preview">${rellenarDatos(p.cuerpo, datosForm, true)}</div>
+          <div id="preview">${membreteHTMLPreview(datosForm)}${rellenarDatos(p.cuerpo, datosForm, true)}</div>
         </div>
       </div>
     </div>`;
@@ -14055,7 +14065,7 @@ function actualizarCampo(v, val){
   if(pb) pb.style.width = pct + '%';
   if(pg) pg.classList.toggle('completo', pct===100);
   const prev = document.getElementById('preview');
-  if(prev) prev.innerHTML = rellenarDatos(p.cuerpo, datosForm, true);
+  if(prev && !editandoDoc) prev.innerHTML = membreteHTMLPreview(datosForm) + rellenarDatos(p.cuerpo, datosForm, true);
 }
 function limpiarForm(){
   datosForm = {}; editandoDoc = false; docEditado = '';
@@ -14362,9 +14372,8 @@ function procesarPegado(){
   const info = document.getElementById('lt-pegar-info');
   if(info) info.textContent = `Se añadieron ${n} filas. Columnas reconocidas: ${usadas.join(', ')}.`;
 }
-function generarLote(){
+async function generarLote(){
   const p = plActual(); if(!p || !loteFilas.length) return;
-  if(typeof JSZip === 'undefined'){ alert('No se pudo cargar la librería de compresión (JSZip). Verifica tu conexión a internet y recarga la página.'); return; }
   const vars = extraerVariables(p.cuerpo);
   const columnas = vars.filter(v => !esLetras(v));
   const incompletas = loteFilas.filter(f => columnas.some(v => !String(f[v]||'').trim())).length;
@@ -14372,28 +14381,27 @@ function generarLote(){
   try{
     const zip = new JSZip();
     const nombresUsados = new Set();
-    loteFilas.forEach((fila, i) => {
-      const datos = completarLetras(vars, { ...fila });
-      const blob = construirDocx(p, datos);
+    for(let i = 0; i < loteFilas.length; i++){
+      const datos = completarLetras(vars, { ...loteFilas[i] });
+      const blob = await construirDocx(p, datos);
       let archivo = nombreArchivo(p, datos, i);
       let k = 2;
       while(nombresUsados.has(archivo)){ archivo = archivo.replace(/\.docx$/, `-${k++}.docx`); }
       nombresUsados.add(archivo);
       zip.file(archivo, blob);
       historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(datos)) });
-    });
+    }
     if(historial.length > 500) historial.length = 500;
     guardar();
-    zip.generateAsync({ type:'blob' }).then(b => {
-      descargarBlob(b, `lote-${slugify(p.nombre)}-${hoy()}.zip`);
-    });
+    const b = await zip.generateAsync({ type:'blob' });
+    descargarBlob(b, `lote-${slugify(p.nombre)}-${hoy()}.zip`);
   }catch(e){
-    alert('No se pudo generar el lote. Verifica tu conexión a internet (las librerías se cargan en línea).\n\nDetalle: ' + e.message);
+    alert('No se pudo generar el lote.\n\nDetalle: ' + e.message);
   }
 }
 
 /* ============ Descarga Word ============ */
-function construirDocx(p, datos, cuerpoOverride){
+async function construirDocx(p, datos, cuerpoOverride){
   // cuerpoOverride: HTML ya editado a mano; igual se pasa por rellenarDatos para
   // completar variables sueltas (p. ej. de una cláusula recién insertada).
   const cuerpo = rellenarDatos(cuerpoOverride !== undefined ? cuerpoOverride : p.cuerpo, datos, false);
@@ -14407,7 +14415,8 @@ function construirDocx(p, datos, cuerpoOverride){
     td,th{border:1pt solid #8895BD;padding:3pt 6pt;font-size:10.5pt;text-align:left}
     th{color:#00249C}
   </style></head><body>${cuerpo}</body></html>`;
-  return htmlDocx.asBlob(docHtml, { orientation:'portrait', margins:{ top:1134, right:1134, bottom:1134, left:1134 } });
+  const blob = htmlDocx.asBlob(docHtml, { orientation:'portrait', margins:{ top:1134, right:1134, bottom:1134, left:1134 } });
+  return aplicarMembrete(blob, datos);
 }
 function nombreArchivo(p, datos, i){
   const vars = extraerVariables(p.cuerpo);
@@ -14422,7 +14431,7 @@ function descargarBlob(blob, nombre){
   a.href = URL.createObjectURL(blob); a.download = nombre; a.click();
   URL.revokeObjectURL(a.href);
 }
-function descargarWord(){
+async function descargarWord(){
   const p = plActual(); if(!p) return;
   const vars = extraerVariables(p.cuerpo);
   let cuerpoOverride;
@@ -14434,14 +14443,14 @@ function descargarWord(){
     if(pendientes.length && !confirm('Campos sin completar: ' + pendientes.map(etiqueta).join(', ') + '.\n\n¿Generar de todas formas? (aparecerán como líneas en blanco)')) return;
   }
   try{
-    const blob = construirDocx(p, datosForm, cuerpoOverride);
+    const blob = await construirDocx(p, datosForm, cuerpoOverride);
     const archivo = nombreArchivo(p, datosForm, null);
     descargarBlob(blob, archivo);
     historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(datosForm)) });
     if(historial.length > 500) historial.length = 500;
     guardar();
   }catch(e){
-    alert('No se pudo generar el documento. Verifica tu conexión a internet (la librería de conversión se carga en línea).\n\nDetalle: ' + e.message);
+    alert('No se pudo generar el documento.\n\nDetalle: ' + e.message);
   }
 }
 
@@ -14476,6 +14485,105 @@ function guardarFijos(){
   fijos = nuevo; guardar(); cerrarModal();
   const p = plActual();
   if(p && tabActual === 'generar'){ aplicarFijos(extraerVariables(p.cuerpo), datosForm); renderContenido(); }
+}
+
+/* ============ Membrete institucional (encabezado de Word) ============ */
+const RE_VAR = /\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g;
+const escXml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function abrirMembrete(){
+  abrirModal(`
+    <div class="m-cab"><h3>🖼 Membrete institucional</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">La imagen (logos FAP/FIAS) y la línea de texto se insertan como <b>encabezado real de Word</b>: se repiten en todas las páginas del documento, como en los contratos formales. Configúralo una vez y sale en todos los Word, incluido el lote.</p>
+      <div class="campo"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="mb-activo" style="width:auto" ${membrete.activo?'checked':''}> Incluir membrete en los documentos</label></div>
+      <div class="campo">
+        <label>Imagen del membrete (PNG o JPG; recórtala de tu Word con los logos)</label>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <button class="btn sec mini" onclick="document.getElementById('mb-file').click()">Subir imagen…</button>
+          <button class="btn peligro mini" onclick="quitarImagenMembrete()" ${membrete.imagen?'':'disabled'}>Quitar</button>
+          <input type="file" id="mb-file" accept="image/png,image/jpeg" style="display:none" onchange="cargarImagenMembrete(event)">
+        </div>
+        <img id="mb-prev" src="${membrete.imagen||''}" style="max-width:100%;border:1px dashed var(--borde);border-radius:6px;padding:6px;display:${membrete.imagen?'block':'none'}">
+      </div>
+      <div class="campo">
+        <label>Línea de texto bajo los logos (opcional, admite variables)</label>
+        <input id="mb-texto" value="${esc(membrete.texto||'')}" placeholder="CONTRATO-{{contratoNro}}">
+        <div class="nota">Las variables se llenan con los datos de cada documento; p. ej. «CONTRATO-{{contratoNro}}» sale como «CONTRATO-FIAS-FAP - 2026 - 007».</div>
+      </div>
+    </div>
+    <div class="m-pie">
+      <button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn" onclick="guardarMembrete()">💾 Guardar</button>
+    </div>`);
+}
+function cargarImagenMembrete(ev){
+  const file = ev.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      membrete.imagen = reader.result; membrete.ancho = img.naturalWidth; membrete.alto = img.naturalHeight;
+      const prev = document.getElementById('mb-prev');
+      if(prev){ prev.src = reader.result; prev.style.display = 'block'; }
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+  ev.target.value = '';
+}
+function quitarImagenMembrete(){
+  membrete.imagen = ''; membrete.ancho = 0; membrete.alto = 0;
+  const prev = document.getElementById('mb-prev');
+  if(prev){ prev.src = ''; prev.style.display = 'none'; }
+}
+function guardarMembrete(){
+  membrete.activo = document.getElementById('mb-activo').checked;
+  membrete.texto = document.getElementById('mb-texto').value.trim();
+  guardar(); cerrarModal(); renderContenido();
+}
+function membreteHTMLPreview(datos){
+  if(!membrete.activo || (!membrete.imagen && !membrete.texto)) return '';
+  const t = membrete.texto ? membrete.texto.replace(RE_VAR, (m, v) => valorDe(datos, v) || m) : '';
+  return `<div class="membrete-prev">${membrete.imagen ? `<img src="${membrete.imagen}" alt="Membrete">` : ''}${t ? `<div class="mb-txt">${esc(t)}</div>` : ''}<div class="mb-nota">Encabezado institucional — se repetirá en todas las páginas del Word</div></div>`;
+}
+/* Convierte el docx generado para agregarle un encabezado real (header1.xml)
+   con la imagen del membrete y la línea de texto, referenciado desde sectPr. */
+async function aplicarMembrete(blob, datos){
+  if(!membrete.activo || (!membrete.imagen && !membrete.texto)) return blob;
+  const EMU_POR_PX = 9525;
+  const ANCHO_CONTENIDO_EMU = (12240 - 1134*2) * 635; // ancho útil de página carta en EMU
+  const zip = await JSZip.loadAsync(blob);
+  let imgXml = '';
+  if(membrete.imagen){
+    const m = membrete.imagen.match(/^data:image\/(png|jpe?g);base64,(.*)$/s);
+    if(m){
+      const ext = m[1] === 'png' ? 'png' : 'jpeg';
+      zip.file('word/media/membrete.' + ext, m[2], { base64:true });
+      const anchoPx = membrete.ancho || 600, altoPx = membrete.alto || 100;
+      const cx = Math.min(anchoPx * EMU_POR_PX, ANCHO_CONTENIDO_EMU);
+      const cy = Math.round(cx * altoPx / anchoPx);
+      imgXml = `<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="100" name="Membrete"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="100" name="membrete.${ext}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImgMembrete"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+      zip.file('word/_rels/header1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdImgMembrete" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/membrete.${ext}"/></Relationships>`);
+    }
+  }
+  let textoXml = '';
+  if(membrete.texto){
+    const t = membrete.texto.replace(RE_VAR, (m, v) => valorDe(datos, v) || '');
+    if(t.trim()) textoXml = `<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="21"/></w:rPr><w:t xml:space="preserve">${escXml(t)}</w:t></w:r></w:p>`;
+  }
+  zip.file('word/header1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">${imgXml}${textoXml}</w:hdr>`);
+  let ct = await zip.file('[Content_Types].xml').async('string');
+  if(!/Extension="png"/.test(ct)) ct = ct.replace('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>');
+  if(!/Extension="jpeg"/.test(ct)) ct = ct.replace('</Types>', '<Default Extension="jpeg" ContentType="image/jpeg"/></Types>');
+  if(!/header1\.xml/.test(ct)) ct = ct.replace('</Types>', '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/></Types>');
+  zip.file('[Content_Types].xml', ct);
+  let rels = await zip.file('word/_rels/document.xml.rels').async('string');
+  if(!/header1\.xml/.test(rels)) rels = rels.replace('</Relationships>', '<Relationship Id="rIdMembrete" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/></Relationships>');
+  zip.file('word/_rels/document.xml.rels', rels);
+  let doc = await zip.file('word/document.xml').async('string');
+  if(!/headerReference/.test(doc)) doc = doc.replace('<w:sectPr>', '<w:sectPr><w:headerReference w:type="default" r:id="rIdMembrete"/>');
+  zip.file('word/document.xml', doc);
+  return zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 
 /* ============ Modal genérico ============ */
@@ -14988,7 +15096,7 @@ function descargarJSON(obj, nombre){
   descargarBlob(blob, nombre);
 }
 function exportarBiblioteca(){
-  descargarJSON({ tipo:'biblioteca_fap', version:4, exportado:new Date().toISOString(), plantillas, clausulas, variables: variablesRepo, historial, contrapartes, fijos }, `biblioteca-instrumentos-fap-${hoy()}.json`);
+  descargarJSON({ tipo:'biblioteca_fap', version:4, exportado:new Date().toISOString(), plantillas, clausulas, variables: variablesRepo, historial, contrapartes, fijos, membrete }, `biblioteca-instrumentos-fap-${hoy()}.json`);
 }
 function importarBiblioteca(ev){
   const file = ev.target.files[0]; if(!file) return;
@@ -15021,6 +15129,7 @@ function importarBiblioteca(ev){
             data.variables.forEach(v => { if(!buscarVar(v.nombre)){ v.id = uid(); variablesRepo.push(v); } });
           }
           if(data.fijos) fijos = { ...data.fijos, ...fijos };
+          if(data.membrete && !membrete.imagen && !membrete.texto) membrete = data.membrete;
         } else {
           plantillas = data.plantillas;
           if(Array.isArray(data.historial)) historial = data.historial;
@@ -15028,6 +15137,7 @@ function importarBiblioteca(ev){
           if(Array.isArray(data.clausulas)) clausulas = data.clausulas;
           if(Array.isArray(data.variables)) variablesRepo = data.variables;
           if(data.fijos) fijos = data.fijos;
+          if(data.membrete) membrete = data.membrete;
           seleccion = null; varianteSel = null; clausulaAbierta = null; varSelId = null;
         }
         alert('Biblioteca importada correctamente.');

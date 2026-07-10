@@ -41,6 +41,10 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
     variante nueva, y 🔢 renumera las cláusulas (PRIMERA, SEGUNDA…) tras insertar o quitar.
   - **Editar documento final**: tras llenar el formulario se puede retocar a mano el texto
     exacto que se descargará, con barra completa de formato (tablas, sangrías, mayúsculas).
+  - **Membrete institucional (🖼)**: se sube una vez la imagen con los logos (FAP/FIAS) y una
+    línea de texto opcional con variables (p. ej. `CONTRATO-{{contratoNro}}`), y todos los
+    Word —individuales y del lote— salen con un encabezado real de Word que se repite en
+    todas las páginas, con el número propio de cada documento.
   - **Datos fijos** (representante FIAS, lugar…) que se escriben una sola vez, sugerencia
     automática del siguiente número correlativo y montos en letras calculados solos.
   Las rutas donde busca el registro se configuran en la constante `RUTAS_REGISTRO`
