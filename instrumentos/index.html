@@ -13603,7 +13603,8 @@ function numeroALetras(num){
     if(resto) s += tramo(resto);
     return s.trim().replace('UNO MIL','UN MIL');
   }
-  return `${grande(ent)} CON ${String(cent).padStart(2,'0')}/100 DÓLARES DE LOS ESTADOS UNIDOS DE AMÉRICA`;
+  const frase = `${grande(ent).toLowerCase()} con ${String(cent).padStart(2,'0')}/100 dólares de los Estados Unidos de América`;
+  return frase.charAt(0).toUpperCase() + frase.slice(1);
 }
 
 /* ============ Validación de cédula / RUC (Ecuador) ============ */
