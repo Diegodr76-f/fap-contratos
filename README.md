@@ -18,8 +18,17 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
   `FLOW_DOCS_URL` dentro de `generador/index.html`.
 - **`/instrumentos/`** — Generador de Instrumentos Legales para la Unidad Legal
   (`instrumentos/index.html`, funciona también abierto como archivo local, sin conexión).
-  Genera contratos, convenios y actas en Word a partir de plantillas con variables
-  `{{asi}}`. Está pensado para la campaña de inicio de año:
+  Genera contratos, convenios y actas en Word. **El modo principal son plantillas Word
+  reales** (.docx etiquetados con `{tags}`, mismo motor docxtemplater que La Mágica): el
+  formato —colores, listas a/b/c, numeración, membrete, tablas, estilos— se edita en Word
+  y la herramienta solo rellena los tags. Incluye como semillas los .docx etiquetados del
+  repositorio (informe de adenda y acta de terminación); se suben nuevas plantillas con
+  «⬆ Plantilla Word» y se actualizan con descarga → edición en Word → subida. Soporta
+  secciones opcionales `{#tag}…{/tag}` (casilleros al generar, para cláusulas con
+  variantes) y tablas repetibles `{#items}` con subtotal/IVA/total automáticos, con vista
+  previa del Word renderizada en pantalla. Las plantillas HTML (editor integrado, formato
+  limitado) siguen disponibles como modo secundario para documentos rápidos.
+  Está pensado para la campaña de inicio de año:
   - **Toma los datos del registro de contratos** (`crm/contratos_export.json`): se elige
     el contrato y se llenan solos número, proveedor, objeto, área, monto, plazo y fechas.
   - **Lote**: se marcan varios contratos del registro (o se pegan filas desde Excel) y se
