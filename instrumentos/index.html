@@ -13338,6 +13338,8 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .membrete-prev img{max-width:100%;display:block}
 .membrete-prev .mb-txt{font-weight:700;font-size:12.5px;margin-top:4px}
 .membrete-prev .mb-nota{font-size:10.5px;color:var(--gris);margin-top:4px;font-style:italic}
+.mb-align{display:flex;gap:6px}
+.mb-align .btn.activo{background:var(--azul);color:#fff;border-color:var(--azul)}
 .ph-ok{color:var(--texto);font-weight:700}
 .acciones-gen{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 
@@ -13554,6 +13556,14 @@ const uid = () => 'p' + Date.now().toString(36) + Math.random().toString(36).sli
 const hoy = () => new Date().toISOString().slice(0,10);
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const normalizar = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+/* B\u00fasqueda por palabras: todas las palabras del texto tecleado deben aparecer
+   (en cualquier orden) en alguno de los campos; ignora acentos y may\u00fasculas. */
+function coincideBusqueda(campos, query){
+  const toks = String(query||'').trim().split(/\s+/).map(normalizar).filter(Boolean);
+  if(!toks.length) return true;
+  const heno = campos.map(c => normalizar(c||'')).join(' ');
+  return toks.every(t => heno.includes(t));
+}
 const slugify = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w.]+/g,'-').replace(/^-+|-+$/g,'');
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 function fechaLarga(iso){
@@ -13801,10 +13811,12 @@ let contrapartes = [];
 let clausulas = [];
 let variablesRepo = [];
 let fijos = {};
-let membrete = { activo:false, imagen:'', ancho:0, alto:0, texto:'' };
+let membrete = { activo:false, imagen:'', ancho:0, alto:0, texto:'', alineacion:'left', escala:100 };
 let condForm = {};   // cláusulas/secciones opcionales de plantillas Word ({#tag})
 let listasForm = {}; // bloques repetibles de plantillas Word ({#items}…{/items})
 let grupoVarFiltro = 'Todos';
+let busqVarTab = '';   // buscador de la pestaña Variables
+let busqCp = '';       // buscador de la pestaña Contrapartes
 let varSelId = null;
 let varInsertTarget = null;
 let seleccion = null;
@@ -13839,7 +13851,7 @@ function cargar(){
   clausulas = cl ? JSON.parse(cl) : clausulasSemilla();
   variablesRepo = vr ? JSON.parse(vr) : variablesSemilla();
   const mb = store.get('fap_gen_membrete');
-  if(mb) membrete = JSON.parse(mb);
+  if(mb) membrete = Object.assign({ alineacion:'left', escala:100 }, JSON.parse(mb));
   // Semillas Word (docx reales etiquetados) para bibliotecas creadas antes de este modo
   if(!store.get('fap_gen_docx_semillas')){
     plantillas.unshift(...plantillasSemillaDocx());
@@ -14201,7 +14213,10 @@ function elegirDelRegistro(i){
 
 /* ============ Contrapartes ============ */
 function renderContrapartes(c){
-  const filas = contrapartes.map((x,i) => `
+  const q = busqCp.trim();
+  const indexados = contrapartes.map((x,i) => ({ x, i }));
+  const vis = q ? indexados.filter(({x}) => coincideBusqueda([x.nombre, x.identificacion, x.representante, x.email, x.direccion], q)) : indexados;
+  const filas = vis.map(({x,i}) => `
     <tr>
       <td><b>${esc(x.nombre||'')}</b>${x.representante?`<br><span style="font-size:11.5px;color:var(--gris)">Rep.: ${esc(x.representante)}</span>`:''}</td>
       <td>${esc(x.identificacion||'')}${avisoIdentificacion(x.identificacion)?'<br><span class="warn-txt" style="font-size:10.5px">'+esc(avisoIdentificacion(x.identificacion))+'</span>':''}</td>
@@ -14218,7 +14233,13 @@ function renderContrapartes(c){
       <button class="btn" onclick="editarContraparte(-1)">+ Nueva contraparte</button>
       <button class="btn sec" onclick="importarProveedoresRegistro()" ${registroEstado!=='ok'?'disabled title="El registro no está cargado"':''}>Importar proveedores del registro</button>
     </div>
-    ${contrapartes.length ? `<div class="tabla-scroll"><table><thead><tr><th>Nombre</th><th>Cédula / RUC</th><th>Correo</th><th>Dirección</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>`
+    ${contrapartes.length ? `
+      <div class="campo" style="margin:4px 0 12px">
+        <input type="search" id="busq-cp" value="${esc(busqCp)}" placeholder="Buscar por nombre, RUC/cédula, representante o correo…" oninput="busqCp=this.value;renderContenido();const e=document.getElementById('busq-cp');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}">
+      </div>
+      ${vis.length ? `<div class="tabla-scroll"><table><thead><tr><th>Nombre</th><th>Cédula / RUC</th><th>Correo</th><th>Dirección</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
+        <div class="nota" style="margin-top:8px">${vis.length} de ${contrapartes.length} contrapartes${q?` que coinciden con «${esc(busqCp)}»`:''}.</div>`
+        : `<div class="vacio">Ninguna contraparte coincide con «${esc(busqCp)}».</div>`}`
       : '<div class="vacio">Guarda aquí a tus proveedores e instituciones frecuentes.<br>Sus datos (nombre, RUC, representante…) se insertarán en los documentos con un clic,<br>sin volver a escribirlos nunca.</div>'}`;
 }
 function editarContraparte(i){
@@ -14760,7 +14781,20 @@ function abrirMembrete(){
           <button class="btn peligro mini" onclick="quitarImagenMembrete()" ${membrete.imagen?'':'disabled'}>Quitar</button>
           <input type="file" id="mb-file" accept="image/png,image/jpeg" style="display:none" onchange="cargarImagenMembrete(event)">
         </div>
-        <img id="mb-prev" src="${membrete.imagen||''}" style="max-width:100%;border:1px dashed var(--borde);border-radius:6px;padding:6px;display:${membrete.imagen?'block':'none'}">
+        <div id="mb-prev-caja" style="text-align:${membrete.alineacion||'left'};border:1px dashed var(--borde);border-radius:6px;padding:6px;display:${membrete.imagen?'block':'none'}">
+          <img id="mb-prev" src="${membrete.imagen||''}" style="max-width:${membrete.escala||100}%;display:inline-block">
+        </div>
+      </div>
+      <div class="campo">
+        <label>Alineación del encabezado</label>
+        <div class="mb-align" id="mb-align">
+          ${['left','center','right'].map(a => `<button type="button" class="btn sec mini ${(membrete.alineacion||'left')===a?'activo':''}" data-al="${a}" onclick="fijarAlineacionMembrete('${a}')">${a==='left'?'⬅ Izquierda':a==='center'?'⬍ Centro':'Derecha ➡'}</button>`).join('')}
+        </div>
+      </div>
+      <div class="campo">
+        <label>Tamaño de la imagen: <b id="mb-esc-val">${membrete.escala||100}%</b> del ancho</label>
+        <input type="range" id="mb-escala" min="20" max="100" step="5" value="${membrete.escala||100}" oninput="fijarEscalaMembrete(this.value)" style="width:100%">
+        <div class="nota">Baja el tamaño si los logos salen demasiado grandes. 100% = todo el ancho útil de la página.</div>
       </div>
       <div class="campo">
         <label>Línea de texto bajo los logos (opcional, admite variables)</label>
@@ -14780,8 +14814,9 @@ function cargarImagenMembrete(ev){
     const img = new Image();
     img.onload = () => {
       membrete.imagen = reader.result; membrete.ancho = img.naturalWidth; membrete.alto = img.naturalHeight;
-      const prev = document.getElementById('mb-prev');
-      if(prev){ prev.src = reader.result; prev.style.display = 'block'; }
+      const prev = document.getElementById('mb-prev'), caja = document.getElementById('mb-prev-caja');
+      if(prev){ prev.src = reader.result; }
+      if(caja){ caja.style.display = 'block'; }
     };
     img.src = reader.result;
   };
@@ -14790,8 +14825,20 @@ function cargarImagenMembrete(ev){
 }
 function quitarImagenMembrete(){
   membrete.imagen = ''; membrete.ancho = 0; membrete.alto = 0;
-  const prev = document.getElementById('mb-prev');
-  if(prev){ prev.src = ''; prev.style.display = 'none'; }
+  const caja = document.getElementById('mb-prev-caja');
+  if(caja){ caja.style.display = 'none'; }
+}
+function fijarAlineacionMembrete(a){
+  membrete.alineacion = a;
+  const caja = document.getElementById('mb-prev-caja');
+  if(caja) caja.style.textAlign = a;
+  document.querySelectorAll('#mb-align button').forEach(b => b.classList.toggle('activo', b.dataset.al === a));
+}
+function fijarEscalaMembrete(v){
+  membrete.escala = parseInt(v) || 100;
+  const prev = document.getElementById('mb-prev'), val = document.getElementById('mb-esc-val');
+  if(prev) prev.style.maxWidth = membrete.escala + '%';
+  if(val) val.textContent = membrete.escala + '%';
 }
 function guardarMembrete(){
   membrete.activo = document.getElementById('mb-activo').checked;
@@ -14801,7 +14848,8 @@ function guardarMembrete(){
 function membreteHTMLPreview(datos){
   if(!membrete.activo || (!membrete.imagen && !membrete.texto)) return '';
   const t = membrete.texto ? membrete.texto.replace(RE_VAR, (m, v) => valorDe(datos, v) || m) : '';
-  return `<div class="membrete-prev">${membrete.imagen ? `<img src="${membrete.imagen}" alt="Membrete">` : ''}${t ? `<div class="mb-txt">${esc(t)}</div>` : ''}<div class="mb-nota">Encabezado institucional — se repetirá en todas las páginas del Word</div></div>`;
+  const al = membrete.alineacion || 'left', esc_ = membrete.escala || 100;
+  return `<div class="membrete-prev" style="text-align:${al}">${membrete.imagen ? `<img src="${membrete.imagen}" alt="Membrete" style="max-width:${esc_}%;display:inline-block">` : ''}${t ? `<div class="mb-txt">${esc(t)}</div>` : ''}<div class="mb-nota">Encabezado institucional — se repetirá en todas las páginas del Word</div></div>`;
 }
 /* Convierte el docx generado para agregarle un encabezado real (header1.xml)
    con la imagen del membrete y la línea de texto, referenciado desde sectPr. */
@@ -14809,6 +14857,7 @@ async function aplicarMembrete(blob, datos){
   if(!membrete.activo || (!membrete.imagen && !membrete.texto)) return blob;
   const EMU_POR_PX = 9525;
   const ANCHO_CONTENIDO_EMU = (12240 - 1134*2) * 635; // ancho útil de página carta en EMU
+  const jc = { left:'left', center:'center', right:'right' }[membrete.alineacion] || 'left';
   const zip = await JSZip.loadAsync(blob);
   let imgXml = '';
   if(membrete.imagen){
@@ -14817,16 +14866,17 @@ async function aplicarMembrete(blob, datos){
       const ext = m[1] === 'png' ? 'png' : 'jpeg';
       zip.file('word/media/membrete.' + ext, m[2], { base64:true });
       const anchoPx = membrete.ancho || 600, altoPx = membrete.alto || 100;
-      const cx = Math.min(anchoPx * EMU_POR_PX, ANCHO_CONTENIDO_EMU);
+      const base = Math.min(anchoPx * EMU_POR_PX, ANCHO_CONTENIDO_EMU);
+      const cx = Math.round(base * (membrete.escala || 100) / 100);
       const cy = Math.round(cx * altoPx / anchoPx);
-      imgXml = `<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="100" name="Membrete"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="100" name="membrete.${ext}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImgMembrete"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+      imgXml = `<w:p><w:pPr><w:spacing w:after="60"/><w:jc w:val="${jc}"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="100" name="Membrete"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="100" name="membrete.${ext}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImgMembrete"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
       zip.file('word/_rels/header1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdImgMembrete" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/membrete.${ext}"/></Relationships>`);
     }
   }
   let textoXml = '';
   if(membrete.texto){
     const t = membrete.texto.replace(RE_VAR, (m, v) => valorDe(datos, v) || '');
-    if(t.trim()) textoXml = `<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="21"/></w:rPr><w:t xml:space="preserve">${escXml(t)}</w:t></w:r></w:p>`;
+    if(t.trim()) textoXml = `<w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="${jc}"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="21"/></w:rPr><w:t xml:space="preserve">${escXml(t)}</w:t></w:r></w:p>`;
   }
   zip.file('word/header1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">${imgXml}${textoXml}</w:hdr>`);
   let ct = await zip.file('[Content_Types].xml').async('string');
@@ -14944,11 +14994,9 @@ function abrirModalVariables(target){
   renderModalVariables();
 }
 function renderModalVariables(){
-  const q = (document.getElementById('busq-var').value || '').toLowerCase();
+  const q = document.getElementById('busq-var').value || '';
   const body = document.getElementById('modal-variables-body');
-  const filtradas = variablesRepo.filter(v =>
-    v.nombre.toLowerCase().includes(q) || (v.descripcion||'').toLowerCase().includes(q) || (v.grupo||'').toLowerCase().includes(q)
-  );
+  const filtradas = variablesRepo.filter(v => coincideBusqueda([v.nombre, v.descripcion, v.grupo, v.ejemplo], q));
   if(!filtradas.length){ body.innerHTML = '<p style="color:var(--gris);font-size:13px">Sin resultados. Puedes registrarla como variable nueva con el botón de abajo.</p>'; return; }
   const grupos = {};
   filtradas.forEach(v => { (grupos[v.grupo] = grupos[v.grupo] || []).push(v); });
@@ -14985,16 +15033,21 @@ function gruposVar(){
   return ['Todos', ...Array.from(new Set(variablesRepo.map(v => v.grupo)))];
 }
 function renderVariables(c){
-  const filtradas = variablesRepo.filter(v => grupoVarFiltro === 'Todos' || v.grupo === grupoVarFiltro);
+  const q = busqVarTab.trim();
+  const filtradas = variablesRepo.filter(v =>
+    (grupoVarFiltro === 'Todos' || v.grupo === grupoVarFiltro) &&
+    coincideBusqueda([v.nombre, v.descripcion, v.ejemplo, v.grupo], q));
   const sel = variablesRepo.find(v => v.id === varSelId) || null;
   const grupos = {};
   filtradas.forEach(v => { (grupos[v.grupo] = grupos[v.grupo] || []).push(v); });
   c.innerHTML = `
     <div class="banner-edicion" style="margin-bottom:12px">Este es el diccionario único de variables del ecosistema FAP: el mismo catálogo de tags que usan las plantillas Word (docxtemplater), La Mágica y el CRM. Las plantillas y cláusulas de esta herramienta deben usar estos nombres para que todo el sistema hable el mismo idioma.</div>
+    <div class="campo" style="margin-bottom:8px"><input type="search" id="busq-var-tab" value="${esc(busqVarTab)}" placeholder="Buscar variable por nombre, descripción o ejemplo…" oninput="busqVarTab=this.value;renderContenido();const e=document.getElementById('busq-var-tab');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}"></div>
     <div class="cats" style="padding:0 0 10px">${gruposVar().map(g => `<button class="chip ${g===grupoVarFiltro?'activo':''}" onclick="grupoVarFiltro='${g.replace(/'/g,"\\'")}';renderContenido()">${esc(g)}</button>`).join('')}</div>
     <div class="gen-grid" style="grid-template-columns:1fr 360px">
       <div class="card" style="max-height:62vh;overflow-y:auto">
         <h3>Variables (${filtradas.length})</h3>
+        ${filtradas.length ? '' : `<p style="font-size:13px;color:var(--gris)">Ninguna variable coincide${q?` con «${esc(busqVarTab)}»`:''}${grupoVarFiltro!=='Todos'?` en el grupo «${esc(grupoVarFiltro)}»`:''}.</p>`}
         ${Object.keys(grupos).map(g => `
           <div class="rep-cat-titulo">${esc(g)}</div>
           ${grupos[g].map(v => `<div class="var-fila ${varSelId===v.id?'sel':''}" onclick="varSelId='${v.id}';renderContenido()"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${esc(v.descripcion||'')}</span><span class="tipo-pill">${esc(v.tipo)}</span></div>`).join('')}`

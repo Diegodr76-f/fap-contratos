@@ -34,12 +34,14 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
   - **Lote**: se marcan varios contratos del registro (o se pegan filas desde Excel) y se
     descargan todos los Word de una vez en un ZIP.
   - **Contrapartes**: directorio local de proveedores/instituciones (con validación de
-    cédula/RUC) para no volver a tipear sus datos.
+    cédula/RUC) para no volver a tipear sus datos, con buscador por nombre, RUC/cédula,
+    representante o correo.
   - **Repositorio de variables**: diccionario único del ecosistema FAP, sembrado desde el
     Catálogo de Tags (los mismos tags docxtemplater de las 15 plantillas Word de La Mágica
     y los campos del CRM: `{area}`, `{proveedor}`, `{proveedorRuc}`, `{contratoNro}`,
     `{montoTotal}`…). Las variables se insertan siempre desde este repositorio (botón
-    «{{ Variable }}», con buscador), cada una define su tipo (texto/número/fecha/letras),
+    «{{ Variable }}», con buscador por palabras que también está en la pestaña
+    Variables), cada una define su tipo (texto/número/fecha/letras),
     descripción y ejemplo que guían el formulario, y se pueden registrar nuevas. Las
     plantillas y cláusulas semilla usan estos nombres canónicos, así el registro del CRM
     las llena sin mapeos manuales.
@@ -51,7 +53,8 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
   - **Editar documento final**: tras llenar el formulario se puede retocar a mano el texto
     exacto que se descargará, con barra completa de formato (tablas, sangrías, mayúsculas).
   - **Membrete institucional (🖼)**: se sube una vez la imagen con los logos (FAP/FIAS) y una
-    línea de texto opcional con variables (p. ej. `CONTRATO-{{contratoNro}}`), y todos los
+    línea de texto opcional con variables (p. ej. `CONTRATO-{{contratoNro}}`), se elige la
+    alineación (izquierda/centro/derecha) y el tamaño de la imagen, y todos los
     Word —individuales y del lote— salen con un encabezado real de Word que se repite en
     todas las páginas, con el número propio de cada documento.
   - **Datos fijos** (representante FIAS, lugar…) que se escriben una sola vez, sugerencia
