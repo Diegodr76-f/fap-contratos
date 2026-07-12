@@ -13907,6 +13907,8 @@ let busqVarTab = '';   // buscador de la pestaña Variables
 let busqCp = '';       // buscador de la pestaña Contrapartes
 let varSelId = null;
 let varInsertTarget = null;
+let ultimoRangeEditable = null;  // última posición del cursor dentro de un editor (para insertar ahí)
+let ultimoEditableId = null;
 let seleccion = null;
 let tabActual = 'generar';
 let catFiltro = 'Todas';
@@ -15219,9 +15221,28 @@ function renderModalVariables(){
     ${grupos[g].map(v => `<div class="var-fila" onclick="insertarVariableEnDoc('${esc(v.nombre)}')"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${esc(v.descripcion||'')}</span><span class="tipo-pill">${esc(v.tipo)}</span></div>`).join('')}`
   ).join('');
 }
+/* Devuelve el foco al editor y restaura el cursor donde estaba antes de abrir el
+   modal, para que lo insertado caiga en ese punto y no al inicio. Si no hay una
+   posición guardada válida, coloca el cursor al final del contenido. */
+function restaurarCaret(targetId){
+  const el = document.getElementById(targetId);
+  if(!el) return null;
+  el.focus();
+  const sel = window.getSelection();
+  try{
+    if(ultimoRangeEditable && ultimoEditableId === targetId && el.contains(ultimoRangeEditable.commonAncestorContainer)){
+      sel.removeAllRanges(); sel.addRange(ultimoRangeEditable);
+      return el;
+    }
+  }catch(e){ /* rango obsoleto: caemos al final */ }
+  const r = document.createRange();
+  r.selectNodeContents(el); r.collapse(false);
+  sel.removeAllRanges(); sel.addRange(r);
+  return el;
+}
 function insertarVariableEnDoc(nombre){
-  const el = document.getElementById(varInsertTarget);
-  if(el){ el.focus(); document.execCommand('insertText', false, `{{${nombre}}}`); }
+  const el = restaurarCaret(varInsertTarget);
+  if(el) document.execCommand('insertText', false, `{{${nombre}}}`);
   cerrarModal();
 }
 function registrarVariableDesdeModal(){
@@ -15502,9 +15523,8 @@ function insertarClausulaEnDoc(clId, varId){
       return val ? `<strong>${esc(val)}</strong>` : m;
     });
   }
-  const el = document.getElementById(insertTarget);
-  el.focus();
-  document.execCommand('insertHTML', false, cuerpo + '<p><br></p>');
+  const el = restaurarCaret(insertTarget);
+  if(el) document.execCommand('insertHTML', false, cuerpo + '<p><br></p>');
   cerrarModal();
 }
 function guardarSeleccionComoClausula(target){
@@ -15847,6 +15867,18 @@ function toggleAside(){
   const oculto = document.body.classList.toggle('aside-oculto');
   store.set('fap_gen_aside_oculto', oculto ? '1' : '0');
 }
+
+/* Recuerda la posición del cursor dentro de cualquier editor (contenteditable),
+   para poder insertar variables/cláusulas justo ahí aunque el modal robe el foco. */
+document.addEventListener('selectionchange', () => {
+  const sel = document.getSelection();
+  if(!sel || !sel.rangeCount) return;
+  const r = sel.getRangeAt(0);
+  const n = r.commonAncestorContainer;
+  const host = (n.nodeType === 1 ? n : n.parentElement);
+  const ce = host && host.closest ? host.closest('[contenteditable="true"]') : null;
+  if(ce){ ultimoRangeEditable = r.cloneRange(); ultimoEditableId = ce.id; }
+});
 
 /* ============ Inicio ============ */
 cargar();
