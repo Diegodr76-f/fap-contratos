@@ -52,11 +52,15 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
     variante nueva, y 🔢 renumera las cláusulas (PRIMERA, SEGUNDA…) tras insertar o quitar.
   - **Editar documento final**: tras llenar el formulario se puede retocar a mano el texto
     exacto que se descargará, con barra completa de formato (tablas, sangrías, mayúsculas).
-  - **Membrete institucional (🖼)**: se sube una vez la imagen con los logos (FAP/FIAS) y una
-    línea de texto opcional con variables (p. ej. `CONTRATO-{{contratoNro}}`), se elige la
-    alineación (izquierda/centro/derecha) y el tamaño de la imagen, y todos los
-    Word —individuales y del lote— salen con un encabezado real de Word que se repite en
-    todas las páginas, con el número propio de cada documento.
+  - **Papel membretado oficial (🖼)**: los instrumentos redactados con plantillas HTML
+    salen **sobre el papel membretado oficial** del FIAS/FAP. Se sube una vez el `.docx`
+    con el membrete ya montado (logos, pie de página con numeración y márgenes reales) —
+    viene sembrado el «Formato de contrato FIAS-FAP» y activo por defecto— y el texto del
+    documento se vierte dentro de ese `.docx` sin tocar su formato (mecanismo `altChunk`;
+    se abre en Microsoft Word). Aplica a los Word individuales y a los del lote. Como
+    alternativa para casos rápidos se conserva el **membrete simple**: una imagen de logos
+    y una línea de texto opcional con variables (p. ej. `CONTRATO-{{contratoNro}}`), con
+    alineación y tamaño ajustables.
   - **Datos fijos** (representante FIAS, lugar…) que se escriben una sola vez, sugerencia
     automática del siguiente número correlativo y montos en letras calculados solos.
   Las rutas donde busca el registro se configuran en la constante `RUTAS_REGISTRO`
