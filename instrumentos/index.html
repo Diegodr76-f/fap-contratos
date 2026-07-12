@@ -13844,6 +13844,8 @@ function concordanciasSemilla(){
       opciones: ['Persona natural — masculino', 'Persona natural — femenino', 'Persona jurídica (empresa)'],
       tags: {
         elLaContratista:        ['el contratista', 'la contratista', 'la contratista'],
+        delDeLaContratista:     ['del contratista', 'de la contratista', 'de la contratista'],
+        alALaContratista:       ['al contratista', 'a la contratista', 'a la contratista'],
         contratistaTrato:       ['el señor', 'la señora', 'la compañía'],
         contratistaDomiciliado: ['domiciliado', 'domiciliada', 'con domicilio'],
         contratistaObligado:    ['obligado', 'obligada', 'obligada']
@@ -13851,16 +13853,39 @@ function concordanciasSemilla(){
     { id: uid(), nombre: 'administradorContrato', etiqueta: 'Administrador/a del contrato',
       opciones: ['Masculino', 'Femenino'],
       tags: {
-        elLaAdminContrato: ['el administrador del contrato', 'la administradora del contrato'],
-        adminDesignado:    ['designado', 'designada']
+        elLaAdminContrato:    ['el administrador del contrato', 'la administradora del contrato'],
+        delDeLaAdminContrato: ['del administrador del contrato', 'de la administradora del contrato'],
+        adminDesignado:       ['designado', 'designada']
       } },
     { id: uid(), nombre: 'oferente', etiqueta: 'Oferente / proponente',
       opciones: ['Masculino', 'Femenino', 'Empresa'],
       tags: {
-        elLaOferente: ['el oferente', 'la oferente', 'la oferente'],
-        oferenteTrato:['el señor', 'la señora', 'la compañía']
+        elLaOferente:    ['el oferente', 'la oferente', 'la oferente'],
+        delDeLaOferente: ['del oferente', 'de la oferente', 'de la oferente'],
+        oferenteTrato:   ['el señor', 'la señora', 'la compañía']
       } }
   ];
+}
+/* Busca a qué grupo de concordancia pertenece un tag, y una vista previa de sus
+   opciones (p. ej. «el contratista / la contratista»), para explicarlo en la UI. */
+function grupoDeTag(tag){ return concordancias.find(g => g.tags && g.tags[tag]) || null; }
+function previewConc(tag){
+  const g = grupoDeTag(tag); if(!g) return '';
+  return (g.tags[tag]||[]).filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).join(' / ');
+}
+/* Añade a los grupos sembrados los tags nuevos del semillero (del/de la, al/a la)
+   sin pisar lo que el usuario haya editado. Se corre una sola vez. */
+function enriquecerConcordancias(){
+  const semilla = concordanciasSemilla();
+  let cambio = false;
+  semilla.forEach(gs => {
+    const g = concordancias.find(x => x.nombre === gs.nombre);
+    if(g && (g.opciones||[]).length === gs.opciones.length){
+      Object.keys(gs.tags).forEach(t => { if(!g.tags[t]){ g.tags[t] = gs.tags[t]; cambio = true; } });
+    }
+  });
+  if(cambio) concordancias.forEach(registrarTagsConcordancia);
+  return cambio;
 }
 /* Registra los tags gobernados en el repositorio de variables (grupo
    «Concordancia») para que se puedan insertar con {{ Variable }} y la
@@ -13990,7 +14015,10 @@ function cargar(){
     guardar();
   }
   if(!co) migrarConcordanciasAVars();
-  if(!p || !cl || !vr || !co) guardar();
+  // Añade del/de la, al/a la a los grupos sembrados en bibliotecas anteriores.
+  let enriquecido = false;
+  if(!store.get('fap_gen_conc_enriquecido')){ enriquecido = enriquecerConcordancias(); store.set('fap_gen_conc_enriquecido','1'); }
+  if(!p || !cl || !vr || !co || enriquecido) guardar();
 }
 function guardar(){
   store.set('fap_gen_plantillas_v2', JSON.stringify(plantillas));
@@ -15206,7 +15234,7 @@ function buildToolbar(target, conVariables, esRepo){
     ${!esRepo ? `<div class="sep"></div><button onclick="abrirModalClausulas('${target}')" style="color:var(--azul);font-weight:700" title="Insertar una cláusula del repositorio">📋 Cláusula</button><button onclick="guardarSeleccionComoClausula('${target}')" title="Guarda el texto seleccionado como cláusula del repositorio">📌 Guardar cláusula</button><button onclick="renumerarClausulas('${target}')" title="Renumera automáticamente los encabezados de cláusula">🔢 Renumerar</button>` : ''}
   </div>`;
 }
-function fmtEn(target, cmd, val){ document.getElementById(target).focus(); document.execCommand(cmd, false, val || null); }
+function fmtEn(target, cmd, val){ document.getElementById(target).focus({ preventScroll: true }); document.execCommand(cmd, false, val || null); }
 function listaLetras(target){
   fmtEn(target, 'insertOrderedList');
   const sel = window.getSelection();
@@ -15226,13 +15254,13 @@ function insertarTabla(target){
     t += '</tr>';
   }
   t += '</tbody></table><p><br></p>';
-  document.getElementById(target).focus();
+  restaurarCaret(target);
   document.execCommand('insertHTML', false, t);
 }
 function mayusculas(target){
   const sel = window.getSelection();
   if(!sel.rangeCount || sel.isCollapsed){ alert('Selecciona primero el texto que quieres convertir a mayúsculas.'); return; }
-  document.getElementById(target).focus();
+  document.getElementById(target).focus({ preventScroll: true });
   document.execCommand('insertText', false, sel.toString().toUpperCase());
 }
 /* ============ Repositorio de variables ============ */
@@ -15258,9 +15286,15 @@ function renderModalVariables(){
   if(!filtradas.length){ body.innerHTML = '<p style="color:var(--gris);font-size:13px">Sin resultados. Puedes registrarla como variable nueva con el botón de abajo.</p>'; return; }
   const grupos = {};
   filtradas.forEach(v => { (grupos[v.grupo] = grupos[v.grupo] || []).push(v); });
-  body.innerHTML = Object.keys(grupos).map(g => `
-    <div class="modal-cat">${esc(g)}</div>
-    ${grupos[g].map(v => `<div class="var-fila" onclick="insertarVariableEnDoc('${esc(v.nombre)}')"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${esc(v.descripcion||'')}</span><span class="tipo-pill">${esc(v.tipo)}</span></div>`).join('')}`
+  // El grupo «Concordancia» (el/la, del/de la) primero: es lo que suele buscarse.
+  const claves = Object.keys(grupos).sort((a,b) => (a==='Concordancia'?-1:0) - (b==='Concordancia'?-1:0));
+  body.innerHTML = claves.map(g => `
+    <div class="modal-cat">${g==='Concordancia' ? '⚥ Concordancia — el/la, del/de la (eliges una vez al generar)' : esc(g)}</div>
+    ${grupos[g].map(v => {
+      const pv = previewConc(v.nombre);
+      const desc = pv ? `elige al generar: <b>${esc(pv)}</b>` : esc(v.descripcion||'');
+      return `<div class="var-fila" onclick="insertarVariableEnDoc('${esc(v.nombre)}')"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${desc}</span><span class="tipo-pill">${pv?'⚥':esc(v.tipo)}</span></div>`;
+    }).join('')}`
   ).join('');
 }
 /* Devuelve el foco al editor y restaura el cursor donde estaba antes de abrir el
@@ -15269,7 +15303,7 @@ function renderModalVariables(){
 function restaurarCaret(targetId){
   const el = document.getElementById(targetId);
   if(!el) return null;
-  el.focus();
+  el.focus({ preventScroll: true });   // sin preventScroll, el navegador salta al inicio del editor
   const sel = window.getSelection();
   try{
     if(ultimoRangeEditable && ultimoEditableId === targetId && el.contains(ultimoRangeEditable.commonAncestorContainer)){
@@ -15373,7 +15407,15 @@ function abrirConcordancias(){
   abrirModal(`
     <div class="m-cab"><h3>⚥ Grupos de concordancia</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
-      <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">Cada grupo tiene unas <b>opciones</b> (lo que eliges al llenar) y unos <b>tags</b>; para cada tag defines qué palabra sale en cada opción. Al generar, eliges una vez y todas las apariciones de esos tags cambian juntas.</p>
+      <div style="background:var(--azul-claro);border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:12px">
+        <b>Cómo se usa (el/la, del/de la):</b>
+        <ol style="margin:6px 0 0 18px;padding:0;line-height:1.7">
+          <li>En tu plantilla, donde iría «el/la contratista», inserta el tag con el botón <b>{{ Variable }}</b> → grupo <b>⚥ Concordancia</b> → <code>{{elLaContratista}}</code>. Para «del/de la» usa <code>{{delDeLaContratista}}</code>.</li>
+          <li>Al <b>generar</b>, arriba del formulario aparece un desplegable (masculino / femenino / empresa). Eliges <b>una sola vez</b>.</li>
+          <li>Todas las apariciones de esos tags se ajustan solas en todo el documento.</li>
+        </ol>
+      </div>
+      <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">Cada grupo tiene unas <b>opciones</b> (lo que eliges al llenar) y unos <b>tags</b>; para cada tag defines qué palabra sale en cada opción.</p>
       <div class="conc-lista">${filas||'<div class="vacio">Aún no hay grupos.</div>'}</div>
       <button class="btn sec mini" style="margin-top:10px" onclick="editarConcordancia('')">+ Nuevo grupo</button>
     </div>
