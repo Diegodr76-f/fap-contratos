@@ -13343,6 +13343,13 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .mb-align .btn.activo{background:var(--azul);color:#fff;border-color:var(--azul)}
 .membrete-prev.papel{border:1px solid var(--borde);border-radius:8px;padding:12px 14px;background:linear-gradient(180deg,#F7F9FF,#fff)}
 .membrete-prev.papel .pp-logos{display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:space-between;border-bottom:1px solid var(--borde);padding-bottom:8px;margin-bottom:6px}
+.card-conc{border:1px solid var(--azul);background:#F5F8FF}
+.card-conc select{width:100%}
+.conc-lista{display:flex;flex-direction:column;gap:6px}
+.conc-fila{display:flex;gap:8px;align-items:center;border:1px solid var(--borde);border-radius:8px;padding:8px 10px;background:#fff}
+.cc-tag-fila{border:1px solid var(--borde);border-radius:8px;padding:8px;margin-bottom:6px;background:#fff}
+.cc-tag-fila code{background:var(--azul-claro);padding:1px 5px;border-radius:4px}
+.cc-val{font-family:inherit;font-size:12.5px;border:1px solid var(--borde);border-radius:5px;padding:5px}
 .ph-ok{color:var(--texto);font-weight:700}
 .acciones-gen{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 
@@ -13807,6 +13814,81 @@ function plantillasSemillaDocx(){
   ];
 }
 
+/* ============ Grupos de concordancia (cuadros combinados) ============
+   Una sola elección al llenar gobierna varios tags a la vez: p. ej. elegir que
+   el contratista es «femenino» pone «la contratista», «la señora», «domiciliada»…
+   en todas sus apariciones. Se editan/crean desde la pestaña Variables.        */
+function concordanciasSemilla(){
+  return [
+    { id: uid(), nombre: 'contratista', etiqueta: 'Contratista (persona natural o empresa)',
+      opciones: ['Persona natural — masculino', 'Persona natural — femenino', 'Persona jurídica (empresa)'],
+      tags: {
+        elLaContratista:        ['el contratista', 'la contratista', 'la contratista'],
+        contratistaTrato:       ['el señor', 'la señora', 'la compañía'],
+        contratistaDomiciliado: ['domiciliado', 'domiciliada', 'con domicilio'],
+        contratistaObligado:    ['obligado', 'obligada', 'obligada']
+      } },
+    { id: uid(), nombre: 'administradorContrato', etiqueta: 'Administrador/a del contrato',
+      opciones: ['Masculino', 'Femenino'],
+      tags: {
+        elLaAdminContrato: ['el administrador del contrato', 'la administradora del contrato'],
+        adminDesignado:    ['designado', 'designada']
+      } },
+    { id: uid(), nombre: 'oferente', etiqueta: 'Oferente / proponente',
+      opciones: ['Masculino', 'Femenino', 'Empresa'],
+      tags: {
+        elLaOferente: ['el oferente', 'la oferente', 'la oferente'],
+        oferenteTrato:['el señor', 'la señora', 'la compañía']
+      } }
+  ];
+}
+/* Registra los tags gobernados en el repositorio de variables (grupo
+   «Concordancia») para que se puedan insertar con {{ Variable }} y la
+   herramienta los reconozca como texto simple. */
+function migrarConcordanciasAVars(){
+  concordancias.forEach(registrarTagsConcordancia);
+}
+function registrarTagsConcordancia(g){
+  Object.keys(g.tags||{}).forEach(t => {
+    if(!buscarVar(t)){
+      const ej = (g.tags[t] && g.tags[t][0]) || '';
+      variablesRepo.push({ id: uid(), nombre: t, grupo: 'Concordancia', tipo: 'texto',
+        descripcion: 'Concordancia «' + g.etiqueta + '»: se elige en el formulario, no se escribe a mano.', ejemplo: ej });
+    }
+  });
+}
+/* Todas las apariciones de los tags gobernados, para excluirlos de los campos
+   sueltos del formulario (los gobierna el selector del grupo). */
+function tagsGobernados(){
+  const s = new Set();
+  concordancias.forEach(g => Object.keys(g.tags||{}).forEach(t => s.add(t)));
+  return s;
+}
+/* Grupos aplicables a una plantilla: aquellos con al menos un tag en sus variables. */
+function concordanciasDe(vars){
+  const set = new Set(vars);
+  return concordancias.filter(g => Object.keys(g.tags||{}).some(t => set.has(t)));
+}
+function indiceConc(nombre){ return concSel[nombre] != null ? concSel[nombre] : 0; }
+/* Aplica la opción elegida: escribe el valor correspondiente en datosForm para
+   cada tag gobernado del grupo. */
+function aplicarConcordancia(nombre, idx){
+  const g = concordancias.find(x => x.nombre === nombre); if(!g) return;
+  concSel[nombre] = idx;
+  Object.keys(g.tags||{}).forEach(t => { datosForm[t] = (g.tags[t]||[])[idx] || ''; });
+}
+/* Asegura que los grupos aplicables tengan un valor (opción por defecto) para
+   que el documento nunca salga con el tag en blanco. */
+function asegurarConcordancias(vars){
+  concordanciasDe(vars).forEach(g => aplicarConcordancia(g.nombre, indiceConc(g.nombre)));
+}
+/* Desde el selector del formulario: aplica y refresca la vista previa. */
+function aplicarConcordanciaUI(nombre, idx){
+  aplicarConcordancia(nombre, idx);
+  const p = plActual(); if(!p) return;
+  if(p.tipo === 'docx') actualizarPreviewDocx(); else refrescarPreviewHTML();
+}
+
 /* ============ Estado ============ */
 let plantillas = [];
 let historial = [];
@@ -13818,6 +13900,8 @@ let membrete = { activo:false, imagen:'', ancho:0, alto:0, texto:'', alineacion:
 let condForm = {};   // cláusulas/secciones opcionales de plantillas Word ({#tag})
 let listasForm = {}; // bloques repetibles de plantillas Word ({#items}…{/items})
 let papelLogosCache = null; // dataURLs de los logos del papel membretado, para la vista previa
+let concordancias = []; // grupos de concordancia (cuadros combinados): 1 elección gobierna varios tags
+let concSel = {};       // selección actual por grupo en el formulario: nombre → índice de opción
 let grupoVarFiltro = 'Todos';
 let busqVarTab = '';   // buscador de la pestaña Variables
 let busqCp = '';       // buscador de la pestaña Contrapartes
@@ -13854,6 +13938,8 @@ function cargar(){
   loteFilas = l ? JSON.parse(l) : [];
   clausulas = cl ? JSON.parse(cl) : clausulasSemilla();
   variablesRepo = vr ? JSON.parse(vr) : variablesSemilla();
+  const co = store.get('fap_gen_concordancias');
+  concordancias = co ? JSON.parse(co) : concordanciasSemilla();
   const mb = store.get('fap_gen_membrete');
   if(mb) membrete = Object.assign({ alineacion:'left', escala:100, docx:'', docxNombre:'' }, JSON.parse(mb));
   // Papel membretado oficial: si no hay ninguno configurado, se siembra el
@@ -13870,7 +13956,8 @@ function cargar(){
     store.set('fap_gen_docx_semillas','1');
     guardar();
   }
-  if(!p || !cl || !vr) guardar();
+  if(!co) migrarConcordanciasAVars();
+  if(!p || !cl || !vr || !co) guardar();
 }
 function guardar(){
   store.set('fap_gen_plantillas_v2', JSON.stringify(plantillas));
@@ -13881,6 +13968,7 @@ function guardar(){
   store.set('fap_gen_clausulas_v2', JSON.stringify(clausulas));
   store.set('fap_gen_variables_v2', JSON.stringify(variablesRepo));
   store.set('fap_gen_membrete', JSON.stringify(membrete));
+  store.set('fap_gen_concordancias', JSON.stringify(concordancias));
 }
 
 /* ============ Registro de contratos (CRM / Excel maestro) ============ */
@@ -14058,12 +14146,26 @@ function renderGenerar(c, p){
   }
   const esDocx = p.tipo === 'docx';
   const vars = varsDe(p);
-  const editables = vars.filter(v => !esLetras(v));
+  const concs = concordanciasDe(vars);
+  asegurarConcordancias(vars);          // fija un valor por defecto a cada grupo
+  const gobern = tagsGobernados();
+  const varsCampo = vars.filter(v => !gobern.has(v));   // tags sueltos (no gobernados por un grupo)
+  const editables = varsCampo.filter(v => !esLetras(v));
   const llenos = editables.filter(v => String(datosForm[v]||'').trim()).length;
   const pct = editables.length ? Math.round(llenos/editables.length*100) : 100;
   const tieneNumero = vars.some(v => /numero|nro$/i.test(v));
 
-  const campos = vars.map(v => {
+  const selectoresConc = concs.map(g => {
+    const idx = indiceConc(g.nombre);
+    const gobernadas = Object.keys(g.tags||{}).filter(t => vars.includes(t));
+    return `<div class="campo"><label>⚥ ${esc(g.etiqueta)} <span class="tag-auto">cambia todo</span></label>
+      <select id="conc_${esc(g.nombre)}" onchange="aplicarConcordanciaUI('${esc(g.nombre)}', this.selectedIndex)">
+        ${(g.opciones||[]).map((o,i)=>`<option value="${i}" ${i===idx?'selected':''}>${esc(o)}</option>`).join('')}
+      </select>
+      <div class="nota">Una elección gobierna: ${gobernadas.map(t=>`<code>{{${esc(t)}}}</code>`).join(' ')||'—'}</div></div>`;
+  }).join('');
+
+  const campos = varsCampo.map(v => {
     const reg = buscarVar(v);
     if(esLetras(v)){
       const val = datosForm[v] || '';
@@ -14090,8 +14192,9 @@ function renderGenerar(c, p){
           <div class="txt"><span>Datos del documento</span><span class="${pct===100?'listo':''}" id="prog-txt">${llenos} de ${editables.length} campos</span></div>
           <div class="barra"><div id="prog-barra" style="width:${pct}%"></div></div>
         </div>
+        ${selectoresConc ? `<div class="card card-conc"><h3 style="margin:0 0 8px">Concordancia (género / tipo de parte)</h3>${selectoresConc}</div>` : ''}
         <div class="card">
-          ${campos || '<p style="font-size:13px;color:var(--gris)">Esta plantilla no tiene variables. Puedes agregarlas en «Editar plantilla» con la sintaxis {{nombre_variable}}.</p>'}
+          ${campos || (selectoresConc ? '' : '<p style="font-size:13px;color:var(--gris)">Esta plantilla no tiene variables. Puedes agregarlas en «Editar plantilla» con la sintaxis {{nombre_variable}}.</p>')}
         </div>
         ${esDocx ? htmlCondiciones(p) + htmlListas(p) : ''}
         <div class="acciones-gen">
@@ -14142,7 +14245,7 @@ function refrescarPreviewHTML(){
   if(prev && !editandoDoc) prev.innerHTML = membreteHTMLPreview(datosForm) + rellenarDatos(p.cuerpo, datosForm, true);
 }
 function limpiarForm(){
-  datosForm = {}; condForm = {}; listasForm = {}; editandoDoc = false; docEditado = '';
+  datosForm = {}; condForm = {}; listasForm = {}; concSel = {}; editandoDoc = false; docEditado = '';
   const p = plActual();
   if(p) aplicarFijos(varsDe(p), datosForm);
   renderContenido();
@@ -15183,8 +15286,118 @@ function renderVariables(c){
           <button class="btn" onclick="if(registrarVariable()){renderContenido()}">+ Nueva variable</button>
           <button class="btn sec" onclick="exportarVariables()">Exportar variables</button>
         </div>
+        <div class="card" style="margin-top:12px">
+          <h3 style="margin:0 0 6px">⚥ Grupos de concordancia</h3>
+          <p style="font-size:12.5px;color:var(--gris);margin-bottom:8px">Cuadros combinados: una sola elección al llenar (p. ej. contratista masculino/femenino/empresa) cambia varias palabras a la vez en todo el documento.</p>
+          <button class="btn sec" onclick="abrirConcordancias()">Administrar grupos (${concordancias.length})</button>
+        </div>
       </div>
     </div>`;
+}
+/* ============ Grupos de concordancia: administración ============ */
+function abrirConcordancias(){
+  const filas = concordancias.map(g => {
+    const tags = Object.keys(g.tags||{});
+    return `<div class="conc-fila">
+      <div style="flex:1">
+        <div style="font-weight:700">${esc(g.etiqueta)} <span style="font-weight:400;color:var(--gris);font-size:11.5px">(${g.opciones.length} opciones)</span></div>
+        <div style="font-size:11.5px;color:var(--gris)">${tags.map(t=>`<code>{{${esc(t)}}}</code>`).join(' ')||'sin tags'}</div>
+      </div>
+      <button class="btn sec mini" onclick="editarConcordancia('${g.id}')">Editar</button>
+      <button class="btn peligro mini" onclick="eliminarConcordancia('${g.id}')">✕</button>
+    </div>`;
+  }).join('');
+  abrirModal(`
+    <div class="m-cab"><h3>⚥ Grupos de concordancia</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">Cada grupo tiene unas <b>opciones</b> (lo que eliges al llenar) y unos <b>tags</b>; para cada tag defines qué palabra sale en cada opción. Al generar, eliges una vez y todas las apariciones de esos tags cambian juntas.</p>
+      <div class="conc-lista">${filas||'<div class="vacio">Aún no hay grupos.</div>'}</div>
+      <button class="btn sec mini" style="margin-top:10px" onclick="editarConcordancia('')">+ Nuevo grupo</button>
+    </div>
+    <div class="m-pie"><button class="btn" onclick="cerrarModal()">Cerrar</button></div>`);
+}
+function editarConcordancia(id){
+  const g = id ? concordancias.find(x=>x.id===id) : { id:'', nombre:'', etiqueta:'', opciones:['Masculino','Femenino'], tags:{} };
+  const opcionesTxt = (g.opciones||[]).join(' | ');
+  const tagsRows = Object.keys(g.tags||{}).map(t => filaTagConc(t, g.tags[t], g.opciones)).join('');
+  abrirModal(`
+    <div class="m-cab"><h3>${id?'Editar':'Nuevo'} grupo de concordancia</h3><button onclick="abrirConcordancias()">✕</button></div>
+    <div class="m-cuerpo">
+      <div class="campo"><label>Nombre corto del grupo (sin espacios)</label><input id="cc-nombre" value="${esc(g.nombre)}" placeholder="contratista"></div>
+      <div class="campo"><label>Etiqueta (lo que se lee al llenar)</label><input id="cc-etiqueta" value="${esc(g.etiqueta)}" placeholder="Contratista (persona natural o empresa)"></div>
+      <div class="campo"><label>Opciones (sepáralas con « | »)</label><input id="cc-opciones" value="${esc(opcionesTxt)}" oninput="rerenderTagsConc()" placeholder="Masculino | Femenino | Empresa"><div class="nota">El orden importa: cada tag define una palabra por cada opción, en este mismo orden.</div></div>
+      <label style="font-size:12.5px;font-weight:600">Tags gobernados y su palabra en cada opción</label>
+      <div id="cc-tags">${tagsRows||'<div class="nota">Añade el primer tag abajo.</div>'}</div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input id="cc-nuevo-tag" placeholder="elLaContratista" style="flex:1">
+        <button class="btn sec mini" onclick="agregarTagConc()">+ Añadir tag</button>
+      </div>
+    </div>
+    <div class="m-pie">
+      <button class="btn sec" onclick="abrirConcordancias()">Cancelar</button>
+      <button class="btn" onclick="guardarConcordancia('${g.id}')">💾 Guardar grupo</button>
+    </div>`);
+}
+function opcionesActualesConc(){
+  return (document.getElementById('cc-opciones').value||'').split('|').map(s=>s.trim()).filter(Boolean);
+}
+function filaTagConc(tag, valores, opciones){
+  const ops = opciones && opciones.length ? opciones : ['Masculino','Femenino'];
+  const inputs = ops.map((o,i)=>`<input class="cc-val" data-i="${i}" value="${esc((valores||[])[i]||'')}" placeholder="${esc(o)}" style="flex:1;min-width:90px">`).join('');
+  return `<div class="cc-tag-fila" data-tag="${esc(tag)}">
+    <div style="display:flex;justify-content:space-between;align-items:center"><code>{{${esc(tag)}}}</code><button class="btn peligro mini" onclick="this.closest('.cc-tag-fila').remove()">quitar</button></div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px">${inputs}</div>
+  </div>`;
+}
+function leerTagsConc(){
+  const tags = {};
+  const ops = opcionesActualesConc();
+  document.querySelectorAll('#cc-tags .cc-tag-fila').forEach(f => {
+    const t = f.dataset.tag;
+    const vals = [...f.querySelectorAll('.cc-val')].map(i => i.value);
+    tags[t] = ops.map((_,i)=> vals[i] || '');
+  });
+  return tags;
+}
+function rerenderTagsConc(){
+  const tags = leerTagsConc();
+  const ops = opcionesActualesConc();
+  const cont = document.getElementById('cc-tags');
+  cont.innerHTML = Object.keys(tags).map(t => filaTagConc(t, tags[t], ops)).join('') || '<div class="nota">Añade el primer tag abajo.</div>';
+}
+function agregarTagConc(){
+  const inp = document.getElementById('cc-nuevo-tag');
+  const t = (inp.value||'').trim().replace(/\s+/g,'').replace(/[{}]/g,'');
+  if(!t) return;
+  const existentes = leerTagsConc();
+  if(existentes[t]){ alert('Ese tag ya está en el grupo.'); return; }
+  existentes[t] = [];
+  const cont = document.getElementById('cc-tags');
+  const ops = opcionesActualesConc();
+  cont.innerHTML = Object.keys(existentes).map(x => filaTagConc(x, existentes[x], ops)).join('');
+  inp.value = '';
+}
+function guardarConcordancia(id){
+  const nombre = (document.getElementById('cc-nombre').value||'').trim().replace(/\s+/g,'').replace(/[{}]/g,'');
+  const etiqueta = (document.getElementById('cc-etiqueta').value||'').trim();
+  const opciones = opcionesActualesConc();
+  const tags = leerTagsConc();
+  if(!nombre){ alert('Ponle un nombre corto al grupo.'); return; }
+  if(opciones.length < 2){ alert('Necesita al menos dos opciones (sepáralas con « | »).'); return; }
+  if(!Object.keys(tags).length){ alert('Añade al menos un tag gobernado.'); return; }
+  const otros = concordancias.filter(g => g.id !== id);
+  if(otros.some(g => g.nombre === nombre)){ alert('Ya existe otro grupo con ese nombre.'); return; }
+  const g = id ? concordancias.find(x=>x.id===id) : null;
+  if(g){ g.nombre=nombre; g.etiqueta=etiqueta||nombre; g.opciones=opciones; g.tags=tags; }
+  else concordancias.push({ id: uid(), nombre, etiqueta: etiqueta||nombre, opciones, tags });
+  registrarTagsConcordancia(concordancias.find(x=>x.nombre===nombre));
+  guardar(); abrirConcordancias(); renderContenido();
+}
+function eliminarConcordancia(id){
+  const g = concordancias.find(x=>x.id===id); if(!g) return;
+  if(!confirm(`¿Eliminar el grupo «${g.etiqueta}»? Sus tags quedarán como variables de texto normales.`)) return;
+  concordancias = concordancias.filter(x=>x.id!==id);
+  guardar(); abrirConcordancias(); renderContenido();
 }
 function guardarVariableEd(){
   const v = variablesRepo.find(x => x.id === varSelId); if(!v) return;
@@ -15571,7 +15784,7 @@ function descargarJSON(obj, nombre){
   descargarBlob(blob, nombre);
 }
 function exportarBiblioteca(){
-  descargarJSON({ tipo:'biblioteca_fap', version:4, exportado:new Date().toISOString(), plantillas, clausulas, variables: variablesRepo, historial, contrapartes, fijos, membrete }, `biblioteca-instrumentos-fap-${hoy()}.json`);
+  descargarJSON({ tipo:'biblioteca_fap', version:5, exportado:new Date().toISOString(), plantillas, clausulas, variables: variablesRepo, historial, contrapartes, fijos, membrete, concordancias }, `biblioteca-instrumentos-fap-${hoy()}.json`);
 }
 function importarBiblioteca(ev){
   const file = ev.target.files[0]; if(!file) return;
@@ -15605,6 +15818,10 @@ function importarBiblioteca(ev){
           }
           if(data.fijos) fijos = { ...data.fijos, ...fijos };
           if(data.membrete && !membrete.imagen && !membrete.texto) membrete = data.membrete;
+          if(Array.isArray(data.concordancias)){
+            const cnom = new Set(concordancias.map(g => g.nombre));
+            data.concordancias.forEach(g => { if(!cnom.has(g.nombre)){ g.id = uid(); concordancias.push(g); registrarTagsConcordancia(g); } });
+          }
         } else {
           plantillas = data.plantillas;
           if(Array.isArray(data.historial)) historial = data.historial;
@@ -15613,6 +15830,7 @@ function importarBiblioteca(ev){
           if(Array.isArray(data.variables)) variablesRepo = data.variables;
           if(data.fijos) fijos = data.fijos;
           if(data.membrete) membrete = data.membrete;
+          if(Array.isArray(data.concordancias)) concordancias = data.concordancias;
           seleccion = null; varianteSel = null; clausulaAbierta = null; varSelId = null;
         }
         alert('Biblioteca importada correctamente.');

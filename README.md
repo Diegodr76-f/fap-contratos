@@ -45,6 +45,15 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
     descripción y ejemplo que guían el formulario, y se pueden registrar nuevas. Las
     plantillas y cláusulas semilla usan estos nombres canónicos, así el registro del CRM
     las llena sin mapeos manuales.
+  - **Grupos de concordancia (cuadros combinados)**: una sola elección al llenar gobierna
+    varias palabras a la vez en todo el documento. P. ej. al indicar si el/la contratista
+    es persona natural masculino, femenino o empresa, cambian juntas todas las apariciones
+    de `{{elLaContratista}}`, `{{contratistaTrato}}` (señor/señora/compañía),
+    `{{contratistaDomiciliado}}`… (el «cambio uno → cambian todos» que Word no da por
+    interfaz). Vienen sembrados grupos base (contratista, administrador/a del contrato,
+    oferente) editables, y se crean nuevos desde la pestaña **Variables → Grupos de
+    concordancia** (defines las opciones y, por cada tag, la palabra en cada opción). Los
+    tags gobernados quedan en el repositorio para insertarlos con «{{ Variable }}».
   - **Repositorio de cláusulas**: cláusulas aprobadas organizadas por categoría, cada una
     con variantes (p. ej. garantía con letra de cambio vs. garantía técnica). Se insertan
     con 📋 en la plantilla o en el documento final (donde sus variables se llenan solas con
