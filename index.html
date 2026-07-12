@@ -3,412 +3,1447 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Contract Lifecycle Management · FAP / FIAS</title>
-<meta name="description" content="Plataforma única de gestión del ciclo de vida de contratos del Fondo de Áreas Protegidas (FAP / FIAS): precontractual, contratación, ejecución, modificaciones, terminación y calificación.">
+<title>CLM FAP · Contract Lifecycle Management · FIAS</title>
+<meta name="description" content="Plataforma única de gestión del ciclo de vida de contratos del FAP/FIAS: solicitudes, repositorio, pipeline, obligaciones, modificaciones, terminación, calificación de proveedores, reportes y bitácora.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/pizzip@3.2.0/dist/pizzip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.66.4/docxtemplater.min.js"></script>
 <style>
   :root{
-    --navy:#00249C; --navy2:#0A3AD6; --ink:#0B153F; --bg:#F4F6FB; --card:#ffffff;
+    --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
     --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
     --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
     --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0E9AA7;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
-  body{font-family:'Titillium Web',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+  html,body{margin:0;padding:0;height:100%}
+  body{font-family:'Titillium Web',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px}
   a{color:var(--navy);text-decoration:none}
   button{font-family:inherit}
-  @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-  .up{animation:up .4s ease both}
+  input,select,textarea{font-family:inherit;font-size:14px}
+  ::placeholder{color:var(--muted2)}
+  @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .up{animation:up .25s ease}
 
-  /* header */
-  header.top{display:flex;align-items:center;gap:15px;background:#fff;border-bottom:1px solid var(--line);padding:0 26px;height:66px;position:sticky;top:0;z-index:20}
-  .logo{width:44px;height:44px;border-radius:11px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;letter-spacing:.5px}
-  .brand-t{font-weight:700;font-size:16px;color:var(--ink);line-height:1.15}
-  .brand-s{font-size:12.5px;color:var(--muted)}
-  .top nav{margin-left:auto;display:flex;gap:4px}
-  .top nav a{font-size:13.5px;font-weight:600;color:var(--muted);padding:8px 13px;border-radius:9px}
-  .top nav a:hover{background:var(--tint);color:var(--navy)}
-  @media(max-width:720px){.top nav{display:none}}
+  /* ===== shell ===== */
+  .shell{display:flex;min-height:100vh}
+  aside.side{width:230px;flex:0 0 230px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .side-brand{display:flex;align-items:center;gap:11px;padding:16px 16px 14px;border-bottom:1px solid var(--line2)}
+  .logo{width:40px;height:40px;border-radius:10px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:0 0 auto}
+  .side-brand .t{font-weight:700;font-size:14px;line-height:1.15}
+  .side-brand .s{font-size:11px;color:var(--muted)}
+  .navgrp{font-size:10.5px;font-weight:700;letter-spacing:.7px;color:var(--muted2);text-transform:uppercase;padding:16px 18px 6px}
+  .navitem{all:unset;cursor:pointer;display:flex;align-items:center;gap:11px;padding:9px 14px;margin:1px 8px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);width:calc(100% - 16px)}
+  .navitem:hover{background:var(--tint);color:var(--navy)}
+  .navitem.on{background:var(--navy);color:#fff}
+  .navitem .nbadge{margin-left:auto;font-size:11px;font-weight:700;background:var(--redbg);color:var(--red);padding:1px 8px;border-radius:99px}
+  .navitem.on .nbadge{background:rgba(255,255,255,.22);color:#fff}
+  .side-foot{margin-top:auto;border-top:1px solid var(--line2);padding:12px 14px;display:flex;align-items:center;gap:10px}
+  .avatar{width:34px;height:34px;border-radius:50%;background:var(--tint);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
+  .side-foot .n{font-size:12.5px;font-weight:700;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .side-foot .r{font-size:11px;color:var(--muted)}
+  .iconbtn{all:unset;cursor:pointer;color:var(--muted);padding:6px;border-radius:8px;display:flex}
+  .iconbtn:hover{background:var(--tint);color:var(--navy)}
 
-  .wrap{max-width:1160px;margin:0 auto;padding:0 26px}
+  main.main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{display:flex;align-items:center;gap:14px;background:#fff;border-bottom:1px solid var(--line);padding:0 22px;height:58px;position:sticky;top:0;z-index:15}
+  .topbar h1{font-size:16.5px;font-weight:700;margin:0}
+  .gsearch{margin-left:auto;position:relative;width:min(340px,38vw)}
+  .gsearch input{width:100%;padding:9px 12px 9px 34px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg)}
+  .gsearch input:focus{outline:none;border-color:var(--navy);background:#fff}
+  .gsearch svg{position:absolute;left:10px;top:50%;transform:translateY(-50%)}
+  .gresults{position:absolute;top:44px;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px rgba(11,21,63,.14);max-height:330px;overflow:auto;z-index:40}
+  .gres{display:block;padding:10px 13px;border-bottom:1px solid var(--line2);cursor:pointer}
+  .gres:hover{background:var(--tint)}
+  .gres .a{font-size:13px;font-weight:700;color:var(--ink)}
+  .gres .b{font-size:11.5px;color:var(--muted)}
+  .content{padding:22px 24px 70px;max-width:1220px;width:100%;margin:0 auto}
+  .content.full{max-width:none;padding:0;display:flex;flex-direction:column;flex:1}
 
-  /* hero */
-  .hero{padding:52px 0 30px}
-  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;letter-spacing:.7px;color:var(--navy);background:var(--tint);padding:6px 13px;border-radius:99px;text-transform:uppercase}
-  .eyebrow .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(30,158,90,.5);animation:pl 2s infinite}
-  @keyframes pl{0%{box-shadow:0 0 0 0 rgba(30,158,90,.45)}70%{box-shadow:0 0 0 7px rgba(30,158,90,0)}100%{box-shadow:0 0 0 0 rgba(30,158,90,0)}}
-  h1.title{font-size:40px;font-weight:700;letter-spacing:-.8px;margin:16px 0 8px;line-height:1.08;color:var(--ink)}
-  h1.title span{color:var(--navy)}
-  .lead{font-size:16.5px;color:var(--muted);max-width:720px;line-height:1.6;margin:0}
-  @media(max-width:600px){h1.title{font-size:30px}.hero{padding:36px 0 22px}}
+  .srcpill{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);border:1px solid var(--line2);padding:5px 10px;border-radius:99px;white-space:nowrap}
+  .srcdot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+  .srcdot.off{background:var(--amber)}
 
-  /* kpis */
-  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:26px 0 8px}
-  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
-  .kpi{background:#fff;border:1px solid var(--line2);border-radius:15px;padding:17px 18px;position:relative;overflow:hidden}
-  .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line)}
-  .kpi.k-green::before{background:var(--green)} .kpi.k-amber::before{background:var(--amber)} .kpi.k-red::before{background:var(--red)} .kpi.k-navy::before{background:var(--navy)} .kpi.k-teal::before{background:var(--teal)}
-  .kpi-n{font-size:28px;font-weight:700;line-height:1;color:var(--ink)}
-  .kpi-l{font-size:12.5px;color:var(--muted);margin-top:7px;font-weight:600}
-  .kpi.skeleton .kpi-n{color:var(--muted2)}
-  .srcnote{font-size:12px;color:var(--muted2);margin:4px 0 0;display:flex;align-items:center;gap:7px}
-  .srcnote .d{width:7px;height:7px;border-radius:50%;background:var(--green)}
-  .srcnote .d.off{background:var(--amber)}
+  @media(max-width:860px){
+    .shell{flex-direction:column}
+    aside.side{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center}
+    .side-brand{border:0}
+    .navgrp{display:none}
+    .navitem{width:auto;padding:8px 11px}
+    .side-foot{margin-left:auto;border:0}
+  }
 
-  /* sections */
-  section{padding:42px 0}
-  .sec-eyebrow{font-size:12px;font-weight:700;letter-spacing:.6px;color:var(--navy);text-transform:uppercase;margin:0 0 6px}
-  h2.sec{font-size:25px;font-weight:700;letter-spacing:-.4px;margin:0 0 6px;color:var(--ink)}
-  .sec-lead{font-size:15px;color:var(--muted);max-width:760px;margin:0 0 26px;line-height:1.6}
+  /* ===== atoms ===== */
+  .btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--navy);color:#fff;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:10px;transition:filter .15s}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.line{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+  .btn.line:hover{background:var(--bg);filter:none}
+  .btn.danger{background:var(--red)}
+  .btn.sm{padding:8px 13px;font-size:12.5px}
+  .btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+  .panel{background:#fff;border:1px solid var(--line2);border-radius:15px;padding:20px 22px}
+  .ptitle{font-size:14.5px;font-weight:700;margin:0 0 3px}
+  .psub{font-size:12px;color:var(--muted);margin:0 0 14px}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+  .b-g{background:var(--greenbg);color:var(--green)} .b-a{background:var(--amberbg);color:var(--amber)}
+  .b-r{background:var(--redbg);color:var(--red)} .b-d{background:#EEF0F5;color:var(--muted)}
+  .b-n{background:var(--tint);color:var(--navy)} .b-v{background:#EFE6FA;color:var(--violet)}
+  .chip{all:unset;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--muted);padding:8px 13px;border:1.5px solid var(--line);border-radius:99px;background:#fff}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .catchip{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px}
+  @media(max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:#fff;border:1px solid var(--line2);border-radius:13px;padding:14px 16px;cursor:pointer;transition:box-shadow .15s}
+  .kpi:hover{box-shadow:0 10px 26px rgba(11,21,63,.08)}
+  .kpi-n{font-size:24px;font-weight:700;line-height:1}
+  .kpi-l{font-size:11.5px;color:var(--muted);margin-top:6px;font-weight:600}
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+  .search{flex:1;min-width:200px;position:relative}
+  .search input{width:100%;padding:10px 12px 10px 36px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+  .search input:focus{outline:none;border-color:var(--navy)}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%)}
+  .viewtog{display:flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+  .viewtog button{all:unset;cursor:pointer;padding:8px 12px;font-size:12.5px;font-weight:600;color:var(--muted)}
+  .viewtog button.on{background:var(--navy);color:#fff}
 
-  /* lifecycle stepper */
-  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:6px;margin-bottom:26px}
-  .fstep{flex:1 0 150px;position:relative;padding:0 6px}
-  .fstep .bar{height:5px;border-radius:99px;background:var(--accent);margin-bottom:13px}
-  .fstep .no{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.5px}
-  .fstep .nm{font-size:14px;font-weight:700;color:var(--ink);margin-top:2px;line-height:1.25}
-  .fstep .tool{font-size:11.5px;color:var(--muted);margin-top:5px}
+  /* tables */
+  .tablewrap{background:#fff;border:1px solid var(--line2);border-radius:14px;overflow-x:auto}
+  table.list{width:100%;border-collapse:collapse;min-width:760px}
+  table.list th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted2);text-align:left;padding:12px 13px;border-bottom:1.5px solid var(--line2);background:#FAFBFE;white-space:nowrap}
+  table.list td{font-size:13px;padding:11px 13px;border-bottom:1px solid var(--line2);vertical-align:middle}
+  table.list tbody tr{cursor:pointer}
+  table.list tbody tr:hover{background:var(--tint)}
+  .td-nro{font-weight:700;color:var(--navy);white-space:nowrap}
+  .td-obj{font-weight:600;max-width:280px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .dot.g{background:var(--green)}.dot.a{background:var(--amber)}.dot.r{background:var(--red)}.dot.done{background:var(--muted2)}
 
-  .phases{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-  @media(max-width:860px){.phases{grid-template-columns:1fr 1fr}}
-  @media(max-width:560px){.phases{grid-template-columns:1fr}}
-  .pcard{background:#fff;border:1px solid var(--line2);border-radius:16px;padding:20px;border-top:4px solid var(--accent);display:flex;flex-direction:column;transition:box-shadow .16s,transform .16s}
-  .pcard:hover{box-shadow:0 16px 40px rgba(11,21,63,.09);transform:translateY(-3px)}
-  .pcard .ph-no{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--accent);text-transform:uppercase}
-  .pcard h3{font-size:17px;font-weight:700;margin:5px 0 8px;color:var(--ink);line-height:1.25}
-  .pcard p{font-size:13.5px;color:var(--muted);margin:0 0 14px;line-height:1.55;flex:1}
-  .pcard .doclist{list-style:none;padding:0;margin:0 0 15px}
-  .pcard .doclist li{font-size:12.5px;color:var(--ink);padding:3px 0 3px 18px;position:relative}
-  .pcard .doclist li::before{content:"";position:absolute;left:2px;top:9px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
-  .pcta{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;color:#fff;background:var(--accent);padding:10px 15px;border-radius:10px;transition:filter .15s;align-self:flex-start}
-  .pcta:hover{filter:brightness(1.08)}
-  .pcta.ghost{background:transparent;color:var(--accent);border:1.5px solid currentColor;padding:8px 14px}
+  /* cards grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+  .cc{background:#fff;border:1px solid var(--line2);border-radius:14px;padding:16px;cursor:pointer;transition:box-shadow .15s,transform .15s;border-left:5px solid var(--line);position:relative}
+  .cc:hover{box-shadow:0 12px 30px rgba(11,21,63,.09);transform:translateY(-2px)}
+  .cc.g{border-left-color:var(--green)}.cc.a{border-left-color:var(--amber)}.cc.r{border-left-color:var(--red)}.cc.done{border-left-color:var(--muted2);opacity:.85}
+  .cc-nro{font-size:11.5px;font-weight:700;color:var(--navy)}
+  .cc-title{font-size:14px;font-weight:700;margin:7px 0 2px;line-height:1.3}
+  .cc-area{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .cc-meta{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .cc-meta b{color:var(--ink)}
 
-  /* tool cards */
-  .tools{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
-  @media(max-width:760px){.tools{grid-template-columns:1fr}}
-  .tool-card{background:#fff;border:1px solid var(--line2);border-radius:16px;padding:22px;display:flex;gap:16px;align-items:flex-start;transition:box-shadow .16s,transform .16s}
-  .tool-card:hover{box-shadow:0 16px 40px rgba(11,21,63,.09);transform:translateY(-3px)}
-  .tool-ic{width:50px;height:50px;flex:0 0 auto;border-radius:13px;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--accent)}
-  .tool-body{flex:1;min-width:0}
-  .tool-body h3{font-size:17px;font-weight:700;margin:0 0 3px;color:var(--ink)}
-  .tool-body .kick{font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
-  .tool-body p{font-size:13.5px;color:var(--muted);margin:0 0 12px;line-height:1.55}
-  .tool-links{display:flex;gap:10px;flex-wrap:wrap}
-  .tool-links a,.tool-links span.dis{font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px}
-  .tool-links .dis{color:var(--muted2)}
+  /* pipeline */
+  .kanban{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:13px;overflow-x:auto;align-items:start}
+  @media(max-width:1100px){.kanban{grid-template-columns:repeat(5,240px)}}
+  .kcol{background:#EDF0F8;border-radius:14px;padding:11px}
+  .kcol-h{display:flex;align-items:center;gap:8px;padding:3px 5px 10px}
+  .kcol-h .kdot{width:10px;height:10px;border-radius:50%}
+  .kcol-h .kt{font-size:12.5px;font-weight:700}
+  .kcol-h .kc{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted);background:#fff;padding:2px 8px;border-radius:99px}
+  .kcol-sum{font-size:11px;color:var(--muted);padding:0 5px 9px;font-weight:600}
+  .kcard{background:#fff;border:1px solid var(--line2);border-radius:11px;padding:11px 12px;margin-bottom:9px;cursor:pointer;transition:box-shadow .13s}
+  .kcard:hover{box-shadow:0 8px 20px rgba(11,21,63,.1)}
+  .kcard .a{font-size:11px;font-weight:700;color:var(--navy)}
+  .kcard .b{font-size:12.5px;font-weight:700;line-height:1.3;margin:3px 0 4px}
+  .kcard .c{font-size:11px;color:var(--muted)}
 
-  /* live portfolio: alerts */
-  .live-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media(max-width:760px){.live-grid{grid-template-columns:1fr}}
-  .alert-panel{background:#fff;border:1px solid var(--line2);border-radius:16px;padding:18px 20px}
-  .alert-panel h3{font-size:15px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:9px}
-  .alert-panel .cnt{font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;margin-left:auto}
-  .alert-panel.red .cnt{background:var(--redbg);color:var(--red)} .alert-panel.amber .cnt{background:var(--amberbg);color:var(--amber)}
-  .alert-panel .hd{display:flex;align-items:center}
-  .alert-panel .sub{font-size:12.5px;color:var(--muted);margin:0 0 12px}
-  .arow{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid var(--line2)}
-  .arow .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
-  .arow.red .dot{background:var(--red)} .arow.amber .dot{background:var(--amber)}
-  .arow .txt{flex:1;min-width:0}
-  .arow .o{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .arow .m{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .arow .when{font-size:12px;font-weight:700;white-space:nowrap}
-  .arow.red .when{color:var(--red)} .arow.amber .when{color:var(--amber)}
-  .alert-empty{font-size:13px;color:var(--muted);padding:14px 0 6px;text-align:center}
-  .alert-foot{margin-top:12px;font-size:13px;font-weight:700}
+  /* detail */
+  .back{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--navy);margin-bottom:14px}
+  .back:hover{text-decoration:underline}
+  .detail{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;align-items:start}
+  @media(max-width:920px){.detail{grid-template-columns:1fr}}
+  .h-title{font-size:19px;font-weight:700;margin:0 0 2px;line-height:1.3}
+  .dl{display:grid;grid-template-columns:1fr 1fr;gap:13px 20px;margin-top:8px}
+  .dl .k{font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+  .dl .v{font-size:14px;font-weight:600}
+  .dl .full{grid-column:1/-1}
+  .linkbar{display:flex;align-items:center;gap:10px;background:var(--tint);border:1px solid #D7DEF6;border-radius:11px;padding:11px 13px;margin:14px 0 4px}
+  .phase{display:flex;align-items:center;margin:16px 0 4px;flex-wrap:wrap;row-gap:8px}
+  .step{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;color:var(--muted2)}
+  .step .d{width:24px;height:24px;border-radius:7px;background:#EEF0F5;color:var(--muted2);display:flex;align-items:center;justify-content:center;font-size:12px}
+  .step.on{color:var(--navy)}.step.on .d{background:var(--navy);color:#fff}
+  .step.past{color:var(--green)}.step.past .d{background:var(--greenbg);color:var(--green)}
+  .flow-line{flex:1;height:2px;background:var(--line2);margin:0 8px;min-width:14px}
+  .act{display:flex;flex-direction:column;gap:9px}
+  .actbtn{all:unset;cursor:pointer;display:flex;align-items:center;gap:11px;padding:12px 13px;border:1.5px solid var(--line);border-radius:11px;background:#fff;transition:border-color .14s,background .14s}
+  .actbtn:hover{border-color:var(--navy);background:var(--tint)}
+  .actbtn:disabled{opacity:.5;cursor:not-allowed}
+  .actbtn:disabled:hover{border-color:var(--line);background:#fff}
+  .actbtn .ic{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--navy);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .actbtn .at{font-size:13.5px;font-weight:700;display:block}
+  .actbtn .ad{font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
+  .note{font-size:12px;color:var(--muted);line-height:1.5;background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:11px 13px}
+  .tl{list-style:none;margin:6px 0 0;padding:0}
+  .tl li{position:relative;padding:0 0 14px 22px;border-left:2px solid var(--line2);margin-left:7px}
+  .tl li:last-child{padding-bottom:2px}
+  .tl li::before{content:"";position:absolute;left:-6px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--navy2);border:2px solid #fff}
+  .tl .t{font-size:12.5px;font-weight:700}
+  .tl .s{font-size:11.5px;color:var(--muted)}
 
-  /* infra strip */
-  .infra{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-  @media(max-width:760px){.infra{grid-template-columns:1fr}}
-  .icard{background:#fff;border:1px solid var(--line2);border-radius:16px;padding:20px}
-  .icard .ic{width:40px;height:40px;border-radius:11px;background:var(--tint);color:var(--navy);display:flex;align-items:center;justify-content:center;margin-bottom:12px}
-  .icard h3{font-size:15.5px;font-weight:700;margin:0 0 5px;color:var(--ink)}
-  .icard p{font-size:13px;color:var(--muted);margin:0;line-height:1.55}
-  .icard code{font-size:12px;background:var(--bg);border:1px solid var(--line2);border-radius:6px;padding:1px 6px;color:var(--navy)}
+  /* modals */
+  .overlay{position:fixed;inset:0;background:rgba(11,21,63,.44);display:flex;align-items:flex-start;justify-content:center;padding:36px 18px;overflow:auto;z-index:60}
+  .modal{background:#fff;border-radius:16px;max-width:580px;width:100%;padding:24px 26px 22px;box-shadow:0 30px 80px rgba(11,21,63,.3);animation:up .2s ease}
+  .modal h2{font-size:19px;font-weight:700;margin:0 0 3px}
+  .modal .sub{font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.5}
+  .frow{margin-bottom:13px}
+  .frow label{display:block;font-size:12px;font-weight:700;margin-bottom:5px}
+  .frow input,.frow select,.frow textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+  .frow input:focus,.frow select:focus,.frow textarea:focus{outline:none;border-color:var(--navy)}
+  .frow textarea{resize:vertical;min-height:70px}
+  .frow2{display:flex;gap:10px}
+  .frow2>.frow{flex:1;margin:0}
+  .radios{display:flex;flex-direction:column;gap:8px}
+  .radio{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1.5px solid var(--line);border-radius:11px;cursor:pointer}
+  .radio:hover{border-color:var(--navy)}
+  .radio.sel{border-color:var(--navy);background:var(--tint)}
+  .radio input{margin-top:2px;accent-color:var(--navy)}
+  .radio .rt{font-size:13.5px;font-weight:700;display:block}
+  .radio .rd{font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
+  .routebox{border-radius:11px;padding:12px 14px;margin:6px 0 4px;font-size:13px;line-height:1.55;border:1.5px solid}
+  .route-acta{background:var(--greenbg);border-color:#BCE6CE;color:#15703F}
+  .route-adenda{background:var(--amberbg);border-color:#F0DCA6;color:#8A5E06}
+  .route-block{background:var(--redbg);border-color:#F3C0C0;color:#A32020}
+  .secdiv{font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;margin:15px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line2)}
+  .modal-foot{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+  .steps{background:#F4F7FE;border:1px solid #D7DFF5;border-radius:12px;padding:13px 15px;margin-top:12px}
+  .steps h3{margin:0 0 7px;font-size:13px;color:var(--navy)}
+  .steps ol{margin:0;padding-left:19px;font-size:12.5px;line-height:1.65}
+  .crit{margin-bottom:11px}
+  .scorebox{background:var(--bg);border:1px solid var(--line2);border-radius:12px;padding:13px 15px;margin-top:14px;display:flex;align-items:center;justify-content:space-between}
+  .scorebox .big{font-size:28px;font-weight:700;line-height:1}
+  .scorebox .lab{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .semaforo{font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:99px}
+  .scorebtn.on{background:var(--navy)!important;color:#fff!important;border-color:var(--navy)!important}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:12px 19px;border-radius:11px;box-shadow:0 14px 40px rgba(11,21,63,.3);z-index:90;animation:up .22s ease}
+  .empty{text-align:center;padding:50px 20px;color:var(--muted)}
 
-  footer{border-top:1px solid var(--line);margin-top:20px;padding:26px 0 40px}
-  .foot-in{display:flex;gap:14px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:12.5px}
-  .foot-in .logo{width:34px;height:34px;font-size:12px;border-radius:9px}
+  /* charts */
+  .charts{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-bottom:18px}
+  @media(max-width:980px){.charts{grid-template-columns:1fr}}
+  .chart-svg{width:100%;height:auto;display:block}
+  .bar{cursor:pointer}
+  .bar:hover{filter:brightness(1.18)}
+  .axlbl{font-size:10px;fill:var(--muted2);font-family:'Titillium Web',sans-serif}
+  .vallbl{font-size:10.5px;font-weight:700;fill:var(--muted);font-family:'Titillium Web',sans-serif}
+  .grid-line{stroke:var(--line2);stroke-width:1}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+  .legend .li{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
+  .legend .sw{width:11px;height:11px;border-radius:3px}
+  #tip{position:fixed;pointer-events:none;background:var(--ink);color:#fff;font-size:12px;font-weight:600;padding:7px 11px;border-radius:8px;z-index:95;display:none;box-shadow:0 10px 26px rgba(11,21,63,.3);max-width:260px;line-height:1.4}
+  .stackbar{display:flex;height:34px;border-radius:9px;overflow:hidden;gap:2px;background:var(--bg)}
+  .stackbar>div{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:#fff;min-width:0;overflow:hidden;white-space:nowrap}
+
+  /* alerts */
+  .alert-row{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line2);border-radius:12px;padding:12px 15px;margin-bottom:9px}
+  .alert-row .aic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .alert-row .at{font-size:13px;font-weight:700}
+  .alert-row .ad{font-size:11.5px;color:var(--muted)}
+  .alert-row .go{margin-left:auto;flex:0 0 auto}
+
+  /* login */
+  .login-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px;background:linear-gradient(160deg,#F4F6FB 0%,#E8EDFB 100%)}
+  .login-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:32px 32px 28px;max-width:470px;width:100%;box-shadow:0 18px 50px rgba(11,21,63,.09)}
+  .eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--navy);background:var(--tint);padding:5px 11px;border-radius:99px;text-transform:uppercase}
+  .login-card h1{font-size:24px;font-weight:700;margin:13px 0 5px;letter-spacing:-.3px}
+  .lead{font-size:14px;color:var(--muted);margin:0 0 20px;line-height:1.55}
+  .rolegrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+  .rolebtn{all:unset;cursor:pointer;text-align:center;padding:11px 6px;border:1.5px solid var(--line);border-radius:11px;font-size:12px;font-weight:700;color:var(--muted)}
+  .rolebtn.on{border-color:var(--navy);background:var(--tint);color:var(--navy)}
+  select.big,input.big{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:11px;background:#fff}
+  .btn.block{width:100%}
+
+  iframe.toolframe{border:0;width:100%;flex:1;min-height:calc(100vh - 100px);background:#fff}
+  .framebar{display:flex;align-items:center;gap:10px;background:#fff;border-bottom:1px solid var(--line);padding:9px 18px;font-size:12.5px;color:var(--muted)}
 </style>
 </head>
 <body>
-<header class="top">
-  <div class="logo">FAP</div>
-  <div>
-    <div class="brand-t">Fondo de Áreas Protegidas</div>
-    <div class="brand-s">Contract Lifecycle Management · FIAS</div>
-  </div>
-  <nav>
-    <a href="#ciclo">Ciclo de vida</a>
-    <a href="#herramientas">Herramientas</a>
-    <a href="#portafolio">Portafolio</a>
-    <a href="#infra">Infraestructura</a>
-  </nav>
-</header>
-
-<div class="wrap">
-  <!-- HERO -->
-  <div class="hero up">
-    <span class="eyebrow"><span class="pulse"></span> Plataforma unificada FAP / FIAS</span>
-    <h1 class="title">Gestión del <span>ciclo de vida</span> de contratos,<br>de principio a fin.</h1>
-    <p class="lead">Un solo lugar que reúne todas las herramientas del FAP para el ciclo de vida contractual: desde la elaboración precontractual con <b>La Mágica</b>, pasando por la contratación, la ejecución y el seguimiento en el <b>CRM</b>, hasta las modificaciones, la terminación, la liquidación y la calificación de proveedores.</p>
-
-    <div class="kpis" id="kpis">
-      <div class="kpi k-navy skeleton"><div class="kpi-n" id="k-total">—</div><div class="kpi-l">Contratos en el portafolio</div></div>
-      <div class="kpi k-green skeleton"><div class="kpi-n" id="k-vig">—</div><div class="kpi-l">Vigentes</div></div>
-      <div class="kpi k-amber skeleton"><div class="kpi-n" id="k-avi">—</div><div class="kpi-l">En aviso (≤90 días)</div></div>
-      <div class="kpi k-red skeleton"><div class="kpi-n" id="k-ven">—</div><div class="kpi-l">Vencidos</div></div>
-      <div class="kpi k-teal skeleton"><div class="kpi-n" id="k-monto">—</div><div class="kpi-l">Valor gestionado</div></div>
-    </div>
-    <p class="srcnote" id="srcnote"><span class="d off"></span> Cargando portafolio…</p>
-  </div>
-
-  <!-- CICLO DE VIDA -->
-  <section id="ciclo">
-    <p class="sec-eyebrow">El recorrido completo</p>
-    <h2 class="sec">Seis fases, dos herramientas, cero hojas sueltas</h2>
-    <p class="sec-lead">Cada fase del contrato tiene una herramienta responsable. La Mágica cubre lo precontractual; el CRM toma el relevo desde la firma y acompaña la ejecución hasta la liquidación. La <b>Unidad Operativa</b> (Power Automate) es la bandeja común donde ambas depositan los documentos para la revisión legal del FAP.</p>
-
-    <div class="flow" id="flow"></div>
-    <div class="phases" id="phases"></div>
-  </section>
-
-  <!-- HERRAMIENTAS -->
-  <section id="herramientas">
-    <p class="sec-eyebrow">Las herramientas</p>
-    <h2 class="sec">Todo lo que hemos construido, en un tablero</h2>
-    <p class="sec-lead">Aplicaciones autónomas, cada una publicada como sitio, que aquí quedan conectadas por el ciclo de vida que comparten.</p>
-    <div class="tools" id="tools"></div>
-  </section>
-
-  <!-- PORTAFOLIO EN VIVO -->
-  <section id="portafolio">
-    <p class="sec-eyebrow">Portafolio en vivo</p>
-    <h2 class="sec">Lo que necesita atención hoy</h2>
-    <p class="sec-lead">Alertas calculadas al vuelo desde la misma base que alimenta el CRM (<code style="font-size:12px;background:var(--bg);border:1px solid var(--line2);border-radius:6px;padding:1px 6px;color:var(--navy)">crm/contratos_export.json</code>), actualizada cada mañana por el robot diario.</p>
-    <div class="live-grid">
-      <div class="alert-panel red">
-        <div class="hd"><h3><span style="color:var(--red)">●</span> Contratos vencidos</h3><span class="cnt" id="cnt-ven">—</span></div>
-        <p class="sub">Requieren terminación, liquidación o renovación inmediata.</p>
-        <div id="list-ven"></div>
-        <div class="alert-foot"><a href="crm/#ven">Abrir en el CRM →</a></div>
-      </div>
-      <div class="alert-panel amber">
-        <div class="hd"><h3><span style="color:var(--amber)">●</span> En aviso · vencen pronto</h3><span class="cnt" id="cnt-avi">—</span></div>
-        <p class="sub">A 90 días o menos de finalizar. Momento de decidir renovación o cierre.</p>
-        <div id="list-avi"></div>
-        <div class="alert-foot"><a href="crm/#avi">Abrir en el CRM →</a></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- INFRAESTRUCTURA -->
-  <section id="infra">
-    <p class="sec-eyebrow">Lo que sostiene la plataforma</p>
-    <h2 class="sec">Infraestructura y automatización</h2>
-    <p class="sec-lead">Los engranajes silenciosos que mantienen los datos frescos y los documentos fluyendo.</p>
-    <div class="infra">
-      <div class="icard">
-        <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 3v6h-6"/></svg></div>
-        <h3>Robot de actualización diaria</h3>
-        <p>Cada mañana (06:30, hora de Ecuador) una GitHub Action lee el Excel maestro en OneDrive y regenera <code>crm/contratos_export.json</code>. Si el flujo falla, la AC puede recargar la base a mano desde el propio CRM.</p>
-      </div>
-      <div class="icard">
-        <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg></div>
-        <h3>Unidad Operativa (Power Automate)</h3>
-        <p>Bandeja única de recepción. Tanto La Mágica como el CRM abren un formulario prellenado para adjuntar los documentos y subirlos al flujo de revisión legal del FAP.</p>
-      </div>
-      <div class="icard">
-        <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
-        <h3>Plantillas oficiales</h3>
-        <p>Los documentos se generan con las plantillas Word reales embebidas en cada herramienta (informe de adenda, acta de terminación FAP-2026-12, órdenes, informes de justificación y satisfacción).</p>
-      </div>
-    </div>
-  </section>
-</div>
-
-<footer>
-  <div class="wrap foot-in">
-    <div class="logo">FAP</div>
-    <div>
-      <b style="color:var(--ink)">Fondo de Áreas Protegidas — FIAS</b><br>
-      Contract Lifecycle Management · Herramientas internas para Administradoras Contadoras.
-    </div>
-    <div style="margin-left:auto;text-align:right" id="foot-upd">La base se actualiza automáticamente cada mañana.</div>
-  </div>
-</footer>
-
+<div id="app"></div>
+<div id="tip"></div>
 <script>
-/* ============ Contenido del ciclo de vida (mapa herramienta ↔ fase) ============ */
-var C_NAVY='var(--navy)', C_TEAL='var(--teal)', C_AMBER='var(--amber)', C_VIOLET='var(--violet)', C_RED='var(--red)', C_GREEN='var(--green)';
+/* =====================================================================
+   CLM FAP — Contract Lifecycle Management · FIAS
+   Plataforma única que unifica: intake precontractual (reglas de La
+   Mágica), repositorio y ejecución (CRM), modificaciones, terminación,
+   calificación de proveedores (FO-AD-ABC-017), envío a la Unidad
+   Operativa (Power Automate), reportes y bitácora. Las herramientas
+   originales quedan embebidas como módulos (misma publicación).
+   ===================================================================== */
 
-var PHASES=[
-  { no:'Fase 1', name:'Precontractual', accent:C_NAVY, tool:'La Mágica',
-    desc:'Captura del proceso por momentos, generación de documentos y decisión de la vía: orden de compra/servicio o contrato.',
-    docs:['Hoja de datos','Informe de justificación','Orden de compra / servicio'],
-    href:'generador/', cta:'Abrir La Mágica' },
-  { no:'Fase 2', name:'Contratación y formalización', accent:C_VIOLET, tool:'La Mágica → Unidad Operativa',
-    desc:'Cuando el proceso va por contrato (garantías o plazo mayor a 30 días), se envía a la Unidad Operativa para que Legal FAP elabore y formalice el contrato.',
-    docs:['Envío a la Unidad Operativa','Elaboración legal','Firma del contrato'],
-    href:'generador/', cta:'Iniciar en La Mágica' },
-  { no:'Fase 3', name:'Ejecución y seguimiento', accent:C_GREEN, tool:'CRM de Contratos',
-    desc:'Vigencias, semáforo de vencimientos, avisos a 90 días y acceso directo al contrato firmado en el repositorio.',
-    docs:['Semáforo de vigencia','Alertas ≤ 90 días','Enlace al contrato firmado'],
-    href:'crm/', cta:'Abrir el CRM' },
-  { no:'Fase 4', name:'Modificaciones (adendas)', accent:C_AMBER, tool:'CRM de Contratos',
-    desc:'Borrador del informe de modificación para adenda de plazo o aumento de monto, listo para enviar a la Unidad Operativa.',
-    docs:['Informe de adenda','Aumento de monto','Envío a Unidad Operativa'],
-    href:'crm/', cta:'Abrir el CRM' },
-  { no:'Fase 5', name:'Terminación y liquidación', accent:C_RED, tool:'CRM de Contratos',
-    desc:'Acta de entrega-recepción y liquidación (FAP-2026-12) con selección de causal y las tres firmas.',
-    docs:['Acta de terminación','Liquidación económica','Envío a Unidad Operativa'],
-    href:'crm/', cta:'Abrir el CRM' },
-  { no:'Fase 6', name:'Calificación del proveedor', accent:C_TEAL, tool:'CRM de Contratos',
-    desc:'Evaluación oficial del proveedor (FO-AD-ABC-017): 13 criterios en 4 indicadores, con semáforo de desempeño.',
-    docs:['13 criterios · 4 indicadores','Puntaje /100','Registro de evaluación'],
-    href:'crm/', cta:'Abrir el CRM' }
+/* ================= CONFIG ================= */
+// Misma URL del flujo de Power Automate que usan La Mágica y el CRM
+// (subida de documentos a revisión de la Unidad Operativa).
+var FLOW_DOCS_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/08/workflows/d9ab249ef28a41c69d9bb7a5ee32a00e/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fhmL_aMEe5PETXXKDZuiYMg47xFWoa0RygIxFWFzCwI';
+var DATA_URL = 'crm/contratos_export.json';
+var TPL_PATH = 'crm/plantillas/';
+
+/* ================= HELPERS (heredados del CRM) ================= */
+const $=(s,el=document)=>el.querySelector(s);
+function norm(s){return String(s==null?"":s).trim().toLowerCase();}
+const esc=s=>(s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const money=n=>(n==null||n==="")?"—":"$"+Number(n).toLocaleString("es-EC",{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0=n=>"$"+Math.round(Number(n)||0).toLocaleString("es-EC");
+function moneyShort(n){n=Number(n)||0;if(n>=1e6)return "$"+(n/1e6).toFixed(1).replace(".0","")+" M";if(n>=1e3)return "$"+Math.round(n/1e3)+" k";return "$"+Math.round(n);}
+function fdate(iso){if(!iso)return "—";const [y,m,d]=String(iso).split("-");const M=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];return `${+d} ${M[+m-1]} ${y}`;}
+function longDate(iso){if(!iso)iso=new Date().toISOString().slice(0,10);const [y,m,d]=String(iso).split("-");const M=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];return `${+d} de ${M[+m-1]} de ${y}`;}
+function todayISO(){const t=new Date();const p=n=>String(n).padStart(2,"0");return t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate());}
+function diasRestantes(c){if(!c.fin)return null;const t=new Date(todayISO()+"T00:00:00");const f=new Date(c.fin+"T00:00:00");return Math.round((f-t)/86400000);}
+function montoDe(c){return (c.montoTotal!=null&&c.montoTotal>0)?c.montoTotal:(c.monto||0);}
+function tieneAdenda(c){return norm(c.adenda).startsWith("s");}
+function montoAdenda(c){const d=montoDe(c)-(c.monto||0);return d>0.009?d:0;}
+function manualDocx(txt){return `«COMPLETAR: ${txt}»`;}
+function trunc(s,n){s=String(s==null?"":s);return s.length>n?s.slice(0,n-1).trimEnd()+"…":s;}
+function cleanNro(n){return String(n).replace(/[^0-9A-Za-z]+/g,"_").replace(/^_|_$/g,"");}
+function isConsultoria(c){const s=(norm(c.cat)+" "+norm(c.tipo)+" "+norm(c.detalle));return /consultor|servicio.*profesional|profesional/.test(s);}
+function montoEnLetras(n){
+  n=Number(n)||0;
+  const ent=Math.floor(n), cent=Math.round((n-ent)*100);
+  const U=["","UNO","DOS","TRES","CUATRO","CINCO","SEIS","SIETE","OCHO","NUEVE","DIEZ","ONCE","DOCE","TRECE","CATORCE","QUINCE","DIECISÉIS","DIECISIETE","DIECIOCHO","DIECINUEVE","VEINTE"];
+  const D=["","","VEINTE","TREINTA","CUARENTA","CINCUENTA","SESENTA","SETENTA","OCHENTA","NOVENTA"];
+  const C=["","CIENTO","DOSCIENTOS","TRESCIENTOS","CUATROCIENTOS","QUINIENTOS","SEISCIENTOS","SETECIENTOS","OCHOCIENTOS","NOVECIENTOS"];
+  function tres(x){x=Number(x);if(x===0)return "";if(x===100)return "CIEN";let s="";const c=Math.floor(x/100),r=x%100;
+    if(c>0)s+=C[c]+" ";
+    if(r<=20)s+=U[r];
+    else{const d=Math.floor(r/10),u=r%10;
+      if(r<30)s+="VEINTI"+U[u].toLowerCase().replace(/^./,m=>m.toUpperCase());
+      else{s+=D[d];if(u>0)s+=" Y "+U[u];}}
+    return s.trim();}
+  function grupo(x,sing,plur){if(x===0)return "";if(x===1)return sing;return tres(x)+" "+plur;}
+  let entero;
+  if(ent===0)entero="CERO";
+  else{const mill=Math.floor(ent/1000000),rm=ent%1000000;const mil=Math.floor(rm/1000),rc=rm%1000;let partes=[];
+    if(mill>0)partes.push(grupo(mill,"UN MILLÓN","MILLONES"));
+    if(mil>0)partes.push(mil===1?"MIL":tres(mil)+" MIL");
+    if(rc>0)partes.push(tres(rc));
+    entero=partes.join(" ").trim();}
+  const bruto=`${entero} CON ${String(cent).padStart(2,"0")}/100 DÓLARES DE LOS ESTADOS UNIDOS DE AMÉRICA`;
+  let s=bruto.charAt(0)+bruto.slice(1).toLowerCase();
+  s=s.replace(/estados unidos de américa/i,"Estados Unidos de América");
+  return s;
+}
+const CAT_COLORS=[
+  [/combustible/,{bg:"#FDEBD7",fg:"#9A5B10"}],
+  [/mantenimiento/,{bg:"#E3EBFC",fg:"#1D48B8"}],
+  [/arrenda|arriendo/,{bg:"#EFE6FA",fg:"#6B34B8"}],
+  [/consultor|profesional/,{bg:"#DDF3F0",fg:"#0E7D6F"}],
+  [/limpieza/,{bg:"#E2F5E4",fg:"#1F7A34"}],
+  [/internet|conectividad/,{bg:"#DDF0F9",fg:"#0B6E96"}],
+  [/radio/,{bg:"#FBE3EE",fg:"#B03070"}],
+  [/embarcaci|vessel|nav/,{bg:"#E0EFF6",fg:"#255E7E"}]
 ];
+function catColor(cat){const s=norm(cat);for(const [re,c] of CAT_COLORS)if(re.test(s))return c;return {bg:"#ECEEF4",fg:"#5A6072"};}
+function catChip(cat,extra){const col=catColor(cat);return `<span class="catchip" style="background:${col.bg};color:${col.fg};${extra||""}">${esc(cat||"—")}</span>`;}
 
-function svgOpen(){return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';}
+/* ================= DATA + PERSISTENCIA ================= */
+let CONTRACTS=[];               // base viva (crm/contratos_export.json)
+let dataSource={label:"Cargando…",live:false};
+let CLM={overlay:{},solicitudes:[],log:[]};   // estado propio del CLM (localStorage)
 
-/* stepper */
-document.getElementById('flow').innerHTML = PHASES.map(function(p){
-  return '<div class="fstep" style="--accent:'+p.accent+'">'
-    +'<div class="bar"></div>'
-    +'<div class="no">'+p.no.toUpperCase()+'</div>'
-    +'<div class="nm">'+p.name+'</div>'
-    +'<div class="tool">'+p.tool+'</div></div>';
-}).join('');
+function saveCLM(){try{localStorage.setItem("fap_clm_v1",JSON.stringify(CLM));}catch(e){}}
+function loadCLM(){try{const r=localStorage.getItem("fap_clm_v1");if(r){const o=JSON.parse(r);CLM={overlay:o.overlay||{},solicitudes:o.solicitudes||[],log:o.log||[]};}}catch(e){}}
+function ov(c){return CLM.overlay[c.nro]||(CLM.overlay[c.nro]={});}
+function logAdd(icon,txt,ref){CLM.log.unshift({ts:new Date().toISOString(),user:SES?SES.user:"—",icon,txt,ref:ref||null});if(CLM.log.length>400)CLM.log.length=400;saveCLM();}
 
-/* phase cards */
-document.getElementById('phases').innerHTML = PHASES.map(function(p){
-  return '<div class="pcard" style="--accent:'+p.accent+'">'
-    +'<div class="ph-no">'+p.no+'</div>'
-    +'<h3>'+p.name+'</h3>'
-    +'<p>'+p.desc+'</p>'
-    +'<ul class="doclist">'+p.docs.map(function(d){return '<li>'+d+'</li>';}).join('')+'</ul>'
-    +'<a class="pcta" href="'+p.href+'">'+p.cta+' '+svgOpen()+'</a>'
-    +'</div>';
-}).join('');
-
-/* herramientas */
-var TOOLS=[
-  { accent:C_NAVY, kick:'Fase precontractual', name:'La Mágica',
-    desc:'Generador de documentos precontractuales para las ACs. Captura el proceso por momentos, arma los documentos con las plantillas Word y registra todo en el sistema central.',
-    icon:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>',
-    links:[['generador/','Abrir La Mágica']] },
-  { accent:C_GREEN, kick:'Contratación → liquidación', name:'CRM de Contratos',
-    desc:'El puesto de mando de la AC: vigencias, alertas, modificaciones, terminaciones y calificación de proveedores. Entra por administradora o por área protegida.',
-    icon:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 4v16"/></svg>',
-    links:[['crm/','Abrir el CRM']] },
-  { accent:C_VIOLET, kick:'Bandeja común', name:'Unidad Operativa',
-    desc:'El flujo de Power Automate que recibe los documentos de ambas herramientas para la revisión legal. Se dispara desde La Mágica y desde el CRM con el formulario ya prellenado.',
-    icon:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" opacity="0"/><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.4 7.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-4.5A2 2 0 0 0 17 7H7a2 2 0 0 0-1.6.5z"/></svg>',
-    links:[['generador/','Desde La Mágica'],['crm/','Desde el CRM']] },
-  { accent:C_TEAL, kick:'Automatización', name:'Robot + plantillas',
-    desc:'La GitHub Action que sincroniza la base cada mañana desde el Excel maestro, y las plantillas Word oficiales que dan forma a cada documento generado.',
-    icon:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4"/><path d="M9 2h6"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg>',
-    links:[['#infra','Cómo funciona']] }
-];
-document.getElementById('tools').innerHTML = TOOLS.map(function(t){
-  var links=t.links.map(function(l){return '<a href="'+l[0]+'">'+l[1]+' '+svgOpen()+'</a>';}).join('');
-  return '<div class="tool-card" style="--accent:'+t.accent+'">'
-    +'<div class="tool-ic">'+t.icon+'</div>'
-    +'<div class="tool-body"><div class="kick">'+t.kick+'</div><h3>'+t.name+'</h3><p>'+t.desc+'</p>'
-    +'<div class="tool-links">'+links+'</div></div></div>';
-}).join('');
-
-/* ============ Portafolio en vivo ============ */
-function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-function money(n){ n=Number(n)||0; return '$'+n.toLocaleString('es-EC',{minimumFractionDigits:0,maximumFractionDigits:0}); }
-function moneyShort(n){ n=Number(n)||0; if(n>=1e6) return '$'+(n/1e6).toFixed(1).replace('.0','')+' M'; if(n>=1e3) return '$'+Math.round(n/1e3)+' k'; return '$'+Math.round(n); }
-function montoDe(c){ var m=Number(c.montoTotal); if(m>0) return m; return Number(c.monto)||0; }
-function diasRestantes(c){
-  if(!c.fin) return null;
-  var f=new Date(c.fin+'T00:00:00'); if(isNaN(f)) return null;
-  var t=new Date(); t.setHours(0,0,0,0);
-  return Math.round((f-t)/86400000);
+/* estado vivo del contrato (con overlay del CLM) */
+function statusLive(c){
+  const o=ov(c);
+  if(c.cerrado)return {cls:"done",b:"b-d",label:"Cerrado",key:"cerrado"};
+  if(o.terminado)return {cls:"done",b:"b-d",label:"Terminado",key:"terminado"};
+  const d=diasRestantes(c);
+  if(d==null)return {cls:"g",b:"b-g",label:"Vigente",key:"vigente"};
+  if(d<0)return {cls:"r",b:"b-r",label:"Vencido",key:"vencido"};
+  if(d<=90)return {cls:"a",b:"b-a",label:`Por vencer · ${d}d`,key:"aviso"};
+  return {cls:"g",b:"b-g",label:`Vigente · ${d}d`,key:"vigente"};
 }
-function statusOf(c){
-  if(c.cerrado) return 'done';
-  var d=diasRestantes(c);
-  if(d==null) return 'g';
-  if(d<0) return 'r';
-  if(d<=90) return 'a';
-  return 'g';
-}
-function whenText(d){
-  if(d<0) return 'Venció hace '+Math.abs(d)+'d';
-  if(d===0) return 'Vence hoy';
-  return 'Vence en '+d+'d';
+function vigenciaText(c){
+  const o=ov(c);
+  if(c.cerrado)return "Contrato cerrado";
+  if(o.terminado)return "Contrato terminado";
+  const d=diasRestantes(c);
+  if(d==null)return "Sin fecha de fin";
+  if(d<0)return `Vencido hace ${Math.abs(d)} día${Math.abs(d)==1?"":"s"}`;
+  if(d===0)return "Vence hoy";
+  if(d<=90)return `Vence en ${d} días (aviso)`;
+  const meses=Math.floor(d/30);
+  return `${d} días restantes${meses>=2?` · ~${meses} meses`:""}`;
 }
 
-function renderKpis(data){
-  var total=data.length, vig=0, avi=0, ven=0, monto=0;
-  data.forEach(function(c){
-    var s=statusOf(c);
-    if(s==='g') vig++; else if(s==='a') avi++; else if(s==='r') ven++;
-    if(!c.cerrado) monto+=montoDe(c);
-  });
-  document.getElementById('k-total').textContent=total;
-  document.getElementById('k-vig').textContent=vig;
-  document.getElementById('k-avi').textContent=avi;
-  document.getElementById('k-ven').textContent=ven;
-  document.getElementById('k-monto').textContent=moneyShort(monto);
-  document.querySelectorAll('.kpi.skeleton').forEach(function(k){k.classList.remove('skeleton');});
-  var sn=document.getElementById('srcnote');
-  sn.innerHTML='<span class="d"></span> Portafolio en vivo · '+total+' contratos leídos de <b style="color:var(--muted)">crm/contratos_export.json</b>';
+/* ================= SESIÓN ================= */
+let SES=null; // {rol:'ac'|'area'|'uo', user}
+try{const s=sessionStorage.getItem("fap_clm_ses");if(s)SES=JSON.parse(s);}catch(e){}
+function setSes(v){SES=v;try{v?sessionStorage.setItem("fap_clm_ses",JSON.stringify(v)):sessionStorage.removeItem("fap_clm_ses");}catch(e){}}
+function myContracts(){
+  if(!SES)return [];
+  if(SES.rol==="uo")return CONTRACTS;
+  if(SES.rol==="area")return CONTRACTS.filter(c=>c.area===SES.user);
+  return CONTRACTS.filter(c=>c.ac===SES.user);
+}
+function mySolicitudes(){
+  if(!SES)return [];
+  if(SES.rol==="uo")return CLM.solicitudes;
+  return CLM.solicitudes.filter(s=>s.owner===SES.user||s.ac===SES.user);
 }
 
-function alertRow(c,cls){
-  var d=diasRestantes(c);
-  return '<div class="arow '+cls+'"><span class="dot"></span>'
-    +'<div class="txt"><div class="o">'+esc(c.detalle||c.nro)+'</div>'
-    +'<div class="m">'+esc(c.area||'')+' · '+esc(c.ac||'')+' · '+money(montoDe(c))+'</div></div>'
-    +'<div class="when">'+(d==null?'—':whenText(d))+'</div></div>';
-}
-function renderAlerts(data){
-  var ven=data.filter(function(c){return statusOf(c)==='r';}).sort(function(a,b){return diasRestantes(a)-diasRestantes(b);});
-  var avi=data.filter(function(c){return statusOf(c)==='a';}).sort(function(a,b){return diasRestantes(a)-diasRestantes(b);});
-  document.getElementById('cnt-ven').textContent=ven.length;
-  document.getElementById('cnt-avi').textContent=avi.length;
-  document.getElementById('list-ven').innerHTML = ven.length
-    ? ven.slice(0,6).map(function(c){return alertRow(c,'red');}).join('')
-    : '<div class="alert-empty">Sin contratos vencidos. 🎉</div>';
-  document.getElementById('list-avi').innerHTML = avi.length
-    ? avi.slice(0,6).map(function(c){return alertRow(c,'amber');}).join('')
-    : '<div class="alert-empty">Nada por vencer en los próximos 90 días.</div>';
-}
-
-function offline(msg){
-  document.getElementById('srcnote').innerHTML='<span class="d off"></span> '+msg;
-  document.querySelectorAll('.kpi .kpi-n').forEach(function(n){ if(n.textContent==='—') n.textContent='·'; });
-  document.getElementById('list-ven').innerHTML='<div class="alert-empty">Abre el CRM para ver el detalle.</div>';
-  document.getElementById('list-avi').innerHTML='<div class="alert-empty">Abre el CRM para ver el detalle.</div>';
-}
-
-fetch('crm/contratos_export.json',{cache:'no-store'})
-  .then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.json(); })
-  .then(function(data){
-    if(!Array.isArray(data)||!data.length){ offline('La base está vacía por ahora.'); return; }
-    renderKpis(data);
-    renderAlerts(data);
-  })
-  .catch(function(){
-    offline('No se pudo leer la base en vivo (ábrela desde el sitio publicado). Las herramientas siguen disponibles.');
-  });
-
-/* smooth scroll para el nav */
-document.querySelectorAll('a[href^="#"]').forEach(function(a){
-  a.addEventListener('click',function(e){
-    var el=document.querySelector(a.getAttribute('href'));
-    if(el){ e.preventDefault(); el.scrollIntoView({behavior:'smooth',block:'start'}); }
-  });
+/* ================= ROUTER ================= */
+let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",viewMode:"table",repQ:""};
+const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",actividad:"Bitácora de actividad",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
+function go(view,cur){ST.view=view;if(cur!==undefined)ST.cur=cur;location.hash="#/"+view+(view==="detalle"&&ST.cur!=null?"/"+ST.cur:"");render();window.scrollTo(0,0);}
+window.addEventListener("hashchange",()=>{
+  const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
+  if(m&&VIEWS[m[1]]&&(m[1]!==ST.view||(m[2]!=null&&+m[2]!==ST.cur))){ST.view=m[1];if(m[2]!=null)ST.cur=+m[2];render();}
 });
+
+/* ================= APP RENDER ================= */
+function render(){
+  if(!SES){renderLogin();return;}
+  const app=$("#app");
+  const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${badge}</span>`:""}</button>`;
+  const nAlerts=alertList().length;
+  const I={
+    panel:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+    pipe:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h7"/></svg>',
+    repo:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+    sol:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+    bell:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+    chart:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/></svg>',
+    clock:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
+    magic:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 21 9-9"/><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M12.2 6.2 11 5"/></svg>',
+    grid:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>'
+  };
+  app.innerHTML=`
+  <div class="shell">
+    <aside class="side">
+      <div class="side-brand"><div class="logo">FAP</div><div><div class="t">CLM · FAP</div><div class="s">Ciclo de vida de contratos</div></div></div>
+      <div class="navgrp">Gestión</div>
+      ${nav("panel","Panel",I.panel)}
+      ${nav("pipeline","Pipeline",I.pipe)}
+      ${nav("contratos","Contratos",I.repo)}
+      ${nav("solicitudes","Solicitudes",I.sol)}
+      ${nav("alertas","Alertas",I.bell,nAlerts||"")}
+      <div class="navgrp">Análisis</div>
+      ${nav("reportes","Reportes",I.chart)}
+      ${nav("actividad","Bitácora",I.clock)}
+      <div class="navgrp">Herramientas integradas</div>
+      ${nav("magica","La Mágica",I.magic)}
+      ${nav("crmx","CRM clásico",I.grid)}
+      <div class="side-foot">
+        <div class="avatar">${esc(SES.user.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase())}</div>
+        <div style="min-width:0"><div class="n">${esc(SES.user)}</div><div class="r">${SES.rol==="uo"?"Unidad Operativa":SES.rol==="area"?"Área protegida":"Administradora (AC)"}</div></div>
+        <button class="iconbtn" id="logout" title="Salir"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg></button>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <h1>${VIEWS[ST.view]||""}</h1>
+        <span class="srcpill" title="Fuente de datos"><span class="srcdot ${dataSource.live?"":"off"}"></span>${esc(dataSource.label)}</span>
+        <div class="gsearch">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="gq" placeholder="Buscar contrato, proveedor, área… " autocomplete="off">
+          <div class="gresults" id="gres" style="display:none"></div>
+        </div>
+      </div>
+      <div class="content ${ST.view==="magica"||ST.view==="crmx"?"full":""}" id="view"></div>
+    </main>
+  </div>`;
+  app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+  $("#logout").onclick=()=>{setSes(null);location.hash="";render();};
+  bindGlobalSearch();
+  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,actividad:vActividad,magica:()=>vFrame("generador/index.html","La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa)."),crmx:()=>vFrame("crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
+  (V[ST.view]||vPanel)();
+}
+
+function bindGlobalSearch(){
+  const inp=$("#gq"),box=$("#gres");
+  inp.oninput=()=>{
+    const q=norm(inp.value);
+    if(q.length<2){box.style.display="none";return;}
+    const hits=CONTRACTS.map((c,i)=>({c,i})).filter(({c})=>norm(c.nro+" "+c.detalle+" "+c.proveedor+" "+c.area+" "+c.ac).includes(q)).slice(0,8);
+    if(!hits.length){box.innerHTML=`<div class="gres"><span class="b">Sin resultados…</span></div>`;box.style.display="";return;}
+    box.innerHTML=hits.map(({c,i})=>`<div class="gres" data-i="${i}"><div class="a">${esc(c.nro)} — ${esc(trunc(c.detalle,70))}</div><div class="b">${esc(c.area||"")} · ${esc(c.proveedor||"")}</div></div>`).join("");
+    box.style.display="";
+    box.querySelectorAll("[data-i]").forEach(el=>el.onclick=()=>{box.style.display="none";inp.value="";go("detalle",+el.dataset.i);});
+  };
+  inp.onblur=()=>setTimeout(()=>{box.style.display="none";},200);
+}
+
+/* ================= LOGIN ================= */
+function renderLogin(){
+  const acs=[...new Set(CONTRACTS.map(c=>c.ac).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const areas=[...new Set(CONTRACTS.map(c=>c.area).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  $("#app").innerHTML=`
+  <div class="login-shell">
+    <div class="login-card up">
+      <span class="eyebrow">CLM · Fondo de Áreas Protegidas</span>
+      <h1>Todo el ciclo del contrato, en una sola plataforma</h1>
+      <p class="lead">Solicitudes, elaboración, ejecución, modificaciones, terminación, calificación y reportes — con La Mágica y el CRM integrados dentro.</p>
+      <div class="rolegrid">
+        <button class="rolebtn on" data-r="ac">Administradora (AC)</button>
+        <button class="rolebtn" data-r="area">Área protegida</button>
+        <button class="rolebtn" data-r="uo">Unidad Operativa</button>
+      </div>
+      <div class="frow" id="pick-ac"><label>Administradora / Administrador de contrato</label><select class="big" id="selac">${acs.map(a=>`<option>${esc(a)}</option>`).join("")}</select></div>
+      <div class="frow" id="pick-area" style="display:none"><label>Área protegida</label><select class="big" id="selarea">${areas.map(a=>`<option>${esc(a)}</option>`).join("")}</select></div>
+      <div class="frow" id="pick-uo" style="display:none"><label>Nombre (para la bitácora)</label><input class="big" id="seluo" placeholder="Ej.: Diego Rodríguez" value="Unidad Operativa"></div>
+      <button class="btn block" id="enter">Entrar</button>
+      <div class="note" style="margin-top:14px">${CONTRACTS.length?`Base viva: <b>${CONTRACTS.length} contratos</b> del Excel maestro (actualización diaria automática).`:"Cargando la base de contratos…"}</div>
+    </div>
+  </div>`;
+  let rol="ac";
+  document.querySelectorAll(".rolebtn").forEach(b=>b.onclick=()=>{
+    rol=b.dataset.r;
+    document.querySelectorAll(".rolebtn").forEach(x=>x.classList.toggle("on",x===b));
+    $("#pick-ac").style.display=rol==="ac"?"":"none";
+    $("#pick-area").style.display=rol==="area"?"":"none";
+    $("#pick-uo").style.display=rol==="uo"?"":"none";
+  });
+  $("#enter").onclick=()=>{
+    const user=rol==="ac"?$("#selac").value:rol==="area"?$("#selarea").value:($("#seluo").value.trim()||"Unidad Operativa");
+    if(!user)return;
+    setSes({rol,user});
+    logAdd("👤",`Inicio de sesión (${rol==="uo"?"Unidad Operativa":rol==="area"?"área":"AC"})`);
+    go("panel");
+  };
+}
+
+/* ================= TOOLTIP GLOBAL ================= */
+const tipEl=document.getElementById("tip");
+document.addEventListener("mousemove",e=>{
+  const t=e.target.closest&&e.target.closest("[data-tip]");
+  if(t){tipEl.innerHTML=t.getAttribute("data-tip");tipEl.style.display="block";
+    const x=Math.min(e.clientX+14,window.innerWidth-tipEl.offsetWidth-10);
+    const y=Math.min(e.clientY+14,window.innerHeight-tipEl.offsetHeight-10);
+    tipEl.style.left=x+"px";tipEl.style.top=y+"px";
+  }else tipEl.style.display="none";
+});
+
+/* ================= CHARTS (SVG inline) ================= */
+function barChartMeses(data){ /* data: [{label,count,monto}] */
+  const W=560,H=190,padL=8,padB=22,padT=14;
+  const max=Math.max(1,...data.map(d=>d.count));
+  const bw=(W-padL*2)/data.length;
+  const ticks=[0,Math.ceil(max/2),max];
+  let g=ticks.map(t=>{const y=padT+(H-padT-padB)*(1-t/max);return `<line class="grid-line" x1="${padL}" y1="${y}" x2="${W-padL}" y2="${y}"/><text class="axlbl" x="${padL}" y="${y-3}">${t}</text>`;}).join("");
+  let bars=data.map((d,i)=>{
+    const h=(H-padT-padB)*(d.count/max);
+    const x=padL+i*bw+bw*0.18, y=H-padB-h, w=bw*0.64;
+    const lbl=d.count>0?`<text class="vallbl" x="${x+w/2}" y="${y-4}" text-anchor="middle">${d.count}</text>`:"";
+    return `<rect class="bar" x="${x}" y="${y}" width="${w}" height="${Math.max(h,1)}" rx="3" fill="var(--navy2)" data-tip="<b>${esc(d.label)}</b><br>${d.count} contrato(s) vencen<br>${money0(d.monto)} en juego"/>${lbl}
+      <text class="axlbl" x="${x+w/2}" y="${H-7}" text-anchor="middle">${esc(d.label)}</text>`;
+  }).join("");
+  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Vencimientos por mes">${g}${bars}</svg>`;
+}
+function barChartH(data,fmt){ /* data: [{label,value,tip}] una serie navy */
+  const max=Math.max(1,...data.map(d=>d.value));
+  return data.map(d=>{
+    const pct=Math.max(1.5,d.value/max*100);
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px" data-tip="${esc(d.tip||"")}">
+      <div style="flex:0 0 128px;font-size:12px;font-weight:600;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.label)}</div>
+      <div style="flex:1;background:var(--bg);border-radius:6px;height:20px;position:relative">
+        <div class="bar" style="width:${pct}%;height:100%;background:var(--navy2);border-radius:6px"></div>
+      </div>
+      <div style="flex:0 0 74px;font-size:12px;font-weight:700">${fmt(d.value)}</div>
+    </div>`;
+  }).join("");
+}
+function stackEstado(segs){ /* status: colores reservados + etiqueta visible + leyenda con conteos */
+  const total=segs.reduce((a,s)=>a+s.n,0)||1;
+  const bar=segs.filter(s=>s.n>0).map(s=>{
+    const pct=s.n/total*100;
+    return `<div style="flex:${s.n};background:${s.col}" data-tip="<b>${esc(s.label)}</b>: ${s.n} (${pct.toFixed(0)}%)">${pct>=9?s.n:""}</div>`;
+  }).join("");
+  const leg=segs.map(s=>`<span class="li"><span class="sw" style="background:${s.col}"></span>${esc(s.label)} · <b style="color:var(--ink)">${s.n}</b></span>`).join("");
+  return `<div class="stackbar">${bar}</div><div class="legend">${leg}</div>`;
+}
+
+/* ================= ALERTAS (motor de reglas) ================= */
+function alertList(){
+  const out=[];
+  myContracts().forEach((c,idx)=>{
+    const i=CONTRACTS.indexOf(c);
+    const o=ov(c),s=statusLive(c),d=diasRestantes(c);
+    if(s.key==="vencido")out.push({sev:0,icon:"⛔",col:"var(--red)",bg:"var(--redbg)",t:`Vencido hace ${Math.abs(d)}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${c.area||""}`,i,act:"Terminar",fn:"ter"});
+    else if(s.key==="aviso"&&d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · decide renovación o terminación ya`,i,act:"Abrir",fn:"open"});
+    else if(s.key==="aviso")out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ventana de renovación abierta`,i,act:"Abrir",fn:"open"});
+    if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
+    if((o.terminado||c.cerrado)&&!o.evaluado)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
+  });
+  mySolicitudes().forEach(s=>{
+    if(s.estado==="borrador")out.push({sev:2,icon:"📝",col:"var(--navy)",bg:"var(--tint)",t:`Solicitud sin iniciar — ${s.objeto.slice(0,48)}`,d:`Vía sugerida: ${s.via==="contrato"?"contrato (Unidad Operativa)":"orden de compra/servicio"}`,i:null,act:"Ver",fn:"sol"});
+  });
+  return out.sort((a,b)=>a.sev-b.sev);
+}
+
+/* ================= VISTA: PANEL ================= */
+function vPanel(){
+  const mine=myContracts();
+  const n={vig:0,avi:0,ven:0,ter:0};let montoVivo=0;
+  mine.forEach(c=>{const k=statusLive(c).key;
+    if(k==="vigente")n.vig++;else if(k==="aviso")n.avi++;else if(k==="vencido")n.ven++;else n.ter++;
+    if(k==="vigente"||k==="aviso"||k==="vencido")montoVivo+=montoDe(c);});
+  const sols=mySolicitudes().filter(s=>s.estado!=="listo").length;
+  /* vencimientos próximos 12 meses */
+  const meses=[];const now=new Date();now.setDate(1);
+  const MN=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  for(let k=0;k<12;k++){const d=new Date(now.getFullYear(),now.getMonth()+k,1);meses.push({y:d.getFullYear(),m:d.getMonth(),label:MN[d.getMonth()]+(d.getMonth()===0||k===0?" "+String(d.getFullYear()).slice(2):""),count:0,monto:0});}
+  mine.forEach(c=>{if(!c.fin||c.cerrado||ov(c).terminado)return;const [y,m]=c.fin.split("-").map(Number);
+    const slot=meses.find(x=>x.y===y&&x.m===m-1);if(slot){slot.count++;slot.monto+=montoDe(c);}});
+  /* monto por categoría (top 7) */
+  const porCat={};mine.forEach(c=>{const k=c.cat||"—";porCat[k]=(porCat[k]||0)+montoDe(c);});
+  const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]).slice(0,7).map(([label,value])=>({label,value,tip:`<b>${esc(label)}</b><br>${money(value)} · ${mine.filter(c=>(c.cat||"—")===label).length} contrato(s)`}));
+  const alerts=alertList().slice(0,6);
+  $("#view").innerHTML=`
+  <div class="up">
+    <div class="kpis">
+      <div class="kpi" data-go2="contratos"><div class="kpi-n">${mine.length}</div><div class="kpi-l">Contratos en el portafolio</div></div>
+      <div class="kpi" data-go2="reportes"><div class="kpi-n" style="color:var(--navy)">${moneyShort(montoVivo)}</div><div class="kpi-l">Valor vigente gestionado</div></div>
+      <div class="kpi" data-f="vig"><div class="kpi-n" style="color:var(--green)">${n.vig}</div><div class="kpi-l">Vigentes</div></div>
+      <div class="kpi" data-f="avi"><div class="kpi-n" style="color:var(--amber)">${n.avi}</div><div class="kpi-l">Por vencer (≤90 d)</div></div>
+      <div class="kpi" data-f="ven"><div class="kpi-n" style="color:var(--red)">${n.ven}</div><div class="kpi-l">Vencidos</div></div>
+      <div class="kpi" data-go2="solicitudes"><div class="kpi-n" style="color:var(--violet)">${sols}</div><div class="kpi-l">Solicitudes abiertas</div></div>
+    </div>
+    <div class="panel" style="margin-bottom:14px">
+      <p class="ptitle">Estado del portafolio</p>
+      ${stackEstado([
+        {label:"Vigentes",n:n.vig,col:"var(--green)"},
+        {label:"Por vencer",n:n.avi,col:"var(--amber)"},
+        {label:"Vencidos",n:n.ven,col:"var(--red)"},
+        {label:"Terminados / cerrados",n:n.ter,col:"var(--muted2)"}
+      ])}
+    </div>
+    <div class="charts">
+      <div class="panel">
+        <p class="ptitle">Vencimientos — próximos 12 meses</p>
+        <p class="psub">Contratos activos cuya fecha de fin cae en cada mes</p>
+        ${barChartMeses(meses)}
+      </div>
+      <div class="panel">
+        <p class="ptitle">Valor por categoría</p>
+        <p class="psub">Monto total vigente (incl. adendas) · top ${cats.length}</p>
+        ${barChartH(cats,v=>moneyShort(v))}
+      </div>
+    </div>
+    <div class="charts" style="grid-template-columns:1.35fr 1fr">
+      <div class="panel">
+        <p class="ptitle">Requiere atención</p>
+        <p class="psub">Las alertas más urgentes del motor de reglas · <a href="#/alertas" data-go3="alertas">ver todas (${alertList().length})</a></p>
+        ${alerts.length?alerts.map(a=>alertRowHTML(a)).join(""):`<div class="empty">Sin pendientes. Todo el portafolio bajo control ✅</div>`}
+      </div>
+      <div class="panel">
+        <p class="ptitle">Actividad reciente</p>
+        <p class="psub">Bitácora del equipo · <a href="#/actividad" data-go3="actividad">ver todo</a></p>
+        ${CLM.log.length?`<ul class="tl">${CLM.log.slice(0,6).map(l=>`<li><div class="t">${esc(l.icon)} ${esc(l.txt)}</div><div class="s">${esc(l.user)} · ${new Date(l.ts).toLocaleString("es-EC",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</div></li>`).join("")}</ul>`
+        :`<div class="empty" style="padding:26px 10px">Aún no hay actividad registrada.<br>Cada acción del equipo queda aquí.</div>`}
+      </div>
+    </div>
+  </div>`;
+  $("#view").querySelectorAll("[data-go2]").forEach(k=>k.onclick=()=>go(k.dataset.go2));
+  $("#view").querySelectorAll("[data-go3]").forEach(a=>a.onclick=e=>{e.preventDefault();go(a.dataset.go3);});
+  $("#view").querySelectorAll("[data-f]").forEach(k=>k.onclick=()=>{ST.filter=k.dataset.f;go("contratos");});
+  bindAlertRows();
+}
+function alertRowHTML(a){
+  return `<div class="alert-row">
+    <div class="aic" style="background:${a.bg}">${a.icon}</div>
+    <div style="min-width:0"><div class="at">${esc(a.t)}</div><div class="ad">${esc(a.d)}</div></div>
+    <button class="btn sm ${a.sev===0?"danger":"line"} go" data-i="${a.i==null?"":a.i}" data-fn="${a.fn}">${esc(a.act)}</button>
+  </div>`;
+}
+function bindAlertRows(){
+  $("#view").querySelectorAll(".alert-row .go").forEach(b=>b.onclick=()=>{
+    const fn=b.dataset.fn;
+    if(fn==="sol"){go("solicitudes");return;}
+    const i=+b.dataset.i;const c=CONTRACTS[i];
+    if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
+    else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
+    else if(fn==="env"){go("detalle",i);setTimeout(()=>modalEnvioUO(c,ov(c).pendienteEnvio),80);}
+    else go("detalle",i);
+  });
+}
+
+/* ================= VISTA: PIPELINE ================= */
+function vPipeline(){
+  const mine=myContracts();
+  const cols=[
+    {key:"solicitud",label:"Solicitud / Precontractual",col:"var(--violet)",items:mySolicitudes().filter(s=>s.estado!=="listo")},
+    {key:"vigente",label:"En ejecución",col:"var(--green)"},
+    {key:"aviso",label:"Por vencer (≤90 d)",col:"var(--amber)"},
+    {key:"vencido",label:"Vencidos",col:"var(--red)"},
+    {key:"cerrado",label:"Terminados / Cerrados",col:"var(--muted2)"}
+  ];
+  cols.forEach(col=>{
+    if(col.key==="solicitud")return;
+    col.items=mine.map((c,ix)=>({c,i:CONTRACTS.indexOf(c)})).filter(({c})=>{
+      const k=statusLive(c).key;
+      return col.key==="cerrado"?(k==="cerrado"||k==="terminado"):k===col.key;
+    });
+  });
+  $("#view").innerHTML=`<div class="up">
+    <p class="psub" style="margin-bottom:14px">Cada contrato avanza solo por sus fechas y acciones — así se ve el ciclo de vida completo hoy. Las solicitudes entran por la izquierda; los contratos salen por la derecha ya calificados.</p>
+    <div class="kanban">
+      ${cols.map(col=>{
+        const items=col.items||[];
+        const sum=col.key==="solicitud"?items.reduce((a,s)=>a+(Number(s.monto)||0),0):items.reduce((a,x)=>a+montoDe(x.c),0);
+        return `<div class="kcol">
+          <div class="kcol-h"><span class="kdot" style="background:${col.col}"></span><span class="kt">${col.label}</span><span class="kc">${items.length}</span></div>
+          <div class="kcol-sum">${money0(sum)} en total</div>
+          ${col.key==="solicitud"
+            ? (items.length?items.map(s=>`<div class="kcard" data-sol="1"><div class="a">${s.via==="contrato"?"VÍA CONTRATO":"ORDEN DE COMPRA/SERVICIO"}</div><div class="b">${esc(s.objeto)}</div><div class="c">${esc(s.area)} · ${money0(s.monto)} · ${esc(estadoSolLabel(s.estado))}</div></div>`).join("")
+              :`<div class="kcard" data-new="1" style="text-align:center;color:var(--muted)">+ Nueva solicitud</div>`)
+            : items.map(({c,i})=>`<div class="kcard" data-i="${i}"><div class="a">${esc(c.nro)}</div><div class="b">${esc(trunc(c.detalle,80))}</div><div class="c">${esc(c.area||"")} · ${money0(montoDe(c))}${col.key==="aviso"?` · ${diasRestantes(c)}d`:""}</div></div>`).join("")||`<div class="kcard" style="text-align:center;color:var(--muted2);cursor:default">vacío</div>`}
+        </div>`;
+      }).join("")}
+    </div>
+  </div>`;
+  $("#view").querySelectorAll("[data-i]").forEach(k=>k.onclick=()=>go("detalle",+k.dataset.i));
+  $("#view").querySelectorAll("[data-sol]").forEach(k=>k.onclick=()=>go("solicitudes"));
+  $("#view").querySelectorAll("[data-new]").forEach(k=>k.onclick=()=>{go("solicitudes");setTimeout(modalNuevaSolicitud,60);});
+}
+
+/* ================= VISTA: CONTRATOS (repositorio) ================= */
+function filteredContracts(){
+  return myContracts().filter(c=>{
+    if(ST.filter!=="all"){
+      const k=statusLive(c).key;
+      if(ST.filter==="vig"&&k!=="vigente")return false;
+      if(ST.filter==="avi"&&k!=="aviso")return false;
+      if(ST.filter==="ven"&&k!=="vencido")return false;
+      if(ST.filter==="ter"&&!(k==="terminado"||k==="cerrado"))return false;
+    }
+    if(ST.catFilter!=="all"&&(c.cat||"—")!==ST.catFilter)return false;
+    if(ST.q){const hay=norm(c.detalle+" "+c.nro+" "+c.area+" "+c.proveedor+" "+c.cat);if(!hay.includes(norm(ST.q)))return false;}
+    return true;
+  });
+}
+function vContratos(){
+  const mine=myContracts(),list=filteredContracts();
+  const cats=[...new Set(mine.map(c=>c.cat||"—"))].sort((a,b)=>a.localeCompare(b));
+  $("#view").innerHTML=`<div class="up">
+    <div class="toolbar">
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="q" placeholder="Buscar por contrato, proveedor o área…" value="${esc(ST.q)}">
+      </div>
+      <div class="chips">
+        ${[["all","Todos"],["vig","Vigentes"],["avi","Por vencer"],["ven","Vencidos"],["ter","Terminados"]].map(([k,l])=>`<button class="chip ${ST.filter===k?"on":""}" data-f="${k}">${l}</button>`).join("")}
+      </div>
+      <div class="viewtog">
+        <button data-v="table" class="${ST.viewMode==="table"?"on":""}">Listado</button>
+        <button data-v="cards" class="${ST.viewMode==="cards"?"on":""}">Tarjetas</button>
+      </div>
+    </div>
+    ${cats.length>1?`<div class="chips" style="margin:-6px 0 15px">
+      <button class="chip ${ST.catFilter==="all"?"on":""}" data-c="all">Todas las categorías</button>
+      ${cats.map(k=>{const col=catColor(k),on=ST.catFilter===k;
+        return `<button class="chip" data-c="${esc(k)}" style="background:${on?col.fg:col.bg};color:${on?"#fff":col.fg};border-color:${on?col.fg:"transparent"}">${esc(k)} · ${mine.filter(c=>(c.cat||"—")===k).length}</button>`;}).join("")}
+    </div>`:""}
+    <div id="listbody">${ST.viewMode==="cards"?cardsHTML(list):tableHTML(list)}</div>
+  </div>`;
+  $("#q").oninput=e=>{ST.q=e.target.value;$("#listbody").innerHTML=ST.viewMode==="cards"?cardsHTML(filteredContracts()):tableHTML(filteredContracts());bindRows();};
+  $("#view").querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{ST.filter=b.dataset.f;vContratos();});
+  $("#view").querySelectorAll(".chip[data-c]").forEach(b=>b.onclick=()=>{ST.catFilter=(ST.catFilter===b.dataset.c)?"all":b.dataset.c;vContratos();});
+  $("#view").querySelectorAll(".viewtog button").forEach(b=>b.onclick=()=>{ST.viewMode=b.dataset.v;vContratos();});
+  bindRows();
+}
+function bindRows(){$("#view").querySelectorAll("[data-open]").forEach(el=>el.onclick=ev=>{if(ev.target.closest("a"))return;go("detalle",+el.dataset.open);});}
+function emptyHTML(){return `<div class="empty"><div style="font-weight:700;color:var(--ink)">Sin resultados</div><div style="font-size:13px">Ajusta el filtro o la búsqueda.</div></div>`;}
+function cardsHTML(list){
+  if(!list.length)return emptyHTML();
+  return `<div class="grid">`+list.map(c=>{
+    const s=statusLive(c),i=CONTRACTS.indexOf(c);
+    return `<div class="cc ${s.cls}" data-open="${i}">
+      <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${esc(c.nro)}</span><span class="badge ${s.b}">${esc(s.label)}</span></div>
+      <div class="cc-title">${esc(c.detalle)}</div>
+      <div class="cc-area">${esc(c.area||"")}</div>
+      <div class="cc-meta"><span>Proveedor · <b>${esc(c.proveedor||"—")}</b></span></div>
+      <div class="cc-meta" style="margin-top:5px"><span>Monto · <b>${money(montoDe(c))}</b></span><span>·</span><span><b>${esc(vigenciaText(c))}</b></span></div>
+      <div style="margin-top:9px">${catChip(c.cat)}</div>
+    </div>`;
+  }).join("")+`</div>`;
+}
+function tableHTML(list){
+  if(!list.length)return emptyHTML();
+  return `<div class="tablewrap"><table class="list">
+    <thead><tr><th>N.º</th><th>Objeto</th><th>Categoría</th><th>Área</th><th>Proveedor</th><th>Monto</th><th>Vence</th><th>Estado</th></tr></thead>
+    <tbody>${list.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c);
+      return `<tr data-open="${i}">
+        <td class="td-nro">${esc(c.nro)}</td>
+        <td class="td-obj">${esc(c.detalle)}</td>
+        <td>${catChip(c.cat)}</td>
+        <td>${esc(c.area||"—")}</td>
+        <td>${esc(c.proveedor||"—")}</td>
+        <td style="white-space:nowrap">${money(montoDe(c))}</td>
+        <td style="white-space:nowrap">${fdate(c.fin)}</td>
+        <td style="white-space:nowrap"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(vigenciaText(c))}</td>
+      </tr>`;}).join("")}</tbody></table></div>`;
+}
+
+/* ================= VISTA: DETALLE ================= */
+function vDetalle(){
+  const c=CONTRACTS[ST.cur];
+  if(!c){go("contratos");return;}
+  const o=ov(c),s=statusLive(c),consult=isConsultoria(c);
+  const done=o.terminado||c.cerrado;
+  const timeline=contractTimeline(c);
+  $("#view").innerHTML=`<div class="up">
+    <button class="back" id="back">← Volver al repositorio</button>
+    <div class="detail">
+      <div>
+        <div class="panel">
+          <div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between">
+            <div><div class="cc-nro" style="margin-bottom:3px">${esc(c.nro)}</div>
+              <div class="h-title">${esc(c.detalle)}</div>
+              <div class="cc-area">${esc(c.area||"")}</div></div>
+            <span class="badge ${s.b}">${esc(s.label)}</span>
+          </div>
+          <div class="linkbar">
+            <span style="color:var(--navy)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></span>
+            <div style="flex:1"><div style="font-size:12.5px;font-weight:700">Contrato firmado</div><div style="font-size:11.5px;color:var(--muted)">${c.link?"Documento en el repositorio institucional":"Sin vínculo registrado en la base"}</div></div>
+            ${c.link?`<a class="btn sm" href="${esc(c.link)}" target="_blank" rel="noopener">Abrir</a>`:`<button class="btn sm line" disabled>No disponible</button>`}
+          </div>
+          <div class="phase">
+            <div class="step past"><span class="d">✓</span> Solicitud</div><div class="flow-line"></div>
+            <div class="step past"><span class="d">✓</span> Firma</div><div class="flow-line"></div>
+            <div class="step ${done?"past":"on"}"><span class="d">${done?"✓":"3"}</span> Ejecución</div><div class="flow-line"></div>
+            <div class="step ${done?(o.evaluado?"past":"on"):""}"><span class="d">${o.evaluado?"✓":"4"}</span> Terminación</div><div class="flow-line"></div>
+            <div class="step ${o.evaluado?"past":""}"><span class="d">${o.evaluado?"✓":"5"}</span> Calificación</div>
+          </div>
+          <div class="dl">
+            <div><div class="k">Proveedor</div><div class="v">${esc(c.proveedor||"—")}</div></div>
+            <div><div class="k">Categoría</div><div class="v">${catChip(c.cat)}${consult?' <span style="color:var(--navy);font-size:11px;font-weight:700">servicios profesionales</span>':""}</div></div>
+            <div><div class="k">Monto original (incl. IVA)</div><div class="v">${money(c.monto)}</div></div>
+            <div><div class="k">Valor total vigente</div><div class="v" style="${montoDe(c)!==c.monto?"color:var(--navy)":""}">${money(montoDe(c))}${montoDe(c)!==c.monto?" · con adenda":""}</div></div>
+            <div><div class="k">Tipo</div><div class="v">${esc(c.tipo||"—")}</div></div>
+            <div><div class="k">AC responsable</div><div class="v">${esc(c.ac||"—")}</div></div>
+            <div><div class="k">Inicio</div><div class="v">${fdate(c.inicio)}</div></div>
+            <div><div class="k">Firma</div><div class="v">${fdate(c.firma)}</div></div>
+            <div><div class="k">Fin</div><div class="v">${fdate(c.fin)}</div></div>
+            <div><div class="k">Vigencia (hoy)</div><div class="v" style="color:${s.cls==="r"?"var(--red)":s.cls==="a"?"var(--amber)":"var(--ink)"}">${esc(vigenciaText(c))}</div></div>
+            ${tieneAdenda(c)?`<div class="full"><div class="k">Adenda registrada</div><div class="v" style="line-height:1.5">${esc(c.tipoAdenda||"Adenda")}${montoAdenda(c)?` · <b style="color:var(--navy)">+${money(montoAdenda(c))}</b>`:""}${c.firmaAdenda?` · firmada el ${fdate(c.firmaAdenda)}`:""}${c.modificacion?`<div style="font-size:12px;color:var(--muted)">${esc(c.modificacion)}</div>`:""}</div></div>`:""}
+            ${o.terminado?`<div class="full"><div class="k">Terminación</div><div class="v" style="color:var(--navy)">${esc(o.causal||"")} · ${fdate(o.fter)}</div></div>`:""}
+            ${o.evaluado?`<div class="full"><div class="k">Calificación del proveedor</div><div class="v">${esc(o.score)}/100 · ${esc(o.sem)}</div></div>`:""}
+          </div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <p class="ptitle">Línea de tiempo</p>
+          <ul class="tl">${timeline.map(e=>`<li><div class="t">${esc(e.t)}</div><div class="s">${esc(e.s)}</div></li>`).join("")}</ul>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <p class="ptitle">Acciones del ciclo de vida</p>
+          <p class="psub">Generan el borrador oficial en Word y dejan rastro en la bitácora.</p>
+          <div class="act">
+            <button class="actbtn" id="a-mod" ${done?"disabled":""}>
+              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+              <span><span class="at">Modificar contrato</span><span class="ad">Adenda o aumento de monto · informe FAP-2026-11</span></span>
+            </button>
+            <button class="actbtn" id="a-ter" ${done?"disabled":""}>
+              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+              <span><span class="at">Terminar contrato</span><span class="ad">Acta de terminación FAP-2026-12 · escoger causal</span></span>
+            </button>
+            <button class="actbtn" id="a-cal" ${(!done||o.evaluado)?"disabled":""}>
+              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7Z"/></svg></span>
+              <span><span class="at">Calificar proveedor</span><span class="ad">${done?(o.evaluado?"Calificación registrada ✓":"FO-AD-ABC-017 · 13 criterios"):"Disponible al terminar"}</span></span>
+            </button>
+            <button class="actbtn" id="a-env" ${!o.pendienteEnvio?"disabled":""}>
+              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg></span>
+              <span><span class="at">Enviar a la Unidad Operativa</span><span class="ad">${o.pendienteEnvio?("Pendiente: "+esc(o.pendienteEnvio.tipoEnvio)):"Se habilita al generar un borrador"}</span></span>
+            </button>
+            <button class="actbtn" id="a-nota">
+              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+              <span><span class="at">Añadir nota</span><span class="ad">Observación interna en la bitácora del contrato</span></span>
+            </button>
+          </div>
+          ${o.evaluado?`<div class="note" style="margin-top:12px">Calificación: <b>${esc(o.score)}/100</b> · ${esc(o.sem)}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. Queda pendiente la <b>calificación del proveedor</b>.</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  $("#back").onclick=()=>go("contratos");
+  if(!done){$("#a-mod").onclick=()=>modalModificar(c);$("#a-ter").onclick=()=>modalTerminar(c);}
+  if(done&&!o.evaluado)$("#a-cal").onclick=()=>modalCalificar(c);
+  if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
+  $("#a-nota").onclick=()=>modalNota(c);
+}
+function contractTimeline(c){
+  const o=ov(c),ev=[];
+  if(c.firma)ev.push({d:c.firma,t:"✍️ Contrato firmado",s:longDate(c.firma)});
+  if(c.inicio)ev.push({d:c.inicio,t:"▶️ Inicio de la ejecución",s:longDate(c.inicio)});
+  if(tieneAdenda(c)&&c.firmaAdenda)ev.push({d:c.firmaAdenda,t:"📎 Adenda firmada — "+(c.tipoAdenda||"modificación"),s:longDate(c.firmaAdenda)+(montoAdenda(c)?" · +"+money(montoAdenda(c)):"")});
+  CLM.log.filter(l=>l.ref===c.nro).forEach(l=>ev.push({d:l.ts.slice(0,10),t:l.icon+" "+l.txt,s:l.user+" · "+new Date(l.ts).toLocaleDateString("es-EC")}));
+  if(!o.terminado&&!c.cerrado&&c.fin)ev.push({d:c.fin,t:"🏁 Fin de vigencia "+(diasRestantes(c)>=0?"(previsto)":"(vencido)"),s:longDate(c.fin)});
+  return ev.sort((a,b)=>String(a.d).localeCompare(String(b.d)));
+}
+function modalNota(c){
+  const o=openModal(`
+    <h2>Añadir nota</h2><p class="sub">${esc(c.nro)} · quedará en la bitácora y en la línea de tiempo</p>
+    <div class="frow"><label>Nota</label><textarea id="ntxt" placeholder="Ej.: proveedor avisa retraso de una semana en la entrega de julio…"></textarea></div>
+    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="okn">Guardar nota</button></div>`);
+  $("#cancel",o).onclick=()=>closeModal(o);
+  $("#okn",o).onclick=()=>{const t=$("#ntxt",o).value.trim();if(!t)return;
+    logAdd("📝","Nota: "+t,c.nro);closeModal(o);toast("Nota guardada");render();};
+}
+
+/* ================= MODALES DEL CICLO (heredados del CRM, con bitácora) ================= */
+function openModal(html){
+  const o=document.createElement("div");o.className="overlay";o.innerHTML=`<div class="modal">${html}</div>`;
+  document.body.appendChild(o);
+  o.addEventListener("click",e=>{if(e.target===o)o.remove();});
+  return o;
+}
+function closeModal(el){(el.closest&&el.closest(".overlay")||el).remove();}
+function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3400);}
+
+/* --- Motor de plantillas .docx reales (las mismas del CRM) --- */
+function docxEngineReady(){return !!(window.PizZip&&(window.docxtemplater||window.Docxtemplater));}
+const TPL_CACHE={};
+async function loadTemplate(nombre){
+  if(TPL_CACHE[nombre])return TPL_CACHE[nombre];
+  const res=await fetch(TPL_PATH+nombre,{cache:"no-store"});
+  if(!res.ok)throw new Error(`No se encontró la plantilla ${nombre} (HTTP ${res.status})`);
+  const buf=await res.arrayBuffer();TPL_CACHE[nombre]=buf;return buf;
+}
+async function generarDocx(nombrePlantilla,data,nombreSalida){
+  if(!docxEngineReady())throw new Error("El motor de documentos no cargó. Revisa tu conexión a internet e inténtalo de nuevo.");
+  const buf=await loadTemplate(nombrePlantilla);
+  const zip=new PizZip(buf.slice(0));
+  const DT=window.docxtemplater||window.Docxtemplater;
+  const doc=new DT(zip,{paragraphLoop:true,linebreaks:true,delimiters:{start:"{",end:"}"}});
+  doc.render(data);
+  const out=doc.getZip().generate({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+  const url=URL.createObjectURL(out);
+  const a=document.createElement("a");a.href=url;a.download=nombreSalida+".docx";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
+/* --- Modificar (aumento de monto / adenda de plazo) --- */
+function modalModificar(c){
+  const consult=isConsultoria(c);
+  const opciones=[
+    {v:"monto",t:"Aumento de monto",d:"Incremento en el valor del contrato",informe:"aumento"},
+    {v:"plazogen",t:"Ampliación de plazo general",d:"Extiende la vigencia total del contrato",informe:"adenda"}
+  ];
+  if(consult)opciones.push({v:"entrega",t:"Cambio de plazos de entrega",d:"Ajusta el cronograma de entregables (consultoría)",informe:"adenda"});
+  const o=openModal(`
+    <h2>Modificar contrato</h2>
+    <p class="sub">${esc(c.nro)} · ${esc(c.detalle)}</p>
+    <div class="frow"><label>Tipo de modificación</label>
+      <div class="radios">${opciones.map((op,i)=>`<label class="radio ${i===0?"sel":""}"><input type="radio" name="mt" value="${op.v}" data-inf="${op.informe}" ${i===0?"checked":""}><span><span class="rt">${op.t}</span><span class="rd">${op.d}</span></span></label>`).join("")}</div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:7px">Las modificaciones <b>no pueden ser del objeto</b> del contrato.</div>
+    </div>
+    <div id="montoRow">
+      <div class="frow"><label>Valor del incremento (USD, incl. IVA)</label><input id="inc" type="number" min="0" step="0.01" placeholder="0.00">
+        <div style="font-size:11.5px;color:var(--muted);margin-top:5px">Monto original: <b>${money(c.monto)}</b>${montoDe(c)!==c.monto?` · vigente con adendas: <b>${money(montoDe(c))}</b>`:""}</div></div>
+      <div class="secdiv">Datos para el informe (FAP-2026-11)</div>
+      <div class="frow2"><div class="frow"><label>RUC del proveedor</label><input id="rucM" placeholder="N.º de RUC"></div>
+      <div class="frow"><label>Siglas del área</label><input id="siglas" placeholder="Ej.: PNC"></div></div>
+      <div class="secdiv">Datos presupuestarios (reprogramación PAG)</div>
+      <div class="frow2"><div class="frow"><label>Fecha reprogramación PAG</label><input id="fechaReprog" type="date"></div>
+      <div class="frow"><label>Código de partida</label><input id="partida" placeholder="Ej.: 5.3.01"></div></div>
+      <div class="frow"><label>Nombre de la línea presupuestaria</label><input id="lineaNombre" placeholder="Nombre de la partida en el PAG"></div>
+      <div class="note" style="margin:2px 0 4px">Lo que dejes vacío queda marcado con «COMPLETAR» en el Word.</div>
+    </div>
+    <div class="frow" id="plazoRow" style="display:none"><label>Plazo adicional / nueva fecha</label><input id="plazoTxt" placeholder="Ej.: 60 días adicionales · nueva finalización 30 nov 2026"></div>
+    <div class="frow"><label>Justificación (opcional para monto, obligatoria para plazo)</label><textarea id="just" placeholder="Motivo técnico y contractual…"></textarea></div>
+    <div id="routebox"></div>
+    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="gen">Generar borrador de informe</button></div>`);
+  const radios=o.querySelectorAll("input[name=mt]");
+  const montoRow=$("#montoRow",o),plazoRow=$("#plazoRow",o),inc=$("#inc",o),routebox=$("#routebox",o);
+  function sel(){return [...radios].find(r=>r.checked);}
+  function route(){
+    const r=sel(),v=r.value,informe=r.dataset.inf;
+    montoRow.style.display=v==="monto"?"":"none";
+    plazoRow.style.display=v==="monto"?"none":"";
+    const genBtn=$("#gen",o);
+    let instrumento,pct=null,pctAcum=null,blocked=false;
+    if(v==="monto"){
+      const base=c.monto||0,totalActual=montoDe(c),val=parseFloat(inc.value)||0;
+      pct=base?(val/base*100):0;
+      pctAcum=base?(((totalActual+val)-base)/base*100):0;
+      blocked=pctAcum>50;
+      instrumento=pct>=25?"Adenda modificatoria":"Acta de aumento de valor";
+    }else instrumento="Adenda modificatoria";
+    const isAdenda=instrumento==="Adenda modificatoria";
+    const infTxt=informe==="aumento"?"Informe de aumento de monto (FAP-2026-11)":"Informe de justificación de adenda";
+    if(blocked){
+      routebox.innerHTML=`<div class="routebox route-block"><b>Modificación no permitida.</b><br>Con este incremento, las modificaciones acumuladas llegarían al <b>${pctAcum.toFixed(1)}%</b> del monto original (límite: <b>50%</b>). Corresponde iniciar un <b>nuevo proceso de contratación</b> — consulta con Legal FAP.</div>`;
+      genBtn.disabled=true;
+    }else{
+      routebox.innerHTML=`<div class="routebox ${isAdenda?"route-adenda":"route-acta"}">Se generará el <b>borrador del ${infTxt}</b>.<br>Instrumento que preparará Legal: <b>${instrumento}</b>.<br>${v==="monto"?`El incremento representa <b>${pct.toFixed(1)}%</b> del monto original ${pct>=25?"(≥ 25% → adenda)":"(< 25% → acta de aumento)"}. Acumulado: <b>${pctAcum.toFixed(1)}%</b> (límite 50%).`:"Todo cambio de plazo se formaliza mediante <b>adenda</b>, sin importar el monto."}</div>`;
+      genBtn.disabled=false;
+    }
+    o._data={v,informe,instrumento,pct,pctAcum,blocked};
+  }
+  radios.forEach(r=>r.onchange=()=>{o.querySelectorAll(".radio").forEach(l=>l.classList.remove("sel"));r.closest(".radio").classList.add("sel");route();});
+  inc.oninput=route;route();
+  $("#cancel",o).onclick=()=>closeModal(o);
+  $("#gen",o).onclick=async()=>{
+    const just=$("#just",o).value.trim(),d=o._data;
+    if(d.blocked)return;
+    if(d.v==="monto"&&!(parseFloat(inc.value)>0)){alert("Ingresa el valor del incremento.");return;}
+    if(d.v!=="monto"&&!$("#plazoTxt",o).value.trim()){alert("Indica el plazo adicional o la nueva fecha.");return;}
+    let titulo;
+    if(d.v==="monto"){
+      const inc_v=parseFloat(inc.value)||0,montoOriginal=c.monto||0,montoTotal=montoOriginal+inc_v;
+      const M=manualDocx;
+      const data={contratoNro:c.nro,objeto:c.detalle||"",proveedor:c.proveedor||"",
+        proveedorRuc:$("#rucM",o).value.trim()||M("RUC del proveedor"),
+        ac:c.ac||"",area:c.area||"",siglas:$("#siglas",o).value.trim()||M("siglas del área"),
+        fecha:longDate(todayISO()),fechaContrato:longDate(c.firma),
+        fechaReprog:$("#fechaReprog",o).value?longDate($("#fechaReprog",o).value):M("fecha de reprogramación PAG"),
+        partida:$("#partida",o).value.trim()||M("código de partida"),
+        lineaNombre:$("#lineaNombre",o).value.trim()||M("nombre de la línea PAG"),
+        montoOriginal:money(montoOriginal).replace("$",""),montoOriginalLetras:montoEnLetras(montoOriginal),
+        montoAumento:money(inc_v).replace("$",""),montoAumentoLetras:montoEnLetras(inc_v),
+        montoTotal:money(montoTotal).replace("$",""),montoTotalLetras:montoEnLetras(montoTotal)};
+      titulo="Informe de aumento de monto (FAP-2026-11)";
+      try{await generarDocx("14_Informe_adenda.docx",data,`BORRADOR_Informe_aumento_monto_${cleanNro(c.nro)}`);}
+      catch(err){alert("No se pudo generar el documento: "+err.message);return;}
+      logAdd("📄",`Borrador de ${titulo} generado (+${money(inc_v)}, ${d.pct.toFixed(1)}%)`,c.nro);
+    }else{
+      if(!just){alert("Ingresa la justificación.");return;}
+      titulo="Informe de justificación de adenda (formato provisional)";
+      const html=informeAdendaHTML(c,{plazoTxt:$("#plazoTxt",o).value.trim(),just,instrumento:d.instrumento});
+      downloadHTMLDoc(`BORRADOR_Informe_adenda_${cleanNro(c.nro)}`,html);
+      logAdd("📄",`Borrador de informe de adenda de plazo generado`,c.nro);
+    }
+    ov(c).pendienteEnvio={tipoEnvio:titulo,instrumento:d.instrumento};saveCLM();
+    pasosSiguientes(o,c,titulo,d.instrumento);
+    toast("Borrador generado · "+titulo);
+  };
+}
+function informeAdendaHTML(c,p){
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{margin:2.2cm 2.4cm}body{font-family:Calibri,Arial,sans-serif;color:#0B153F;font-size:11pt;line-height:1.55}h1{font-size:14pt;text-align:center}table{width:100%;border-collapse:collapse;margin:12pt 0}td{border:1px solid #999;padding:6pt;font-size:10.5pt}.k{background:#EEF1FB;font-weight:700;width:34%}</style></head><body>
+  <h1>INFORME DE JUSTIFICACIÓN DE ADENDA — BORRADOR</h1>
+  <table>
+    <tr><td class="k">Contrato</td><td>${esc(c.nro)}</td></tr>
+    <tr><td class="k">Objeto</td><td>${esc(c.detalle||"")}</td></tr>
+    <tr><td class="k">Proveedor</td><td>${esc(c.proveedor||"")}</td></tr>
+    <tr><td class="k">Área protegida</td><td>${esc(c.area||"")}</td></tr>
+    <tr><td class="k">AC responsable</td><td>${esc(c.ac||"")}</td></tr>
+    <tr><td class="k">Vigencia actual</td><td>${esc(fdate(c.inicio))} — ${esc(fdate(c.fin))}</td></tr>
+    <tr><td class="k">Modificación solicitada</td><td>${esc(p.plazoTxt)}</td></tr>
+    <tr><td class="k">Instrumento</td><td>${esc(p.instrumento)}</td></tr>
+  </table>
+  <p><b>Justificación:</b></p><p>${esc(p.just)}</p>
+  <p style="margin-top:36pt">Atentamente,</p>
+  <p style="margin-top:30pt">_______________________<br>${esc(c.ac||"")}<br>Administradora del contrato</p>
+  </body></html>`;
+}
+function downloadHTMLDoc(filename,htmlBody){
+  const blob=new Blob(["\uFEFF",htmlBody],{type:"application/msword"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=filename+".doc";document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function pasosSiguientes(o,c,titulo,instrumento){
+  o.querySelector(".modal").innerHTML=`
+    <h2>✅ Borrador generado</h2>
+    <p class="sub">${esc(titulo)} · ${esc(c.nro)}</p>
+    <div class="steps"><h3>Próximos pasos — envío a la Unidad Operativa</h3><ol>
+      <li><b>Abre el borrador</b> en Word y completa los campos «COMPLETAR» si los hay.</li>
+      <li><b>Súbelo aquí mismo</b>, junto con el <b>contrato firmado</b> ${c.link?`(<a href="${esc(c.link)}" target="_blank" rel="noopener">ábrelo aquí</a>)`:""}.</li>
+      <li>La Unidad Operativa revisa y <b>Legal FAP elabora el instrumento</b> (${esc(instrumento)}).</li>
+      <li>Hazlo <b>antes del vencimiento</b> (${fdate(c.fin)}).</li>
+    </ol></div>
+    <div class="modal-foot"><button class="btn line" id="okpasos">Ahora no</button><button class="btn" id="irEnviar">Enviar a la Unidad Operativa →</button></div>`;
+  $("#okpasos",o).onclick=()=>{closeModal(o);render();};
+  $("#irEnviar",o).onclick=()=>{closeModal(o);modalEnvioUO(c,ov(c).pendienteEnvio);};
+}
+
+/* --- Terminar --- */
+function modalTerminar(c){
+  const causales=[
+    ["Cumplimiento del plazo","El contrato llegó a su fecha de finalización con el objeto cumplido.","sin novedades u observaciones que reportar; el servicio se prestó con normalidad durante toda la vigencia contractual"],
+    ["Presupuesto agotado","Se ejecutó la totalidad del valor contratado.","el contrato se ejecutó hasta el agotamiento del monto contractual, sin novedades adicionales que reportar"],
+    ["Mutuo acuerdo","Las partes acuerdan dar por terminado el contrato.","las partes acordaron dar por terminado el contrato de forma anticipada, de mutuo acuerdo"]
+  ];
+  const o=openModal(`
+    <h2>Terminar contrato</h2>
+    <p class="sub">${esc(c.nro)} · ${esc(c.detalle)}</p>
+    <div class="frow"><label>Causal de terminación</label>
+      <div class="radios">${causales.map((x,i)=>`<label class="radio ${i===0?"sel":""}"><input type="radio" name="cz" value="${esc(x[0])}" data-nov="${esc(x[2])}" ${i===0?"checked":""}><span><span class="rt">${x[0]}</span><span class="rd">${x[1]}</span></span></label>`).join("")}</div>
+    </div>
+    <div class="secdiv">Comparecientes y datos del acta (FAP-2026-12)</div>
+    <div class="frow2"><div class="frow"><label>Cédula de la AC</label><input id="cedulaAc" placeholder="N.º de cédula"></div>
+    <div class="frow"><label>RUC del proveedor</label><input id="ruc" placeholder="N.º de RUC"></div></div>
+    <div class="frow"><label>Administrador/a del área (MAE)</label><input id="jefe" placeholder="Nombre de quien administra el área por el MAE"></div>
+    <div class="frow"><label>Ciudad de suscripción</label><input id="ciudad" value="Quito"></div>
+    <div class="frow2"><div class="frow"><label>Fecha del acta</label><input id="fter" type="date" value="${todayISO()}"></div>
+    <div class="frow"><label>Fecha real de entrega</label><input id="frec" type="date" value="${todayISO()}"></div></div>
+    <div class="secdiv">Liquidación económica</div>
+    <div class="frow2"><div class="frow"><label>Valor total liquidado (USD)</label><input id="total" type="number" step="0.01" value="${montoDe(c).toFixed(2)}"></div>
+    <div class="frow"><label>Novedades (opcional)</label><input id="obs" placeholder="Texto sugerido si lo dejas vacío"></div></div>
+    <div class="note">Se genera el <b>borrador del acta oficial (FAP-2026-12)</b> con la plantilla real. Al terminar se habilita la <b>calificación del proveedor</b>.</div>
+    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn danger" id="gen">Terminar y generar acta</button></div>`);
+  o.querySelectorAll("input[name=cz]").forEach(r=>r.onchange=()=>{o.querySelectorAll(".radio").forEach(l=>l.classList.remove("sel"));r.closest(".radio").classList.add("sel");});
+  $("#cancel",o).onclick=()=>closeModal(o);
+  $("#gen",o).onclick=async()=>{
+    const sel=[...o.querySelectorAll("input[name=cz]")].find(r=>r.checked);
+    const causal=sel.value,novDefault=sel.dataset.nov;
+    const fter=$("#fter",o).value,obs=$("#obs",o).value.trim()||novDefault;
+    const frec=$("#frec",o).value,ciudad=$("#ciudad",o).value.trim()||"Quito";
+    const totalLiq=parseFloat($("#total",o).value)||montoDe(c);
+    const M=manualDocx;
+    const data={contratoNro:c.nro,objeto:c.detalle||"",proveedor:c.proveedor||"",
+      proveedorRuc:$("#ruc",o).value.trim()||M("RUC del proveedor"),
+      ac:c.ac||"",cedulaAc:$("#cedulaAc",o).value.trim()||M("cédula de la AC"),
+      area:c.area||"",jefe:$("#jefe",o).value.trim()||M("administrador/a del área — MAE"),
+      ciudad,fechaActa:longDate(fter),fechaContrato:longDate(c.firma),
+      fechaInicioContrato:longDate(c.inicio),fechaFin:longDate(c.fin),fechaRecepcion:longDate(frec),
+      fechaAdenda:tieneAdenda(c)&&c.firmaAdenda?longDate(c.firmaAdenda):M("fecha de adenda, si existió"),
+      montoTotal:money(montoDe(c)).replace("$",""),montoTotalLetras:montoEnLetras(montoDe(c)),
+      total:money(totalLiq).replace("$","")};
+    try{await generarDocx("15_Acta_de_terminacion.docx",data,`BORRADOR_Acta_terminacion_${cleanNro(c.nro)}`);}
+    catch(err){alert("No se pudo generar el acta: "+err.message);return;}
+    const O=ov(c);O.terminado=true;O.causal=causal;O.fter=fter;
+    O.pendienteEnvio={tipoEnvio:"Acta de terminación (FAP-2026-12)",instrumento:"Acta de terminación y liquidación"};
+    saveCLM();
+    logAdd("🏁",`Contrato terminado (${causal}) · acta FAP-2026-12 generada`,c.nro);
+    pasosSiguientes(o,c,"Acta de terminación (FAP-2026-12)","Acta de terminación y liquidación");
+    toast("Contrato terminado · Acta generada");
+  };
+}
+
+/* --- Calificar proveedor (FO-AD-ABC-017) --- */
+function modalCalificar(c){
+  const GRUPOS=[
+    {nombre:"Calidad del producto / servicio",w:0.40,items:[
+      "Conformidad con las especificaciones técnicas del contrato o solicitud de cotización",
+      "Ausencia de defectos, fallas o incumplimientos durante la ejecución",
+      "Calidad uniforme a lo largo de toda la vigencia contractual",
+      "Conducta del proveedor en las instalaciones del área protegida (si no aplica, asignar 3)"]},
+    {nombre:"Cumplimiento de plazo",w:0.30,items:[
+      "Cumplimiento de las fechas de entrega o prestación del bien/servicio",
+      "Continuidad en la entrega o prestación sin interrupciones no justificadas",
+      "Cumplimiento del plazo total del contrato sin extensiones atribuibles al proveedor"]},
+    {nombre:"Atención y soporte",w:0.05,items:[
+      "Respuesta ante requerimientos, consultas o incidencias del administrador/a",
+      "Comunicación proactiva ante inconvenientes o cambios que afecten la entrega",
+      "Atención y resolución de observaciones formuladas por el administrador/a"]},
+    {nombre:"Cumplimiento contractual",w:0.25,items:[
+      "Entrega oportuna y completa de documentación de respaldo (facturas, informes, actas, etc.)",
+      "Vigencia de garantías técnicas, pólizas u obligaciones formales (si no aplica, asignar 3)",
+      "Cumplimiento de obligaciones formales asociadas al contrato (tributos, IESS, permisos, etc.)"]}
+  ];
+  const vals=GRUPOS.map(g=>g.items.map(()=>3));
+  const o=openModal(`
+    <h2>Calificación del proveedor</h2>
+    <p class="sub">${esc(c.proveedor||"—")} · ${esc(c.nro)} · FO-AD-ABC-017 · escala 0–3</p>
+    <div class="note" style="margin:6px 0 4px">0 = no cumple · 1 = cumple parcialmente · 2 = cumple · 3 = cumple plenamente</div>
+    ${GRUPOS.map((g,gi)=>`<div style="margin-top:13px">
+      <div style="font-weight:700;color:var(--navy);font-size:13px;border-bottom:1px solid var(--line2);padding-bottom:5px;margin-bottom:8px">${esc(g.nombre)} — ${(g.w*100)}%</div>
+      ${g.items.map((txt,ii)=>`<div class="crit">
+        <div style="font-size:12px;line-height:1.45;margin-bottom:5px">${esc(txt)}</div>
+        <div style="display:flex;gap:6px">${[0,1,2,3].map(v=>`<button class="chip scorebtn ${v===3?"on":""}" data-g="${gi}" data-i="${ii}" data-v="${v}" style="flex:1;text-align:center;padding:5px 4px;font-size:12px">${v}</button>`).join("")}</div>
+      </div>`).join("")}
+    </div>`).join("")}
+    <div class="scorebox"><div><div class="lab">Calificación final</div><div class="big" id="score" style="color:var(--navy)">—</div></div><div id="semwrap"></div></div>
+    <div id="conseq" style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:11px"></div>
+    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="gen">Registrar y exportar</button></div>`);
+  function tier(s){
+    if(s>=90)return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
+    if(s>=80)return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
+    if(s>=70)return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber)",elegible:true,cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, actualizar la calificación de inmediato."};
+    if(s>=60)return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"No se considerará en próximos procesos de contratación."};
+    return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
+  }
+  function calc(){
+    let total=0;
+    const aportes=GRUPOS.map((g,gi)=>{
+      const suma=vals[gi].reduce((a,b)=>a+b,0),max=g.items.length*3;
+      const aporte=suma/max*g.w*100;total+=aporte;
+      return {nombre:g.nombre,aporte};
+    });
+    total=Math.round(total*100)/100;
+    const t=tier(total);
+    $("#score",o).textContent=total.toFixed(2);
+    $("#semwrap",o).innerHTML=`<span class="semaforo" style="background:${t.bg};color:${t.fg}">${esc(t.sem)}</span>`;
+    $("#conseq",o).innerHTML=`<b>Consecuencia:</b> ${esc(t.cons)}${total<70?" · <b>No elegible</b> (mínimo aprobatorio: 70/100).":""}`;
+    o._score=total;o._t=t;o._aportes=aportes;
+  }
+  o.querySelectorAll(".scorebtn").forEach(b=>b.onclick=()=>{
+    const g=+b.dataset.g,i=+b.dataset.i;vals[g][i]=+b.dataset.v;
+    o.querySelectorAll(`.scorebtn[data-g="${g}"][data-i="${i}"]`).forEach(x=>x.classList.toggle("on",x===b));
+    calc();
+  });
+  calc();
+  $("#cancel",o).onclick=()=>closeModal(o);
+  $("#gen",o).onclick=()=>{
+    const O=ov(c);O.evaluado=true;O.score=o._score.toFixed(2);O.sem=o._t.sem;saveCLM();
+    const BOM="\uFEFF",ap=o._aportes;
+    const csv=BOM+[
+      ["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones"].join(";"),
+      [c.nro,c.proveedor||"",c.area||"",c.cat||"",c.ac||"",todayISO(),
+       ...ap.map(a=>String(a.aporte.toFixed(2)).replace(".",",")),
+       String(o._score.toFixed(2)).replace(".",","),o._t.sem,o._t.elegible?"Sí":"No",""].join(";")
+    ].join("\r\n");
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`Calificacion_${cleanNro(c.nro)}.csv`;a.click();URL.revokeObjectURL(a.href);
+    logAdd("⭐",`Proveedor calificado: ${o._score.toFixed(2)}/100 · ${o._t.sem}`,c.nro);
+    o.querySelector(".modal").innerHTML=`
+      <h2>✅ Calificación registrada</h2>
+      <p class="sub">${esc(c.proveedor||"—")} · ${o._score.toFixed(2)}/100 · ${esc(o._t.sem)}</p>
+      <div class="steps"><h3>Próximos pasos</h3><ol>
+        <li>Se descargó el <b>CSV</b> con la fila de calificación.</li>
+        <li>Pégala en <b>"Registro de Calificaciones"</b> (banco acumulativo) y en la <b>Base de proveedores FAP</b>.</li>
+        ${!o._t.elegible?"<li><b>Proveedor no elegible</b> — repórtalo también a la Unidad Operativa.</li>":""}
+      </ol></div>
+      <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
+    $("#okpasos",o).onclick=()=>{closeModal(o);render();};
+    toast(`Proveedor calificado · ${o._score.toFixed(2)}/100`);
+  };
+}
+
+/* --- Envío a la Unidad Operativa --- */
+function fileToB64(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>res(String(fr.result).split(",")[1]||"");
+    fr.onerror=()=>rej(fr.error||new Error("lectura"));
+    fr.readAsDataURL(file);
+  });
+}
+function modalEnvioUO(c,ctx){
+  ctx=ctx||{tipoEnvio:"Documentos del contrato",instrumento:""};
+  const o=openModal(`
+    <h2>Enviar a la Unidad Operativa</h2>
+    <p class="sub">${esc(c.nro)} · ${esc(ctx.tipoEnvio)} — los archivos suben al flujo de Power Automate y llegan a revisión legal.</p>
+    <div class="frow2"><div class="frow"><label>Área protegida</label><input id="uoArea" value="${esc(c.area||"")}"></div>
+    <div class="frow"><label>AC responsable</label><input id="uoAc" value="${esc(c.ac||SES.user)}"></div></div>
+    <div class="frow2"><div class="frow"><label>Correo de contacto</label><input id="uoCorreo" value="${esc(c.correo||"")}" placeholder="correo@fias.org.ec"></div>
+    <div class="frow"><label>Proveedor</label><input id="uoProveedor" value="${esc(c.proveedor||"")}"></div></div>
+    <div class="frow2"><div class="frow"><label>Monto</label><input id="uoMonto" value="${montoDe(c).toFixed(2)}"></div>
+    <div class="frow"><label>Instrumento</label><input value="${esc(ctx.instrumento||"—")}" disabled style="background:var(--bg)"></div></div>
+    <div class="frow"><label>Objeto</label><input id="uoObjeto" value="${esc(c.detalle||"")}"></div>
+    <div class="frow"><label>Observaciones para la Unidad Operativa</label><textarea id="uoObs" placeholder="Notas o contexto del envío…"></textarea></div>
+    <div class="frow"><label>Archivos (borrador + contrato firmado; máx. 10 · 100 MB c/u)</label>
+      <input id="uoFiles" type="file" multiple>
+      <div id="uoStatus" style="font-size:12.5px;font-weight:700;margin-top:8px;color:var(--muted)"></div></div>
+    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="send">Enviar a la Unidad Operativa</button></div>`);
+  $("#cancel",o).onclick=()=>closeModal(o);
+  $("#send",o).onclick=async()=>{
+    const status=$("#uoStatus",o);
+    const setS=(t,col)=>{status.textContent=t;status.style.color=col||"var(--green)";};
+    const files=$("#uoFiles",o).files;
+    if(!files||!files.length){setS("Adjunta al menos un archivo.","var(--red)");return;}
+    if(files.length>10){setS("El límite es de 10 archivos por envío.","var(--red)");return;}
+    for(let i=0;i<files.length;i++)if(files[i].size>100*1024*1024){setS(`«${files[i].name}» supera los 100 MB.`,"var(--red)");return;}
+    const val=id=>String($("#"+id,o).value).trim();
+    const meta={origen:"CLM",idEnvio:(c.nro||"")+"|"+new Date().toISOString(),codigoProceso:c.nro||"",
+      area:val("uoArea"),siglas:"",ac:val("uoAc"),acCorreo:val("uoCorreo"),
+      tipoProceso:ctx.tipoEnvio||"",nombreProceso:(c.nro||"")+" – "+(c.detalle||""),
+      tipoEnvio:ctx.tipoEnvio||"",instrumento:ctx.instrumento||"",
+      proveedor:val("uoProveedor"),monto:val("uoMonto"),objeto:val("uoObjeto"),observaciones:val("uoObs"),
+      nombreCarpeta:String((c.nro||"contrato")+"_"+(ctx.tipoEnvio||"envio")).replace(/[\\/:*?"<>|\s]+/g,"_"),
+      fecha:new Date().toISOString()};
+    setS(`Preparando ${files.length} archivo(s)…`,"var(--navy)");
+    try{
+      const archivos=await Promise.all([...files].map(fl=>fileToB64(fl).then(b=>({nombre:fl.name,tipo:fl.type||"application/octet-stream",tamanio:fl.size,contenido:b}))));
+      const payload=Object.assign({},meta,{archivos});
+      if(!FLOW_DOCS_URL){setS("Envío preparado. Falta configurar la URL del flujo.","var(--amber)");return;}
+      setS("Enviando a la Unidad Operativa…","var(--navy)");
+      const r=await fetch(FLOW_DOCS_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      ov(c).pendienteEnvio=null;saveCLM();
+      logAdd("📤",`Enviado a la Unidad Operativa: ${ctx.tipoEnvio} (${archivos.length} archivo/s)`,c.nro);
+      setS(`✓ Enviado. Se subieron ${archivos.length} archivo(s).`);
+      toast("Enviado a la Unidad Operativa.");
+      setTimeout(()=>{closeModal(o);render();},900);
+    }catch(e){setS("No se pudo enviar ("+((e&&e.message)||"error")+"). Revisa la conexión.","var(--red)");}
+  };
+}
+
+/* ================= VISTA: SOLICITUDES (intake precontractual) ================= */
+function estadoSolLabel(e){return {borrador:"Borrador",magica:"En La Mágica",uo:"En la Unidad Operativa",listo:"Formalizado"}[e]||e;}
+function viaSolicitud(s){ /* regla de La Mágica: garantías o plazo > 30 días → contrato */
+  return (s.garantias||Number(s.plazo)>30)?"contrato":"orden";
+}
+function vSolicitudes(){
+  const sols=mySolicitudes();
+  const grupos=[["borrador","Borradores","var(--muted2)"],["magica","En La Mágica","var(--navy)"],["uo","En la Unidad Operativa","var(--violet)"],["listo","Formalizados",'var(--green)']];
+  $("#view").innerHTML=`<div class="up">
+    <div class="toolbar">
+      <div style="flex:1"><p class="psub" style="margin:0">La fase de <b>intake</b> del CLM: registra la necesidad, la regla oficial decide la vía (orden de compra/servicio u obligación de contrato) y desde aquí saltas a <b>La Mágica</b> para generar los documentos del proceso.</p></div>
+      <button class="btn" id="nueva">+ Nueva solicitud</button>
+    </div>
+    ${sols.length?grupos.map(([k,label,col])=>{
+      const items=sols.filter(s=>s.estado===k);
+      if(!items.length)return "";
+      return `<div class="panel" style="margin-bottom:13px">
+        <p class="ptitle"><span style="color:${col}">●</span> ${label} <span style="color:var(--muted);font-weight:600">· ${items.length}</span></p>
+        ${items.map(s=>`<div class="alert-row" style="margin-bottom:8px">
+          <div class="aic" style="background:${s.via==="contrato"?"#EFE6FA":"var(--tint)"}">${s.via==="contrato"?"📑":"🧾"}</div>
+          <div style="min-width:0;flex:1"><div class="at">${esc(s.objeto)}</div>
+            <div class="ad">${esc(s.area)} · ${esc(s.tipoBS==="bien"?"Bien":"Servicio")} · ${money0(s.monto)} · plazo ${esc(s.plazo)}d ${s.garantias?"· con garantías":""} — vía <b>${s.via==="contrato"?"CONTRATO (Unidad Operativa)":"orden de compra/servicio"}</b></div></div>
+          <div style="display:flex;gap:7px;flex:0 0 auto">
+            ${k==="borrador"?`<button class="btn sm" data-mv="magica" data-id="${s.id}">Iniciar en La Mágica</button>`:""}
+            ${k==="magica"&&s.via==="contrato"?`<button class="btn sm" data-mv="uo" data-id="${s.id}">Marcar enviado a UO</button>`:""}
+            ${(k==="magica"&&s.via!=="contrato")||k==="uo"?`<button class="btn sm" data-mv="listo" data-id="${s.id}">Marcar formalizado</button>`:""}
+            <button class="btn sm line" data-del="${s.id}" title="Eliminar">✕</button>
+          </div>
+        </div>`).join("")}
+      </div>`;
+    }).join(""):`<div class="empty"><div style="font-weight:700;color:var(--ink);font-size:15px">Sin solicitudes todavía</div><div style="font-size:13px;margin-top:4px">Registra la primera necesidad de contratación del área.</div></div>`}
+  </div>`;
+  $("#nueva").onclick=modalNuevaSolicitud;
+  $("#view").querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{
+    const s=CLM.solicitudes.find(x=>x.id===b.dataset.id);if(!s)return;
+    s.estado=b.dataset.mv;saveCLM();
+    logAdd(s.estado==="listo"?"✅":"➡️",`Solicitud «${s.objeto.slice(0,40)}» → ${estadoSolLabel(s.estado)}`);
+    if(b.dataset.mv==="magica")go("magica");else vSolicitudes();
+    toast("Solicitud actualizada");
+  });
+  $("#view").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    if(!confirm("¿Eliminar esta solicitud?"))return;
+    CLM.solicitudes=CLM.solicitudes.filter(x=>x.id!==b.dataset.del);saveCLM();vSolicitudes();
+  });
+}
+function modalNuevaSolicitud(){
+  const areas=[...new Set(CONTRACTS.map(c=>c.area).filter(Boolean))].sort();
+  const o=openModal(`
+    <h2>Nueva solicitud de contratación</h2>
+    <p class="sub">Fase de intake. Con plazo y garantías, la regla oficial decide la vía del proceso.</p>
+    <div class="frow"><label>Área protegida</label><select id="sArea">${areas.map(a=>`<option ${SES.rol==="area"&&SES.user===a?"selected":""}>${esc(a)}</option>`).join("")}</select></div>
+    <div class="frow"><label>Objeto de la contratación</label><input id="sObj" placeholder="Ej.: Servicio de mantenimiento de senderos 2026"></div>
+    <div class="frow2">
+      <div class="frow"><label>Tipo</label><select id="sTipo"><option value="servicio">Servicio</option><option value="bien">Bien</option></select></div>
+      <div class="frow"><label>Presupuesto referencial (USD)</label><input id="sMonto" type="number" min="0" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="frow2">
+      <div class="frow"><label>Plazo estimado (días)</label><input id="sPlazo" type="number" min="1" value="30"></div>
+      <div class="frow"><label>Garantías</label><select id="sGar"><option value="no">No requiere</option><option value="si">Anticipo / fiel cumplimiento</option></select></div>
+    </div>
+    <div id="sRoute"></div>
+    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="okS">Registrar solicitud</button></div>`);
+  function route(){
+    const plazo=Number($("#sPlazo",o).value)||0,gar=$("#sGar",o).value==="si";
+    const contrato=gar||plazo>30;
+    $("#sRoute",o).innerHTML=`<div class="routebox ${contrato?"route-adenda":"route-acta"}">
+      ${contrato?`<b>Vía: CONTRATO.</b> ${gar?"Requiere garantías":"El plazo supera los 30 días"} → el proceso no se resuelve con orden de compra/servicio. Se prepara el expediente en La Mágica y se envía a la <b>Unidad Operativa</b> para elaboración legal.`:
+      `<b>Vía: orden de compra / orden de servicio.</b> Sin garantías y plazo ≤ 30 días → se resuelve directamente en <b>La Mágica</b> (momentos 1–4).`}</div>`;
+  }
+  $("#sPlazo",o).oninput=route;$("#sGar",o).onchange=route;route();
+  $("#cancel",o).onclick=()=>closeModal(o);
+  $("#okS",o).onclick=()=>{
+    const s={id:"s"+Date.now(),fecha:todayISO(),area:$("#sArea",o).value,objeto:$("#sObj",o).value.trim(),
+      tipoBS:$("#sTipo",o).value,monto:parseFloat($("#sMonto",o).value)||0,
+      plazo:Number($("#sPlazo",o).value)||0,garantias:$("#sGar",o).value==="si",
+      estado:"borrador",owner:SES.user,ac:SES.rol==="ac"?SES.user:""};
+    if(!s.objeto){alert("Describe el objeto de la contratación.");return;}
+    s.via=viaSolicitud(s);
+    CLM.solicitudes.unshift(s);saveCLM();
+    logAdd("🆕",`Solicitud registrada: «${s.objeto.slice(0,50)}» (vía ${s.via==="contrato"?"contrato":"orden"})`);
+    closeModal(o);vSolicitudes();toast("Solicitud registrada");
+  };
+}
+
+/* ================= VISTA: ALERTAS ================= */
+function vAlertas(){
+  const list=alertList();
+  $("#view").innerHTML=`<div class="up">
+    <p class="psub" style="margin-bottom:14px">El motor de reglas revisa el portafolio en cada visita: vencimientos, ventanas de renovación (≤90 días), envíos pendientes a la Unidad Operativa, proveedores sin calificar y solicitudes sin iniciar.</p>
+    ${list.length?list.map(a=>alertRowHTML(a)).join(""):`<div class="empty"><div style="font-size:34px;margin-bottom:8px">✅</div><div style="font-weight:700;color:var(--ink)">Nada pendiente</div><div style="font-size:13px">Todo el portafolio está bajo control.</div></div>`}
+  </div>`;
+  bindAlertRows();
+}
+
+/* ================= VISTA: REPORTES ================= */
+function vReportes(){
+  const mine=myContracts();
+  function agg(keyFn){
+    const m={};
+    mine.forEach(c=>{const k=keyFn(c)||"—";
+      if(!m[k])m[k]={n:0,monto:0,ven:0};
+      m[k].n++;m[k].monto+=montoDe(c);
+      if(statusLive(c).key==="vencido")m[k].ven++;});
+    return Object.entries(m).sort((a,b)=>b[1].monto-a[1].monto);
+  }
+  const total=mine.reduce((a,c)=>a+montoDe(c),0);
+  const porCat=agg(c=>c.cat),porArea=agg(c=>c.area),porAC=agg(c=>c.ac);
+  const tbl=(rows,label)=>`<div class="tablewrap"><table class="list" style="min-width:0">
+    <thead><tr><th>${label}</th><th style="text-align:right">Contratos</th><th style="text-align:right">Monto</th><th style="text-align:right">% del total</th></tr></thead>
+    <tbody>${rows.map(([k,v])=>`<tr style="cursor:default"><td style="font-weight:600">${esc(k)}</td><td style="text-align:right">${v.n}</td><td style="text-align:right;white-space:nowrap">${money(v.monto)}</td><td style="text-align:right">${total?(v.monto/total*100).toFixed(1):0}%</td></tr>`).join("")}</tbody></table></div>`;
+  $("#view").innerHTML=`<div class="up">
+    <div class="toolbar">
+      <div style="flex:1"><p class="psub" style="margin:0">Analítica del portafolio ${SES.rol==="uo"?"completo":"asignado"} · ${mine.length} contratos · ${money(total)} en total.</p></div>
+      <button class="btn line sm" id="expCsv">⬇ Exportar CSV del portafolio</button>
+    </div>
+    <div class="charts">
+      <div class="panel"><p class="ptitle">Monto por categoría</p><p class="psub">valor total vigente por tipo de gasto</p>
+        ${barChartH(porCat.slice(0,10).map(([label,v])=>({label,value:v.monto,tip:`<b>${esc(label)}</b><br>${v.n} contrato(s) · ${money(v.monto)}`})),v=>moneyShort(v))}</div>
+      <div class="panel"><p class="ptitle">Monto por área protegida</p><p class="psub">top 10 de ${porArea.length} áreas</p>
+        ${barChartH(porArea.slice(0,10).map(([label,v])=>({label,value:v.monto,tip:`<b>${esc(label)}</b><br>${v.n} contrato(s) · ${money(v.monto)}`})),v=>moneyShort(v))}</div>
+    </div>
+    <div class="charts" style="grid-template-columns:1fr 1fr">
+      <div><p class="ptitle" style="margin:6px 0 8px">Resumen por categoría</p>${tbl(porCat,"Categoría")}</div>
+      <div><p class="ptitle" style="margin:6px 0 8px">Resumen por AC</p>${tbl(porAC.slice(0,15),"Administradora")}</div>
+    </div>
+  </div>`;
+  $("#expCsv").onclick=()=>{
+    const BOM="\uFEFF";
+    const head=["Nro","Objeto","Area","Categoria","Proveedor","AC","Monto original","Monto vigente","Inicio","Firma","Fin","Estado","Adenda","Calificacion"];
+    const rows=mine.map(c=>{const o=ov(c);return [c.nro,c.detalle,c.area,c.cat,c.proveedor,c.ac,c.monto,montoDe(c),c.inicio,c.firma,c.fin,statusLive(c).label,tieneAdenda(c)?(c.tipoAdenda||"Sí"):"No",o.evaluado?o.score:""].map(v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`).join(";");});
+    const blob=new Blob([BOM+[head.join(";")].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Portafolio_CLM_FAP_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
+    logAdd("⬇️","Exportación CSV del portafolio");
+    toast("CSV del portafolio exportado");
+  };
+}
+
+/* ================= VISTA: BITÁCORA ================= */
+function vActividad(){
+  $("#view").innerHTML=`<div class="up">
+    <div class="toolbar">
+      <div style="flex:1"><p class="psub" style="margin:0">Registro de auditoría del CLM: cada acción del equipo (documentos, terminaciones, calificaciones, envíos y notas) queda con autor y fecha. Se guarda en este navegador.</p></div>
+      ${CLM.log.length?`<button class="btn line sm" id="expLog">⬇ Exportar bitácora</button>`:""}
+    </div>
+    <div class="panel">
+      ${CLM.log.length?`<ul class="tl">${CLM.log.map(l=>`<li><div class="t">${esc(l.icon)} ${esc(l.txt)}${l.ref?` — <a href="#" data-ref="${esc(l.ref)}">${esc(l.ref)}</a>`:""}</div><div class="s">${esc(l.user)} · ${new Date(l.ts).toLocaleString("es-EC")}</div></li>`).join("")}</ul>`
+      :`<div class="empty">Aún no hay actividad registrada.</div>`}
+    </div>
+  </div>`;
+  $("#view").querySelectorAll("[data-ref]").forEach(a=>a.onclick=e=>{
+    e.preventDefault();
+    const i=CONTRACTS.findIndex(c=>c.nro===a.dataset.ref);
+    if(i>=0)go("detalle",i);
+  });
+  const ex=$("#expLog");
+  if(ex)ex.onclick=()=>{
+    const BOM="\uFEFF";
+    const rows=CLM.log.map(l=>[l.ts,l.user,l.txt,l.ref||""].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";"));
+    const blob=new Blob([BOM+["Fecha;Usuario;Accion;Contrato"].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Bitacora_CLM_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
+  };
+}
+
+/* ================= VISTA: HERRAMIENTAS EMBEBIDAS ================= */
+function vFrame(src,notice){
+  $("#view").innerHTML=`
+    <div class="framebar"><span>🧩</span><span style="flex:1">${esc(notice)}</span><a class="btn sm line" href="${esc(src)}" target="_blank" rel="noopener">Abrir en pestaña propia ↗</a></div>
+    <iframe class="toolframe" src="${esc(src)}" title="Herramienta integrada"></iframe>`;
+}
+
+/* ================= ARRANQUE ================= */
+loadCLM();
+async function boot(){
+  try{
+    const r=await fetch(DATA_URL,{cache:"no-store"});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const data=await r.json();
+    if(Array.isArray(data)&&data.length){
+      CONTRACTS=data;
+      dataSource={label:`Base viva · ${data.length} contratos`,live:true};
+    }else dataSource={label:"Base vacía",live:false};
+  }catch(e){
+    dataSource={label:"Sin conexión con la base",live:false};
+  }
+  const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
+  if(m&&VIEWS[m[1]]){ST.view=m[1];if(m[2]!=null)ST.cur=+m[2];}
+  render();
+}
+boot();
 </script>
 </body>
 </html>
