@@ -340,7 +340,14 @@ function normalizeContrato(c){
   return n;
 }
 function ingest(list, src){
-  CONTRACTS=list.map((c,i)=>({...normalizeContrato(c),_id:i,_terminado:false,_causal:null,_evaluado:false,_score:null}));
+  const st=califStore();
+  CONTRACTS=list.map((c,i)=>{
+    const n={...normalizeContrato(c),_id:i,_terminado:false,_causal:null,_evaluado:false,_score:null};
+    /* rehidratar calificaciones guardadas en este navegador */
+    const s=st[n.nro];
+    if(s&&s.score!=null){ n._evaluado=true; n._score=Number(s.score).toFixed(2); n._sem=s.sem||tier(Number(s.score)).sem; }
+    return n;
+  });
   dataSource=src;
 }
 /* try co-located export.json (Power Automate pattern); fallback to embedded */
@@ -461,15 +468,91 @@ function isConsultoria(c){
   return /consultor|servicio.*profesional|profesional/.test(s);
 }
 
+/* ================= PROVEEDORES ================= */
+/* Escala oficial de la hoja "Evaluación Proveedor" (5 niveles). Mínimo aprobatorio: 70/100. */
+function tier(s){
+  if(s>=90) return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,
+    cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
+  if(s>=80) return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,
+    cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
+  if(s>=70) return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber)",elegible:true,
+    cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, debe actualizarse la calificación de inmediato."};
+  if(s>=60) return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,
+    cons:"No se considerará en próximos procesos de contratación."};
+  return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,
+    cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
+}
+/* Calificaciones registradas en este navegador (persisten entre sesiones), clave = nro de contrato */
+const CALIF_KEY="fap_crm_califs_v1";
+function califStore(){ try{ return JSON.parse(localStorage.getItem(CALIF_KEY)||"{}"); }catch(e){ return {}; } }
+function saveCalif(c,d){
+  try{
+    const st=califStore();
+    st[c.nro]={proveedor:c.proveedor||"",area:c.area||"",cat:c.cat||"",ac:c.ac||"",fecha:todayISO(),
+      score:Math.round(d.score*100)/100,sem:d.sem,elegible:!!d.elegible};
+    localStorage.setItem(CALIF_KEY,JSON.stringify(st));
+  }catch(e){/* almacenamiento no disponible: la calificación queda solo en la sesión */}
+}
+/* identidad del proveedor: nombre normalizado (el Excel no trae RUC por contrato) */
+function provKey(name){ return norm(name).replace(/\s+/g," "); }
+function califsDe(provName){
+  const k=provKey(provName); if(!k) return [];
+  const st=califStore(), out=[], vistos={};
+  CONTRACTS.forEach(c=>{
+    if(!c._evaluado||provKey(c.proveedor)!==k) return;
+    const s=st[c.nro]||{};
+    out.push({nro:c.nro,fecha:s.fecha||null,score:Number(c._score),sem:c._sem,
+      elegible:s.elegible!=null?s.elegible:Number(c._score)>=70});
+    vistos[c.nro]=true;
+  });
+  /* calificaciones guardadas de contratos que ya no están en la base del día */
+  Object.keys(st).forEach(nro=>{
+    if(vistos[nro]||provKey(st[nro].proveedor)!==k) return;
+    out.push({nro,fecha:st[nro].fecha||null,score:Number(st[nro].score),sem:st[nro].sem,elegible:!!st[nro].elegible});
+  });
+  out.sort((a,b)=>String(b.fecha||"").localeCompare(String(a.fecha||"")));
+  return out;
+}
+function proveedoresData(){
+  const src = provScope==="mine" ? myList() : CONTRACTS;
+  const map=new Map();
+  src.forEach(c=>{
+    const name=String(c.proveedor||"").trim(); if(!name) return;
+    const k=provKey(name);
+    if(!map.has(k)) map.set(k,{key:k,nombre:name,contratos:[]});
+    map.get(k).contratos.push(c);
+  });
+  const arr=[...map.values()];
+  arr.forEach(p=>{
+    p.vigentes=p.contratos.filter(c=>{const s=statusLive(c);return s.cls==="g"||s.cls==="a";}).length;
+    p.vencidos=p.contratos.filter(c=>statusLive(c).cls==="r").length;
+    p.total=p.contratos.reduce((a,c)=>a+(montoDe(c)||0),0);
+    p.areas=[...new Set(p.contratos.map(c=>c.area).filter(Boolean))];
+    p.cats=[...new Set(p.contratos.map(c=>c.cat).filter(Boolean))];
+    p.califs=califsDe(p.nombre);
+    p.ultima=p.califs[0]||null;
+    p.noElegible=!!(p.ultima&&(p.ultima.elegible===false||p.ultima.score<70));
+  });
+  arr.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  return arr;
+}
+function califChip(x){
+  if(!x) return `<span style="font-size:12px;color:var(--muted)">Sin calificar</span>`;
+  const t=tier(x.score);
+  return `<span class="semaforo" style="background:${t.bg};color:${t.fg};font-size:11.5px;padding:4px 10px;white-space:nowrap">${x.score.toFixed(2)} · ${esc(t.sem)}</span>`;
+}
+
 /* ================= STATE ================= */
 let AC=null, MODE="ac", current=null, filter="all", catFilter="all", q="", viewMode="cards";
 let sendUnidad=null;
+let provView=false, provSel=null, qProv="", provFilter="all", provScope="mine";
 
 /* ================= ROUTER ================= */
 function render(){
   if(!AC){ renderLogin(); return; }
   if(sendUnidad){ renderEnvioUnidad(); return; }
   if(current!==null){ renderDetail(); return; }
+  if(provView){ renderProveedores(); return; }
   renderList();
 }
 function myList(){ return MODE==="area" ? CONTRACTS.filter(c=>c.area===AC) : CONTRACTS.filter(c=>c.ac===AC); }
@@ -520,7 +603,7 @@ function renderLogin(){
     <div class="login-card up">
       <span class="eyebrow">Ingreso AC</span>
       <h1>Tus contratos, en un solo lugar</h1>
-      <p class="lead">Entra por tu nombre o por área protegida. Revisa vigencias, abre el contrato firmado, genera borradores de informes de adenda o aumento de monto, termínalos y califica al proveedor.</p>
+      <p class="lead">Entra por tu nombre o por área protegida. Revisa vigencias, abre el contrato firmado, genera borradores de informes de adenda o aumento de monto, termínalos y califica al proveedor. En la pestaña <b>Proveedores</b> consultas el historial y las calificaciones de cada proveedor antes de volver a contratarlo.</p>
       <div class="logintabs" style="display:flex;gap:6px;margin-bottom:12px">
         <button class="ghost tabm on" data-m="ac" style="flex:1;font-weight:700">Por administradora</button>
         <button class="ghost tabm" data-m="area" style="flex:1;font-weight:700">Por área protegida</button>
@@ -576,6 +659,148 @@ function topBar(){
     </div>
   </header>`;
 }
+/* Pestañas de sección: Contratos | Proveedores */
+function sectionTabs(act){
+  const on='background:var(--navy);color:#fff;border-color:var(--navy)';
+  return `<div style="display:flex;gap:8px;margin-bottom:18px">
+    <button class="chip" id="tab-ctr" style="${act==="ctr"?on:""}">Mis contratos</button>
+    <button class="chip" id="tab-prov" style="${act==="prov"?on:""}">Proveedores</button>
+  </div>`;
+}
+function bindSectionTabs(){
+  const tc=$("#tab-ctr"), tp=$("#tab-prov");
+  if(tc) tc.onclick=()=>{ provView=false; provSel=null; current=null; render(); };
+  if(tp) tp.onclick=()=>{ provView=true; provSel=null; current=null; render(); };
+}
+
+/* ================= PROVEEDORES: DIRECTORIO ================= */
+function provFiltered(list){
+  return list.filter(p=>{
+    if(provFilter==="vig"&&!p.vigentes) return false;
+    if(provFilter==="cal"&&!p.califs.length) return false;
+    if(provFilter==="noe"&&!p.noElegible) return false;
+    if(qProv){
+      const hay=(p.nombre+" "+p.areas.join(" ")+" "+p.cats.join(" ")).toLowerCase();
+      if(!hay.includes(qProv.toLowerCase())) return false;
+    }
+    return true;
+  });
+}
+function provRowsHTML(list){
+  if(!list.length) return emptyHTML();
+  const rows=list.map(p=>`
+    <tr data-prov="${esc(p.key)}">
+      <td class="td-obj"><b>${esc(p.nombre)}</b>${p.noElegible?` <span class="badge b-r" style="margin-left:6px">No elegible</span>`:""}</td>
+      <td style="text-align:center">${p.contratos.length}</td>
+      <td style="text-align:center">${p.vigentes?`<b style="color:var(--green)">${p.vigentes}</b>`:"—"}</td>
+      <td style="white-space:nowrap">${money(p.total)}</td>
+      <td>${p.areas.length?esc(p.areas.slice(0,2).join(", "))+(p.areas.length>2?` +${p.areas.length-2}`:""):"—"}</td>
+      <td>${p.cats.slice(0,2).map(k=>catChip(k)).join(" ")}${p.cats.length>2?` <span style="font-size:11px;color:var(--muted)">+${p.cats.length-2}</span>`:""}</td>
+      <td>${califChip(p.ultima)}</td>
+    </tr>`).join("");
+  return `<div class="tablewrap"><table class="list">
+    <thead><tr><th>Proveedor</th><th style="text-align:center">Contratos</th><th style="text-align:center">Vigentes</th><th>Monto acumulado</th><th>Áreas</th><th>Categorías</th><th>Última calificación</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+function renderProveedores(){
+  if(provSel){ renderProveedorDetail(); return; }
+  const all=proveedoresData();
+  const list=provFiltered(all);
+  const nCal=all.filter(p=>p.califs.length).length;
+  const nNoe=all.filter(p=>p.noElegible).length;
+  const nVig=all.filter(p=>p.vigentes).length;
+  document.getElementById("app").innerHTML=topBar()+`
+  <div class="wrap up">
+    ${sectionTabs("prov")}
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-n">${all.length}</div><div class="kpi-l">Proveedores</div></div>
+      <div class="kpi"><div class="kpi-n" style="color:var(--green)">${nVig}</div><div class="kpi-l">Con contratos vigentes</div></div>
+      <div class="kpi"><div class="kpi-n" style="color:var(--navy)">${nCal}</div><div class="kpi-l">Calificados</div></div>
+      <div class="kpi"><div class="kpi-n" style="color:var(--red)">${nNoe}</div><div class="kpi-l">No elegibles</div></div>
+    </div>
+    <div class="toolbar">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="qprov" placeholder="Buscar proveedor, área o categoría…" value="${esc(qProv)}">
+      </div>
+      <div class="chips">
+        ${[["all","Todos"],["vig","Con vigentes"],["cal","Calificados"],["noe","No elegibles"]]
+          .map(([k,l])=>`<button class="chip ${provFilter===k?"on":""}" data-pf="${k}">${l}</button>`).join("")}
+      </div>
+      <div class="viewtog">
+        <button data-ps="mine" class="${provScope==="mine"?"on":""}">${MODE==="area"?"De mi área":"Mis proveedores"}</button>
+        <button data-ps="all" class="${provScope==="all"?"on":""}">Toda la base FAP</button>
+      </div>
+    </div>
+    <div id="provbody">${provRowsHTML(list)}</div>
+    <div class="note" style="margin-top:16px">El directorio se arma con los contratos de la base del día. Las <b>calificaciones</b> (FO-AD-ABC-017) se registran al terminar cada contrato y quedan guardadas <b>en este navegador</b>; la fila CSV que se descarga alimenta el <b>Registro de Calificaciones</b> y la Base de proveedores FAP compartida.</div>
+  </div>`;
+  $("#logout").onclick=()=>{ AC=null; MODE="ac"; q=""; provView=false; provSel=null; render(); };
+  $("#srcbtn").onclick=pickExcel;
+  bindSectionTabs();
+  $("#qprov").oninput=e=>{ qProv=e.target.value; $("#provbody").innerHTML=provRowsHTML(provFiltered(proveedoresData())); bindProvRows(); };
+  document.querySelectorAll(".chip[data-pf]").forEach(b=>b.onclick=()=>{ provFilter=b.dataset.pf; renderProveedores(); });
+  document.querySelectorAll(".viewtog button[data-ps]").forEach(b=>b.onclick=()=>{ provScope=b.dataset.ps; renderProveedores(); });
+  bindProvRows();
+}
+function bindProvRows(){
+  document.querySelectorAll("[data-prov]").forEach(el=>el.onclick=()=>{ provSel=el.dataset.prov; render(); });
+}
+
+/* ================= PROVEEDORES: FICHA ================= */
+function renderProveedorDetail(){
+  const p=proveedoresData().find(x=>x.key===provSel);
+  if(!p){ provSel=null; renderProveedores(); return; }
+  const prom=p.califs.length?p.califs.reduce((a,x)=>a+x.score,0)/p.califs.length:null;
+  document.getElementById("app").innerHTML=topBar()+`
+  <div class="wrap up">
+    <button class="back" id="back">← Volver a proveedores</button>
+    <div class="panel">
+      <div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between;flex-wrap:wrap">
+        <div>
+          <div class="cc-nro" style="margin-bottom:4px">Proveedor</div>
+          <div class="h-title">${esc(p.nombre)}</div>
+          <div class="cc-area">${esc(p.areas.join(" · ")||"")}</div>
+        </div>
+        <div>${p.ultima
+          ? (p.noElegible
+              ? `<span class="badge b-r">No elegible para futuros procesos</span>`
+              : `<span class="badge b-g">Elegible</span>`)
+          : `<span class="badge" style="background:#ECEEF4;color:#5A6072">Sin calificación registrada</span>`}</div>
+      </div>
+      <div class="dl">
+        <div><div class="k">Contratos con FIAS</div><div class="v">${p.contratos.length}</div></div>
+        <div><div class="k">Vigentes / en aviso</div><div class="v">${p.vigentes}</div></div>
+        <div><div class="k">Monto acumulado</div><div class="v">${money(p.total)}</div></div>
+        <div><div class="k">Categorías</div><div class="v">${p.cats.map(k=>catChip(k)).join(" ")||"—"}</div></div>
+        <div><div class="k">Última calificación</div><div class="v">${califChip(p.ultima)}</div></div>
+        <div><div class="k">Promedio histórico</div><div class="v">${prom!=null?prom.toFixed(2)+"/100 · "+p.califs.length+" calificación"+(p.califs.length===1?"":"es"):"—"}</div></div>
+      </div>
+      ${p.noElegible?`<div class="note" style="margin-top:14px;background:var(--redbg);color:var(--red)"><b>Ojo:</b> la última calificación fue menor a 70/100. Según la metodología FO-AD-ABC-017 este proveedor <b>no debe considerarse</b> en próximos procesos de contratación; repórtalo a la Unidad Operativa si recibes una oferta suya.</div>`:""}
+    </div>
+    ${p.califs.length?`
+    <div class="panel" style="margin-top:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px">Historial de calificaciones (este navegador)</div>
+      <div class="tablewrap"><table class="list">
+        <thead><tr><th>Contrato</th><th>Fecha</th><th>Puntaje</th><th>Resultado</th><th>Elegible</th></tr></thead>
+        <tbody>${p.califs.map(x=>`<tr>
+          <td class="td-nro">${esc(x.nro)}</td>
+          <td style="white-space:nowrap">${x.fecha?fdate(x.fecha):"—"}</td>
+          <td><b>${x.score.toFixed(2)}</b>/100</td>
+          <td>${califChip(x)}</td>
+          <td>${x.elegible?"Sí":`<b style="color:var(--red)">No</b>`}</td>
+        </tr>`).join("")}</tbody></table></div>
+    </div>`:""}
+    <div class="panel" style="margin-top:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px">Contratos del proveedor</div>
+      ${tableHTML(p.contratos)}
+    </div>
+  </div>`;
+  $("#back").onclick=()=>{ provSel=null; render(); };
+  $("#logout").onclick=()=>{ AC=null; MODE="ac"; provView=false; provSel=null; render(); };
+  $("#srcbtn").onclick=pickExcel;
+  bindRows();
+}
 
 /* ================= LIST ================= */
 function filtered(){
@@ -601,6 +826,7 @@ function renderList(){
 
   document.getElementById("app").innerHTML=topBar()+`
   <div class="wrap up">
+    ${sectionTabs("ctr")}
     <div class="kpis">
       <div class="kpi"><div class="kpi-n">${mine.length}</div><div class="kpi-l">Contratos asignados</div></div>
       <div class="kpi"><div class="kpi-n" style="color:var(--green)">${nVig}</div><div class="kpi-l">Vigentes</div></div>
@@ -635,8 +861,9 @@ function renderList(){
     <div id="listbody">${viewMode==="cards"?cardsHTML(list):tableHTML(list)}</div>
   </div>`;
 
-  $("#logout").onclick=()=>{ AC=null; MODE="ac"; q=""; filter="all"; catFilter="all"; render(); };
+  $("#logout").onclick=()=>{ AC=null; MODE="ac"; q=""; filter="all"; catFilter="all"; provView=false; provSel=null; render(); };
   $("#srcbtn").onclick=pickExcel;
+  bindSectionTabs();
   $("#q").oninput=e=>{ q=e.target.value; $("#listbody").innerHTML=viewMode==="cards"?cardsHTML(filtered()):tableHTML(filtered()); bindRows(); };
   document.querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{ filter=b.dataset.f; renderList(); });
   document.querySelectorAll(".chip[data-c]").forEach(b=>b.onclick=()=>{ catFilter=(catFilter===b.dataset.c)?"all":b.dataset.c; renderList(); });
@@ -712,7 +939,7 @@ function renderDetail(){
   const consult=isConsultoria(c);
   document.getElementById("app").innerHTML=topBar()+`
   <div class="wrap up">
-    <button class="back" id="back">← Volver a mis contratos</button>
+    <button class="back" id="back">${provView?"← Volver al proveedor":"← Volver a mis contratos"}</button>
     <div class="detail">
       <div>
         <div class="panel">
@@ -786,7 +1013,7 @@ function renderDetail(){
   </div>`;
 
   $("#back").onclick=()=>{ current=null; render(); };
-  $("#logout").onclick=()=>{ AC=null; current=null; render(); };
+  $("#logout").onclick=()=>{ AC=null; current=null; provView=false; provSel=null; render(); };
   $("#srcbtn").onclick=pickExcel;
   if(!(c._terminado||c.cerrado)){ $("#a-mod").onclick=()=>modalModificar(c); $("#a-ter").onclick=()=>modalTerminar(c); }
   if((c._terminado||c.cerrado)&&!c._evaluado){ $("#a-cal").onclick=()=>modalCalificar(c); }
@@ -1124,19 +1351,7 @@ function modalCalificar(c){
       <button class="btn" id="gen">Registrar, exportar y generar informe</button>
     </div>
   `);
-  /* Escala de la hoja "Evaluación Proveedor" (5 niveles). Mínimo aprobatorio: 70/100. */
-  function tier(s){
-    if(s>=90) return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,
-      cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
-    if(s>=80) return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,
-      cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
-    if(s>=70) return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber)",elegible:true,
-      cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, debe actualizarse la calificación de inmediato."};
-    if(s>=60) return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,
-      cons:"No se considerará en próximos procesos de contratación."};
-    return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,
-      cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
-  }
+  /* la escala tier() es global (sección PROVEEDORES) — misma metodología, un solo lugar */
   function calc(){
     let total=0;
     const aportes=GRUPOS.map((g,gi)=>{
@@ -1161,6 +1376,7 @@ function modalCalificar(c){
   $("#cancel",o).onclick=()=>closeModal(o);
   $("#gen",o).onclick=()=>{
     c._evaluado=true; c._score=o._score.toFixed(2); c._sem=o._t.sem;
+    saveCalif(c,{score:o._score,sem:o._t.sem,elegible:o._t.elegible});
     /* CSV alineado a las columnas de "Registro de Calificaciones" (banco acumulativo) */
     const BOM="\uFEFF";
     const ap=o._aportes;
@@ -1184,6 +1400,7 @@ function modalCalificar(c){
         <ol>
           <li>Se descargaron <b>dos archivos</b>: el informe en Word (borrador, para el expediente con firma) y un <b>CSV</b> con la fila de calificación.</li>
           <li>Pega la fila del CSV en <b>"Registro de Calificaciones"</b> (banco acumulativo 2026) y en la <b>Base de proveedores FAP</b> compartida.</li>
+          <li>La calificación quedó <b>guardada en este navegador</b>: puedes consultarla cuando quieras en la pestaña <b>Proveedores</b>, junto al historial del proveedor.</li>
           <li>Imprime y archiva el informe firmado en el <b>expediente administrativo</b> del contrato.</li>
           ${!o._t.elegible?'<li><b>Este proveedor queda no elegible</b> para futuros procesos — repórtalo también a la Unidad Operativa.</li>':""}
         </ol>

@@ -7,6 +7,11 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
   Se actualiza automáticamente cada día vía Power Automate, que sobrescribe `crm/contratos_export.json`
   con los datos del Excel maestro. La app lo consulta automáticamente al abrirse.
+  Incluye la pestaña **Proveedores**: directorio armado a partir de los contratos de la base
+  (contratos, montos acumulados, áreas y categorías por proveedor), con ficha por proveedor,
+  historial de calificaciones (FO-AD-ABC-017) y marca de **no elegible** cuando la última
+  calificación es menor a 70/100. Las calificaciones se guardan en el navegador de la AC
+  (`localStorage`) y la fila CSV exportada alimenta el Registro de Calificaciones compartido.
 - **`/generador/`** — La Mágica: generador de documentos precontractuales para las ACs
   (`generador/index.html`, con las plantillas Word embebidas). Cubre captura del proceso por
   momentos, generación de documentos y registro central vía Power Automate.
