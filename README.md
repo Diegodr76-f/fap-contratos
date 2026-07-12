@@ -2,6 +2,25 @@
 
 Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gestión del ciclo de vida de contratos.
 
+## Contract Lifecycle Management (portada única)
+
+**`/index.html`** es el punto de entrada unificado: una portada que **aúna todas las
+herramientas** en un solo lugar. Presenta el ciclo de vida completo del contrato en seis
+fases y enruta cada una a la herramienta responsable, además de mostrar un **tablero en
+vivo** (KPIs y alertas) calculado desde `crm/contratos_export.json`.
+
+| Fase | Herramienta |
+|------|-------------|
+| 1 · Precontractual | La Mágica (`/generador/`) |
+| 2 · Contratación y formalización | La Mágica → Unidad Operativa |
+| 3 · Ejecución y seguimiento | CRM (`/crm/`) |
+| 4 · Modificaciones (adendas) | CRM |
+| 5 · Terminación y liquidación | CRM |
+| 6 · Calificación del proveedor | CRM |
+
+Se publica en la raíz de GitHub Pages, así que la URL del proyecto abre directamente
+esta portada; desde ahí se navega a cada herramienta.
+
 ## Estructura
 
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
@@ -19,7 +38,8 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
 
 ## URL pública
 
-https://[tu-usuario].github.io/fap-contratos/crm/
+Portada (Contract Lifecycle Management): https://[tu-usuario].github.io/fap-contratos/
+CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
 
 ## Actualización de datos
 
