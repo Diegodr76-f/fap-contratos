@@ -2,6 +2,38 @@
 
 Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gestión del ciclo de vida de contratos.
 
+## CLM — Contract Lifecycle Management (aplicación unificada)
+
+**`/clm/index.html`** es la plataforma única y funcional que reúne todo el ciclo de vida
+del contrato en una sola aplicación, siguiendo el modelo estándar de un CLM
+(intake → elaboración → firma → ejecución → obligaciones → renovación → analítica).
+Lee la misma base viva del CRM (`crm/contratos_export.json`) y usa las mismas
+plantillas Word reales (`crm/plantillas/`).
+
+**Módulos:**
+
+| Módulo | Qué hace |
+|--------|----------|
+| **Panel** | KPIs en vivo, estado del portafolio, vencimientos a 12 meses, valor por categoría, alertas urgentes y actividad reciente |
+| **Pipeline** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado |
+| **Contratos** | Repositorio central con búsqueda global, filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases y línea de tiempo |
+| **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa |
+| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar |
+| **Reportes** | Analítica por categoría/área/AC + exportación CSV del portafolio |
+| **Bitácora** | Registro de auditoría de cada acción (autor, fecha, contrato) |
+| **La Mágica / CRM clásico** | Las herramientas originales embebidas, completas y funcionales |
+
+**Acciones del ciclo de vida** (desde el detalle del contrato, con las plantillas
+oficiales): modificación con reglas 25 % (adenda) / 50 % (bloqueo) e informe
+FAP-2026-11; terminación con causal y acta FAP-2026-12; calificación de proveedor
+FO-AD-ABC-017 (13 criterios, 40/30/5/25) con CSV para el banco de calificaciones;
+y envío a la Unidad Operativa por el mismo flujo de Power Automate
+(`FLOW_DOCS_URL`) que usan La Mágica y el CRM.
+
+**Roles de ingreso:** Administradora (AC), Área protegida o Unidad Operativa
+(portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
+calificaciones, bitácora) se guarda en el navegador (`localStorage`).
+
 ## Estructura
 
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
@@ -19,7 +51,13 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
 
 ## URL pública
 
-https://[tu-usuario].github.io/fap-contratos/crm/
+Cada herramienta tiene su propio enlace en GitHub Pages:
+
+- **CLM (plataforma unificada):** https://[tu-usuario].github.io/fap-contratos/clm/
+- CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
+- La Mágica: https://[tu-usuario].github.io/fap-contratos/generador/
+
+La raíz (`https://[tu-usuario].github.io/fap-contratos/`) redirige automáticamente al CLM.
 
 ## Actualización de datos
 
