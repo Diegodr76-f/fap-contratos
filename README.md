@@ -4,7 +4,7 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
 
 ## CLM — Contract Lifecycle Management (aplicación unificada)
 
-**`/index.html`** es la plataforma única y funcional que reúne todo el ciclo de vida
+**`/clm/index.html`** es la plataforma única y funcional que reúne todo el ciclo de vida
 del contrato en una sola aplicación, siguiendo el modelo estándar de un CLM
 (intake → elaboración → firma → ejecución → obligaciones → renovación → analítica).
 Lee la misma base viva del CRM (`crm/contratos_export.json`) y usa las mismas
@@ -51,8 +51,13 @@ calificaciones, bitácora) se guarda en el navegador (`localStorage`).
 
 ## URL pública
 
-Portada (Contract Lifecycle Management): https://[tu-usuario].github.io/fap-contratos/
-CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
+Cada herramienta tiene su propio enlace en GitHub Pages:
+
+- **CLM (plataforma unificada):** https://[tu-usuario].github.io/fap-contratos/clm/
+- CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
+- La Mágica: https://[tu-usuario].github.io/fap-contratos/generador/
+
+La raíz (`https://[tu-usuario].github.io/fap-contratos/`) redirige automáticamente al CLM.
 
 ## Actualización de datos
 
