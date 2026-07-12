@@ -13556,9 +13556,20 @@ const memStore = {};
 let storageOK = true;
 try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); }
 catch(e){ storageOK = false; document.getElementById('aviso-storage').style.display='block'; }
+let avisoQuotaDado = false;
 const store = {
   get(k){ try { return storageOK ? localStorage.getItem(k) : (memStore[k]||null); } catch(e){ return memStore[k]||null; } },
-  set(k,v){ try { if(storageOK) localStorage.setItem(k,v); else memStore[k]=v; } catch(e){ memStore[k]=v; } }
+  set(k,v){
+    try { if(storageOK) localStorage.setItem(k,v); else memStore[k]=v; }
+    catch(e){
+      // Cuota llena (demasiadas plantillas Word en base64): sin este aviso el
+      // guardado caería a memoria y se perdería todo al recargar, en silencio.
+      memStore[k] = v;
+      const av = document.getElementById('aviso-storage');
+      if(av){ av.style.display='block'; av.innerHTML = '⚠ <b>El almacenamiento del navegador está lleno</b>: los últimos cambios NO quedaron guardados. Elimina plantillas Word que no uses o haz <b>Exportar biblioteca</b> ya para no perder nada.'; }
+      if(!avisoQuotaDado){ avisoQuotaDado = true; alert('El almacenamiento del navegador está lleno y los últimos cambios NO se pudieron guardar.\n\nElimina plantillas Word que no uses (pesan mucho) o usa «Exportar biblioteca» ahora mismo como respaldo.'); }
+    }
+  }
 };
 
 /* ============ Utilidades ============ */
@@ -13592,8 +13603,17 @@ function aISO(val){
 }
 
 /* ============ Números a letras (USD) ============ */
+/* Interpreta montos con formato local: «1.500,50», «1,500.50», «1500,5», «$ 850». */
+function aNumero(x){
+  let s = String(x==null?'':x).trim().replace(/[\s$]/g,'');
+  if(s.includes(',') && s.includes('.')){
+    if(s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g,'').replace(',', '.'); // 1.500,50
+    else s = s.replace(/,/g,'');                                                            // 1,500.50
+  } else if(s.includes(',')) s = s.replace(',', '.');
+  return parseFloat(s);
+}
 function numeroALetras(num){
-  num = parseFloat(String(num).replace(',','.'));
+  num = aNumero(num);
   if(isNaN(num)) return '';
   const ent = Math.floor(num);
   const cent = Math.round((num - ent) * 100);
@@ -13881,6 +13901,17 @@ function aplicarConcordancia(nombre, idx){
    que el documento nunca salga con el tag en blanco. */
 function asegurarConcordancias(vars){
   concordanciasDe(vars).forEach(g => aplicarConcordancia(g.nombre, indiceConc(g.nombre)));
+}
+/* Completa en un objeto de datos los tags gobernados que estén vacíos, con la
+   opción elegida (o la primera). Lo usa el lote, donde no está el formulario. */
+function conConcordancias(datos, vars){
+  concordanciasDe(vars).forEach(g => {
+    const idx = indiceConc(g.nombre);
+    Object.keys(g.tags||{}).forEach(t => {
+      if(!String(datos[t]||'').trim()) datos[t] = (g.tags[t]||[])[idx] || '';
+    });
+  });
+  return datos;
 }
 /* Desde el selector del formulario: aplica y refresca la vista previa. */
 function aplicarConcordanciaUI(nombre, idx){
@@ -14231,7 +14262,8 @@ function actualizarCampo(v, val){
     const w = document.getElementById('w_' + v);
     if(w) w.textContent = avisoIdentificacion(val);
   }
-  const editables = vars.filter(x => !esLetras(x));
+  const gobern = tagsGobernados();
+  const editables = vars.filter(x => !esLetras(x) && !gobern.has(x));
   const llenos = editables.filter(x => String(datosForm[x]||'').trim()).length;
   const pct = editables.length ? Math.round(llenos/editables.length*100) : 100;
   const pt = document.getElementById('prog-txt'), pb = document.getElementById('prog-barra'), pg = document.getElementById('prog-gen');
@@ -14441,7 +14473,9 @@ function abrirPickerContraparte(){
 function renderLote(c, p){
   if(!p){ c.innerHTML = '<div class="vacio">Elige primero la plantilla (lista de la izquierda)<br>y aquí podrás generar <b>muchos documentos de una sola vez</b>.</div>'; return; }
   const vars = varsDe(p);
-  const columnas = vars.filter(v => !esLetras(v));
+  const gobern = tagsGobernados();
+  const columnas = vars.filter(v => !esLetras(v) && !gobern.has(v));
+  const concsLote = concordanciasDe(vars);
 
   const tablaLote = loteFilas.length ? `
     <div class="tabla-scroll"><table class="lote-tabla"><thead><tr>
@@ -14486,6 +14520,7 @@ function renderLote(c, p){
     <div class="lote-sec">
       <div class="paso-tit"><span class="num">3</span> Revisar y corregir (${loteFilas.length} documento${loteFilas.length===1?'':'s'})</div>
       <div style="font-size:12px;color:var(--gris);margin-bottom:8px">Las celdas amarillas están vacías y saldrán como «__________» en el Word. Los montos en letras y las fechas largas se escriben solos al generar.</div>
+      ${concsLote.length ? `<div class="nota" style="margin-bottom:8px">⚥ Concordancia: todos los documentos del lote saldrán con ${concsLote.map(g => `<b>${esc(g.etiqueta)}</b> = «${esc((g.opciones||[])[indiceConc(g.nombre)]||'')}»`).join(' · ')} (se elige en la pestaña Generar).</div>` : ''}
       ${tablaLote}
     </div>
     <div class="lote-sec" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -14540,7 +14575,8 @@ function procesarPegado(){
   const mapaCol = encabezados.map(h => vars.find(v => normalizar(v) === h || normalizar(etiqueta(v)) === h) || null);
   const usadas = mapaCol.filter(Boolean);
   if(!usadas.length){
-    alert('Ningún encabezado coincide con las variables de esta plantilla.\n\nVariables esperadas: ' + vars.filter(v=>!esLetras(v)).join(', '));
+    const gob = tagsGobernados();
+    alert('Ningún encabezado coincide con las variables de esta plantilla.\n\nVariables esperadas: ' + vars.filter(v=>!esLetras(v) && !gob.has(v)).join(', '));
     return;
   }
   let n = 0;
@@ -14563,21 +14599,23 @@ function procesarPegado(){
 async function generarLote(){
   const p = plActual(); if(!p || !loteFilas.length) return;
   const vars = varsDe(p);
-  const columnas = vars.filter(v => !esLetras(v));
+  const gobern = tagsGobernados();
+  const columnas = vars.filter(v => !esLetras(v) && !gobern.has(v));
   const incompletas = loteFilas.filter(f => columnas.some(v => !String(f[v]||'').trim())).length;
   if(incompletas && !confirm(`${incompletas} de ${loteFilas.length} documentos tienen campos vacíos (saldrán como líneas en blanco).\n\n¿Generar de todas formas?`)) return;
   try{
     const zip = new JSZip();
     const nombresUsados = new Set();
     for(let i = 0; i < loteFilas.length; i++){
-      const datos = p.tipo === 'docx' ? datosDocx(p, { ...loteFilas[i] }, true) : completarLetras(vars, { ...loteFilas[i] });
+      const base = conConcordancias({ ...loteFilas[i] }, vars);
+      const datos = p.tipo === 'docx' ? datosDocx(p, base, true) : completarLetras(vars, base);
       const blob = p.tipo === 'docx' ? generarBlobDocx(p, datos) : await construirDocx(p, datos);
       let archivo = nombreArchivo(p, datos, i);
       let k = 2;
       while(nombresUsados.has(archivo)){ archivo = archivo.replace(/\.docx$/, `-${k++}.docx`); }
       nombresUsados.add(archivo);
       zip.file(archivo, blob);
-      historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(datos)) });
+      historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(p.tipo === 'docx' ? base : datos)) });
     }
     if(historial.length > 500) historial.length = 500;
     guardar();
@@ -14660,12 +14698,12 @@ function datosDocx(p, base, enLote){
     filas = filas.map(f => ({ ...f }));
     filas.forEach(f => {
       if(l.campos.includes('ptotal') && !f.ptotal && f.cantidad && f.punit)
-        f.ptotal = (parseFloat(String(f.cantidad).replace(',','.')) * parseFloat(String(f.punit).replace(',','.'))).toFixed(2);
+        f.ptotal = (aNumero(f.cantidad) * aNumero(f.punit)).toFixed(2);
     });
     datos[l.nombre] = filas;
     // Totales automáticos de la tabla de ítems (docs 7-10 y 12 del catálogo)
     if(l.nombre === 'items' && est.escalares.includes('subtotal') && !datos.subtotal){
-      const st = filas.reduce((s, f) => s + (parseFloat(String(f.ptotal||'').replace(',','.')) || 0), 0);
+      const st = filas.reduce((s, f) => s + (aNumero(f.ptotal) || 0), 0);
       datos.subtotal = st.toFixed(2);
       const pct = parseFloat(datos.ivaPct || base.ivaPct || 15);
       if(est.escalares.includes('iva') && !datos.iva) datos.iva = (st * pct / 100).toFixed(2);
@@ -14857,7 +14895,11 @@ async function descargarWord(){
       const blob = generarBlobDocx(p, datos);
       const archivo = nombreArchivo(p, datos, null);
       descargarBlob(blob, archivo);
-      historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(datos)) });
+      // En el historial van los datos CRUDOS del formulario (fechas ISO, sin
+      // transformar), para que «Reusar datos» los devuelva a los campos tal cual.
+      const crudos = { ...datosForm, ...condForm };
+      Object.entries(listasForm).forEach(([k, v]) => { if(Array.isArray(v) && v.length) crudos[k] = v; });
+      historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(crudos)) });
       if(historial.length > 500) historial.length = 500;
       guardar();
     }catch(e){
@@ -15388,7 +15430,7 @@ function rerenderTagsConc(){
 }
 function agregarTagConc(){
   const inp = document.getElementById('cc-nuevo-tag');
-  const t = (inp.value||'').trim().replace(/\s+/g,'').replace(/[{}]/g,'');
+  const t = (inp.value||'').trim().replace(/[^\wáéíóúñÁÉÍÓÚÑ]/g,'');
   if(!t) return;
   const existentes = leerTagsConc();
   if(existentes[t]){ alert('Ese tag ya está en el grupo.'); return; }
@@ -15399,7 +15441,7 @@ function agregarTagConc(){
   inp.value = '';
 }
 function guardarConcordancia(id){
-  const nombre = (document.getElementById('cc-nombre').value||'').trim().replace(/\s+/g,'').replace(/[{}]/g,'');
+  const nombre = (document.getElementById('cc-nombre').value||'').trim().replace(/[^\wáéíóúñÁÉÍÓÚÑ]/g,'');
   const etiqueta = (document.getElementById('cc-etiqueta').value||'').trim();
   const opciones = opcionesActualesConc();
   const tags = leerTagsConc();
@@ -15424,6 +15466,10 @@ function guardarVariableEd(){
   const v = variablesRepo.find(x => x.id === varSelId); if(!v) return;
   const nuevoNombre = document.getElementById('var-ed-nombre').value.trim().replace(/\s+/g,'_').replace(/[{}]/g,'');
   if(nuevoNombre !== v.nombre && buscarVar(nuevoNombre)){ alert(`Ya existe otra variable con el nombre {{${nuevoNombre}}}.`); return; }
+  if(nuevoNombre !== v.nombre && tagsGobernados().has(v.nombre)){
+    alert(`{{${v.nombre}}} pertenece a un grupo de concordancia (cambia todo). Renómbrala desde Variables → Grupos de concordancia, editando el grupo, para no romper el vínculo.`);
+    return;
+  }
   if(nuevoNombre !== v.nombre && !confirm(`Vas a renombrar {{${v.nombre}}} a {{${nuevoNombre}}}. Ojo: las plantillas y cláusulas que ya usan el nombre anterior NO se actualizan solas; tendrías que corregirlas. ¿Continuar?`)) return;
   v.nombre = nuevoNombre || v.nombre;
   v.grupo = document.getElementById('var-ed-grupo').value.trim() || v.grupo;
@@ -15769,7 +15815,9 @@ function renderHistorial(c){
   if(!historial.length){ c.innerHTML = '<div class="vacio">Aún no has generado documentos.<br>Cada descarga (individual o en lote) quedará registrada aquí.</div>'; return; }
   const filas = historial.map((h,i) => {
     const f = new Date(h.fecha);
-    const resumen = Object.entries(h.datos||{}).slice(0,3).map(([k,v]) => `${etiqueta(k)}: ${v}`).join(' · ');
+    const resumen = Object.entries(h.datos||{})
+      .filter(([,v]) => (typeof v === 'string' && v.trim()) || typeof v === 'number')
+      .slice(0,3).map(([k,v]) => `${etiqueta(k)}: ${v}`).join(' · ');
     return `<tr><td style="white-space:nowrap">${f.toLocaleDateString('es-EC')} ${f.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(h.plantilla)}</td><td>${esc(h.archivo)}</td><td style="font-size:12px;color:var(--gris)">${esc(resumen)}</td><td><button class="btn sec mini" onclick="reusar(${i})">Reusar datos</button></td></tr>`;
   }).join('');
   c.innerHTML = `
@@ -15855,6 +15903,9 @@ function importarBiblioteca(ev){
         }
         alert('Biblioteca importada correctamente.');
       } else { alert('El archivo no tiene un formato reconocido.'); return; }
+      // Las plantillas importadas conservan su id: hay que invalidar la caché de
+      // estructuras Word para releer los tags del contenido importado.
+      Object.keys(cacheEstructura).forEach(k => delete cacheEstructura[k]);
       guardar(); renderCats(); renderLista(); renderContenido();
     }catch(e){ alert('No se pudo leer el archivo: ' + e.message); }
     ev.target.value = '';
