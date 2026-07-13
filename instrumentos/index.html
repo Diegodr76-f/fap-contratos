@@ -15233,8 +15233,8 @@ function buildToolbar(target, conVariables, esRepo){
     ${b('undo',null,'↶','Deshacer')}${b('redo',null,'↷','Rehacer')}
     <div class="sep"></div>
     ${b('bold',null,'<b>N</b>','Negrita')}${b('italic',null,'<i>C</i>','Cursiva')}${b('underline',null,'<u>S</u>','Subrayado')}
-    <select onchange="if(this.value)fmtEn('${target}','fontSize',this.value);this.selectedIndex=0" title="Tamaño de letra">
-      <option value="">Tamaño</option><option value="1">Pequeño</option><option value="3">Normal</option><option value="4">Grande</option><option value="5">Muy grande</option>
+    <select onchange="if(this.value)aplicarTamano('${target}',this.value);this.selectedIndex=0" title="Tamaño de letra (puntos, como en Word)">
+      <option value="">Tamaño</option>${[8,9,10,11,12,14,16,18,20,24,28,36,48].map(pt=>`<option value="${pt}">${pt} pt</option>`).join('')}
     </select>
     <div class="sep"></div>
     ${b('formatBlock','h1','Título')}${b('formatBlock','h2','Cláusula')}${b('formatBlock','p','Párrafo')}
@@ -15244,7 +15244,7 @@ function buildToolbar(target, conVariables, esRepo){
       <option value="">Color</option><option value="#101A3D">Negro</option><option value="#00249C">Azul FAP</option><option value="#B3261E">Rojo</option><option value="#0E7A4E">Verde</option><option value="#B45309">Naranja</option><option value="#5B6580">Gris</option>
     </select>
     ${b('insertUnorderedList',null,'• Lista')}${b('insertOrderedList',null,'1. Lista')}<button onclick="listaLetras('${target}')" title="Lista con letras a., b., c.">a. Lista</button>
-    ${b('outdent',null,'⇤','Reducir sangría')}${b('indent',null,'⇥','Aumentar sangría')}
+    <button onclick="sangria('${target}',false)" title="Reducir sangría (Shift+Tab)">⇤</button><button onclick="sangria('${target}',true)" title="Aumentar sangría (Tab)">⇥</button>
     <div class="sep"></div>
     <button onclick="insertarTabla('${target}')" title="Insertar tabla">▦ Tabla</button>
     <button onclick="mayusculas('${target}')" title="Convertir selección a mayúsculas">AA</button>
@@ -15254,6 +15254,30 @@ function buildToolbar(target, conVariables, esRepo){
   </div>`;
 }
 function fmtEn(target, cmd, val){ document.getElementById(target).focus({ preventScroll: true }); document.execCommand(cmd, false, val || null); }
+/* Tamaño en puntos (como Word). execCommand('fontSize') solo admite 1-7, así que
+   marcamos con talla 7 y la convertimos a un span con el tamaño exacto en pt. */
+function aplicarTamano(target, pt){
+  const el = document.getElementById(target);
+  el.focus({ preventScroll: true });
+  const sel = window.getSelection();
+  if(!sel.rangeCount || sel.isCollapsed){ alert('Selecciona primero el texto al que quieres cambiar el tamaño.'); return; }
+  document.execCommand('styleWithCSS', false, false);
+  document.execCommand('fontSize', false, '7');
+  el.querySelectorAll('font[size="7"]').forEach(f => {
+    const span = document.createElement('span');
+    span.style.fontSize = pt + 'pt';
+    while(f.firstChild) span.appendChild(f.firstChild);
+    f.replaceWith(span);
+  });
+}
+/* Sangría: en listas anida/desanida el ítem; en párrafos mueve el margen. Con
+   styleWithCSS los párrafos usan margin-left (no <blockquote>). */
+function sangria(target, aumentar){
+  document.getElementById(target).focus({ preventScroll: true });
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand(aumentar ? 'indent' : 'outdent');
+  document.execCommand('styleWithCSS', false, false);
+}
 function listaLetras(target){
   fmtEn(target, 'insertOrderedList');
   const sel = window.getSelection();
@@ -16040,6 +16064,16 @@ function toggleAside(){
   const oculto = document.body.classList.toggle('aside-oculto');
   store.set('fap_gen_aside_oculto', oculto ? '1' : '0');
 }
+
+/* Tab dentro de un editor = sangría (como Word), no saltar al final del documento.
+   Shift+Tab la reduce. En listas anida/desanida el ítem. */
+document.addEventListener('keydown', (e) => {
+  if(e.key !== 'Tab') return;
+  const el = e.target && e.target.closest ? e.target.closest('[contenteditable="true"]') : null;
+  if(!el) return;
+  e.preventDefault();
+  sangria(el.id, !e.shiftKey);
+});
 
 /* Recuerda la posición del cursor dentro de cualquier editor (contenteditable),
    para poder insertar variables/cláusulas justo ahí aunque el modal robe el foco. */
