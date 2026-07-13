@@ -14915,53 +14915,187 @@ async function construirDocx(p, datos, cuerpoOverride){
   // cuerpoOverride: HTML ya editado a mano; igual se pasa por rellenarDatos para
   // completar variables sueltas (p. ej. de una cláusula recién insertada).
   const cuerpo = limpiarHtmlDoc(rellenarDatos(cuerpoOverride !== undefined ? cuerpoOverride : p.cuerpo, datos, false));
-  // Estilo institucional FIAS/FAP, calcado de las plantillas Word de La Mágica:
-  // Titillium Web 10pt negro, todo justificado, cláusulas en negrita negra,
-  // interlineado sencillo y un espacio uniforme entre párrafos.
-  const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-    body{font-family:'Titillium Web',Calibri,sans-serif;font-size:10pt;color:#000;line-height:1.15}
-    h1{font-size:10pt;font-weight:bold;text-align:center;margin:0 0 10pt}
-    h2{font-size:10pt;font-weight:bold;margin:10pt 0 6pt;text-align:justify}
-    p{text-align:justify;margin:0 0 8pt}
-    li{text-align:justify;margin-bottom:4pt}
-    ul,ol{margin:0 0 8pt 24pt}
-    table{border-collapse:collapse;width:100%;margin:6pt 0}
-    td,th{border:1pt solid #000;padding:3pt 6pt;font-size:10pt;text-align:left}
-    th{font-weight:bold;text-align:center}
-  </style></head><body>${cuerpo}</body></html>`;
-  const blob = htmlDocx.asBlob(docHtml, { orientation:'portrait', margins:{ top:1134, right:1134, bottom:1134, left:1134 } });
-  // Prioridad: si hay papel membretado oficial (.docx) activo, el instrumento se
-  // vierte dentro de ese papel (logos, pies y márgenes reales). Si no, se usa el
-  // membrete simple (imagen + línea de texto) como antes.
-  if(membrete.activo && membrete.docx) return aplicarPapel(blob, datos);
+  const blob = await generarDocxNativo(cuerpo);
+  // Con papel membretado oficial el encabezado ya viene dentro; si no, se añade
+  // el membrete simple (imagen + línea de texto) como encabezado real de Word.
+  if(membrete.activo && membrete.docx) return blob;
   return aplicarMembrete(blob, datos);
 }
-/* Vierte el contenido HTML generado (importado como altChunk) dentro del papel
-   membretado oficial (.docx), conservando su encabezado con logos, su pie de
-   página y sus márgenes. El .docx base ya trae header1/footer1, imágenes y
-   estilos; sólo insertamos el altChunk en su cuerpo y registramos sus partes. */
-async function aplicarPapel(bodyBlob, datos){
-  const gen = await JSZip.loadAsync(bodyBlob);
-  const mht = await gen.file('word/afchunk.mht').async('string');
-  const zip = await JSZip.loadAsync(b64ABytes(membrete.docx));
-  zip.file('word/afchunk.mht', mht);
-  let ct = await zip.file('[Content_Types].xml').async('string');
-  if(!/afchunk\.mht/.test(ct)) ct = ct.replace('</Types>', '<Override PartName="/word/afchunk.mht" ContentType="message/rfc822"/></Types>');
-  zip.file('[Content_Types].xml', ct);
-  let rels = await zip.file('word/_rels/document.xml.rels').async('string');
-  if(!/id="htmlChunk"/i.test(rels)) rels = rels.replace('</Relationships>', '<Relationship Id="htmlChunk" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="/word/afchunk.mht"/></Relationships>');
-  zip.file('word/_rels/document.xml.rels', rels);
-  let doc = await zip.file('word/document.xml').async('string');
-  // El cuerpo del papel es un párrafo vacío + sectPr; sustituimos ese párrafo
-  // vacío por el altChunk con el contenido del instrumento.
-  if(!/altChunk/.test(doc)){
-    if(/<w:p\b[^>]*>\s*<w:pPr>[\s\S]*?<\/w:pPr>\s*<\/w:p>\s*<w:sectPr/.test(doc)){
-      doc = doc.replace(/<w:p\b[^>]*>\s*<w:pPr>[\s\S]*?<\/w:pPr>\s*<\/w:p>(\s*<w:sectPr)/, '<w:altChunk r:id="htmlChunk"/>$1');
-    } else {
-      doc = doc.replace('<w:body>', '<w:body><w:altChunk r:id="htmlChunk"/>');
-    }
+
+/* ============ Motor nativo de Word (OOXML) ============
+   El contenido se construye con las piezas reales de Word —párrafos <w:p>,
+   numeración <w:numPr> (numbering.xml), tablas <w:tbl>— en vez de traducir
+   HTML (altChunk). Resultado: viñetas y numeración editables en Word, Enter
+   continúa la lista, espaciado uniforme; igual que las plantillas de La Mágica.
+   Estilo institucional: Titillium Web 10pt negro, justificado, cláusulas en
+   negrita. Los tamaños en pt y colores puestos a propósito se respetan. */
+const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+function cssColorAHex(c){
+  c = String(c||'').trim();
+  const m = c.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  if(m) return [+m[1],+m[2],+m[3]].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();
+  if(/^#([0-9a-f]{6})$/i.test(c)) return c.slice(1).toUpperCase();
+  if(/^#([0-9a-f]{3})$/i.test(c)) return c.slice(1).split('').map(x=>x+x).join('').toUpperCase();
+  return '';
+}
+function htmlAOoxml(html){
+  const cont = document.createElement('div');
+  cont.innerHTML = html;
+  const nums = [];              // instancias de numeración: {numId, abs}
+  let numIdSeq = 9101;
+  const ABS = { bullet: 9001, decimal: 9002, alpha: 9003 };
+
+  const runXml = (t, f) => {
+    let rpr = '<w:rFonts w:ascii="Titillium Web" w:hAnsi="Titillium Web"/>';
+    if(f.b) rpr += '<w:b/>';
+    if(f.i) rpr += '<w:i/>';
+    if(f.u) rpr += '<w:u w:val="single"/>';
+    const sz = f.sz || 20;
+    rpr += `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>`;
+    if(f.color) rpr += `<w:color w:val="${f.color}"/>`;
+    return `<w:r><w:rPr>${rpr}</w:rPr><w:t xml:space="preserve">${escXml(t)}</w:t></w:r>`;
+  };
+  function runsDe(node, f){
+    let out = '';
+    node.childNodes.forEach(ch => {
+      if(ch.nodeType === 3){ if(ch.textContent) out += runXml(ch.textContent.replace(/\s+/g,' '), f); return; }
+      if(ch.nodeType !== 1) return;
+      const tag = ch.tagName;
+      if(tag === 'BR'){ out += '<w:r><w:br/></w:r>'; return; }
+      if(tag === 'TABLE' || tag === 'UL' || tag === 'OL') return;   // bloques: los maneja bloquesDe
+      const g = { ...f };
+      if(tag === 'B' || tag === 'STRONG') g.b = true;
+      if(tag === 'I' || tag === 'EM') g.i = true;
+      if(tag === 'U') g.u = true;
+      const st = ch.style || {};
+      if(st.fontWeight === 'bold' || parseInt(st.fontWeight) >= 600) g.b = true;
+      if(st.fontStyle === 'italic') g.i = true;
+      if(/underline/.test(st.textDecoration || st.textDecorationLine || '')) g.u = true;
+      if(st.fontSize && /pt$/i.test(st.fontSize)) g.sz = Math.round(parseFloat(st.fontSize) * 2);
+      const col = cssColorAHex(st.color);
+      if(col && col !== '000000') g.color = col;
+      out += runsDe(ch, g);
+    });
+    return out;
   }
-  zip.file('word/document.xml', doc);
+  const jcDe = (el, porDefecto) => {
+    const ta = (el.style && el.style.textAlign) || '';
+    return { center:'center', right:'right', left:'left', justify:'both' }[ta] || porDefecto;
+  };
+  function parrafo(el, f, jcDef, indExtra, antes){
+    const jc = jcDe(el, jcDef);
+    const ml = (parseInt(el.style && el.style.marginLeft) || 0) * 15 + (indExtra || 0);  // px→twips
+    const runs = runsDe(el, f);
+    return `<w:p><w:pPr><w:spacing ${antes?`w:before="${antes}" `:''}w:after="160" w:line="259" w:lineRule="auto"/>${ml?`<w:ind w:left="${ml}"/>`:''}<w:jc w:val="${jc}"/></w:pPr>${runs}</w:p>`;
+  }
+  function listaXml(listEl, nivel, indExtra){
+    const abs = listEl.tagName === 'UL' ? ABS.bullet
+      : /lower-alpha/.test((listEl.style && listEl.style.listStyleType) || '') ? ABS.alpha : ABS.decimal;
+    const numId = numIdSeq++;
+    nums.push({ numId, abs });
+    let xml = '';
+    Array.from(listEl.children).forEach(li => {
+      if(li.tagName !== 'LI') return;
+      const clon = li.cloneNode(true);
+      const anidadas = Array.from(clon.children).filter(c => c.tagName === 'UL' || c.tagName === 'OL');
+      anidadas.forEach(l => l.remove());
+      const jc = jcDe(li, 'both');
+      xml += `<w:p><w:pPr><w:numPr><w:ilvl w:val="${nivel}"/><w:numId w:val="${numId}"/></w:numPr><w:spacing w:after="80" w:line="259" w:lineRule="auto"/>${indExtra?`<w:ind w:left="${720*(nivel+1)+indExtra}" w:hanging="360"/>`:''}<w:jc w:val="${jc}"/></w:pPr>${runsDe(clon, {})}</w:p>`;
+      Array.from(li.children).filter(c => c.tagName === 'UL' || c.tagName === 'OL')
+        .forEach(l => { xml += listaXml(l, Math.min(nivel + 1, 8), indExtra); });
+    });
+    return xml;
+  }
+  function tablaXml(tb){
+    const filas = Array.from(tb.querySelectorAll(':scope > thead > tr, :scope > tbody > tr, :scope > tr'));
+    if(!filas.length) return '';
+    const nCols = Math.max(...filas.map(f => f.children.length)) || 1;
+    const wCol = Math.floor(5000 / nCols);
+    const bordes = '<w:tblBorders>' + ['top','left','bottom','right','insideH','insideV']
+      .map(b => `<w:${b} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join('') + '</w:tblBorders>';
+    let xml = `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>${bordes}</w:tblPr><w:tblGrid>${Array(nCols).fill('<w:gridCol/>').join('')}</w:tblGrid>`;
+    filas.forEach(fila => {
+      xml += '<w:tr>';
+      Array.from(fila.children).forEach(celda => {
+        const esTh = celda.tagName === 'TH';
+        const jc = jcDe(celda, esTh ? 'center' : 'left');
+        xml += `<w:tc><w:tcPr><w:tcW w:w="${wCol}" w:type="pct"/></w:tcPr><w:p><w:pPr><w:spacing w:after="40" w:line="240" w:lineRule="auto"/><w:jc w:val="${jc}"/></w:pPr>${runsDe(celda, esTh ? { b:true } : {})}</w:p></w:tc>`;
+      });
+      xml += '</w:tr>';
+    });
+    return xml + '</w:tbl>';
+  }
+  function bloquesDe(nodo, indExtra){
+    let xml = '';
+    Array.from(nodo.childNodes).forEach(n => {
+      if(n.nodeType === 3){
+        if(n.textContent.trim()) xml += `<w:p><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr>${runXml(n.textContent.replace(/\s+/g,' '), {})}</w:p>`;
+        return;
+      }
+      if(n.nodeType !== 1) return;
+      switch(n.tagName){
+        case 'H1': xml += parrafo(n, { b:true }, 'center', indExtra, 0); break;
+        case 'H2': case 'H3': xml += parrafo(n, { b:true }, 'both', indExtra, 200); break;
+        case 'P': xml += parrafo(n, {}, 'both', indExtra); break;
+        case 'UL': case 'OL': xml += listaXml(n, 0, indExtra); break;
+        case 'TABLE': xml += tablaXml(n); break;
+        case 'BLOCKQUOTE': xml += bloquesDe(n, (indExtra || 0) + ((parseInt(n.style && n.style.marginLeft) || 40) * 15)); break;
+        case 'DIV': xml += bloquesDe(n, indExtra); break;          // contenedores (cláusulas vinculadas)
+        case 'HR': xml += '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="000000"/></w:pBdr></w:pPr></w:p>'; break;
+        default: xml += parrafo(n, {}, 'both', indExtra);
+      }
+    });
+    return xml;
+  }
+  return { cuerpo: bloquesDe(cont, 0), nums };
+}
+/* Definiciones de numeración (abstractNum): viñetas, 1. 2. 3. y a. b. c.,
+   con 9 niveles y sangría creciente — listas reales de Word. */
+function defsNumeracion(){
+  const niveles = (fmt, txt) => Array.from({length:9}, (_,i) =>
+    `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="${fmt}"/><w:lvlText w:val="${txt.replace('%N','%'+(i+1))}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="${720*(i+1)}" w:hanging="360"/></w:pPr></w:lvl>`).join('');
+  return `<w:abstractNum w:abstractNumId="9001"><w:multiLevelType w:val="hybridMultilevel"/>${niveles('bullet','•')}</w:abstractNum>` +
+         `<w:abstractNum w:abstractNumId="9002"><w:multiLevelType w:val="hybridMultilevel"/>${niveles('decimal','%N.')}</w:abstractNum>` +
+         `<w:abstractNum w:abstractNumId="9003"><w:multiLevelType w:val="hybridMultilevel"/>${niveles('lowerLetter','%N.')}</w:abstractNum>`;
+}
+/* Construye el .docx: si hay papel membretado oficial, vierte los párrafos
+   dentro de su cuerpo (conservando header/footer/márgenes y registrando la
+   numeración); si no, arma un paquete Word mínimo A4. */
+async function generarDocxNativo(cuerpoHtml){
+  const { cuerpo, nums } = htmlAOoxml(cuerpoHtml);
+  const numsXml = nums.map(n => `<w:num w:numId="${n.numId}"><w:abstractNumId w:val="${n.abs}"/></w:num>`).join('');
+  if(membrete.activo && membrete.docx){
+    const zip = await JSZip.loadAsync(b64ABytes(membrete.docx));
+    let doc = await zip.file('word/document.xml').async('string');
+    doc = doc.replace(/<w:body>[\s\S]*?(<w:sectPr)/, '<w:body>' + cuerpo + '$1');
+    zip.file('word/document.xml', doc);
+    if(nums.length){
+      const parteNum = zip.file('word/numbering.xml');
+      if(parteNum){
+        let nx = await parteNum.async('string');
+        // abstractNum va antes que los <w:num>: los abstracts tras la apertura, las instancias al final
+        nx = nx.replace(/(<w:numbering[^>]*>)/, '$1' + defsNumeracion()).replace('</w:numbering>', numsXml + '</w:numbering>');
+        zip.file('word/numbering.xml', nx);
+      } else {
+        zip.file('word/numbering.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering ${W_NS}>${defsNumeracion()}${numsXml}</w:numbering>`);
+        let ct = await zip.file('[Content_Types].xml').async('string');
+        if(!/numbering\.xml/.test(ct)) ct = ct.replace('</Types>', '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>');
+        zip.file('[Content_Types].xml', ct);
+        let rels = await zip.file('word/_rels/document.xml.rels').async('string');
+        if(!/numbering\.xml/.test(rels)) rels = rels.replace('</Relationships>', '<Relationship Id="rIdNumNat" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>');
+        zip.file('word/_rels/document.xml.rels', rels);
+      }
+    }
+    return zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  }
+  // Paquete mínimo (sin papel): A4, márgenes 2 cm
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>`);
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+  zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>`);
+  zip.file('word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles ${W_NS}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Titillium Web" w:hAnsi="Titillium Web"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="es-EC"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr></w:pPrDefault></w:docDefaults></w:styles>`);
+  zip.file('word/numbering.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering ${W_NS}>${defsNumeracion()}${numsXml}</w:numbering>`);
+  zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W_NS}><w:body>${cuerpo}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`);
   return zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 function nombreArchivo(p, datos, i){
