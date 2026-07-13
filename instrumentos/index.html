@@ -14895,20 +14895,32 @@ function limpiarHtmlDoc(html){
   });
   d.querySelectorAll('[style]').forEach(el => {
     const s = el.style;
-    if(s.fontSize && /px$/i.test(s.fontSize)) s.fontSize = '';        // px = ruido del editor; los pt puestos a propósito se conservan
+    // Tamaños: solo se respetan los del selector de la herramienta (span.tam);
+    // los que arrastra un pegado desde Word (10pt/11pt/12pt) se normalizan.
+    if(s.fontSize && !(el.tagName === 'SPAN' && el.classList.contains('tam'))) s.fontSize = '';
     if(s.color && COLORES_DEFECTO.has(s.color.toLowerCase())) s.color = '';
-    if(s.fontFamily) s.fontFamily = '';                                // la letra la pone el estilo institucional (Arial)
+    if(s.fontFamily) s.fontFamily = '';                                // la letra la pone el estilo institucional
     if(s.lineHeight) s.lineHeight = '';
     if(!el.getAttribute('style')) el.removeAttribute('style');
   });
   d.querySelectorAll('[lang]').forEach(el => el.removeAttribute('lang'));
-  // Colapsa rachas de párrafos vacíos (solo <br>/espacios) dejando máximo uno
-  let previoVacio = false;
-  Array.from(d.querySelectorAll('p, div')).forEach(p => {
+  d.querySelectorAll('[class]').forEach(el => { if(/^Mso/i.test(el.className)) el.removeAttribute('class'); });
+  // Párrafos vacíos: el ritmo del documento lo da el espaciado uniforme entre
+  // párrafos, así que los vacíos sueltos (1-2, típicos del pegado desde Word)
+  // se eliminan; una racha de 3+ es un hueco a propósito y deja exactamente uno.
+  const bloques = Array.from(d.querySelectorAll('p, div'));
+  let racha = [];
+  const cerrarRacha = () => {
+    if(racha.length >= 3) racha.slice(1).forEach(x => x.remove());
+    else racha.forEach(x => x.remove());
+    racha = [];
+  };
+  bloques.forEach(p => {
     const vacio = !p.textContent.trim() && !p.querySelector('img,table,hr');
-    if(vacio && previoVacio) p.remove();
-    else previoVacio = vacio;
+    if(vacio) racha.push(p);
+    else cerrarRacha();
   });
+  cerrarRacha();
   return d.innerHTML;
 }
 async function construirDocx(p, datos, cuerpoOverride){
@@ -14942,6 +14954,7 @@ function htmlAOoxml(html){
   const cont = document.createElement('div');
   cont.innerHTML = html;
   const nums = [];              // instancias de numeración: {numId, abs}
+  const medias = [];            // imágenes del cuerpo: {idx, b64, ext, wpx, hpx, rid}
   let numIdSeq = 9101;
   const ABS = { bullet: 9001, decimal: 9002, alpha: 9003 };
 
@@ -14955,6 +14968,16 @@ function htmlAOoxml(html){
     if(f.color) rpr += `<w:color w:val="${f.color}"/>`;
     return `<w:r><w:rPr>${rpr}</w:rPr><w:t xml:space="preserve">${escXml(t)}</w:t></w:r>`;
   };
+  function imgRun(el){
+    const m = (el.getAttribute('src') || '').match(/^data:image\/(png|jpe?g);base64,(.+)$/s);
+    if(!m) return '';
+    const idx = medias.length + 1;
+    medias.push({ idx, ext: m[1] === 'png' ? 'png' : 'jpeg', b64: m[2],
+      wpx: parseInt(el.getAttribute('width') || (el.style && el.style.width)) || 0,
+      hpx: parseInt(el.getAttribute('height') || (el.style && el.style.height)) || 0,
+      rid: 'rIdNatImg' + idx });
+    return `%%IMG${idx}%%`;   // se sustituye por <w:drawing> cuando se conocen las dimensiones
+  }
   function runsDe(node, f){
     let out = '';
     node.childNodes.forEach(ch => {
@@ -14962,6 +14985,7 @@ function htmlAOoxml(html){
       if(ch.nodeType !== 1) return;
       const tag = ch.tagName;
       if(tag === 'BR'){ out += '<w:r><w:br/></w:r>'; return; }
+      if(tag === 'IMG'){ out += imgRun(ch); return; }
       if(tag === 'TABLE' || tag === 'UL' || tag === 'OL') return;   // bloques: los maneja bloquesDe
       const g = { ...f };
       if(tag === 'B' || tag === 'STRONG') g.b = true;
@@ -14982,11 +15006,14 @@ function htmlAOoxml(html){
     const ta = (el.style && el.style.textAlign) || '';
     return { center:'center', right:'right', left:'left', justify:'both' }[ta] || porDefecto;
   };
+  // rPr de la marca de párrafo: da la letra institucional también al «1.» / «a.»
+  // de las listas y a la altura de los párrafos vacíos.
+  const MARCA = '<w:rPr><w:rFonts w:ascii="Titillium Web" w:hAnsi="Titillium Web"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
   function parrafo(el, f, jcDef, indExtra, antes){
     const jc = jcDe(el, jcDef);
     const ml = (parseInt(el.style && el.style.marginLeft) || 0) * 15 + (indExtra || 0);  // px→twips
     const runs = runsDe(el, f);
-    return `<w:p><w:pPr><w:spacing ${antes?`w:before="${antes}" `:''}w:after="160" w:line="259" w:lineRule="auto"/>${ml?`<w:ind w:left="${ml}"/>`:''}<w:jc w:val="${jc}"/></w:pPr>${runs}</w:p>`;
+    return `<w:p><w:pPr><w:spacing ${antes?`w:before="${antes}" `:''}w:after="160" w:line="259" w:lineRule="auto"/>${ml?`<w:ind w:left="${ml}"/>`:''}<w:jc w:val="${jc}"/>${MARCA}</w:pPr>${runs}</w:p>`;
   }
   function listaXml(listEl, nivel, indExtra){
     const abs = listEl.tagName === 'UL' ? ABS.bullet
@@ -15000,7 +15027,7 @@ function htmlAOoxml(html){
       const anidadas = Array.from(clon.children).filter(c => c.tagName === 'UL' || c.tagName === 'OL');
       anidadas.forEach(l => l.remove());
       const jc = jcDe(li, 'both');
-      xml += `<w:p><w:pPr><w:numPr><w:ilvl w:val="${nivel}"/><w:numId w:val="${numId}"/></w:numPr><w:spacing w:after="80" w:line="259" w:lineRule="auto"/>${indExtra?`<w:ind w:left="${720*(nivel+1)+indExtra}" w:hanging="360"/>`:''}<w:jc w:val="${jc}"/></w:pPr>${runsDe(clon, {})}</w:p>`;
+      xml += `<w:p><w:pPr><w:numPr><w:ilvl w:val="${nivel}"/><w:numId w:val="${numId}"/></w:numPr><w:spacing w:after="80" w:line="259" w:lineRule="auto"/>${indExtra?`<w:ind w:left="${720*(nivel+1)+indExtra}" w:hanging="360"/>`:''}<w:jc w:val="${jc}"/>${MARCA}</w:pPr>${runsDe(clon, {})}</w:p>`;
       Array.from(li.children).filter(c => c.tagName === 'UL' || c.tagName === 'OL')
         .forEach(l => { xml += listaXml(l, Math.min(nivel + 1, 8), indExtra); });
     });
@@ -15019,35 +15046,64 @@ function htmlAOoxml(html){
       Array.from(fila.children).forEach(celda => {
         const esTh = celda.tagName === 'TH';
         const jc = jcDe(celda, esTh ? 'center' : 'left');
-        xml += `<w:tc><w:tcPr><w:tcW w:w="${wCol}" w:type="pct"/></w:tcPr><w:p><w:pPr><w:spacing w:after="40" w:line="240" w:lineRule="auto"/><w:jc w:val="${jc}"/></w:pPr>${runsDe(celda, esTh ? { b:true } : {})}</w:p></w:tc>`;
+        xml += `<w:tc><w:tcPr><w:tcW w:w="${wCol}" w:type="pct"/></w:tcPr><w:p><w:pPr><w:spacing w:after="40" w:line="240" w:lineRule="auto"/><w:jc w:val="${jc}"/>${MARCA}</w:pPr>${runsDe(celda, esTh ? { b:true } : {})}</w:p></w:tc>`;
       });
       xml += '</w:tr>';
     });
     return xml + '</w:tbl>';
   }
-  function bloquesDe(nodo, indExtra){
-    let xml = '';
-    Array.from(nodo.childNodes).forEach(n => {
-      if(n.nodeType === 3){
-        if(n.textContent.trim()) xml += `<w:p><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr>${runXml(n.textContent.replace(/\s+/g,' '), {})}</w:p>`;
-        return;
+  /* Párrafo que mezcla texto con tablas/listas dentro (pegados de Word):
+     el texto sale como párrafos y los bloques anidados como bloques. */
+  function mixto(el, indExtra){
+    let xml = '', inline = [];
+    const jc = jcDe(el, 'both');
+    const flush = () => {
+      if(inline.length){
+        const tmp = document.createElement('p');
+        inline.forEach(x => tmp.appendChild(x.cloneNode(true)));
+        if(tmp.textContent.trim() || tmp.querySelector('img')) xml += parrafo(tmp, {}, jc, indExtra);
       }
-      if(n.nodeType !== 1) return;
-      switch(n.tagName){
-        case 'H1': xml += parrafo(n, { b:true }, 'center', indExtra, 0); break;
-        case 'H2': case 'H3': xml += parrafo(n, { b:true }, 'both', indExtra, 200); break;
-        case 'P': xml += parrafo(n, {}, 'both', indExtra); break;
-        case 'UL': case 'OL': xml += listaXml(n, 0, indExtra); break;
-        case 'TABLE': xml += tablaXml(n); break;
-        case 'BLOCKQUOTE': xml += bloquesDe(n, (indExtra || 0) + ((parseInt(n.style && n.style.marginLeft) || 40) * 15)); break;
-        case 'DIV': xml += bloquesDe(n, indExtra); break;          // contenedores (cláusulas vinculadas)
-        case 'HR': xml += '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="000000"/></w:pBdr></w:pPr></w:p>'; break;
-        default: xml += parrafo(n, {}, 'both', indExtra);
-      }
+      inline = [];
+    };
+    Array.from(el.childNodes).forEach(ch => {
+      const tag = ch.nodeType === 1 ? ch.tagName : null;
+      if(tag === 'TABLE'){ flush(); xml += tablaXml(ch); }
+      else if(tag === 'UL' || tag === 'OL'){ flush(); xml += listaXml(ch, 0, indExtra); }
+      else inline.push(ch);
     });
+    flush();
     return xml;
   }
-  return { cuerpo: bloquesDe(cont, 0), nums };
+  function bloquesDe(nodo, indExtra){
+    let xml = '', inline = [];
+    // El texto y elementos en línea sueltos (fuera de <p>) se agrupan en un párrafo
+    const flushInline = () => {
+      if(inline.length){
+        const tmp = document.createElement('p');
+        inline.forEach(x => tmp.appendChild(x.cloneNode(true)));
+        if(tmp.textContent.trim() || tmp.querySelector('img')) xml += parrafo(tmp, {}, 'both', indExtra);
+      }
+      inline = [];
+    };
+    Array.from(nodo.childNodes).forEach(n => {
+      const tag = n.nodeType === 1 ? n.tagName : (n.nodeType === 3 ? '#text' : null);
+      if(!tag) return;
+      switch(tag){
+        case 'H1': flushInline(); xml += parrafo(n, { b:true }, 'center', indExtra, 0); break;
+        case 'H2': case 'H3': flushInline(); xml += parrafo(n, { b:true }, 'both', indExtra, 200); break;
+        case 'P': flushInline(); xml += n.querySelector('table,ul,ol') ? mixto(n, indExtra) : parrafo(n, {}, 'both', indExtra); break;
+        case 'UL': case 'OL': flushInline(); xml += listaXml(n, 0, indExtra); break;
+        case 'TABLE': flushInline(); xml += tablaXml(n); break;
+        case 'BLOCKQUOTE': flushInline(); xml += bloquesDe(n, (indExtra || 0) + ((parseInt(n.style && n.style.marginLeft) || 40) * 15)); break;
+        case 'DIV': flushInline(); xml += bloquesDe(n, indExtra); break;   // contenedores (cláusulas vinculadas)
+        case 'HR': flushInline(); xml += '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="000000"/></w:pBdr></w:pPr></w:p>'; break;
+        default: inline.push(n);   // #text, span, b, i, u, img… se acumulan en un párrafo
+      }
+    });
+    flushInline();
+    return xml;
+  }
+  return { cuerpo: bloquesDe(cont, 0), nums, medias };
 }
 /* Definiciones de numeración (abstractNum): viñetas, 1. 2. 3. y a. b. c.,
    con 9 niveles y sangría creciente — listas reales de Word. */
@@ -15062,8 +15118,37 @@ function defsNumeracion(){
    dentro de su cuerpo (conservando header/footer/márgenes y registrando la
    numeración); si no, arma un paquete Word mínimo A4. */
 async function generarDocxNativo(cuerpoHtml){
-  const { cuerpo, nums } = htmlAOoxml(cuerpoHtml);
+  let { cuerpo, nums, medias } = htmlAOoxml(cuerpoHtml);
   const numsXml = nums.map(n => `<w:num w:numId="${n.numId}"><w:abstractNumId w:val="${n.abs}"/></w:num>`).join('');
+  // Imágenes del cuerpo (firmas, sellos): se calculan sus dimensiones y el
+  // placeholder se sustituye por un <w:drawing> real con la imagen embebida.
+  for(const md of medias){
+    if(!md.wpx || !md.hpx){
+      const dim = await new Promise(res => {
+        const im = new Image();
+        im.onload = () => res({ w: im.naturalWidth || 300, h: im.naturalHeight || 100 });
+        im.onerror = () => res({ w: 300, h: 100 });
+        im.src = 'data:image/' + md.ext + ';base64,' + md.b64;
+      });
+      md.wpx = md.wpx || dim.w; md.hpx = md.hpx || dim.h;
+    }
+    const cx = Math.min(md.wpx * 9525, 6120000), cy = Math.round(cx * md.hpx / md.wpx);
+    const dibujo = `<w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${900+md.idx}" name="img${md.idx}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${900+md.idx}" name="img${md.idx}.${md.ext}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${md.rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+    cuerpo = cuerpo.replace(`%%IMG${md.idx}%%`, dibujo);
+  }
+  const registrarMedias = async (zip) => {
+    if(!medias.length) return;
+    medias.forEach(md => zip.file(`word/media/natimg${md.idx}.${md.ext}`, md.b64, { base64:true }));
+    let ct = await zip.file('[Content_Types].xml').async('string');
+    if(!/Extension="png"/.test(ct)) ct = ct.replace('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>');
+    if(!/Extension="jpeg"/.test(ct)) ct = ct.replace('</Types>', '<Default Extension="jpeg" ContentType="image/jpeg"/></Types>');
+    zip.file('[Content_Types].xml', ct);
+    let rels = await zip.file('word/_rels/document.xml.rels').async('string');
+    medias.forEach(md => {
+      if(!rels.includes(`Id="${md.rid}"`)) rels = rels.replace('</Relationships>', `<Relationship Id="${md.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/natimg${md.idx}.${md.ext}"/></Relationships>`);
+    });
+    zip.file('word/_rels/document.xml.rels', rels);
+  };
   if(membrete.activo && membrete.docx){
     const zip = await JSZip.loadAsync(b64ABytes(membrete.docx));
     let doc = await zip.file('word/document.xml').async('string');
@@ -15086,6 +15171,7 @@ async function generarDocxNativo(cuerpoHtml){
         zip.file('word/_rels/document.xml.rels', rels);
       }
     }
+    await registrarMedias(zip);
     return zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   }
   // Paquete mínimo (sin papel): A4, márgenes 2 cm
@@ -15096,6 +15182,7 @@ async function generarDocxNativo(cuerpoHtml){
   zip.file('word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles ${W_NS}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Titillium Web" w:hAnsi="Titillium Web"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="es-EC"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr></w:pPrDefault></w:docDefaults></w:styles>`);
   zip.file('word/numbering.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering ${W_NS}>${defsNumeracion()}${numsXml}</w:numbering>`);
   zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W_NS}><w:body>${cuerpo}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+  await registrarMedias(zip);
   return zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 function nombreArchivo(p, datos, i){
@@ -15445,6 +15532,7 @@ function aplicarTamano(target, pt){
   document.execCommand('fontSize', false, '7');
   el.querySelectorAll('font[size="7"]').forEach(f => {
     const span = document.createElement('span');
+    span.className = 'tam';       // marca: tamaño puesto a propósito (se respeta al generar)
     span.style.fontSize = pt + 'pt';
     while(f.firstChild) span.appendChild(f.firstChild);
     f.replaceWith(span);
