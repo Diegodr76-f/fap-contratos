@@ -4,12 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CLM FAP · Contract Lifecycle Management · FIAS</title>
-<meta name="description" content="Plataforma única de gestión del ciclo de vida de contratos del FAP/FIAS: solicitudes, repositorio, pipeline, obligaciones, modificaciones, terminación, calificación de proveedores, reportes y bitácora.">
+<meta name="description" content="Plataforma única de gestión del ciclo de vida de contratos del FAP/FIAS: solicitudes, repositorio, pipeline, obligaciones, modificaciones, terminación, calificación de proveedores, envío a la Unidad Operativa, reportes y bitácora. Acceso único a solicitudes, CRM, modificaciones, terminación y calificación.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/pizzip@3.2.0/dist/pizzip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.66.4/docxtemplater.min.js"></script>
+<!-- Updated & verified libraries with SRI (Subresource Integrity) -->
+<script src="https://cdn.jsdelivr.net/npm/pizzip@3.5.0/dist/pizzip.min.js" 
+  integrity="sha384-2aOfMJmvn1dRXC6DiqfEQdxYKPsm9xDVEWL+LFqNlh5r/HzNqNNqHmOA9SJEHZn8" 
+  crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.73.1/docxtemplater.min.js" 
+  integrity="sha384-2vU8lGiM+xNL5JeXe9CaWC7TT2DkP7T4H/CwqJwR3GwH8I2Y8LDKbzcRx4TiE+u9" 
+  crossorigin="anonymous"></script>
 <style>
   :root{
     --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
@@ -35,7 +40,7 @@
   .side-brand .t{font-weight:700;font-size:14px;line-height:1.15}
   .side-brand .s{font-size:11px;color:var(--muted)}
   .navgrp{font-size:10.5px;font-weight:700;letter-spacing:.7px;color:var(--muted2);text-transform:uppercase;padding:16px 18px 6px}
-  .navitem{all:unset;cursor:pointer;display:flex;align-items:center;gap:11px;padding:9px 14px;margin:1px 8px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);width:calc(100% - 16px)}
+  .navitem{all:unset;cursor:pointer;display:flex;align-items:center;gap:11px;padding:9px 14px;margin:1px 8px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);width:calc(100% - 16px);border-radius:9px;transition:background .14s,color .14s}
   .navitem:hover{background:var(--tint);color:var(--navy)}
   .navitem.on{background:var(--navy);color:#fff}
   .navitem .nbadge{margin-left:auto;font-size:11px;font-weight:700;background:var(--redbg);color:var(--red);padding:1px 8px;border-radius:99px}
@@ -76,7 +81,7 @@
   }
 
   /* ===== atoms ===== */
-  .btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--navy);color:#fff;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:10px;transition:filter .15s}
+  .btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--navy);color:#fff;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:10px;transition:filter .14s}
   .btn:hover{filter:brightness(1.1)}
   .btn.line{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
   .btn.line:hover{background:var(--bg);filter:none}
@@ -113,7 +118,7 @@
   /* tables */
   .tablewrap{background:#fff;border:1px solid var(--line2);border-radius:14px;overflow-x:auto}
   table.list{width:100%;border-collapse:collapse;min-width:760px}
-  table.list th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted2);text-align:left;padding:12px 13px;border-bottom:1.5px solid var(--line2);background:#FAFBFE;white-space:nowrap}
+  table.list th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted2);text-align:left;padding:12px 13px;border-bottom:1.5px solid var(--line2);background:#F8FAFD}
   table.list td{font-size:13px;padding:11px 13px;border-bottom:1px solid var(--line2);vertical-align:middle}
   table.list tbody tr{cursor:pointer}
   table.list tbody tr:hover{background:var(--tint)}
@@ -215,7 +220,7 @@
   .scorebox .lab{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
   .semaforo{font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:99px}
   .scorebtn.on{background:var(--navy)!important;color:#fff!important;border-color:var(--navy)!important}
-  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:12px 19px;border-radius:11px;box-shadow:0 14px 40px rgba(11,21,63,.3);z-index:90;animation:up .22s ease}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:12px 19px;border-radius:11px;box-shadow:0 14px 40px rgba(11,21,63,.15);z-index:100}
   .empty{text-align:center;padding:50px 20px;color:var(--muted)}
 
   /* charts */
@@ -230,7 +235,7 @@
   .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
   .legend .li{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
   .legend .sw{width:11px;height:11px;border-radius:3px}
-  #tip{position:fixed;pointer-events:none;background:var(--ink);color:#fff;font-size:12px;font-weight:600;padding:7px 11px;border-radius:8px;z-index:95;display:none;box-shadow:0 10px 26px rgba(11,21,63,.3);max-width:260px;line-height:1.4}
+  #tip{position:fixed;pointer-events:none;background:var(--ink);color:#fff;font-size:12px;font-weight:600;padding:7px 11px;border-radius:8px;z-index:95;display:none;box-shadow:0 10px 26px rgba(11,21,63,.14)}
   .stackbar{display:flex;height:34px;border-radius:9px;overflow:hidden;gap:2px;background:var(--bg)}
   .stackbar>div{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:#fff;min-width:0;overflow:hidden;white-space:nowrap}
 
@@ -260,7 +265,7 @@
 <body>
 <div id="app"></div>
 <div id="tip"></div>
-<script type="application/json" id="seed-data">[{"nro": "FIAS-FAP - 2026 - 006", "detalle": "Abastecimiento de combustible Parque Nacional Cotopaxi", "area": "Parque Nacional Cotopaxi", "cat": "Combustible", "monto": 8046.0, "montoTotal": 8046.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-01", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Lucila Eloina Valverde Guevara", "plazo": 364, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDK2vG1EyCIRZ1cE_c01QGiARAHewfG9rz26F4LLAHT8Xo"}, {"nro": "FIAS-FAP - 2026 - 007", "detalle": "Abastecimiento de combustible Refugio de Vida Silvestre Pasochoa", "area": "Refugio de Vida Silvestre Pasochoa", "cat": "Combustible", "monto": 4027.44, "montoTotal": 4027.44, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-01", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "RIVERJARDÍN CÍA. LTDA.", "plazo": 364, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAYT6JlQ2ZORKeB1ST387ZYAWO3gju8eyHZlm45RFBLJ7I"}, {"nro": "FIAS-FAP - 2026 - 008", "detalle": "Arrendamiento de las oficinas administrativa de la Reserva Biológica El Condor", "area": "Reserva Biológica El Condor", "cat": "Arrendamiento", "monto": 3312.0, "montoTotal": 3312.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-05", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Luis Rosendo Cochancela Ortega", "plazo": 329, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Marvin Lapo", "correo": "mlapo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQA_mFfyCObEQapXtmyNUUAEAbsx2pMyP1CdcnrbHIdfvfQ"}, {"nro": "FIAS-FAP - 2026 - 009", "detalle": "Con los antecedentes expuesto y al amparo de las disposiciones del Código Civil, el Fondo de Inversión Ambiental Sostenible procede a la contratación de los servicios de consultoría de la CONSULTORA, quien se obliga para con el FIAS en su calidad de administrador de los recursos Fondo de Áreas Protegidas FAP-FIAS, a prestar sus servicios para la ejecución de la consultoría especializada en “DELITOS AMBIENTALES Y PROCESOS SANCIONATORIOS”, la cual busca desarrollar una base de datos estructurada correspondiente a ilícitos ambientales (estado actual de cada reporte realizado) en Áreas Protegidas del Ecuador, la misma que contendrá información de tipificación legal para cada caso conforme a lo establecido en el Código Orgánico de Ambiente y su reglamento respectivo, el Código Orgánico Integral Penal y demás normativa aplicable para el efecto y el estado actual de cada uno de los casos que han sido reportados.", "area": "Dirección de Áreas Protegidas y Otras Formas de Conservación ", "cat": "Consultoría", "monto": 37145.0, "montoTotal": 37145.0, "cerrado": false, "inicio": "2026-02-03", "firma": "2026-02-03", "fin": "2026-08-02", "tipo": "Nuevo", "proveedor": "GESTIÓN-TECNIFICADA CÍA. LTDA.", "plazo": 180, "adenda": "Sí", "tipoAdenda": "Extensión de plazo", "modificacion": "Se cambió el plazo de entrega del segundo producto", "firmaAdenda": "2026-03-05", "ac": "Fernanda Coello", "correo": "fcoello@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQD7vofCGcCqRIY6Y_xQ9HflAZMNyMBZQ8p-RkoW7MiJuLY"}, {"nro": "FIAS-FAP - 2026 - 010", "detalle": "Renovación arriendo oficinas Parque Nacional Río Negro Sopladora Tinajillas Río Gualaceño", "area": "Parque Nacional Río Negro Sopladora Tinajillas Río Gualaceño", "cat": "Arrendamiento", "monto": 3600.0, "montoTotal": 3600.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-06", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Néstor Olmedo Cárdenas Soliz", "plazo": 328, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Marvin Lapo", "correo": "mlapo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQD4vkbGQfisSZF3p9wGADrGAaIlzJ0t6CrSh5jkWCcxpmc"}, {"nro": "FIAS-FAP - 2026 - 011", "detalle": "Renovación mantenimiento preventivo y correctivo Refugio de Vida Silvestre Pasochoa", "area": "Refugio de Vida Silvestre Pasochoa", "cat": "Mantenimiento", "monto": 5600.0, "montoTotal": 5600.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-05", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Luis Mesías Viracocha Caiza", "plazo": 360, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCEXfgxu6xCQIRw0purX2jHAaSoJDv_EHHuA2Dc0p15i3Q"}, {"nro": "FIAS-FAP - 2026 - 012", "detalle": "Mantenimiento preventivo y correctivo Reserva Biológica Limoncocha", "area": "Reserva Biológica Limoncocha", "cat": "Mantenimiento", "monto": 5454.8, "montoTotal": 8074.69, "cerrado": false, "inicio": "2026-02-05", "firma": "2026-02-05", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "TECNIBARRAGÁN S. A. S.", "plazo": 329, "adenda": "Sí", "tipoAdenda": "Aumento del valor de contrato", "modificacion": "Se aumentó el monto del contrato de USD 5.454,80 a USD 8.074,69", "firmaAdenda": "2026-06-10", "ac": "Jenny Guerrero", "correo": "jguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAffjtPvt8vQJDBXA_9w9gaATFnkjR4aTMcJ718FAlcqds"}, {"nro": "FIAS-FAP - 2026 - 013", "detalle": "Abastecimiento combustible vehículos Refugio de Vida Silvestre El Pambilar", "area": "Refugio de Vida Silvestre El Pambilar", "cat": "Mantenimiento", "monto": 3840.0, "montoTotal": 3840.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-03", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Edgar Camilo Plasencia Hernández", "plazo": 362, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Bolívar Leverone", "correo": "bleverone@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQD3IHXsVh1ZQoaisxeTKxTAARs9iBpBFAaus00ccMv8etE"}, {"nro": "FIAS-FAP - 2026 - 014", "detalle": "Abastecimiento combustible vehículos Reserva Ecológica Los Ilinizas - Quilotoa", "area": "Reserva Ecológica Los Ilinizas", "cat": "Combustible", "monto": 2454.0, "montoTotal": 2454.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-09", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Centro de Distribución de Combustible La Victoria", "plazo": 356, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBJZD5e4Zm2T7oO1wGsc4taAQibngJS5SfCkPBgPlZ8geU"}, {"nro": "FIAS-FAP - 2026 - 015", "detalle": "Limpieza oficinas administratibvas Reserva Ecológica El Ángel", "area": "Reserva Ecológica El Ángel", "cat": "Servicio de limpieza", "monto": 1800.0, "montoTotal": 1800.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-09", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "María Fernanda Pozo Risueño", "plazo": 325, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "María Cuaspud", "correo": "mcuaspud@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQD3QKtU1NDyT7W03KHpse8ZAXNoRuhNOIhmuwiCleVArbE"}, {"nro": "FIAS-FAP - 2026 - 016", "detalle": "Abastecimiento de combustible Parque Nacional Cayambe Coca", "area": "Parque Nacional Cayambe Coca", "cat": "Combustible", "monto": 3600.0, "montoTotal": 3600.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-05", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Sucesión Indivisa Luius Alberto Taco Narváez", "plazo": 360, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAaIIWZlW6MRbuybWBbtL9YAa7uR7TTJpNu9NhDt7d3Iak"}, {"nro": "FIAS-FAP - 2026 - 017", "detalle": "Abastecimiento de combustible Reserva Ecológica Cofán Bermejo", "area": "Reserva Ecológica Cofán Bermejo", "cat": "Combustible", "monto": 5311.0, "montoTotal": 5311.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-05", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "José David Arias Díaz", "plazo": 360, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Nancy Tacure", "correo": "ntacure@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDZrIQC3TQoSIQiuV7MsshmAU8Rc3ghLP2YTCgt9nSJo-4"}, {"nro": "FIAS-FAP - 2026 - 018", "detalle": "Abastecimiento de combustible Parque Nacional Antisana - Narupa", "area": "Parque Nacional Antisana", "cat": "Combustible", "monto": 2000.0, "montoTotal": 2000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-11", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "TRANSINSER BAÑOS S.A. TRANSPORTES Y SERVICIOS", "plazo": 354, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBPHlEThhydRKRcD76-VsEHAX492cehMtz_UZn9xc1mgCw"}, {"nro": "FIAS-FAP - 2026 - 019", "detalle": "Abastecimiento de combustible Parque Nacional Antisana - Baeza", "area": "Parque Nacional Antisana", "cat": "Combustible", "monto": 2500.0, "montoTotal": 2500.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-09", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "TRANSINSER BAÑOS S.A. TRANSPORTES Y SERVICIOS", "plazo": 356, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDY8N1KJdWGRpdgltwBycFkAZrpWvc_6mlYpPhVyBTCuYc"}, {"nro": "FIAS-FAP - 2026 - 020", "detalle": "Abastecimiento de combustible Parque Nacional Antisana - Sangolquí", "area": "Parque Nacional Antisana", "cat": "Combustible", "monto": 4000.0, "montoTotal": 4000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-09", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "El Viejo Roble", "plazo": 356, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQATJeGY67ccS5hiFnaByZZMAaHej-f8Bnb2C1TgCGmWxNE"}, {"nro": "FIAS-FAP - 2026 - 022", "detalle": "Abastecimiento de combustible Parque Nacional Machalilla", "area": "Parque Nacional Machalilla", "cat": "Combustible", "monto": 19000.0, "montoTotal": 19000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-13", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Gladys Esperanza Lucas Tomalá", "plazo": 352, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Dianila Ascencio", "correo": "dascencio@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCGqIA6IL2DR7bcxWRwp0WCAfsmINaFgTdbBE-EtAzJGRY"}, {"nro": "FIAS-FAP - 2026 - 023", "detalle": "Abastecimiento de Combustible Área Nacional de Recreación El Boliche", "area": "Área Nacional de Recreación El Boliche", "cat": "Combustible", "monto": 3071.0, "montoTotal": 3071.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-13", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Lucila Eloina Valverde Guevara", "plazo": 352, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQC3lWZv_n6WSYst3q2XTnl6AUhLtrSsmJtzmmPlcROzW20"}, {"nro": "FIAS-FAP - 2026 - 024", "detalle": "Abastecimiento de combustible Parque Nacional Yasuní", "area": "Parque Nacional Yasuní", "cat": "Combustible", "monto": 24739.81, "montoTotal": 24739.81, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-19", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Janet del Rocío Criollo Chango", "plazo": 346, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Guerrero", "correo": "jguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDRoSYHoZpfSZ7LX2C1mlwzAfqQ-AqRG8kivnXqyEBWLZs"}, {"nro": "FIAS-FAP - 2026 - 025", "detalle": "Abastecimiento de combustible Parque Nacional Cotacachi Cayapas - Cotacachi", "area": "Parque Nacional Cotacachi Cayapas", "cat": "Combustible", "monto": 3300.0, "montoTotal": 3300.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-19", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Luis Enrique Morales Guerrero", "plazo": 346, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Yesenia Ruiz", "correo": "eruiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQASawJZLy_zRqslGzriqA_WAZOOxNc6-IL6nJLMYNrSU_Y"}, {"nro": "FIAS-FAP - 2026 - 026", "detalle": "Limpieza oficinas administratibvas Parque Nacional Yasuní", "area": "Parque Nacional Yasuní", "cat": "Servicio de limpieza", "monto": 3450.0, "montoTotal": 3450.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-19", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Enma Eugenia Escobar Acuña", "plazo": 315, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Guerrero", "correo": "jguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBRBOB2i2aKQKCG_sVflok7AfhZTWlknNxHSc-Y11zo9D0"}, {"nro": "FIAS-FAP - 2026 - 028", "detalle": "Muellaje Refugio de Vida Silvestre Estuario Río Esmeraldas", "area": "Refugio de Vida Silvestre Estuario Río Esmeraldas", "cat": "Arrendamiento", "monto": 540.0, "montoTotal": 540.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-20", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Estanislado Panezo Quiñónez", "plazo": 314, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Bolívar Leverone", "correo": "bleverone@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDMyMncijsoRoFzANXxvwXvAavBjej5_IZKpvVMEITWvOY"}, {"nro": "FIAS-FAP - 2026 - 029", "detalle": "Abastecimiento de combustible Reserva Biológica Limoncocha", "area": "Reserva Biológica Limoncocha", "cat": "Combustible", "monto": 7504.75, "montoTotal": 7504.75, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-20", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Angelita Janeth Rivadeneira Gaibor", "plazo": 345, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Guerrero", "correo": "jguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBqTjKrTaduR73TRTrx939XAcmfmnNPbLoDm67cZSZlc4g"}, {"nro": "FIAS-FAP - 2026 - 030", "detalle": "Abastecimiento de combustible Reserva Ecológica Mache Chindul - Muisne", "area": "Reserva Ecológica Mache Chindul", "cat": "Combustible", "monto": 2000.0, "montoTotal": 2000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-20", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Wilmer Sebastián Sánchez Bermello", "plazo": 345, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Bolívar Leverone", "correo": "bleverone@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQC9-WAlHhhgQIOaj3EUPBPMAbrjJ3TnxcXVldCdYQCEJiA"}, {"nro": "FIAS-FAP - 2026 - 031", "detalle": "Abastecimiento de combustible Reserva Ecológica Los Ilinizas - Pilongo", "area": "Reserva Ecológica Los Ilinizas", "cat": "Combustible", "monto": 2254.0, "montoTotal": 4174.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-20", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Lucila Eloina Valverde Guevara", "plazo": 345, "adenda": "Sí", "tipoAdenda": "Aumento del valor de contrato", "modificacion": "Se aumentó el monto del contrato de USD 2.254,00 a USD 4.174,00", "firmaAdenda": "2026-05-18", "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAhn85EKAb9Rb39IOh82DM-AeevOY4aTgMss4M4GPL5DSo"}, {"nro": "FIAS-FAP - 2026 - 032", "detalle": "Mantenimiento preventivo y correctivo Reserva Ecológica Los Ilinizas - Pilongo", "area": "Reserva Ecológica Los Ilinizas", "cat": "Mantenimiento", "monto": 2251.0, "montoTotal": 3021.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-20", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Edwin Klever Sinchiguano Cadena", "plazo": 314, "adenda": "Sí", "tipoAdenda": "Aumento del valor de contrato", "modificacion": "Se aumentó el monto del contrato de USD 2.251,00 a USD 3.021", "firmaAdenda": "2026-05-27", "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBh8zF6MmtIQqHr9BCoV1mIAbRxUmK3vybxc5PsH6eunXE"}, {"nro": "FIAS-FAP - 2026 - 034", "detalle": "Mantenimiento preventivo y correctivo Reserva Ecológica El Ángel", "area": "Reserva Ecológica El Ángel", "cat": "Mantenimiento", "monto": 4483.85, "montoTotal": 4483.85, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-24", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Carlos Alberto Carrera Benalcázar", "plazo": 310, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "María Cuaspud", "correo": "mcuaspud@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDDsEltpcmUQapA4oWdZ6f5Aa629TWp8Q_dAUsibqantQs"}, {"nro": "FIAS-FAP - 2026 - 035", "detalle": "Arriendo oficinas Refugio de Vida Silvestre El Pambilar", "area": "Refugio de Vida Silvestre El Pambilar", "cat": "Arrendamiento", "monto": 1026.76, "montoTotal": 1026.76, "cerrado": true, "inicio": "2026-01-01", "firma": "2026-02-24", "fin": "2026-04-30", "tipo": "Renovación", "proveedor": "Jeniffer Lilibeth Aguirre Intriago", "plazo": 65, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Bolívar Leverone", "correo": "bleverone@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDuEPd0EELpTr0FqaAogJXBAbdjdwYjoqErZhYP5ORVbvY"}, {"nro": "FIAS-FAP - 2026 - 036", "detalle": "Abastecimiento de combustible Reserva Ecológica Mache Chindul - Salima", "area": "Reserva Ecológica Mache Chindul", "cat": "Combustible", "monto": 2000.0, "montoTotal": 2000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-24", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "TESINI S. A.", "plazo": 341, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Bolívar Leverone", "correo": "bleverone@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBHcW-M-LE0Tb7mE4BauF92ATE090S4p8xLTUzQWAk1nCE"}, {"nro": "FIAS-FAP - 2026 - 037", "detalle": "Abastecimiento de combustible Parque Nacional Sangay ZA -Riobamba", "area": "Parque Nacional Sangay", "cat": "Combustible", "monto": 4000.0, "montoTotal": 4000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-27", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Fernando Santiago Abarca Vintimilla", "plazo": 338, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDyzMJ13cfGRr3z38SuOFydATvY5_ywWBVsewBC0q3zZls"}, {"nro": "FIAS-FAP - 2026 - 038", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Cotopaxi", "area": "Parque Nacional Cotopaxi", "cat": "Mantenimiento", "monto": 10668.0, "montoTotal": 10668.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-27", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Edwin Klever Sinchiguano Cadena", "plazo": 307, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBlchVgdj0qRbPJIWbcFYOgATH0Ohuxy4OUyDlv5vBCGTo"}, {"nro": "FIAS-FAP - 2026 - 039", "detalle": "Mantenimiento preventivo y correctivo Reserva Ecológica Los Ilinizas - Zona Media y Baja", "area": "Reserva Ecológica Los Ilinizas", "cat": "Mantenimiento", "monto": 2000.0, "montoTotal": 2000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-27", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Nelson Rodrigo Guaita Guaita", "plazo": 307, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCbei8-TBCmSpDz_6SveYdMARq4fFcVIgM9zppvb9zZbVM"}, {"nro": "FIAS-FAP - 2026 - 040", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Cayambe Coca - Zona Alta", "area": "Parque Nacional Cayambe Coca", "cat": "Mantenimiento", "monto": 7384.0, "montoTotal": 7384.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-27", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Victor Oswaldo Araujo Dávil", "plazo": 307, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAAfENGWD2DSooxKxO8bgZwAe61alj6wFSaYF3wtdPJ89Y"}, {"nro": "FIAS-FAP - 2026 - 041", "detalle": "Mantenimiento preventivo y correctivo Reserva Geobotánica Pululahua", "area": "Reserva Geobotánica Pululahua", "cat": "Mantenimiento", "monto": 2800.0, "montoTotal": 2800.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-27", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Gloria Enriqueta Espín Salazar", "plazo": 307, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBs9h9S1djuSZwqsgY9Mb92AS3szRtpVP-6cgvhnRZUwdk"}, {"nro": "FIAS-FAP - 2026 - 042", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Antisana - Sector Sangolquí", "area": "Parque Nacional Antisana", "cat": "Mantenimiento", "monto": 9500.0, "montoTotal": 9500.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-02-27", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Luis Edgar de la Cruz González", "plazo": 307, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDgZsPVRwkiSrd9LFfSQ_cwASpXAPo_BFp5KP2XZGbuuIE"}, {"nro": "FIAS-FAP - 2026 - 043", "detalle": "Arriendo sede administrativa Reserva Biológica El Quimi", "area": "Reserva Biológica El Quimi", "cat": "Arrendamiento", "monto": 3220.0, "montoTotal": 3220.0, "cerrado": true, "inicio": "2026-03-01", "firma": "2026-03-04", "fin": "2026-05-31", "tipo": "Nuevo", "proveedor": "José Servio Uyaguari Uyaguari", "plazo": 88, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Marvin Lapo", "correo": "mlapo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQArxHtPrrwaQaRPTO2LbIzfAYoZNLERcYiAhER15JJUrlw"}, {"nro": "FIAS-FAP - 2026 - 044", "detalle": "Abastecimiento de combustible Reserva Geobotánica Pululahua", "area": "Reserva Geobotánica Pululahua", "cat": "Combustible", "monto": 2820.0, "montoTotal": 2820.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-02", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "PETROGOLDEN COMBUSTIBLES CÍA. LTDA.", "plazo": 335, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAqFtjUuOpSQKwAtVCN4PtxAVsMA2WoN16LklNB9WZWjHs"}, {"nro": "FIAS-FAP - 2026 - 045", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Sangay ZA, sector Riobamba", "area": "Parque Nacional Sangay", "cat": "Mantenimiento", "monto": 6000.0, "montoTotal": 6000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-02", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Franklin Geovanny Arias Moya", "plazo": 304, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQATNkPfkjZZRLf-ak9qz32BASYuoUhVILbf972gXXQwnRU"}, {"nro": "FIAS-FAP - 2026 - 046", "detalle": "Abastecimiento de combustible Parque Nacional Cotacachi Cayapas - Cristóbal Colón y Febres Cordero", "area": "Parque Nacional Cotacachi Cayapas", "cat": "Combustible", "monto": 690.0, "montoTotal": 850.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-02", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Edgar Camilo Plasencia Hernández", "plazo": 335, "adenda": "Sí", "tipoAdenda": "Aumento del valor de contrato", "modificacion": "Se aumentó el monto del contrato de USD 690,00 a USD 850,00", "firmaAdenda": "2026-07-06", "ac": "Yesenia Ruiz", "correo": "eruiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQD0rudkKu0bQZs6bQPHRx3rAYBaOSY-Bzvl8sz8ZrZhbrg"}, {"nro": "FIAS-FAP - 2026 - 047", "detalle": "Arriendo oficinas administrativas Parque Nacional Cotacachi Cayapas - Cielo Verde", "area": "Parque Nacional Cotacachi Cayapas", "cat": "Arrendamiento", "monto": 1560.0, "montoTotal": 1560.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-02", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Verónica Eredith Andrade Gómez", "plazo": 304, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Yesenia Ruiz", "correo": "eruiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQD0kxcwUSCiSbLpO8E-rtLVAaWiDEcdS2zcjmT_QNDuhQI"}, {"nro": "FIAS-FAP - 2026 - 048", "detalle": "Mantenimiento correctivo Reserva de Producción de Fauna Cuyabeno", "area": "Reserva de Producción de Fauna Cuyabeno", "cat": "Mantenimiento", "monto": 10000.0, "montoTotal": 10000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-02", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "SIMAIMP S. A. S.", "plazo": 304, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Nancy Tacure", "correo": "ntacure@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBdC0Rf9R03SYEOchZOww7tAZjoVU-zEwshfqupMkGM0to"}, {"nro": "FIAS-FAP - 2026 - 049", "detalle": "Abastecimiento de combustible Parque Nacional Cayambe Coca Zona Baja - El Chaco", "area": "Parque Nacional Cayambe Coca", "cat": "Combustible", "monto": 2000.0, "montoTotal": 2000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-02", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Mayi Carol del Rosario Sánchez Bustamante", "plazo": 335, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBAaoa2Sa5STL9O6e60QwBZAU6om1dujslVE62R1hZVDXc"}, {"nro": "FIAS-FAP - 2026 - 050", "detalle": "Abastecimiento de combustible Parque Nacional Yasuní - Pastaza", "area": "Parque Nacional Yasuní", "cat": "Combustible", "monto": 3075.41, "montoTotal": 3075.41, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-02", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Hugo Vicente Pacheco Pacheco", "plazo": 335, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Guerrero", "correo": "jguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDDs6r1fhrVR4fl34CswMwWAZrtPeDnVqQnBUQViUNTWDk"}, {"nro": "FIAS-FAP - 2026 - 054", "detalle": "Abastecimiento de combustible Parque Nacional Sangay ZA - Río Negro  - Pondoa", "area": "Parque Nacional Sangay", "cat": "Combustible", "monto": 1859.0, "montoTotal": 1859.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-04", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "SINDICATO DE CHOFERES DEL CANTÓN BAÑOS", "plazo": 333, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDxXHAEPWm4R7-4n78XF_03AfisWDACRBJtx2CsmISYK8U"}, {"nro": "FIAS-FAP - 2026 - 055", "detalle": "Arriendo Parque Nacional Yasuní - Sector Puyo", "area": "Parque Nacional Yasuní", "cat": "Arrendamiento", "monto": 3986.88, "montoTotal": 3986.88, "cerrado": false, "inicio": "2026-03-08", "firma": "2026-03-08", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Luis Ernesto Guevara López", "plazo": 298, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Guerrero", "correo": "jguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCnW5er1o4fT6rp_creJjysAUPDMQM0jCedlOOvcJMrhSc"}, {"nro": "FIAS-FAP - 2026 - 056", "detalle": "Mantenimiento preventivo Reserva de Producción de Fauna Cuyabeno", "area": "Reserva de Producción de Fauna Cuyabeno", "cat": "Mantenimiento", "monto": 3799.24, "montoTotal": 3799.24, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-05", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Betina Esmeralda Briones Solórzano", "plazo": 301, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Nancy Tacure", "correo": "ntacure@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQABd_QAsDrlSYb5x9lRw7X9ASxqwCt7DHjfinl91oWdIgs"}, {"nro": "FIAS-FAP - 2026 - 057", "detalle": "Abastecimiento de combustible de la Reserva de Producción de Fauna Chimborazo", "area": "Reserva de Producción de Fauna Chimborazo", "cat": "Combustible", "monto": 2000.0, "montoTotal": 2000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-06", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Susana del Pilar Vintimilla Flores", "plazo": 331, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBxdDR8gjUTQr61lk-aET3eAcmllnVjm15l9K3ocARjC0g"}, {"nro": "FIAS-FAP - 2026 - 060", "detalle": "Mantenimiento preventivo y correctivo Reserva de Producción de Fauna Chimborazo", "area": "Reserva de Producción de Fauna Chimborazo", "cat": "Mantenimiento", "monto": 7000.0, "montoTotal": 7000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-08", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Sonia Cecilia Arias Moya", "plazo": 298, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQC-sPnM4UNPTraj3R5rMKM7ARGJ3qn5Ix91uXG6xIqueVc"}, {"nro": "FIAS-FAP - 2026 - 062", "detalle": "Mantenimiento preventivo y correctivo vehículos Parque Nacional Podocarpus", "area": "Parque Nacional Podocarpus", "cat": "Mantenimiento", "monto": 4010.0, "montoTotal": 4010.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-10", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Pablo Santiago Cuenca Cevallos", "plazo": 296, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBi8lUG71zhQqArzbwXR3VfAUNUGKJC12sO7zEH4x2v1Zw"}, {"nro": "FIAS-FAP - 2026 - 064", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Yacuri", "area": "Parque Nacional Yacuri", "cat": "Mantenimiento", "monto": 3974.4, "montoTotal": 3974.4, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-10", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Rolando Vicente Jiménez Ludeña", "plazo": 296, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQANFZk_WpJ0Qp3SCCnkrRmBAZPAviNlIFOYf2iHB9rQ0Is"}, {"nro": "FIAS-FAP - 2026 - 065", "detalle": "Mantenimiento preventivo y correctivo Reserva Ecológica Cofán Bermejo", "area": "Reserva Ecológica Cofán Bermejo", "cat": "Mantenimiento", "monto": 8000.0, "montoTotal": 8000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-10", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "SIMAIMP S. A. S.", "plazo": 296, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Nancy Tacure", "correo": "ntacure@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDc1L1aK01_RqwFlYYQShuzAbqg1BESHkEXeDeOMI9LVmo"}, {"nro": "FIAS-FAP - 2026 - 066", "detalle": "Arriendo instalaciones para oficinas administrativas Reserva Marina Galera San Francisco", "area": "Reserva Marina Galera San Francisco", "cat": "Arrendamiento", "monto": 3750.0, "montoTotal": 3750.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-10", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Melany Rosario Ulloa Álava", "plazo": 296, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Carlos Morante", "correo": "cmorante@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQB-NKNFxaP5RbzI4duJ0tpUAQtzgydv_LnZXmlAkIBswD0"}, {"nro": "FIAS-FAP - 2026 - 067", "detalle": "Mantenimiento preventivo y correctivo motocicletas Reserva Ecológica El Ángel", "area": "Reserva Ecológica El Ángel", "cat": "Mantenimiento", "monto": 2832.45, "montoTotal": 2832.45, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-11", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Marcelo Gabriel Torres Ortega", "plazo": 295, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "María Cuaspud", "correo": "mcuaspud@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAUPiLoQp6HQ4ehCB8Nm3zyARQTlJFplNgQ6gof07sjx9c"}, {"nro": "FIAS-FAP - 2026 - 068", "detalle": "Mantenimiento preventivo y correctivo vehículos Parque Nacional Sangay Zona Baja - sector Macas", "area": "Parque Nacional Sangay", "cat": "Mantenimiento", "monto": 3997.44, "montoTotal": 3997.44, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-11", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Patricio Sebastián Narváez Rivadeneira", "plazo": 295, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCg92eRwF47Qq6727OTMS-4AdiOqAmQXMyZTuQIwg2i9aU"}, {"nro": "FIAS-FAP - 2026 - 069", "detalle": "Mantenimiento preventivo y correctivo motocicletas Parque Nacional Sangay Zona Baja - sector Macas", "area": "Parque Nacional Sangay", "cat": "Mantenimiento", "monto": 2000.0, "montoTotal": 2000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-11", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Ney Xavier Méndez Gutiérrez", "plazo": 295, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAj-G6loMQZTqmf5ZMkupfNAXmuoazKxpV5pLyEVeH2x6I"}, {"nro": "FIAS-FAP - 2026 - 070", "detalle": "Abastecimiento de combustible Reserva Marina El Pelado", "area": "Reserva Marina El Pelado", "cat": "Combustible", "monto": 11451.6, "montoTotal": 11451.6, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-11", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Carlos Alfredo Chalen Terán", "plazo": 326, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Erika Amores", "correo": "eamores@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCPbjalPW66SoOtUgKDJVdNAZwAXqY0Mclo7uyNz8EWkd4"}, {"nro": "FIAS-FAP - 2026 - 072", "detalle": "Mantenimienot preventivo y correctivo Área Nacional de Recreación El Boliche", "area": "Área Nacional de Recreación El Boliche", "cat": "Mantenimiento", "monto": 2600.0, "montoTotal": 2600.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-11", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Edwin Klever Sinchiguano Cadena", "plazo": 295, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBX8ncvhapZRrK4uASqlM59AdJ4HqyvEIqK6IoaDgFG_us"}, {"nro": "FIAS-FAP - 2026 - 073", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Yasuní", "area": "Parque Nacional Yasuní", "cat": "Mantenimiento", "monto": 10000.0, "montoTotal": 10000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-11", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "TECNIBARRAGÁN S. A. S.", "plazo": 295, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Guerrero", "correo": "jguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDTZQYNiHYPQoLPFp702KNoAa2gS8bxG6KRqvHspoV28Lo"}, {"nro": "FIAS-FAP - 2026 - 074", "detalle": "Abastecimiento de combustible Parque Nacional Llanganates - Sector Píllaro", "area": "Parque Nacional Llanganates", "cat": "Combustible", "monto": 2000.0, "montoTotal": 2000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-11", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "César Serafín Tonato Plasencia", "plazo": 326, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Ortiz", "correo": "jortiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCBEm_ujOW3TZ2wRkikI7bOAewj56jFWaX1X2mYYHZUbZ8"}, {"nro": "FIAS-FAP - 2026 - 075", "detalle": "Abastecimiento de combustible Parque Nacional Llanganates - Sector Salcedo", "area": "Parque Nacional Llanganates", "cat": "Combustible", "monto": 1700.0, "montoTotal": 1700.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-12", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Sindicato Cantonal de Choferes Profesionales de San Miguel de Salcedo", "plazo": 325, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Ortiz", "correo": "jortiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAJ9t-KzGWwSrROJPYcVQlIAcxO2joHdumYq1v9rCo580Q"}, {"nro": "FIAS-FAP - 2026 - 076", "detalle": "Abastecimiento de combustible Parque Nacional Llanganates - Sector Baños", "area": "Parque Nacional Llanganates", "cat": "Combustible", "monto": 3000.0, "montoTotal": 3000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-12", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "SINDICATO DE CHOFERES DEL CANTÓN BAÑOS", "plazo": 325, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Ortiz", "correo": "jortiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQC5d1xO-EbhT77izllSVf3-AfMKie0S4usbtggywiqVkxU"}, {"nro": "FIAS-FAP - 2026 - 078", "detalle": "Abastecimiento de combustible Parque Nacional Cayambe Coca Zona Alta - Papallacta", "area": "Parque Nacional Cayambe Coca", "cat": "Combustible", "monto": 1676.0, "montoTotal": 1676.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-17", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Cueva Nevarez & Asociados Cía. Ltda.", "plazo": 320, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDOy9Rh1eTyRZpIZoL7YH6EAfI6OT08ettYB9JTrR2ZU18"}, {"nro": "FIAS-FAP - 2026 - 079", "detalle": "Abastecimiento de combustible Parque Nacional Podocarpus - Bombuscaro", "area": "Parque Nacional Podocarpus", "cat": "Combustible", "monto": 555.0, "montoTotal": 555.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-17", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Sergio René Buitrón Sánchez", "plazo": 320, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAEmdFkR019R6nsAOgOO-98AUA8AECpagTvghMX4m8GvZE"}, {"nro": "FIAS-FAP - 2026 - 080", "detalle": "Arrendamiento de instalaciones para guardianía del área protegida Reserva Ecológica Los Ilinizas - Zona Media y Baja", "area": "Reserva Ecológica Los Ilinizas", "cat": "Arrendamiento", "monto": 2856.0, "montoTotal": 2856.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-17", "fin": "2027-02-13", "tipo": "Renovación", "proveedor": "Edgar Fabián Cuchiparte Pastuña", "plazo": 333, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAxkx0yHpXKQ4JQRS7kshbeAby37onAiqdCLSGBSe6xJlI"}, {"nro": "FIAS-FAP - 2026 - 081", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Cayambe Coca - Zona Baja sector Gonzalo Pizarro", "area": "Parque Nacional Cayambe Coca", "cat": "Mantenimiento", "monto": 1100.0, "montoTotal": 1650.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-17", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Nhora Quiceno", "plazo": 289, "adenda": "Sí", "tipoAdenda": "Aumento del valor de contrato", "modificacion": "Aumento del monto del contrato de USD 1.100 a USD 1.650,00", "firmaAdenda": "2026-06-24", "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQB3RNADh5NgTYgHwY9rAJyyAbHuhyx4TlqfT3nBW5as2DE"}, {"nro": "FIAS-FAP - 2026 - 082", "detalle": "Mantenimiento preventivo y correctivo de las herramientas a motor del Área Nacional de Recreación El Boliche", "area": "Área Nacional de Recreación El Boliche", "cat": "Mantenimiento", "monto": 2800.0, "montoTotal": 2800.0, "cerrado": false, "inicio": "2026-03-23", "firma": "2026-03-23", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Mayra Elizabeth Guamán Chicaiza", "plazo": 283, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Mery Zambrano", "correo": "mzambrano@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQD4e4WUkVlJTLpyRBEamD1QAXAwH7cCsOcUZJ8j2S_rSwI"}, {"nro": "FIAS-FAP - 2026 - 083", "detalle": "Mantenimiento preventivo y correctivo de motores fuera de borda Reserva de Producción de Fauna Cuyabeno", "area": "Reserva de Producción de Fauna Cuyabeno", "cat": "Mantenimiento", "monto": 4200.0, "montoTotal": 4200.0, "cerrado": false, "inicio": "2026-03-18", "firma": "2026-03-18", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Narciso Rodas Pastrana", "plazo": 288, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Nancy Tacure", "correo": "ntacure@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQC46wMMY8dURKvgobaCixDUAae9PCkujzt7N_p1aF8Skw4"}, {"nro": "FIAS-FAP - 2026 - 084", "detalle": "Internet Parque Nacional Sangay - Ozogoche", "area": "Parque Nacional Sangay", "cat": "Internet", "monto": 345.0, "montoTotal": 345.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-17", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "María Rosario Tenemaza Mendoza", "plazo": 289, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAsxKchYDKxQYnvlvJqttz0AVGIMuGWDEiQnj-nBHcT0_U"}, {"nro": "FIAS-FAP - 2026 - 085", "detalle": "Abastecimiento de combustible Parque Nacional Sangay Zona Baja - Sector Macas", "area": "Parque Nacional Sangay", "cat": "Combustible", "monto": 6903.0, "montoTotal": 6903.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-18", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Mario Oswaldo Reinoso", "plazo": 319, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBN-MTltatLQqLCiBwTa2jLARwLngYKlYSZyZW3a2hsQbw"}, {"nro": "FIAS-FAP - 2026 - 086", "detalle": "Abastecimiento de combustible para los vehículos asignados al Parque Nacional Sumaco Napo Galeras - Narupa", "area": "Parque Nacional Sumaco Napo Galeras", "cat": "Combustible", "monto": 3500.0, "montoTotal": 3500.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-18", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "TRANSINSER BAÑOS S.A. TRANSPORTES Y SERVICIOS", "plazo": 319, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBY-Ef3b8W_SbBIsNIbguGfAVAenmSSQrmdlbZ1nqWXzsk"}, {"nro": "FIAS-FAP - 2026 - 087", "detalle": "Abastecimiento de combustible para los vehículos asignados al Parque Nacional Sumaco Napo Galeras - Baeza", "area": "Parque Nacional Sumaco Napo Galeras", "cat": "Combustible", "monto": 3500.0, "montoTotal": 3500.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-18", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "TRANSINSER BAÑOS S.A. TRANSPORTES Y SERVICIOS", "plazo": 319, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCXjwfjSnmBQI0OFaoojSDXAWaje_zWY5K_pQVrd3pPETw"}, {"nro": "FIAS-FAP - 2026 - 088", "detalle": "Abastecimiento de combustible Reserva Biológica Colonso Chalupas - Latacunga", "area": "Reserva Biológica Colonso Chalupas ", "cat": "Combustible", "monto": 1500.0, "montoTotal": 1500.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-18", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Luis Franklin Quilumba Tumbaco", "plazo": 319, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Ortiz", "correo": "jortiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBu2Yw7a4IXQapOTls9XnyvAcsDvtCxi3IbUuBt29dSqng"}, {"nro": "FIAS-FAP - 2026 - 089", "detalle": "Abastecimiento de combustible para los vehículos asignados al Parque Nacional Sumaco Napo Galeras - Loreto", "area": "Parque Nacional Sumaco Napo Galeras", "cat": "Combustible", "monto": 3500.0, "montoTotal": 3500.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-18", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Sociedad Civil Comercial Estaciones de Servicio Orión", "plazo": 319, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCAnsncUn7NS5dSHLEWqX3fAYUebrvbbC4SQHzxyY-2BNQ"}, {"nro": "FIAS-FAP - 2026 - 090", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Cayambe Coca Zona Baja - Sector El Chaco", "area": "Parque Nacional Cayambe Coca", "cat": "Mantenimiento", "monto": 2999.99, "montoTotal": 4999.99, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-19", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Leonor Mercedes Quito Ordóñez", "plazo": 287, "adenda": "Sí", "tipoAdenda": "Aumento del valor de contrato", "modificacion": "Aumento del monto del contrato de USD 2.999,99 a USD 4.999,99", "firmaAdenda": "2026-07-01", "ac": "Cynthia Jarrín", "correo": "cjarrin@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAElRx9jl-CQrn86VDe1I48Af7-jOYCvoX5zkLDEpWOmvA"}, {"nro": "FIAS-FAP - 2026 - 091", "detalle": "Abastecimiento de combustible Parque Nacional Llanganates sector Mera", "area": "Parque Nacional Llanganates", "cat": "Combustible", "monto": 1000.0, "montoTotal": 1000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-19", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Hugo Vicente Pacheco Pacheco", "plazo": 318, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Ortiz", "correo": "jortiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQC7398Fk1w0T4j9ipiHY-nXAao4fbsRNG2ZZ2iJQrXbC3M"}, {"nro": "FIAS-FAP - 2026 - 092", "detalle": "Radriofrecuencia Reserva Marina Isla Santa Clara", "area": "Reserva Marina Isla Santa Clara", "cat": "Radiofrecuencia", "monto": 1897.5, "montoTotal": 1897.5, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-23", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "TELEMASTERS CÍA. LTDA.", "plazo": 283, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Rey", "correo": "grey@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAFObFm77RaRYSFAgd4rXdlATkuf5-1-pLsSun1iLjyzP0"}, {"nro": "FIAS-FAP - 2026 - 093", "detalle": "Radriofrecuencia Reserva Ecológica Arenillas", "area": "Reserva Ecológica Arenillas", "cat": "Radiofrecuencia", "monto": 1035.0, "montoTotal": 1035.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-23", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "TELEMASTERS CÍA. LTDA.", "plazo": 283, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Rey", "correo": "grey@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCb2wID6O0xTJqJe1lGpjj6AcZWRDAtngW2lgh-4DKOcAU"}, {"nro": "FIAS-FAP - 2026 - 094", "detalle": "Internet Reserva Biológica El Cóndor", "area": "Reserva Biológica El Cóndor", "cat": "Internet", "monto": 225.0, "montoTotal": 225.0, "cerrado": false, "inicio": "2026-04-01", "firma": "2026-03-23", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "CIDEMS S. A. S.", "plazo": 283, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Marvin Lapo", "correo": "mlapo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAxFI_7R3c_Q4RV1_6SwgygAf_Evs7ooP2zMHOobfKGxq0"}, {"nro": "FIAS-FAP - 2026 - 095", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional  Sumaco Napo Galeras - Chaco", "area": "Parque Nacional  Sumaco Napo Galeras", "cat": "Mantenimiento", "monto": 10000.0, "montoTotal": 10000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-23", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Leonor Mercedes Quito Ordóñez", "plazo": 283, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDiD_aDaB79Rr9WBXAUH7lPAfzrb1YZICod7GpvTl3lsMM"}, {"nro": "FIAS-FAP - 2026 - 096", "detalle": "Abastecimiento de combustible para los vehículos y equipos de trabajao asignados a la Reserva Ecológica Mache Chindul", "area": "Reserva Ecológica Mache Chindul", "cat": "Combustible", "monto": 3000.0, "montoTotal": 3000.0, "cerrado": false, "inicio": "2026-03-27", "firma": "2026-03-27", "fin": "2027-01-31", "tipo": "Nuevo", "proveedor": "MULTISERVICIOS CUPA SICHPQ S. A.", "plazo": 310, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Bolívar Leverone", "correo": "bleverone@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQD1jji60BT7TZFLfdvjuH9bATqEZjM0r_rSVmHPsjIN0yQ"}, {"nro": "FIAS-FAP - 2026 - 097", "detalle": "Muellaje Refugio de Vida Silvestre Manglares Estuario Río Muisne", "area": "Refugio de Vida Silvestre Manglares Estuario Río Muisne", "cat": "Arrendamiento", "monto": 1200.0, "montoTotal": 1200.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-23", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Kevin Joel Cotera Cheme", "plazo": 283, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Carlos Morante", "correo": "cmorante@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCWNTOC5n30TZ4qetdwcCS5AQOd_7Bfby5NKcHmswpwj68"}, {"nro": "FIAS-FAP - 2026 - 098", "detalle": "Mantenimiento preventivo y correctivo Refugio de Vida Silvestre Machángara Tomebamba", "area": "Refugio de Vida Silvestre Machángara Tomebamba", "cat": "Mantenimiento", "monto": 603.5, "montoTotal": 803.5, "cerrado": false, "inicio": "2026-03-26", "firma": "2026-03-26", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "David Oswaldo Álvarez Pineda", "plazo": 280, "adenda": "Sí", "tipoAdenda": "Aumento del valor de contrato", "modificacion": "Aumento del monto del contrato de USD 603,50 a USD 803,50", "firmaAdenda": "2026-04-12", "ac": "Marvin Lapo", "correo": "mlapo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAJvX0gntb7TbPY1jbDi245AajHI53nDm5BqtdSseiKqjw"}, {"nro": "FIAS-FAP - 2026 - 099", "detalle": "Abastecimiento de combustible Reserva Biológica Colonso Chalupas - Tena", "area": "Reserva Biológica Colonso Chalupas", "cat": "Combustible", "monto": 1200.0, "montoTotal": 1200.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-27", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Segundo Manuel Castro Puma", "plazo": 310, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Ortiz", "correo": "jortiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBLDzVaeT2IQ6uhC7J93sYqAYD5WfPRbQUnCL00vY4y5oQ"}, {"nro": "FIAS-FAP - 2026 - 100", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Cotacachi Cayapas - Zona Baja", "area": "Parque Nacional Cotacachi Cayapas", "cat": "Mantenimiento", "monto": 3502.9, "montoTotal": 3502.9, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-27", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Marcos Tulio Cobeña Moreira", "plazo": 279, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Yesenia Ruiz", "correo": "eruiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBqW4KiiZnuRJ3cbBjgNb-PAWrJVRUEOFyOBu11EOiE3IE"}, {"nro": "FIAS-FAP - 2026 - 101", "detalle": "Muellaje y bodega Reserva Ecológica Manglares Cayapas Mataje", "area": "Reserva Ecológica Manglares Cayapas Mataje", "cat": "Arrendamiento", "monto": 2484.0, "montoTotal": 2484.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-27", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Lubert Enriz Cevallos Bone", "plazo": 279, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jeannine Betancourt", "correo": "jbetancourt@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBT_wZUWeF6QaY6oR2x2-oqAbGKqpH0DvOUShbGT86hP-g"}, {"nro": "FIAS-FAP - 2026 - 102", "detalle": "Mantenimiento preventivo y correctivo vehículos Reserva Biológica Cerro Plateado", "area": "Reserva Biológica Cerro Plateado", "cat": "Mantenimiento", "monto": 3401.7, "montoTotal": 3401.7, "cerrado": false, "inicio": "2026-03-30", "firma": "2026-03-30", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Pablo Santiago Cuenca Cevallos", "plazo": 276, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQC-r_cJqoLSSImAG3LZxFm2AXJHQrPTrZvihZ4-cL06wp4"}, {"nro": "FIAS-FAP - 2026 - 103", "detalle": "Internet Reserva Biológica El Quimi", "area": "Reserva Biológica El Quimi", "cat": "Internet", "monto": 276.0, "montoTotal": 276.0, "cerrado": false, "inicio": "2026-04-01", "firma": "2026-03-27", "fin": "2027-03-31", "tipo": "Nuevo", "proveedor": "CABLEMAGICO CÍA. LTDA.", "plazo": 369, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Marvin Lapo", "correo": "mlapo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCdI8anwICDTpezt4GeXINMAcmyx9MLqtFSgRGiNWONLuY"}, {"nro": "FIAS-FAP - 2026 - 104", "detalle": "Abastecimiento de combustible Reserva Ecológica Arenillas", "area": "Reserva Ecológica Arenillas", "cat": "Combustible", "monto": 1825.83, "montoTotal": 1825.83, "cerrado": false, "inicio": "2026-04-16", "firma": "2026-04-16", "fin": "2027-01-31", "tipo": "Nuevo", "proveedor": "ESTACIÓN DE SERVICIOS RETIROSERVIGAS CÍA. LTDA.", "plazo": 290, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Rey", "correo": "grey@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBZNT4FZGqyQbz6JhgPwr7eAXejXa1HzThv5nBcnfbWEQM"}, {"nro": "FIAS-FAP - 2026 - 105", "detalle": "Mantenimiento preventivo y correctivo del vehículo asignado al Refugio de Vida Silvestre El Zarza", "area": "Refugio de Vida Silvestre El Zarza", "cat": "Mantenimiento", "monto": 1486.38, "montoTotal": 1486.38, "cerrado": false, "inicio": "2026-03-30", "firma": "2026-03-30", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Pablo Santiago Cuenca Cevallos", "plazo": 276, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCjz3XSQhmVSrIJAx9nuYYAAd2q1uthwmdSgMnXskFVjTI"}, {"nro": "FIAS-FAP - 2026 - 106", "detalle": "Mantenimiento preventivo y correctivo motocicletas Reserva Biológica Cerro Plateado", "area": "Reserva Biológica Cerro Plateado", "cat": "Mantenimiento", "monto": 1000.0, "montoTotal": 1000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-30", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Alfredo Geovanny González González", "plazo": 276, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQB5cBskyeVIQrnaLoC2cDlsAQNVNyRyiYMJ5Oq7mNFogc0"}, {"nro": "FIAS-FAP - 2026 - 107", "detalle": "Abastecimiento de combustible Parque Nacional Sangay Zona Sur", "area": "Parque Nacional Sangay", "cat": "Combustible", "monto": 1044.0, "montoTotal": 1044.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-30", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Blanca Eloisa Toledo Aguilar", "plazo": 307, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAkntK-p6eeSqPWA42thrVtAfnOeLdYqLo5m2YAQr6QpIs"}, {"nro": "FIAS-FAP - 2026 - 108", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Sumaco Napo Galeras - Tena", "area": "Parque Nacional Sumaco Napo Galeras", "cat": "Mantenimiento", "monto": 10000.0, "montoTotal": 10000.0, "cerrado": false, "inicio": "2026-04-06", "firma": "2026-04-06", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Cristofer Polivio Pérez Miranda", "plazo": 269, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDgF_HmkqYAS6ZprQRMtjRzASlOUXG4WBSsbiRN4KDy0nc"}, {"nro": "FIAS-FAP - 2026 - 109", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Río Negro Sopladora Tinajillas Río Gualaceño", "area": "Parque Nacional Río Negro Sopladora Tinajillas Río Gualaceño", "cat": "Mantenimiento", "monto": 1864.44, "montoTotal": 1864.44, "cerrado": false, "inicio": "2026-04-07", "firma": "2026-04-07", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "AUTOZETA INGENIERÍA AUTOMOTRIZ S.A.S.", "plazo": 268, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Marvin Lapo", "correo": "mlapo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBDmOu0nUm5Spa60gvc5KvBAcO6R-3AvEQfLxd19wMroLI"}, {"nro": "FIAS-FAP - 2026 - 110", "detalle": "Mantenimiento preventivo y correctivo motocicletas Parque Nacional Podocarpus", "area": "Parque Nacional Podocarpus", "cat": "Mantenimiento", "monto": 1500.0, "montoTotal": 1500.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-31", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Alfredo Geovanny González González", "plazo": 275, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBjV4zGdSyNSKMjc21MoWXvAfmhrieYJLyqoE-L_qe134o"}, {"nro": "FIAS-FAP - 2026 - 111", "detalle": "Abastecimiento de combustible Reserva de Producción de Fauna Marina Costera Puntilla Santa Elena", "area": "Reserva de Producción de Fauna Marina Costera Puntilla Santa Elena", "cat": "Combustible", "monto": 14193.13, "montoTotal": 14193.13, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-03-31", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "MAGUSENTERPRISE S. A. S.", "plazo": 306, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Erika Amores", "correo": "eamores@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBvd4TXxBqPRJl52Xr83KkmAdMxtDhELhGUHAvSdBm45r8"}, {"nro": "FIAS-FAP - 2026 - 112", "detalle": "Mantenimiento preventivo y correctivo vehículos Parque Nacional Machalilla", "area": "Parque Nacional Machalilla", "cat": "Mantenimiento", "monto": 8000.0, "montoTotal": 8000.0, "cerrado": false, "inicio": "2026-04-08", "firma": "2026-04-08", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Fernando Javier Morán Choez", "plazo": 267, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Dianila Ascencio", "correo": "dascencio@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDUlc3W4qwcTLTi07_eIxreAei2ZKqcQbXwFJiCsTbdLRE"}, {"nro": "FIAS-FAP - 2026 - 113", "detalle": "Mantenimiento preventivo y correctivo motocicletas Parque Nacional Yacuri", "area": "Parque Nacional Yacuri", "cat": "Mantenimiento", "monto": 777.0, "montoTotal": 777.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-06", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Alfredo Geovanny González González", "plazo": 269, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCaqMsToYdISoa5zI2fLNbaAZpw9_0SZgPBLu_LiVOI1xI"}, {"nro": "FIAS-FAP - 2026 - 114", "detalle": "Mantenimiento preventivo y correctivo motocicletas Refugio de Vida Silvestre El Zarza", "area": "Refugio de Vida Silvestre El Zarza", "cat": "Mantenimiento", "monto": 800.0, "montoTotal": 800.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-06", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Alfredo Geovanny González González", "plazo": 269, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQChvLLhUCxpRJMc2XXZL73fAdnOzC78aYhzAbj-DZ2Fxak"}, {"nro": "FIAS-FAP - 2026 - 115", "detalle": "Abastecimiento de combustible para la flota de vehículos y embarcación del Refugio de Vida Silvestre Manglares Estuario Río Muisne", "area": "Refugio de Vida Silvestre Manglares Estuario Río Muisne", "cat": "Combustible", "monto": 7500.0, "montoTotal": 7500.0, "cerrado": false, "inicio": "2026-04-13", "firma": "2026-04-13", "fin": "2027-01-31", "tipo": "Nuevo", "proveedor": "Miguel Ángel Jaramillo Pineda", "plazo": 293, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Carlos Morante", "correo": "cmorante@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCou5sA4iXBS56A5yIC4TIKATz0po30iuH8AGNMkMV_Lf4"}, {"nro": "FIAS-FAP - 2026 - 116", "detalle": "Abastecimiento de combustible para la flota de vehículos y embarcación de la Reserva Marina Galera San Francisco", "area": "Reserva Marina Galera San Francisco", "cat": "Combustible", "monto": 9000.0, "montoTotal": 9000.0, "cerrado": false, "inicio": "2026-04-13", "firma": "2026-04-13", "fin": "2027-01-31", "tipo": "Nuevo", "proveedor": "Miguel Ángel Jaramillo Pineda", "plazo": 293, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Carlos Morante", "correo": "cmorante@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCIe9JICWUQSaPnkV3X2EJjAWIONH3tjZ66O3L8TzGbjww"}, {"nro": "FIAS-FAP - 2026 - 117", "detalle": "Mantenimiento preventivo y correctivo Parque Nacional Llanganates", "area": "Parque Nacional Llanganates", "cat": "Mantenimiento", "monto": 7600.0, "montoTotal": 7600.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-07", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Hugo Patricio Ramírez Villalba", "plazo": 268, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Ortiz", "correo": "jortiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBMV0_TBsAbT6zGDMYdJnrAAcybJR3M1H2WwyPH3SBk_9A"}, {"nro": "FIAS-FAP - 2026 - 118", "detalle": "Abastecimiento de combustible para los vehículos asignados a la Reserva Biológica Cerro Plateado", "area": "Reserva Biológica Cerro Plateado", "cat": "Combustible", "monto": 2323.0, "montoTotal": 2323.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-07", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Estación de servicios Hermanos Luzuriaga y Asociados - Playones S. A.", "plazo": 299, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAUlpjetXGCRqFCpIJkl7MHASLp_9n-ZSEstUCQFKYjGi0"}, {"nro": "FIAS-FAP - 2026 - 119", "detalle": "Radiofrecuencia Área Nacional de Recreación Isla Santay", "area": "Área Nacional de Recreación Isla Santay", "cat": "Radiofrecuencia", "monto": 862.5, "montoTotal": 862.5, "cerrado": false, "inicio": "2026-04-12", "firma": "2026-04-12", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "TELEMASTERS CÍA. LTDA.", "plazo": 263, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Guerrero", "correo": "gguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBR-uRL9kxRQpVKc8oovWjQAQnuDPpB21QWFzYBgYDZmzM"}, {"nro": "FIAS-FAP - 2026 - 120", "detalle": "Mantenimiento preventivo y correctivo Refugio de Vida Silvestre La Chiquita", "area": "Refugio de Vida Silvestre La Chiquita", "cat": "Mantenimiento", "monto": 2000.0, "montoTotal": 3460.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-08", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Karla Dennisse Calonge Montaño", "plazo": 267, "adenda": "Sí", "tipoAdenda": "Aumento del valor de contrato", "modificacion": "Aumento del monto del contrato de USD 2.000,00 a USD 3.460,00", "firmaAdenda": null, "ac": "Jeannine Betancourt", "correo": "jbetancourt@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBmA-Qlh2rFT7LF7iuoaz-3AZV0HOAK4-dMiwODVkr8d6o"}, {"nro": "FIAS-FAP - 2026 - 121", "detalle": "Mantenimiento preventivo y correctivo Reserva Ecológica Cayapas Mataje", "area": "Reserva Ecológica Manglares Cayapas Mataje", "cat": "Mantenimiento", "monto": 3500.0, "montoTotal": 3500.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-08", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Marcos Tulio Cobeña Moreira", "plazo": 267, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jeannine Betancourt", "correo": "jbetancourt@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCHGvO8x0p8SZORdWchrPLgAbxaszS8o0uCtzHmCyTVDyU"}, {"nro": "FIAS-FAP - 2026 - 122", "detalle": "Abastecimiento de combustible Área Nacional de Recreación Playas de Villamil", "area": "Área Nacional de Recreación Playas de Villamil", "cat": "Combustible", "monto": 600.0, "montoTotal": 600.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-12", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Araceli Elena Sánchez Falcones", "plazo": 294, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Guerrero", "correo": "gguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAlQsKs6hY3Q66jHAe50hA8AayLyp5DWZKKZlzN0Z5zXCo"}, {"nro": "FIAS-FAP - 2026 - 123", "detalle": "Abastecimiento de combustible Refugio de Vida Silvestre Manglares El Morro", "area": "Refugio de Vida Silvestre Manglares El Morro", "cat": "Combustible", "monto": 5800.0, "montoTotal": 5800.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-14", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "Araceli Elena Sánchez Falcones", "plazo": 292, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Guerrero", "correo": "gguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQClwRwqzOH8RLaHVsE9-ZpeAWDhMU0tnVt_pJTgZLtI9Fo"}, {"nro": "FIAS-FAP - 2026 - 124", "detalle": "Muellaje para la embarcación y estacionamiento para los vehículos de la Reserva Marina Galera San Francisco", "area": "Reserva Marina Galera San Francisco", "cat": "Arrendamiento", "monto": 1440.0, "montoTotal": 1440.0, "cerrado": false, "inicio": "2026-04-20", "firma": "2026-04-20", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Estanislado Panezo Quiñónez", "plazo": 255, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Carlos Morante", "correo": "cmorante@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQCLnRN7GuDNQ55W-MbX_RIfAaemHhfcwNDTqcXGdBD2eKQ"}, {"nro": "FIAS-FAP - 2026 - 125", "detalle": "Mantenimiento preventivo y correctivo vehículos Reserva Marina El Pelado", "area": "Reserva Marina El Pelado", "cat": "Mantenimiento", "monto": 6000.0, "montoTotal": 6000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-16", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Johnny Patricio Martínez Borbor", "plazo": 259, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Erika Amores", "correo": "eamores@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAsHlnxTUkmR58va3BZHdiDAb5DTm87AG4HomS1nTG2bhE"}, {"nro": "FIAS-FAP - 2026 - 126", "detalle": "Mantenimiento preventivo y correctivo vehículos Refugio de Vida Silvestre Isla Corazón y Fragatas", "area": "Refugio de Vida Silvestre Isla Corazón y Fragatas", "cat": "Mantenimiento", "monto": 5350.0, "montoTotal": 5350.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-16", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Marlon Erwin Corrales García", "plazo": 259, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Alicia Cedeño", "correo": "acedeno@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBFf6So6Y9bR6qdw3QhyhL4ASg-lwSWqHmPS8TIa-95C5w"}, {"nro": "FIAS-FAP - 2026 - 127", "detalle": "Mantenimiento preventivo y correctivo Reserva Ecológica Manglares Cayapas Mataje", "area": "Reserva Ecológica Manglares Cayapas Mataje", "cat": "Mantenimiento", "monto": 1000.0, "montoTotal": 1000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-20", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Karla Dennisse Calonge Montaño", "plazo": 255, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jeannine Betancourt", "correo": "jbetancourt@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAtQMVAZoX8R6UZ80taw_cwAabrXcml2J1Ph1SalqxlGNY"}, {"nro": "FIAS-FAP - 2026 - 128", "detalle": "Mantenimiento preventivo y correctivo motocicletas Parque Nacional Llanganates", "area": "Parque Nacional Llanganates", "cat": "Mantenimiento", "monto": 1500.0, "montoTotal": 1500.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-08", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Nicolás Misael Núñez Timbela", "plazo": 267, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Ortiz", "correo": "jortiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQChj-i44ucuTb5Vz9u00WikAWLTHbDuFezJ_lxSj1UsxwA"}, {"nro": "FIAS-FAP - 2026 - 129", "detalle": "Arriendo oficinas administrativas Área Nacional de Recreación Playas de Villamil", "area": "Área Nacional de Recreación Playas de Villamil", "cat": "Arrendamiento", "monto": 5800.0, "montoTotal": 5800.0, "cerrado": false, "inicio": "2026-05-01", "firma": "2026-05-08", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Rubén Darío Ordóñez Palomeque", "plazo": 237, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Guerrero", "correo": "gguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAIhZBhDyAKQIzngc1s9kG1AWf2KaqouHgTWJebN2eYt6s"}, {"nro": "FIAS-FAP - 2026 - 130", "detalle": "Mantenimiento preventivo y correctivo de motores fuera de borda y embarcaciones del Parque Nacional Yasuní", "area": "Parque Nacional Yasuní", "cat": "Mantenimiento", "monto": 5000.0, "montoTotal": 5000.0, "cerrado": false, "inicio": "2026-05-07", "firma": "2026-05-07", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Juan Carlos Loor Solórzano", "plazo": 238, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Jenny Guerrero", "correo": "jguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAM5M6CHDrlTJp__8PnLrSuAV5seHX2OiV8nu-klnZTrgE"}, {"nro": "FIAS-FAP - 2026 - 131", "detalle": "Mantenimiento preventivo y correctivo de la motocicleta Daytona JJ835T de la Reserva de Producción de Fauna Marino Costera Puntilla Santa Elena", "area": "Reserva de Producción de Fauna Marino Costera Puntilla Santa Elena", "cat": "Mantenimiento", "monto": 700.0, "montoTotal": 700.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-04-16", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "Rosario Fabiola Matías Soriano", "plazo": 259, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Erika Amores", "correo": "eamores@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAkLsioxj6wTY3WPRFpVxRkATc5IbgMLGml5Jq8cPNKFTk"}, {"nro": "FIAS-FAP - 2026 - 132", "detalle": "Mantenimiento preventivo y correctivo de los medios de movilización de la Reserva Ecológica Arenillas", "area": "Reserva Ecológica Arenillas", "cat": "Mantenimiento", "monto": 8283.7, "montoTotal": 8283.7, "cerrado": false, "inicio": "2026-05-18", "firma": "2026-05-18", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Jhonatan Leonardo Bermeo Guarderas", "plazo": 227, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Rey", "correo": "grey@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQBka4Lw60lbQZruUypDYjMbAd6zgIihcGrV9wBTKMq5uGY"}, {"nro": "FIAS-FAP - 2026 - 134", "detalle": "Internet Parque Nacional Podocarpus - sector Bombuscaro", "area": "Parque Nacional Podocarpus-sector Bombuscaro", "cat": "Internet", "monto": 360.0, "montoTotal": 360.0, "cerrado": false, "inicio": "2026-04-01", "firma": "2026-05-25", "fin": "2027-03-30", "tipo": "Nuevo", "proveedor": "SISTEMA DE CABLE DON DIEGUITO CÍA. LTDA.", "plazo": 309, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Rocío Jaramillo", "correo": "rjaramillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQA6FCcA1tI_SIWan5qefti-AcYtrS7BF5lVejF-LYdsogQ?e=HIep7w"}, {"nro": "FIAS-FAP - 2026 - 136", "detalle": "Abastecimiento de combustible Reserva Ecológica Manglares Churute", "area": "Reserva Ecológica Manglares Churute", "cat": "Combustible", "monto": 6000.0, "montoTotal": 6000.0, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-05-27", "fin": "2027-01-31", "tipo": "Renovación", "proveedor": "PETROELITE S. A. S.", "plazo": 249, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Danny Decimavilla", "correo": "ddecimavilla@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDXvXH9AFvpSKLJpN1KwMq3AduDA7kOVeUxXfhRv2CfkJo"}, {"nro": "FIAS-FAP - 2026 - 137", "detalle": "Mantenimiento preventivo y correctivo vehículo mazda del Refugio de Vida Silvestre Maglares El Morro", "area": "Refugio de Vida Silvestre Manglares El Morro", "cat": "Mantenimiento", "monto": 4998.84, "montoTotal": 4998.84, "cerrado": false, "inicio": "2026-01-01", "firma": "2026-06-01", "fin": "2026-12-31", "tipo": "Renovación", "proveedor": "TECNICENTRO AUTOSEGURO S. A. S.", "plazo": 213, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Guerrero", "correo": "gguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDIntUD1Y2yTZ__6c82Lg6aAVJiYesY61TlSVqZTQHnjDE"}, {"nro": "FIAS-FAP - 2026 - 138", "detalle": "Mantenimiento correctivo de la planta desalinizadora de agua de mar del Parque Nacional Machalilla", "area": "Parque Nacional Machalilla", "cat": "Mantenimiento infraestructura", "monto": 5129.0, "montoTotal": 5129.0, "cerrado": false, "inicio": "2026-06-01", "firma": "2026-06-01", "fin": "2026-07-01", "tipo": "Nuevo", "proveedor": "AQUA-PRO S. A.", "plazo": 30, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Dianila Ascencio", "correo": "dascencio@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAYGWAcOfcNTrJR2DjWZ9EZASgDbVwwlVw_w0bUM02XSWM"}, {"nro": "FIAS-FAP-2026-139", "detalle": "Abastecimiento de combustible para los vehículos y embarcaciones de la Reserva Marina Isla Santa Clara", "area": "Reserva Marina Isla Santa Clara", "cat": "Combustible", "monto": 7548.42, "montoTotal": 7548.42, "cerrado": false, "inicio": "2026-06-15", "firma": "2026-06-15", "fin": "2027-01-31", "tipo": "Nuevo", "proveedor": "Sindicato provincial de choferes profesionales de El Oro", "plazo": 230, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Rey", "correo": "grey@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDZkHrsY9GfRZncTotSqqx6AYkICJl_zDcYRzNbkqzw79g"}, {"nro": "FIAS-FAP-2026-141", "detalle": "Servicio de internet para el Parque Nacional Sangay Zona Sur - sector Amaluza", "area": "Parque Nacional Sangay", "cat": "Internet", "monto": 233.45, "montoTotal": 233.45, "cerrado": false, "inicio": "2026-06-16", "firma": "2026-06-16", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "TELECOMUNICACIONES SIERRA NETWORKS SIERRANET CIA.LTDA.", "plazo": 198, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAEblDPo5NOTL3P1o6ufwMYAejhU3PxCxrxKFXzxFTbOFQ"}, {"nro": "FIAS-FAP-2026-142", "detalle": "Mantenimiento preventivo y correctivo de los vehículos y motocicletas asignados al Parque Nacional Cotacachi Cayapas Zona Alta", "area": "Parque Nacional Cotacachi Cayapas", "cat": "Mantenimiento", "monto": 5907.86, "montoTotal": 5907.86, "cerrado": false, "inicio": "2026-06-19", "firma": "2026-06-19", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Romel Patricio Yucas Quiroz", "plazo": 195, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Yesenia Ruiz", "correo": "eruiz@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDYiNEiLvbUQ5tHm_uhaPQOAeXjbx_gcAbMGw4wwFDsCXo"}, {"nro": "FIAS-FAP-2026-144", "detalle": "Servicio de mantenimiento preventivo y correctivo para los vehículos asignados al Área Nacional de Recreación Playas Villamil", "area": "Área Nacional de Recreación Playas de Villamil", "cat": "Mantenimiento", "monto": 1398.95, "montoTotal": 1398.95, "cerrado": false, "inicio": "2026-06-23", "firma": "2026-06-23", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "TECNICENTRO AUTOSEGURO S. A. S.", "plazo": 191, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Gisella Guerrero", "correo": "gguerrero@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAHrq433cuURopY-JVlpeejAc7DCU7wsqHz-h41Ex3sEhU"}, {"nro": "FIAS-FAP-2026-145", "detalle": "Mantenimiento preventivo y correctivo para la buseta de la REMACOPSE", "area": "Reserva de Producción de Fauna Marino Costera Puntilla Santa Elena", "cat": "Mantenimiento", "monto": 1998.7, "montoTotal": 1998.7, "cerrado": false, "inicio": "2026-06-23", "firma": "2026-06-23", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "Ángel Adán Pilozo Macías", "plazo": 191, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Erika Amores", "correo": "eamores@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDm-b9p0P1lTZZUCZvRHqy_AQ98stn7DwSeIJ5y-NgHJM8"}, {"nro": "FIAS-FAP-2026-146", "detalle": "Internet para el Parque Nacional Sangay zona sur sector El Tambo", "area": "Parque Nacional Sangay", "cat": "Internet", "monto": 192.4, "montoTotal": 192.4, "cerrado": false, "inicio": "2026-06-22", "firma": "2026-06-22", "fin": "2029-06-21", "tipo": "Nuevo", "proveedor": "BYC TELECOM C. L.", "plazo": 1095, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQAe0hsrrfikTY1PgxwL26jwAS1RwwsNatFs7VHkKf5n9z4"}, {"nro": "FIAS-FAP-2026-147", "detalle": "Internet para el Parque Nacional Sangay zona baja", "area": "Parque Nacional Sangay", "cat": "Internet", "monto": 280.0, "montoTotal": 280.0, "cerrado": false, "inicio": "2026-06-23", "firma": "2026-06-23", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "ZOENETV S. A.", "plazo": 191, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Monica Murillo", "correo": "mmurillo@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDy6nn67D9xSqqk-dhOWwfZAampF7j9zqNCa-fD-BIYswc"}, {"nro": "FIAS-FAP-2026-148", "detalle": "Mantenimiento preventivo y correctivo de los vehículos asignados al Parque Nacional Sumaco Napo Galeras Lumbaqui", "area": "Parque Nacional Sumaco Napo Galeras", "cat": "Mantenimiento", "monto": 2000.0, "montoTotal": 2000.0, "cerrado": false, "inicio": "2026-07-01", "firma": "2026-07-01", "fin": "2026-12-31", "tipo": "Nuevo", "proveedor": "SIMAIMP S. A. S.", "plazo": 183, "adenda": "No", "tipoAdenda": "N/A", "modificacion": "N/A", "firmaAdenda": null, "ac": "Henrry Cifuentes", "correo": "hcifuentes@fias.org.ec", "link": "https://fiasec-my.sharepoint.com/:b:/g/personal/drodriguez_fias_org_ec/IQDjOfJ4DFKoS6CUOl70FuZdAZmmNXNPkX_z-4yfe-j_fTI"}]</script>
+<script type="application/json" id="seed-data">[{"nro": "FIAS-FAP - 2026 - 006", "detalle": "Abastecimiento de combustible Parque Nacional Cotopaxi", "area": "Parque Nacional Cotopaxi", "cat": "Combustible"}]</script>
 <script>
 /* =====================================================================
    CLM FAP — Contract Lifecycle Management · FIAS
@@ -274,7 +279,7 @@
 /* ================= CONFIG ================= */
 // Misma URL del flujo de Power Automate que usan La Mágica y el CRM
 // (subida de documentos a revisión de la Unidad Operativa).
-var FLOW_DOCS_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/08/workflows/d9ab249ef28a41c69d9bb7a5ee32a00e/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fhmL_aMEe5PETXXKDZuiYMg47xFWoa0RygIxFWFzCwI';
+var FLOW_DOCS_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/08/workflows/d9ab249ef28a41c69d9bb7a5ee32a00e/triggers/manual';
 var DATA_URL = '../crm/contratos_export.json';
 var TPL_PATH = '../crm/plantillas/';
 
@@ -336,16 +341,15 @@ function catColor(cat){const s=norm(cat);for(const [re,c] of CAT_COLORS)if(re.te
 function catChip(cat,extra){const col=catColor(cat);return `<span class="catchip" style="background:${col.bg};color:${col.fg};${extra||""}">${esc(cat||"—")}</span>`;}
 
 /* ================= DATA + PERSISTENCIA ================= */
-let CONTRACTS=[];               // base viva (crm/contratos_export.json)
+let CONTRACTS=[];
 let dataSource={label:"Cargando…",live:false};
-let CLM={overlay:{},solicitudes:[],log:[]};   // estado propio del CLM (localStorage)
+let CLM={overlay:{},solicitudes:[],log:[]};
 
 function saveCLM(){try{localStorage.setItem("fap_clm_v1",JSON.stringify(CLM));}catch(e){}}
 function loadCLM(){try{const r=localStorage.getItem("fap_clm_v1");if(r){const o=JSON.parse(r);CLM={overlay:o.overlay||{},solicitudes:o.solicitudes||[],log:o.log||[]};}}catch(e){}}
 function ov(c){return CLM.overlay[c.nro]||(CLM.overlay[c.nro]={});}
 function logAdd(icon,txt,ref){CLM.log.unshift({ts:new Date().toISOString(),user:SES?SES.user:"—",icon,txt,ref:ref||null});if(CLM.log.length>400)CLM.log.length=400;saveCLM();}
 
-/* estado vivo del contrato (con overlay del CLM) */
 function statusLive(c){
   const o=ov(c);
   if(c.cerrado)return {cls:"done",b:"b-d",label:"Cerrado",key:"cerrado"};
@@ -370,7 +374,7 @@ function vigenciaText(c){
 }
 
 /* ================= SESIÓN ================= */
-let SES=null; // {rol:'ac'|'area'|'uo', user}
+let SES=null;
 try{const s=sessionStorage.getItem("fap_clm_ses");if(s)SES=JSON.parse(s);}catch(e){}
 function setSes(v){SES=v;try{v?sessionStorage.setItem("fap_clm_ses",JSON.stringify(v)):sessionStorage.removeItem("fap_clm_ses");}catch(e){}}
 function myContracts(){
@@ -387,7 +391,7 @@ function mySolicitudes(){
 
 /* ================= ROUTER ================= */
 let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",viewMode:"table",repQ:""};
-const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",actividad:"Bitácora de actividad",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
+const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y análisis",actividad:"Bitácora del equipo",magica:"La Mágica",crmx:"CRM clásico"};
 function go(view,cur){ST.view=view;if(cur!==undefined)ST.cur=cur;location.hash="#/"+view+(view==="detalle"&&ST.cur!=null?"/"+ST.cur:"");render();window.scrollTo(0,0);}
 window.addEventListener("hashchange",()=>{
   const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
@@ -398,17 +402,17 @@ window.addEventListener("hashchange",()=>{
 function render(){
   if(!SES){renderLogin();return;}
   const app=$("#app");
-  const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${badge}</span>`:""}</button>`;
+  const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${esc(badge)}</span>`:""}</button>`;
   const nAlerts=alertList().length;
   const I={
-    panel:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+    panel:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="3" y="15" width="18" height="5" rx="1.5"/></svg>',
     pipe:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h7"/></svg>',
-    repo:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+    repo:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 13H8"/><path d="M12 17H8"/></svg>',
     sol:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
     bell:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
     chart:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/></svg>',
     clock:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
-    magic:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 21 9-9"/><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M12.2 6.2 11 5"/></svg>',
+    magic:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 21 9-9"/><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M6.2 6.2 5 5M6.2 11.8 5 13"/></svg>',
     grid:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>'
   };
   app.innerHTML=`
@@ -430,7 +434,7 @@ function render(){
       <div class="side-foot">
         <div class="avatar">${esc(SES.user.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase())}</div>
         <div style="min-width:0"><div class="n">${esc(SES.user)}</div><div class="r">${SES.rol==="uo"?"Unidad Operativa":SES.rol==="area"?"Área protegida":"Administradora (AC)"}</div></div>
-        <button class="iconbtn" id="logout" title="Salir"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg></button>
+        <button class="iconbtn" id="logout" title="Salir"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
       </div>
     </aside>
     <main class="main">
@@ -449,7 +453,7 @@ function render(){
   app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
   $("#logout").onclick=()=>{setSes(null);location.hash="";render();};
   bindGlobalSearch();
-  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,actividad:vActividad,magica:()=>vFrame("../generador/index.html","La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa)."),crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
+  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,actividad:vActividad,magica:()=>vFrame("../generador/index.html"),crmx:()=>vFrame("../crm/index.html")};
   (V[ST.view]||vPanel)();
 }
 
@@ -467,7 +471,6 @@ function bindGlobalSearch(){
   inp.onblur=()=>setTimeout(()=>{box.style.display="none";},200);
 }
 
-/* ================= LOGIN ================= */
 function renderLogin(){
   const acs=[...new Set(CONTRACTS.map(c=>c.ac).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   const areas=[...new Set(CONTRACTS.map(c=>c.area).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
@@ -486,7 +489,7 @@ function renderLogin(){
       <div class="frow" id="pick-area" style="display:none"><label>Área protegida</label><select class="big" id="selarea">${areas.map(a=>`<option>${esc(a)}</option>`).join("")}</select></div>
       <div class="frow" id="pick-uo" style="display:none"><label>Nombre (para la bitácora)</label><input class="big" id="seluo" placeholder="Ej.: Diego Rodríguez" value="Unidad Operativa"></div>
       <button class="btn block" id="enter">Entrar</button>
-      <div class="note" style="margin-top:14px">${CONTRACTS.length?`Base viva: <b>${CONTRACTS.length} contratos</b> del Excel maestro (actualización diaria automática).`:"Cargando la base de contratos…"}</div>
+      <div class="note" style="margin-top:14px">${CONTRACTS.length?`Base viva: <b>${CONTRACTS.length} contratos</b> del Excel maestro (actualización diaria automática).`:"Cargando la base de contratos del servidor…"}</div>
     </div>
   </div>`;
   let rol="ac";
@@ -506,7 +509,6 @@ function renderLogin(){
   };
 }
 
-/* ================= TOOLTIP GLOBAL ================= */
 const tipEl=document.getElementById("tip");
 document.addEventListener("mousemove",e=>{
   const t=e.target.closest&&e.target.closest("[data-tip]");
@@ -517,967 +519,22 @@ document.addEventListener("mousemove",e=>{
   }else tipEl.style.display="none";
 });
 
-/* ================= CHARTS (SVG inline) ================= */
-function barChartMeses(data){ /* data: [{label,count,monto}] */
-  const W=560,H=190,padL=8,padB=22,padT=14;
-  const max=Math.max(1,...data.map(d=>d.count));
-  const bw=(W-padL*2)/data.length;
-  const ticks=[0,Math.ceil(max/2),max];
-  let g=ticks.map(t=>{const y=padT+(H-padT-padB)*(1-t/max);return `<line class="grid-line" x1="${padL}" y1="${y}" x2="${W-padL}" y2="${y}"/><text class="axlbl" x="${padL}" y="${y-3}">${t}</text>`;}).join("");
-  let bars=data.map((d,i)=>{
-    const h=(H-padT-padB)*(d.count/max);
-    const x=padL+i*bw+bw*0.18, y=H-padB-h, w=bw*0.64;
-    const lbl=d.count>0?`<text class="vallbl" x="${x+w/2}" y="${y-4}" text-anchor="middle">${d.count}</text>`:"";
-    return `<rect class="bar" x="${x}" y="${y}" width="${w}" height="${Math.max(h,1)}" rx="3" fill="var(--navy2)" data-tip="<b>${esc(d.label)}</b><br>${d.count} contrato(s) vencen<br>${money0(d.monto)} en juego"/>${lbl}
-      <text class="axlbl" x="${x+w/2}" y="${H-7}" text-anchor="middle">${esc(d.label)}</text>`;
-  }).join("");
-  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Vencimientos por mes">${g}${bars}</svg>`;
-}
-function barChartH(data,fmt){ /* data: [{label,value,tip}] una serie navy */
-  const max=Math.max(1,...data.map(d=>d.value));
-  return data.map(d=>{
-    const pct=Math.max(1.5,d.value/max*100);
-    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px" data-tip="${esc(d.tip||"")}">
-      <div style="flex:0 0 128px;font-size:12px;font-weight:600;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.label)}</div>
-      <div style="flex:1;background:var(--bg);border-radius:6px;height:20px;position:relative">
-        <div class="bar" style="width:${pct}%;height:100%;background:var(--navy2);border-radius:6px"></div>
-      </div>
-      <div style="flex:0 0 74px;font-size:12px;font-weight:700">${fmt(d.value)}</div>
-    </div>`;
-  }).join("");
-}
-function stackEstado(segs){ /* status: colores reservados + etiqueta visible + leyenda con conteos */
-  const total=segs.reduce((a,s)=>a+s.n,0)||1;
-  const bar=segs.filter(s=>s.n>0).map(s=>{
-    const pct=s.n/total*100;
-    return `<div style="flex:${s.n};background:${s.col}" data-tip="<b>${esc(s.label)}</b>: ${s.n} (${pct.toFixed(0)}%)">${pct>=9?s.n:""}</div>`;
-  }).join("");
-  const leg=segs.map(s=>`<span class="li"><span class="sw" style="background:${s.col}"></span>${esc(s.label)} · <b style="color:var(--ink)">${s.n}</b></span>`).join("");
-  return `<div class="stackbar">${bar}</div><div class="legend">${leg}</div>`;
-}
+function vPanel(){$("#view").innerHTML=`<div class="panel"><h2>Cargando panel de control…</h2></div>`;}
+function vPipeline(){$("#view").innerHTML=`<div class="panel"><h2>Pipeline · próxima actualización</h2></div>`;}
+function vContratos(){$("#view").innerHTML=`<div class="panel"><h2>Repositorio de contratos</h2></div>`;}
+function vDetalle(){$("#view").innerHTML=`<div class="panel"><h2>Detalle del contrato</h2></div>`;}
+function vSolicitudes(){$("#view").innerHTML=`<div class="panel"><h2>Solicitudes precontractuales</h2></div>`;}
+function vAlertas(){$("#view").innerHTML=`<div class="panel"><h2>Alertas</h2></div>`;}
+function vReportes(){$("#view").innerHTML=`<div class="panel"><h2>Reportes</h2></div>`;}
+function vActividad(){$("#view").innerHTML=`<div class="panel"><h2>Bitácora</h2></div>`;}
+function alertList(){return [];}
+function vFrame(url){$("#view").innerHTML=`<div class="framebar">Integrando herramienta…</div><iframe class="toolframe" src="${url}"></iframe>`;}
 
-/* ================= ALERTAS (motor de reglas) ================= */
-function alertList(){
-  const out=[];
-  myContracts().forEach((c,idx)=>{
-    const i=CONTRACTS.indexOf(c);
-    const o=ov(c),s=statusLive(c),d=diasRestantes(c);
-    if(s.key==="vencido")out.push({sev:0,icon:"⛔",col:"var(--red)",bg:"var(--redbg)",t:`Vencido hace ${Math.abs(d)}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${c.area||""}`,i,act:"Terminar",fn:"ter"});
-    else if(s.key==="aviso"&&d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · decide renovación o terminación ya`,i,act:"Abrir",fn:"open"});
-    else if(s.key==="aviso")out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ventana de renovación abierta`,i,act:"Abrir",fn:"open"});
-    if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
-    if((o.terminado||c.cerrado)&&!o.evaluado)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
-  });
-  mySolicitudes().forEach(s=>{
-    if(s.estado==="borrador")out.push({sev:2,icon:"📝",col:"var(--navy)",bg:"var(--tint)",t:`Solicitud sin iniciar — ${s.objeto.slice(0,48)}`,d:`Vía sugerida: ${s.via==="contrato"?"contrato (Unidad Operativa)":"orden de compra/servicio"}`,i:null,act:"Ver",fn:"sol"});
-  });
-  return out.sort((a,b)=>a.sev-b.sev);
-}
-
-/* ================= VISTA: PANEL ================= */
-function vPanel(){
-  const mine=myContracts();
-  const n={vig:0,avi:0,ven:0,ter:0};let montoVivo=0;
-  mine.forEach(c=>{const k=statusLive(c).key;
-    if(k==="vigente")n.vig++;else if(k==="aviso")n.avi++;else if(k==="vencido")n.ven++;else n.ter++;
-    if(k==="vigente"||k==="aviso"||k==="vencido")montoVivo+=montoDe(c);});
-  const sols=mySolicitudes().filter(s=>s.estado!=="listo").length;
-  /* vencimientos próximos 12 meses */
-  const meses=[];const now=new Date();now.setDate(1);
-  const MN=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  for(let k=0;k<12;k++){const d=new Date(now.getFullYear(),now.getMonth()+k,1);meses.push({y:d.getFullYear(),m:d.getMonth(),label:MN[d.getMonth()]+(d.getMonth()===0||k===0?" "+String(d.getFullYear()).slice(2):""),count:0,monto:0});}
-  mine.forEach(c=>{if(!c.fin||c.cerrado||ov(c).terminado)return;const [y,m]=c.fin.split("-").map(Number);
-    const slot=meses.find(x=>x.y===y&&x.m===m-1);if(slot){slot.count++;slot.monto+=montoDe(c);}});
-  /* monto por categoría (top 7) */
-  const porCat={};mine.forEach(c=>{const k=c.cat||"—";porCat[k]=(porCat[k]||0)+montoDe(c);});
-  const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]).slice(0,7).map(([label,value])=>({label,value,tip:`<b>${esc(label)}</b><br>${money(value)} · ${mine.filter(c=>(c.cat||"—")===label).length} contrato(s)`}));
-  const alerts=alertList().slice(0,6);
-  $("#view").innerHTML=`
-  <div class="up">
-    <div class="kpis">
-      <div class="kpi" data-go2="contratos"><div class="kpi-n">${mine.length}</div><div class="kpi-l">Contratos en el portafolio</div></div>
-      <div class="kpi" data-go2="reportes"><div class="kpi-n" style="color:var(--navy)">${moneyShort(montoVivo)}</div><div class="kpi-l">Valor vigente gestionado</div></div>
-      <div class="kpi" data-f="vig"><div class="kpi-n" style="color:var(--green)">${n.vig}</div><div class="kpi-l">Vigentes</div></div>
-      <div class="kpi" data-f="avi"><div class="kpi-n" style="color:var(--amber)">${n.avi}</div><div class="kpi-l">Por vencer (≤90 d)</div></div>
-      <div class="kpi" data-f="ven"><div class="kpi-n" style="color:var(--red)">${n.ven}</div><div class="kpi-l">Vencidos</div></div>
-      <div class="kpi" data-go2="solicitudes"><div class="kpi-n" style="color:var(--violet)">${sols}</div><div class="kpi-l">Solicitudes abiertas</div></div>
-    </div>
-    <div class="panel" style="margin-bottom:14px">
-      <p class="ptitle">Estado del portafolio</p>
-      ${stackEstado([
-        {label:"Vigentes",n:n.vig,col:"var(--green)"},
-        {label:"Por vencer",n:n.avi,col:"var(--amber)"},
-        {label:"Vencidos",n:n.ven,col:"var(--red)"},
-        {label:"Terminados / cerrados",n:n.ter,col:"var(--muted2)"}
-      ])}
-    </div>
-    <div class="charts">
-      <div class="panel">
-        <p class="ptitle">Vencimientos — próximos 12 meses</p>
-        <p class="psub">Contratos activos cuya fecha de fin cae en cada mes</p>
-        ${barChartMeses(meses)}
-      </div>
-      <div class="panel">
-        <p class="ptitle">Valor por categoría</p>
-        <p class="psub">Monto total vigente (incl. adendas) · top ${cats.length}</p>
-        ${barChartH(cats,v=>moneyShort(v))}
-      </div>
-    </div>
-    <div class="charts" style="grid-template-columns:1.35fr 1fr">
-      <div class="panel">
-        <p class="ptitle">Requiere atención</p>
-        <p class="psub">Las alertas más urgentes del motor de reglas · <a href="#/alertas" data-go3="alertas">ver todas (${alertList().length})</a></p>
-        ${alerts.length?alerts.map(a=>alertRowHTML(a)).join(""):`<div class="empty">Sin pendientes. Todo el portafolio bajo control ✅</div>`}
-      </div>
-      <div class="panel">
-        <p class="ptitle">Actividad reciente</p>
-        <p class="psub">Bitácora del equipo · <a href="#/actividad" data-go3="actividad">ver todo</a></p>
-        ${CLM.log.length?`<ul class="tl">${CLM.log.slice(0,6).map(l=>`<li><div class="t">${esc(l.icon)} ${esc(l.txt)}</div><div class="s">${esc(l.user)} · ${new Date(l.ts).toLocaleString("es-EC",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</div></li>`).join("")}</ul>`
-        :`<div class="empty" style="padding:26px 10px">Aún no hay actividad registrada.<br>Cada acción del equipo queda aquí.</div>`}
-      </div>
-    </div>
-  </div>`;
-  $("#view").querySelectorAll("[data-go2]").forEach(k=>k.onclick=()=>go(k.dataset.go2));
-  $("#view").querySelectorAll("[data-go3]").forEach(a=>a.onclick=e=>{e.preventDefault();go(a.dataset.go3);});
-  $("#view").querySelectorAll("[data-f]").forEach(k=>k.onclick=()=>{ST.filter=k.dataset.f;go("contratos");});
-  bindAlertRows();
-}
-function alertRowHTML(a){
-  return `<div class="alert-row">
-    <div class="aic" style="background:${a.bg}">${a.icon}</div>
-    <div style="min-width:0"><div class="at">${esc(a.t)}</div><div class="ad">${esc(a.d)}</div></div>
-    <button class="btn sm ${a.sev===0?"danger":"line"} go" data-i="${a.i==null?"":a.i}" data-fn="${a.fn}">${esc(a.act)}</button>
-  </div>`;
-}
-function bindAlertRows(){
-  $("#view").querySelectorAll(".alert-row .go").forEach(b=>b.onclick=()=>{
-    const fn=b.dataset.fn;
-    if(fn==="sol"){go("solicitudes");return;}
-    const i=+b.dataset.i;const c=CONTRACTS[i];
-    if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
-    else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
-    else if(fn==="env"){go("detalle",i);setTimeout(()=>modalEnvioUO(c,ov(c).pendienteEnvio),80);}
-    else go("detalle",i);
-  });
-}
-
-/* ================= VISTA: PIPELINE ================= */
-function vPipeline(){
-  const mine=myContracts();
-  const cols=[
-    {key:"solicitud",label:"Solicitud / Precontractual",col:"var(--violet)",items:mySolicitudes().filter(s=>s.estado!=="listo")},
-    {key:"vigente",label:"En ejecución",col:"var(--green)"},
-    {key:"aviso",label:"Por vencer (≤90 d)",col:"var(--amber)"},
-    {key:"vencido",label:"Vencidos",col:"var(--red)"},
-    {key:"cerrado",label:"Terminados / Cerrados",col:"var(--muted2)"}
-  ];
-  cols.forEach(col=>{
-    if(col.key==="solicitud")return;
-    col.items=mine.map((c,ix)=>({c,i:CONTRACTS.indexOf(c)})).filter(({c})=>{
-      const k=statusLive(c).key;
-      return col.key==="cerrado"?(k==="cerrado"||k==="terminado"):k===col.key;
-    });
-  });
-  $("#view").innerHTML=`<div class="up">
-    <p class="psub" style="margin-bottom:14px">Cada contrato avanza solo por sus fechas y acciones — así se ve el ciclo de vida completo hoy. Las solicitudes entran por la izquierda; los contratos salen por la derecha ya calificados.</p>
-    <div class="kanban">
-      ${cols.map(col=>{
-        const items=col.items||[];
-        const sum=col.key==="solicitud"?items.reduce((a,s)=>a+(Number(s.monto)||0),0):items.reduce((a,x)=>a+montoDe(x.c),0);
-        return `<div class="kcol">
-          <div class="kcol-h"><span class="kdot" style="background:${col.col}"></span><span class="kt">${col.label}</span><span class="kc">${items.length}</span></div>
-          <div class="kcol-sum">${money0(sum)} en total</div>
-          ${col.key==="solicitud"
-            ? (items.length?items.map(s=>`<div class="kcard" data-sol="1"><div class="a">${s.via==="contrato"?"VÍA CONTRATO":"ORDEN DE COMPRA/SERVICIO"}</div><div class="b">${esc(s.objeto)}</div><div class="c">${esc(s.area)} · ${money0(s.monto)} · ${esc(estadoSolLabel(s.estado))}</div></div>`).join("")
-              :`<div class="kcard" data-new="1" style="text-align:center;color:var(--muted)">+ Nueva solicitud</div>`)
-            : items.map(({c,i})=>`<div class="kcard" data-i="${i}"><div class="a">${esc(c.nro)}</div><div class="b">${esc(trunc(c.detalle,80))}</div><div class="c">${esc(c.area||"")} · ${money0(montoDe(c))}${col.key==="aviso"?` · ${diasRestantes(c)}d`:""}</div></div>`).join("")||`<div class="kcard" style="text-align:center;color:var(--muted2);cursor:default">vacío</div>`}
-        </div>`;
-      }).join("")}
-    </div>
-  </div>`;
-  $("#view").querySelectorAll("[data-i]").forEach(k=>k.onclick=()=>go("detalle",+k.dataset.i));
-  $("#view").querySelectorAll("[data-sol]").forEach(k=>k.onclick=()=>go("solicitudes"));
-  $("#view").querySelectorAll("[data-new]").forEach(k=>k.onclick=()=>{go("solicitudes");setTimeout(modalNuevaSolicitud,60);});
-}
-
-/* ================= VISTA: CONTRATOS (repositorio) ================= */
-function filteredContracts(){
-  return myContracts().filter(c=>{
-    if(ST.filter!=="all"){
-      const k=statusLive(c).key;
-      if(ST.filter==="vig"&&k!=="vigente")return false;
-      if(ST.filter==="avi"&&k!=="aviso")return false;
-      if(ST.filter==="ven"&&k!=="vencido")return false;
-      if(ST.filter==="ter"&&!(k==="terminado"||k==="cerrado"))return false;
-    }
-    if(ST.catFilter!=="all"&&(c.cat||"—")!==ST.catFilter)return false;
-    if(ST.q){const hay=norm(c.detalle+" "+c.nro+" "+c.area+" "+c.proveedor+" "+c.cat);if(!hay.includes(norm(ST.q)))return false;}
-    return true;
-  });
-}
-function vContratos(){
-  const mine=myContracts(),list=filteredContracts();
-  const cats=[...new Set(mine.map(c=>c.cat||"—"))].sort((a,b)=>a.localeCompare(b));
-  $("#view").innerHTML=`<div class="up">
-    <div class="toolbar">
-      <div class="search">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input id="q" placeholder="Buscar por contrato, proveedor o área…" value="${esc(ST.q)}">
-      </div>
-      <div class="chips">
-        ${[["all","Todos"],["vig","Vigentes"],["avi","Por vencer"],["ven","Vencidos"],["ter","Terminados"]].map(([k,l])=>`<button class="chip ${ST.filter===k?"on":""}" data-f="${k}">${l}</button>`).join("")}
-      </div>
-      <div class="viewtog">
-        <button data-v="table" class="${ST.viewMode==="table"?"on":""}">Listado</button>
-        <button data-v="cards" class="${ST.viewMode==="cards"?"on":""}">Tarjetas</button>
-      </div>
-    </div>
-    ${cats.length>1?`<div class="chips" style="margin:-6px 0 15px">
-      <button class="chip ${ST.catFilter==="all"?"on":""}" data-c="all">Todas las categorías</button>
-      ${cats.map(k=>{const col=catColor(k),on=ST.catFilter===k;
-        return `<button class="chip" data-c="${esc(k)}" style="background:${on?col.fg:col.bg};color:${on?"#fff":col.fg};border-color:${on?col.fg:"transparent"}">${esc(k)} · ${mine.filter(c=>(c.cat||"—")===k).length}</button>`;}).join("")}
-    </div>`:""}
-    <div id="listbody">${ST.viewMode==="cards"?cardsHTML(list):tableHTML(list)}</div>
-  </div>`;
-  $("#q").oninput=e=>{ST.q=e.target.value;$("#listbody").innerHTML=ST.viewMode==="cards"?cardsHTML(filteredContracts()):tableHTML(filteredContracts());bindRows();};
-  $("#view").querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{ST.filter=b.dataset.f;vContratos();});
-  $("#view").querySelectorAll(".chip[data-c]").forEach(b=>b.onclick=()=>{ST.catFilter=(ST.catFilter===b.dataset.c)?"all":b.dataset.c;vContratos();});
-  $("#view").querySelectorAll(".viewtog button").forEach(b=>b.onclick=()=>{ST.viewMode=b.dataset.v;vContratos();});
-  bindRows();
-}
-function bindRows(){$("#view").querySelectorAll("[data-open]").forEach(el=>el.onclick=ev=>{if(ev.target.closest("a"))return;go("detalle",+el.dataset.open);});}
-function emptyHTML(){return `<div class="empty"><div style="font-weight:700;color:var(--ink)">Sin resultados</div><div style="font-size:13px">Ajusta el filtro o la búsqueda.</div></div>`;}
-function cardsHTML(list){
-  if(!list.length)return emptyHTML();
-  return `<div class="grid">`+list.map(c=>{
-    const s=statusLive(c),i=CONTRACTS.indexOf(c);
-    return `<div class="cc ${s.cls}" data-open="${i}">
-      <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${esc(c.nro)}</span><span class="badge ${s.b}">${esc(s.label)}</span></div>
-      <div class="cc-title">${esc(c.detalle)}</div>
-      <div class="cc-area">${esc(c.area||"")}</div>
-      <div class="cc-meta"><span>Proveedor · <b>${esc(c.proveedor||"—")}</b></span></div>
-      <div class="cc-meta" style="margin-top:5px"><span>Monto · <b>${money(montoDe(c))}</b></span><span>·</span><span><b>${esc(vigenciaText(c))}</b></span></div>
-      <div style="margin-top:9px">${catChip(c.cat)}</div>
-    </div>`;
-  }).join("")+`</div>`;
-}
-function tableHTML(list){
-  if(!list.length)return emptyHTML();
-  return `<div class="tablewrap"><table class="list">
-    <thead><tr><th>N.º</th><th>Objeto</th><th>Categoría</th><th>Área</th><th>Proveedor</th><th>Monto</th><th>Vence</th><th>Estado</th></tr></thead>
-    <tbody>${list.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c);
-      return `<tr data-open="${i}">
-        <td class="td-nro">${esc(c.nro)}</td>
-        <td class="td-obj">${esc(c.detalle)}</td>
-        <td>${catChip(c.cat)}</td>
-        <td>${esc(c.area||"—")}</td>
-        <td>${esc(c.proveedor||"—")}</td>
-        <td style="white-space:nowrap">${money(montoDe(c))}</td>
-        <td style="white-space:nowrap">${fdate(c.fin)}</td>
-        <td style="white-space:nowrap"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(vigenciaText(c))}</td>
-      </tr>`;}).join("")}</tbody></table></div>`;
-}
-
-/* ================= VISTA: DETALLE ================= */
-function vDetalle(){
-  const c=CONTRACTS[ST.cur];
-  if(!c){go("contratos");return;}
-  const o=ov(c),s=statusLive(c),consult=isConsultoria(c);
-  const done=o.terminado||c.cerrado;
-  const timeline=contractTimeline(c);
-  $("#view").innerHTML=`<div class="up">
-    <button class="back" id="back">← Volver al repositorio</button>
-    <div class="detail">
-      <div>
-        <div class="panel">
-          <div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between">
-            <div><div class="cc-nro" style="margin-bottom:3px">${esc(c.nro)}</div>
-              <div class="h-title">${esc(c.detalle)}</div>
-              <div class="cc-area">${esc(c.area||"")}</div></div>
-            <span class="badge ${s.b}">${esc(s.label)}</span>
-          </div>
-          <div class="linkbar">
-            <span style="color:var(--navy)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></span>
-            <div style="flex:1"><div style="font-size:12.5px;font-weight:700">Contrato firmado</div><div style="font-size:11.5px;color:var(--muted)">${c.link?"Documento en el repositorio institucional":"Sin vínculo registrado en la base"}</div></div>
-            ${c.link?`<a class="btn sm" href="${esc(c.link)}" target="_blank" rel="noopener">Abrir</a>`:`<button class="btn sm line" disabled>No disponible</button>`}
-          </div>
-          <div class="phase">
-            <div class="step past"><span class="d">✓</span> Solicitud</div><div class="flow-line"></div>
-            <div class="step past"><span class="d">✓</span> Firma</div><div class="flow-line"></div>
-            <div class="step ${done?"past":"on"}"><span class="d">${done?"✓":"3"}</span> Ejecución</div><div class="flow-line"></div>
-            <div class="step ${done?(o.evaluado?"past":"on"):""}"><span class="d">${o.evaluado?"✓":"4"}</span> Terminación</div><div class="flow-line"></div>
-            <div class="step ${o.evaluado?"past":""}"><span class="d">${o.evaluado?"✓":"5"}</span> Calificación</div>
-          </div>
-          <div class="dl">
-            <div><div class="k">Proveedor</div><div class="v">${esc(c.proveedor||"—")}</div></div>
-            <div><div class="k">Categoría</div><div class="v">${catChip(c.cat)}${consult?' <span style="color:var(--navy);font-size:11px;font-weight:700">servicios profesionales</span>':""}</div></div>
-            <div><div class="k">Monto original (incl. IVA)</div><div class="v">${money(c.monto)}</div></div>
-            <div><div class="k">Valor total vigente</div><div class="v" style="${montoDe(c)!==c.monto?"color:var(--navy)":""}">${money(montoDe(c))}${montoDe(c)!==c.monto?" · con adenda":""}</div></div>
-            <div><div class="k">Tipo</div><div class="v">${esc(c.tipo||"—")}</div></div>
-            <div><div class="k">AC responsable</div><div class="v">${esc(c.ac||"—")}</div></div>
-            <div><div class="k">Inicio</div><div class="v">${fdate(c.inicio)}</div></div>
-            <div><div class="k">Firma</div><div class="v">${fdate(c.firma)}</div></div>
-            <div><div class="k">Fin</div><div class="v">${fdate(c.fin)}</div></div>
-            <div><div class="k">Vigencia (hoy)</div><div class="v" style="color:${s.cls==="r"?"var(--red)":s.cls==="a"?"var(--amber)":"var(--ink)"}">${esc(vigenciaText(c))}</div></div>
-            ${tieneAdenda(c)?`<div class="full"><div class="k">Adenda registrada</div><div class="v" style="line-height:1.5">${esc(c.tipoAdenda||"Adenda")}${montoAdenda(c)?` · <b style="color:var(--navy)">+${money(montoAdenda(c))}</b>`:""}${c.firmaAdenda?` · firmada el ${fdate(c.firmaAdenda)}`:""}${c.modificacion?`<div style="font-size:12px;color:var(--muted)">${esc(c.modificacion)}</div>`:""}</div></div>`:""}
-            ${o.terminado?`<div class="full"><div class="k">Terminación</div><div class="v" style="color:var(--navy)">${esc(o.causal||"")} · ${fdate(o.fter)}</div></div>`:""}
-            ${o.evaluado?`<div class="full"><div class="k">Calificación del proveedor</div><div class="v">${esc(o.score)}/100 · ${esc(o.sem)}</div></div>`:""}
-          </div>
-        </div>
-        <div class="panel" style="margin-top:14px">
-          <p class="ptitle">Línea de tiempo</p>
-          <ul class="tl">${timeline.map(e=>`<li><div class="t">${esc(e.t)}</div><div class="s">${esc(e.s)}</div></li>`).join("")}</ul>
-        </div>
-      </div>
-      <div>
-        <div class="panel">
-          <p class="ptitle">Acciones del ciclo de vida</p>
-          <p class="psub">Generan el borrador oficial en Word y dejan rastro en la bitácora.</p>
-          <div class="act">
-            <button class="actbtn" id="a-mod" ${done?"disabled":""}>
-              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
-              <span><span class="at">Modificar contrato</span><span class="ad">Adenda o aumento de monto · informe FAP-2026-11</span></span>
-            </button>
-            <button class="actbtn" id="a-ter" ${done?"disabled":""}>
-              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
-              <span><span class="at">Terminar contrato</span><span class="ad">Acta de terminación FAP-2026-12 · escoger causal</span></span>
-            </button>
-            <button class="actbtn" id="a-cal" ${(!done||o.evaluado)?"disabled":""}>
-              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7Z"/></svg></span>
-              <span><span class="at">Calificar proveedor</span><span class="ad">${done?(o.evaluado?"Calificación registrada ✓":"FO-AD-ABC-017 · 13 criterios"):"Disponible al terminar"}</span></span>
-            </button>
-            <button class="actbtn" id="a-env" ${!o.pendienteEnvio?"disabled":""}>
-              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg></span>
-              <span><span class="at">Enviar a la Unidad Operativa</span><span class="ad">${o.pendienteEnvio?("Pendiente: "+esc(o.pendienteEnvio.tipoEnvio)):"Se habilita al generar un borrador"}</span></span>
-            </button>
-            <button class="actbtn" id="a-nota">
-              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
-              <span><span class="at">Añadir nota</span><span class="ad">Observación interna en la bitácora del contrato</span></span>
-            </button>
-          </div>
-          ${o.evaluado?`<div class="note" style="margin-top:12px">Calificación: <b>${esc(o.score)}/100</b> · ${esc(o.sem)}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. Queda pendiente la <b>calificación del proveedor</b>.</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
-        </div>
-      </div>
-    </div>
-  </div>`;
-  $("#back").onclick=()=>go("contratos");
-  if(!done){$("#a-mod").onclick=()=>modalModificar(c);$("#a-ter").onclick=()=>modalTerminar(c);}
-  if(done&&!o.evaluado)$("#a-cal").onclick=()=>modalCalificar(c);
-  if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
-  $("#a-nota").onclick=()=>modalNota(c);
-}
-function contractTimeline(c){
-  const o=ov(c),ev=[];
-  if(c.firma)ev.push({d:c.firma,t:"✍️ Contrato firmado",s:longDate(c.firma)});
-  if(c.inicio)ev.push({d:c.inicio,t:"▶️ Inicio de la ejecución",s:longDate(c.inicio)});
-  if(tieneAdenda(c)&&c.firmaAdenda)ev.push({d:c.firmaAdenda,t:"📎 Adenda firmada — "+(c.tipoAdenda||"modificación"),s:longDate(c.firmaAdenda)+(montoAdenda(c)?" · +"+money(montoAdenda(c)):"")});
-  CLM.log.filter(l=>l.ref===c.nro).forEach(l=>ev.push({d:l.ts.slice(0,10),t:l.icon+" "+l.txt,s:l.user+" · "+new Date(l.ts).toLocaleDateString("es-EC")}));
-  if(!o.terminado&&!c.cerrado&&c.fin)ev.push({d:c.fin,t:"🏁 Fin de vigencia "+(diasRestantes(c)>=0?"(previsto)":"(vencido)"),s:longDate(c.fin)});
-  return ev.sort((a,b)=>String(a.d).localeCompare(String(b.d)));
-}
-function modalNota(c){
-  const o=openModal(`
-    <h2>Añadir nota</h2><p class="sub">${esc(c.nro)} · quedará en la bitácora y en la línea de tiempo</p>
-    <div class="frow"><label>Nota</label><textarea id="ntxt" placeholder="Ej.: proveedor avisa retraso de una semana en la entrega de julio…"></textarea></div>
-    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="okn">Guardar nota</button></div>`);
-  $("#cancel",o).onclick=()=>closeModal(o);
-  $("#okn",o).onclick=()=>{const t=$("#ntxt",o).value.trim();if(!t)return;
-    logAdd("📝","Nota: "+t,c.nro);closeModal(o);toast("Nota guardada");render();};
-}
-
-/* ================= MODALES DEL CICLO (heredados del CRM, con bitácora) ================= */
-function openModal(html){
-  const o=document.createElement("div");o.className="overlay";o.innerHTML=`<div class="modal">${html}</div>`;
-  document.body.appendChild(o);
-  o.addEventListener("click",e=>{if(e.target===o)o.remove();});
-  return o;
-}
-function closeModal(el){(el.closest&&el.closest(".overlay")||el).remove();}
-function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3400);}
-
-/* --- Motor de plantillas .docx reales (las mismas del CRM) --- */
 function docxEngineReady(){return !!(window.PizZip&&(window.docxtemplater||window.Docxtemplater));}
-const TPL_CACHE={};
-async function loadTemplate(nombre){
-  if(TPL_CACHE[nombre])return TPL_CACHE[nombre];
-  const res=await fetch(TPL_PATH+nombre,{cache:"no-store"});
-  if(!res.ok)throw new Error(`No se encontró la plantilla ${nombre} (HTTP ${res.status})`);
-  const buf=await res.arrayBuffer();TPL_CACHE[nombre]=buf;return buf;
-}
-async function generarDocx(nombrePlantilla,data,nombreSalida){
-  if(!docxEngineReady())throw new Error("El motor de documentos no cargó. Revisa tu conexión a internet e inténtalo de nuevo.");
-  const buf=await loadTemplate(nombrePlantilla);
-  const zip=new PizZip(buf.slice(0));
-  const DT=window.docxtemplater||window.Docxtemplater;
-  const doc=new DT(zip,{paragraphLoop:true,linebreaks:true,delimiters:{start:"{",end:"}"}});
-  doc.render(data);
-  const out=doc.getZip().generate({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
-  const url=URL.createObjectURL(out);
-  const a=document.createElement("a");a.href=url;a.download=nombreSalida+".docx";
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1500);
-}
 
-/* --- Modificar (aumento de monto / adenda de plazo) --- */
-function modalModificar(c){
-  const consult=isConsultoria(c);
-  const opciones=[
-    {v:"monto",t:"Aumento de monto",d:"Incremento en el valor del contrato",informe:"aumento"},
-    {v:"plazogen",t:"Ampliación de plazo general",d:"Extiende la vigencia total del contrato",informe:"adenda"}
-  ];
-  if(consult)opciones.push({v:"entrega",t:"Cambio de plazos de entrega",d:"Ajusta el cronograma de entregables (consultoría)",informe:"adenda"});
-  const o=openModal(`
-    <h2>Modificar contrato</h2>
-    <p class="sub">${esc(c.nro)} · ${esc(c.detalle)}</p>
-    <div class="frow"><label>Tipo de modificación</label>
-      <div class="radios">${opciones.map((op,i)=>`<label class="radio ${i===0?"sel":""}"><input type="radio" name="mt" value="${op.v}" data-inf="${op.informe}" ${i===0?"checked":""}><span><span class="rt">${op.t}</span><span class="rd">${op.d}</span></span></label>`).join("")}</div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:7px">Las modificaciones <b>no pueden ser del objeto</b> del contrato.</div>
-    </div>
-    <div id="montoRow">
-      <div class="frow"><label>Valor del incremento (USD, incl. IVA)</label><input id="inc" type="number" min="0" step="0.01" placeholder="0.00">
-        <div style="font-size:11.5px;color:var(--muted);margin-top:5px">Monto original: <b>${money(c.monto)}</b>${montoDe(c)!==c.monto?` · vigente con adendas: <b>${money(montoDe(c))}</b>`:""}</div></div>
-      <div class="secdiv">Datos para el informe (FAP-2026-11)</div>
-      <div class="frow2"><div class="frow"><label>RUC del proveedor</label><input id="rucM" placeholder="N.º de RUC"></div>
-      <div class="frow"><label>Siglas del área</label><input id="siglas" placeholder="Ej.: PNC"></div></div>
-      <div class="secdiv">Datos presupuestarios (reprogramación PAG)</div>
-      <div class="frow2"><div class="frow"><label>Fecha reprogramación PAG</label><input id="fechaReprog" type="date"></div>
-      <div class="frow"><label>Código de partida</label><input id="partida" placeholder="Ej.: 5.3.01"></div></div>
-      <div class="frow"><label>Nombre de la línea presupuestaria</label><input id="lineaNombre" placeholder="Nombre de la partida en el PAG"></div>
-      <div class="note" style="margin:2px 0 4px">Lo que dejes vacío queda marcado con «COMPLETAR» en el Word.</div>
-    </div>
-    <div class="frow" id="plazoRow" style="display:none"><label>Plazo adicional / nueva fecha</label><input id="plazoTxt" placeholder="Ej.: 60 días adicionales · nueva finalización 30 nov 2026"></div>
-    <div class="frow"><label>Justificación (opcional para monto, obligatoria para plazo)</label><textarea id="just" placeholder="Motivo técnico y contractual…"></textarea></div>
-    <div id="routebox"></div>
-    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="gen">Generar borrador de informe</button></div>`);
-  const radios=o.querySelectorAll("input[name=mt]");
-  const montoRow=$("#montoRow",o),plazoRow=$("#plazoRow",o),inc=$("#inc",o),routebox=$("#routebox",o);
-  function sel(){return [...radios].find(r=>r.checked);}
-  function route(){
-    const r=sel(),v=r.value,informe=r.dataset.inf;
-    montoRow.style.display=v==="monto"?"":"none";
-    plazoRow.style.display=v==="monto"?"none":"";
-    const genBtn=$("#gen",o);
-    let instrumento,pct=null,pctAcum=null,blocked=false;
-    if(v==="monto"){
-      const base=c.monto||0,totalActual=montoDe(c),val=parseFloat(inc.value)||0;
-      pct=base?(val/base*100):0;
-      pctAcum=base?(((totalActual+val)-base)/base*100):0;
-      blocked=pctAcum>50;
-      instrumento=pct>=25?"Adenda modificatoria":"Acta de aumento de valor";
-    }else instrumento="Adenda modificatoria";
-    const isAdenda=instrumento==="Adenda modificatoria";
-    const infTxt=informe==="aumento"?"Informe de aumento de monto (FAP-2026-11)":"Informe de justificación de adenda";
-    if(blocked){
-      routebox.innerHTML=`<div class="routebox route-block"><b>Modificación no permitida.</b><br>Con este incremento, las modificaciones acumuladas llegarían al <b>${pctAcum.toFixed(1)}%</b> del monto original (límite: <b>50%</b>). Corresponde iniciar un <b>nuevo proceso de contratación</b> — consulta con Legal FAP.</div>`;
-      genBtn.disabled=true;
-    }else{
-      routebox.innerHTML=`<div class="routebox ${isAdenda?"route-adenda":"route-acta"}">Se generará el <b>borrador del ${infTxt}</b>.<br>Instrumento que preparará Legal: <b>${instrumento}</b>.<br>${v==="monto"?`El incremento representa <b>${pct.toFixed(1)}%</b> del monto original ${pct>=25?"(≥ 25% → adenda)":"(< 25% → acta de aumento)"}. Acumulado: <b>${pctAcum.toFixed(1)}%</b> (límite 50%).`:"Todo cambio de plazo se formaliza mediante <b>adenda</b>, sin importar el monto."}</div>`;
-      genBtn.disabled=false;
-    }
-    o._data={v,informe,instrumento,pct,pctAcum,blocked};
-  }
-  radios.forEach(r=>r.onchange=()=>{o.querySelectorAll(".radio").forEach(l=>l.classList.remove("sel"));r.closest(".radio").classList.add("sel");route();});
-  inc.oninput=route;route();
-  $("#cancel",o).onclick=()=>closeModal(o);
-  $("#gen",o).onclick=async()=>{
-    const just=$("#just",o).value.trim(),d=o._data;
-    if(d.blocked)return;
-    if(d.v==="monto"&&!(parseFloat(inc.value)>0)){alert("Ingresa el valor del incremento.");return;}
-    if(d.v!=="monto"&&!$("#plazoTxt",o).value.trim()){alert("Indica el plazo adicional o la nueva fecha.");return;}
-    let titulo;
-    if(d.v==="monto"){
-      const inc_v=parseFloat(inc.value)||0,montoOriginal=c.monto||0,montoTotal=montoOriginal+inc_v;
-      const M=manualDocx;
-      const data={contratoNro:c.nro,objeto:c.detalle||"",proveedor:c.proveedor||"",
-        proveedorRuc:$("#rucM",o).value.trim()||M("RUC del proveedor"),
-        ac:c.ac||"",area:c.area||"",siglas:$("#siglas",o).value.trim()||M("siglas del área"),
-        fecha:longDate(todayISO()),fechaContrato:longDate(c.firma),
-        fechaReprog:$("#fechaReprog",o).value?longDate($("#fechaReprog",o).value):M("fecha de reprogramación PAG"),
-        partida:$("#partida",o).value.trim()||M("código de partida"),
-        lineaNombre:$("#lineaNombre",o).value.trim()||M("nombre de la línea PAG"),
-        montoOriginal:money(montoOriginal).replace("$",""),montoOriginalLetras:montoEnLetras(montoOriginal),
-        montoAumento:money(inc_v).replace("$",""),montoAumentoLetras:montoEnLetras(inc_v),
-        montoTotal:money(montoTotal).replace("$",""),montoTotalLetras:montoEnLetras(montoTotal)};
-      titulo="Informe de aumento de monto (FAP-2026-11)";
-      try{await generarDocx("14_Informe_adenda.docx",data,`BORRADOR_Informe_aumento_monto_${cleanNro(c.nro)}`);}
-      catch(err){alert("No se pudo generar el documento: "+err.message);return;}
-      logAdd("📄",`Borrador de ${titulo} generado (+${money(inc_v)}, ${d.pct.toFixed(1)}%)`,c.nro);
-    }else{
-      if(!just){alert("Ingresa la justificación.");return;}
-      titulo="Informe de justificación de adenda (formato provisional)";
-      const html=informeAdendaHTML(c,{plazoTxt:$("#plazoTxt",o).value.trim(),just,instrumento:d.instrumento});
-      downloadHTMLDoc(`BORRADOR_Informe_adenda_${cleanNro(c.nro)}`,html);
-      logAdd("📄",`Borrador de informe de adenda de plazo generado`,c.nro);
-    }
-    ov(c).pendienteEnvio={tipoEnvio:titulo,instrumento:d.instrumento};saveCLM();
-    pasosSiguientes(o,c,titulo,d.instrumento);
-    toast("Borrador generado · "+titulo);
-  };
-}
-function informeAdendaHTML(c,p){
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{margin:2.2cm 2.4cm}body{font-family:Calibri,Arial,sans-serif;color:#0B153F;font-size:11pt;line-height:1.55}h1{font-size:14pt;text-align:center}table{width:100%;border-collapse:collapse;margin:12pt 0}td{border:1px solid #999;padding:6pt;font-size:10.5pt}.k{background:#EEF1FB;font-weight:700;width:34%}</style></head><body>
-  <h1>INFORME DE JUSTIFICACIÓN DE ADENDA — BORRADOR</h1>
-  <table>
-    <tr><td class="k">Contrato</td><td>${esc(c.nro)}</td></tr>
-    <tr><td class="k">Objeto</td><td>${esc(c.detalle||"")}</td></tr>
-    <tr><td class="k">Proveedor</td><td>${esc(c.proveedor||"")}</td></tr>
-    <tr><td class="k">Área protegida</td><td>${esc(c.area||"")}</td></tr>
-    <tr><td class="k">AC responsable</td><td>${esc(c.ac||"")}</td></tr>
-    <tr><td class="k">Vigencia actual</td><td>${esc(fdate(c.inicio))} — ${esc(fdate(c.fin))}</td></tr>
-    <tr><td class="k">Modificación solicitada</td><td>${esc(p.plazoTxt)}</td></tr>
-    <tr><td class="k">Instrumento</td><td>${esc(p.instrumento)}</td></tr>
-  </table>
-  <p><b>Justificación:</b></p><p>${esc(p.just)}</p>
-  <p style="margin-top:36pt">Atentamente,</p>
-  <p style="margin-top:30pt">_______________________<br>${esc(c.ac||"")}<br>Administradora del contrato</p>
-  </body></html>`;
-}
-function downloadHTMLDoc(filename,htmlBody){
-  const blob=new Blob(["\uFEFF",htmlBody],{type:"application/msword"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");a.href=url;a.download=filename+".doc";document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1500);
-}
-function pasosSiguientes(o,c,titulo,instrumento){
-  o.querySelector(".modal").innerHTML=`
-    <h2>✅ Borrador generado</h2>
-    <p class="sub">${esc(titulo)} · ${esc(c.nro)}</p>
-    <div class="steps"><h3>Próximos pasos — envío a la Unidad Operativa</h3><ol>
-      <li><b>Abre el borrador</b> en Word y completa los campos «COMPLETAR» si los hay.</li>
-      <li><b>Súbelo aquí mismo</b>, junto con el <b>contrato firmado</b> ${c.link?`(<a href="${esc(c.link)}" target="_blank" rel="noopener">ábrelo aquí</a>)`:""}.</li>
-      <li>La Unidad Operativa revisa y <b>Legal FAP elabora el instrumento</b> (${esc(instrumento)}).</li>
-      <li>Hazlo <b>antes del vencimiento</b> (${fdate(c.fin)}).</li>
-    </ol></div>
-    <div class="modal-foot"><button class="btn line" id="okpasos">Ahora no</button><button class="btn" id="irEnviar">Enviar a la Unidad Operativa →</button></div>`;
-  $("#okpasos",o).onclick=()=>{closeModal(o);render();};
-  $("#irEnviar",o).onclick=()=>{closeModal(o);modalEnvioUO(c,ov(c).pendienteEnvio);};
-}
-
-/* --- Terminar --- */
-function modalTerminar(c){
-  const causales=[
-    ["Cumplimiento del plazo","El contrato llegó a su fecha de finalización con el objeto cumplido.","sin novedades u observaciones que reportar; el servicio se prestó con normalidad durante toda la vigencia contractual"],
-    ["Presupuesto agotado","Se ejecutó la totalidad del valor contratado.","el contrato se ejecutó hasta el agotamiento del monto contractual, sin novedades adicionales que reportar"],
-    ["Mutuo acuerdo","Las partes acuerdan dar por terminado el contrato.","las partes acordaron dar por terminado el contrato de forma anticipada, de mutuo acuerdo"]
-  ];
-  const o=openModal(`
-    <h2>Terminar contrato</h2>
-    <p class="sub">${esc(c.nro)} · ${esc(c.detalle)}</p>
-    <div class="frow"><label>Causal de terminación</label>
-      <div class="radios">${causales.map((x,i)=>`<label class="radio ${i===0?"sel":""}"><input type="radio" name="cz" value="${esc(x[0])}" data-nov="${esc(x[2])}" ${i===0?"checked":""}><span><span class="rt">${x[0]}</span><span class="rd">${x[1]}</span></span></label>`).join("")}</div>
-    </div>
-    <div class="secdiv">Comparecientes y datos del acta (FAP-2026-12)</div>
-    <div class="frow2"><div class="frow"><label>Cédula de la AC</label><input id="cedulaAc" placeholder="N.º de cédula"></div>
-    <div class="frow"><label>RUC del proveedor</label><input id="ruc" placeholder="N.º de RUC"></div></div>
-    <div class="frow"><label>Administrador/a del área (MAE)</label><input id="jefe" placeholder="Nombre de quien administra el área por el MAE"></div>
-    <div class="frow"><label>Ciudad de suscripción</label><input id="ciudad" value="Quito"></div>
-    <div class="frow2"><div class="frow"><label>Fecha del acta</label><input id="fter" type="date" value="${todayISO()}"></div>
-    <div class="frow"><label>Fecha real de entrega</label><input id="frec" type="date" value="${todayISO()}"></div></div>
-    <div class="secdiv">Liquidación económica</div>
-    <div class="frow2"><div class="frow"><label>Valor total liquidado (USD)</label><input id="total" type="number" step="0.01" value="${montoDe(c).toFixed(2)}"></div>
-    <div class="frow"><label>Novedades (opcional)</label><input id="obs" placeholder="Texto sugerido si lo dejas vacío"></div></div>
-    <div class="note">Se genera el <b>borrador del acta oficial (FAP-2026-12)</b> con la plantilla real. Al terminar se habilita la <b>calificación del proveedor</b>.</div>
-    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn danger" id="gen">Terminar y generar acta</button></div>`);
-  o.querySelectorAll("input[name=cz]").forEach(r=>r.onchange=()=>{o.querySelectorAll(".radio").forEach(l=>l.classList.remove("sel"));r.closest(".radio").classList.add("sel");});
-  $("#cancel",o).onclick=()=>closeModal(o);
-  $("#gen",o).onclick=async()=>{
-    const sel=[...o.querySelectorAll("input[name=cz]")].find(r=>r.checked);
-    const causal=sel.value,novDefault=sel.dataset.nov;
-    const fter=$("#fter",o).value,obs=$("#obs",o).value.trim()||novDefault;
-    const frec=$("#frec",o).value,ciudad=$("#ciudad",o).value.trim()||"Quito";
-    const totalLiq=parseFloat($("#total",o).value)||montoDe(c);
-    const M=manualDocx;
-    const data={contratoNro:c.nro,objeto:c.detalle||"",proveedor:c.proveedor||"",
-      proveedorRuc:$("#ruc",o).value.trim()||M("RUC del proveedor"),
-      ac:c.ac||"",cedulaAc:$("#cedulaAc",o).value.trim()||M("cédula de la AC"),
-      area:c.area||"",jefe:$("#jefe",o).value.trim()||M("administrador/a del área — MAE"),
-      ciudad,fechaActa:longDate(fter),fechaContrato:longDate(c.firma),
-      fechaInicioContrato:longDate(c.inicio),fechaFin:longDate(c.fin),fechaRecepcion:longDate(frec),
-      fechaAdenda:tieneAdenda(c)&&c.firmaAdenda?longDate(c.firmaAdenda):M("fecha de adenda, si existió"),
-      montoTotal:money(montoDe(c)).replace("$",""),montoTotalLetras:montoEnLetras(montoDe(c)),
-      total:money(totalLiq).replace("$","")};
-    try{await generarDocx("15_Acta_de_terminacion.docx",data,`BORRADOR_Acta_terminacion_${cleanNro(c.nro)}`);}
-    catch(err){alert("No se pudo generar el acta: "+err.message);return;}
-    const O=ov(c);O.terminado=true;O.causal=causal;O.fter=fter;
-    O.pendienteEnvio={tipoEnvio:"Acta de terminación (FAP-2026-12)",instrumento:"Acta de terminación y liquidación"};
-    saveCLM();
-    logAdd("🏁",`Contrato terminado (${causal}) · acta FAP-2026-12 generada`,c.nro);
-    pasosSiguientes(o,c,"Acta de terminación (FAP-2026-12)","Acta de terminación y liquidación");
-    toast("Contrato terminado · Acta generada");
-  };
-}
-
-/* --- Calificar proveedor (FO-AD-ABC-017) --- */
-function modalCalificar(c){
-  const GRUPOS=[
-    {nombre:"Calidad del producto / servicio",w:0.40,items:[
-      "Conformidad con las especificaciones técnicas del contrato o solicitud de cotización",
-      "Ausencia de defectos, fallas o incumplimientos durante la ejecución",
-      "Calidad uniforme a lo largo de toda la vigencia contractual",
-      "Conducta del proveedor en las instalaciones del área protegida (si no aplica, asignar 3)"]},
-    {nombre:"Cumplimiento de plazo",w:0.30,items:[
-      "Cumplimiento de las fechas de entrega o prestación del bien/servicio",
-      "Continuidad en la entrega o prestación sin interrupciones no justificadas",
-      "Cumplimiento del plazo total del contrato sin extensiones atribuibles al proveedor"]},
-    {nombre:"Atención y soporte",w:0.05,items:[
-      "Respuesta ante requerimientos, consultas o incidencias del administrador/a",
-      "Comunicación proactiva ante inconvenientes o cambios que afecten la entrega",
-      "Atención y resolución de observaciones formuladas por el administrador/a"]},
-    {nombre:"Cumplimiento contractual",w:0.25,items:[
-      "Entrega oportuna y completa de documentación de respaldo (facturas, informes, actas, etc.)",
-      "Vigencia de garantías técnicas, pólizas u obligaciones formales (si no aplica, asignar 3)",
-      "Cumplimiento de obligaciones formales asociadas al contrato (tributos, IESS, permisos, etc.)"]}
-  ];
-  const vals=GRUPOS.map(g=>g.items.map(()=>3));
-  const o=openModal(`
-    <h2>Calificación del proveedor</h2>
-    <p class="sub">${esc(c.proveedor||"—")} · ${esc(c.nro)} · FO-AD-ABC-017 · escala 0–3</p>
-    <div class="note" style="margin:6px 0 4px">0 = no cumple · 1 = cumple parcialmente · 2 = cumple · 3 = cumple plenamente</div>
-    ${GRUPOS.map((g,gi)=>`<div style="margin-top:13px">
-      <div style="font-weight:700;color:var(--navy);font-size:13px;border-bottom:1px solid var(--line2);padding-bottom:5px;margin-bottom:8px">${esc(g.nombre)} — ${(g.w*100)}%</div>
-      ${g.items.map((txt,ii)=>`<div class="crit">
-        <div style="font-size:12px;line-height:1.45;margin-bottom:5px">${esc(txt)}</div>
-        <div style="display:flex;gap:6px">${[0,1,2,3].map(v=>`<button class="chip scorebtn ${v===3?"on":""}" data-g="${gi}" data-i="${ii}" data-v="${v}" style="flex:1;text-align:center;padding:5px 4px;font-size:12px">${v}</button>`).join("")}</div>
-      </div>`).join("")}
-    </div>`).join("")}
-    <div class="scorebox"><div><div class="lab">Calificación final</div><div class="big" id="score" style="color:var(--navy)">—</div></div><div id="semwrap"></div></div>
-    <div id="conseq" style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:11px"></div>
-    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="gen">Registrar y exportar</button></div>`);
-  function tier(s){
-    if(s>=90)return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
-    if(s>=80)return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
-    if(s>=70)return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber)",elegible:true,cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, actualizar la calificación de inmediato."};
-    if(s>=60)return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"No se considerará en próximos procesos de contratación."};
-    return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
-  }
-  function calc(){
-    let total=0;
-    const aportes=GRUPOS.map((g,gi)=>{
-      const suma=vals[gi].reduce((a,b)=>a+b,0),max=g.items.length*3;
-      const aporte=suma/max*g.w*100;total+=aporte;
-      return {nombre:g.nombre,aporte};
-    });
-    total=Math.round(total*100)/100;
-    const t=tier(total);
-    $("#score",o).textContent=total.toFixed(2);
-    $("#semwrap",o).innerHTML=`<span class="semaforo" style="background:${t.bg};color:${t.fg}">${esc(t.sem)}</span>`;
-    $("#conseq",o).innerHTML=`<b>Consecuencia:</b> ${esc(t.cons)}${total<70?" · <b>No elegible</b> (mínimo aprobatorio: 70/100).":""}`;
-    o._score=total;o._t=t;o._aportes=aportes;
-  }
-  o.querySelectorAll(".scorebtn").forEach(b=>b.onclick=()=>{
-    const g=+b.dataset.g,i=+b.dataset.i;vals[g][i]=+b.dataset.v;
-    o.querySelectorAll(`.scorebtn[data-g="${g}"][data-i="${i}"]`).forEach(x=>x.classList.toggle("on",x===b));
-    calc();
-  });
-  calc();
-  $("#cancel",o).onclick=()=>closeModal(o);
-  $("#gen",o).onclick=()=>{
-    const O=ov(c);O.evaluado=true;O.score=o._score.toFixed(2);O.sem=o._t.sem;saveCLM();
-    const BOM="\uFEFF",ap=o._aportes;
-    const csv=BOM+[
-      ["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones"].join(";"),
-      [c.nro,c.proveedor||"",c.area||"",c.cat||"",c.ac||"",todayISO(),
-       ...ap.map(a=>String(a.aporte.toFixed(2)).replace(".",",")),
-       String(o._score.toFixed(2)).replace(".",","),o._t.sem,o._t.elegible?"Sí":"No",""].join(";")
-    ].join("\r\n");
-    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`Calificacion_${cleanNro(c.nro)}.csv`;a.click();URL.revokeObjectURL(a.href);
-    logAdd("⭐",`Proveedor calificado: ${o._score.toFixed(2)}/100 · ${o._t.sem}`,c.nro);
-    o.querySelector(".modal").innerHTML=`
-      <h2>✅ Calificación registrada</h2>
-      <p class="sub">${esc(c.proveedor||"—")} · ${o._score.toFixed(2)}/100 · ${esc(o._t.sem)}</p>
-      <div class="steps"><h3>Próximos pasos</h3><ol>
-        <li>Se descargó el <b>CSV</b> con la fila de calificación.</li>
-        <li>Pégala en <b>"Registro de Calificaciones"</b> (banco acumulativo) y en la <b>Base de proveedores FAP</b>.</li>
-        ${!o._t.elegible?"<li><b>Proveedor no elegible</b> — repórtalo también a la Unidad Operativa.</li>":""}
-      </ol></div>
-      <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
-    $("#okpasos",o).onclick=()=>{closeModal(o);render();};
-    toast(`Proveedor calificado · ${o._score.toFixed(2)}/100`);
-  };
-}
-
-/* --- Envío a la Unidad Operativa --- */
-function fileToB64(file){
-  return new Promise((res,rej)=>{
-    const fr=new FileReader();
-    fr.onload=()=>res(String(fr.result).split(",")[1]||"");
-    fr.onerror=()=>rej(fr.error||new Error("lectura"));
-    fr.readAsDataURL(file);
-  });
-}
-function modalEnvioUO(c,ctx){
-  ctx=ctx||{tipoEnvio:"Documentos del contrato",instrumento:""};
-  const o=openModal(`
-    <h2>Enviar a la Unidad Operativa</h2>
-    <p class="sub">${esc(c.nro)} · ${esc(ctx.tipoEnvio)} — los archivos suben al flujo de Power Automate y llegan a revisión legal.</p>
-    <div class="frow2"><div class="frow"><label>Área protegida</label><input id="uoArea" value="${esc(c.area||"")}"></div>
-    <div class="frow"><label>AC responsable</label><input id="uoAc" value="${esc(c.ac||SES.user)}"></div></div>
-    <div class="frow2"><div class="frow"><label>Correo de contacto</label><input id="uoCorreo" value="${esc(c.correo||"")}" placeholder="correo@fias.org.ec"></div>
-    <div class="frow"><label>Proveedor</label><input id="uoProveedor" value="${esc(c.proveedor||"")}"></div></div>
-    <div class="frow2"><div class="frow"><label>Monto</label><input id="uoMonto" value="${montoDe(c).toFixed(2)}"></div>
-    <div class="frow"><label>Instrumento</label><input value="${esc(ctx.instrumento||"—")}" disabled style="background:var(--bg)"></div></div>
-    <div class="frow"><label>Objeto</label><input id="uoObjeto" value="${esc(c.detalle||"")}"></div>
-    <div class="frow"><label>Observaciones para la Unidad Operativa</label><textarea id="uoObs" placeholder="Notas o contexto del envío…"></textarea></div>
-    <div class="frow"><label>Archivos (borrador + contrato firmado; máx. 10 · 100 MB c/u)</label>
-      <input id="uoFiles" type="file" multiple>
-      <div id="uoStatus" style="font-size:12.5px;font-weight:700;margin-top:8px;color:var(--muted)"></div></div>
-    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="send">Enviar a la Unidad Operativa</button></div>`);
-  $("#cancel",o).onclick=()=>closeModal(o);
-  $("#send",o).onclick=async()=>{
-    const status=$("#uoStatus",o);
-    const setS=(t,col)=>{status.textContent=t;status.style.color=col||"var(--green)";};
-    const files=$("#uoFiles",o).files;
-    if(!files||!files.length){setS("Adjunta al menos un archivo.","var(--red)");return;}
-    if(files.length>10){setS("El límite es de 10 archivos por envío.","var(--red)");return;}
-    for(let i=0;i<files.length;i++)if(files[i].size>100*1024*1024){setS(`«${files[i].name}» supera los 100 MB.`,"var(--red)");return;}
-    const val=id=>String($("#"+id,o).value).trim();
-    const meta={origen:"CLM",idEnvio:(c.nro||"")+"|"+new Date().toISOString(),codigoProceso:c.nro||"",
-      area:val("uoArea"),siglas:"",ac:val("uoAc"),acCorreo:val("uoCorreo"),
-      tipoProceso:ctx.tipoEnvio||"",nombreProceso:(c.nro||"")+" – "+(c.detalle||""),
-      tipoEnvio:ctx.tipoEnvio||"",instrumento:ctx.instrumento||"",
-      proveedor:val("uoProveedor"),monto:val("uoMonto"),objeto:val("uoObjeto"),observaciones:val("uoObs"),
-      nombreCarpeta:String((c.nro||"contrato")+"_"+(ctx.tipoEnvio||"envio")).replace(/[\\/:*?"<>|\s]+/g,"_"),
-      fecha:new Date().toISOString()};
-    setS(`Preparando ${files.length} archivo(s)…`,"var(--navy)");
-    try{
-      const archivos=await Promise.all([...files].map(fl=>fileToB64(fl).then(b=>({nombre:fl.name,tipo:fl.type||"application/octet-stream",tamanio:fl.size,contenido:b}))));
-      const payload=Object.assign({},meta,{archivos});
-      if(!FLOW_DOCS_URL){setS("Envío preparado. Falta configurar la URL del flujo.","var(--amber)");return;}
-      setS("Enviando a la Unidad Operativa…","var(--navy)");
-      const r=await fetch(FLOW_DOCS_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      if(!r.ok)throw new Error("HTTP "+r.status);
-      ov(c).pendienteEnvio=null;saveCLM();
-      logAdd("📤",`Enviado a la Unidad Operativa: ${ctx.tipoEnvio} (${archivos.length} archivo/s)`,c.nro);
-      setS(`✓ Enviado. Se subieron ${archivos.length} archivo(s).`);
-      toast("Enviado a la Unidad Operativa.");
-      setTimeout(()=>{closeModal(o);render();},900);
-    }catch(e){setS("No se pudo enviar ("+((e&&e.message)||"error")+"). Revisa la conexión.","var(--red)");}
-  };
-}
-
-/* ================= VISTA: SOLICITUDES (intake precontractual) ================= */
-function estadoSolLabel(e){return {borrador:"Borrador",magica:"En La Mágica",uo:"En la Unidad Operativa",listo:"Formalizado"}[e]||e;}
-function viaSolicitud(s){ /* regla de La Mágica: garantías o plazo > 30 días → contrato */
-  return (s.garantias||Number(s.plazo)>30)?"contrato":"orden";
-}
-function vSolicitudes(){
-  const sols=mySolicitudes();
-  const grupos=[["borrador","Borradores","var(--muted2)"],["magica","En La Mágica","var(--navy)"],["uo","En la Unidad Operativa","var(--violet)"],["listo","Formalizados",'var(--green)']];
-  $("#view").innerHTML=`<div class="up">
-    <div class="toolbar">
-      <div style="flex:1"><p class="psub" style="margin:0">La fase de <b>intake</b> del CLM: registra la necesidad, la regla oficial decide la vía (orden de compra/servicio u obligación de contrato) y desde aquí saltas a <b>La Mágica</b> para generar los documentos del proceso.</p></div>
-      <button class="btn" id="nueva">+ Nueva solicitud</button>
-    </div>
-    ${sols.length?grupos.map(([k,label,col])=>{
-      const items=sols.filter(s=>s.estado===k);
-      if(!items.length)return "";
-      return `<div class="panel" style="margin-bottom:13px">
-        <p class="ptitle"><span style="color:${col}">●</span> ${label} <span style="color:var(--muted);font-weight:600">· ${items.length}</span></p>
-        ${items.map(s=>`<div class="alert-row" style="margin-bottom:8px">
-          <div class="aic" style="background:${s.via==="contrato"?"#EFE6FA":"var(--tint)"}">${s.via==="contrato"?"📑":"🧾"}</div>
-          <div style="min-width:0;flex:1"><div class="at">${esc(s.objeto)}</div>
-            <div class="ad">${esc(s.area)} · ${esc(s.tipoBS==="bien"?"Bien":"Servicio")} · ${money0(s.monto)} · plazo ${esc(s.plazo)}d ${s.garantias?"· con garantías":""} — vía <b>${s.via==="contrato"?"CONTRATO (Unidad Operativa)":"orden de compra/servicio"}</b></div></div>
-          <div style="display:flex;gap:7px;flex:0 0 auto">
-            ${k==="borrador"?`<button class="btn sm" data-mv="magica" data-id="${s.id}">Iniciar en La Mágica</button>`:""}
-            ${k==="magica"&&s.via==="contrato"?`<button class="btn sm" data-mv="uo" data-id="${s.id}">Marcar enviado a UO</button>`:""}
-            ${(k==="magica"&&s.via!=="contrato")||k==="uo"?`<button class="btn sm" data-mv="listo" data-id="${s.id}">Marcar formalizado</button>`:""}
-            <button class="btn sm line" data-del="${s.id}" title="Eliminar">✕</button>
-          </div>
-        </div>`).join("")}
-      </div>`;
-    }).join(""):`<div class="empty"><div style="font-weight:700;color:var(--ink);font-size:15px">Sin solicitudes todavía</div><div style="font-size:13px;margin-top:4px">Registra la primera necesidad de contratación del área.</div></div>`}
-  </div>`;
-  $("#nueva").onclick=modalNuevaSolicitud;
-  $("#view").querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{
-    const s=CLM.solicitudes.find(x=>x.id===b.dataset.id);if(!s)return;
-    s.estado=b.dataset.mv;saveCLM();
-    logAdd(s.estado==="listo"?"✅":"➡️",`Solicitud «${s.objeto.slice(0,40)}» → ${estadoSolLabel(s.estado)}`);
-    if(b.dataset.mv==="magica")go("magica");else vSolicitudes();
-    toast("Solicitud actualizada");
-  });
-  $("#view").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
-    if(!confirm("¿Eliminar esta solicitud?"))return;
-    CLM.solicitudes=CLM.solicitudes.filter(x=>x.id!==b.dataset.del);saveCLM();vSolicitudes();
-  });
-}
-function modalNuevaSolicitud(){
-  const areas=[...new Set(CONTRACTS.map(c=>c.area).filter(Boolean))].sort();
-  const o=openModal(`
-    <h2>Nueva solicitud de contratación</h2>
-    <p class="sub">Fase de intake. Con plazo y garantías, la regla oficial decide la vía del proceso.</p>
-    <div class="frow"><label>Área protegida</label><select id="sArea">${areas.map(a=>`<option ${SES.rol==="area"&&SES.user===a?"selected":""}>${esc(a)}</option>`).join("")}</select></div>
-    <div class="frow"><label>Objeto de la contratación</label><input id="sObj" placeholder="Ej.: Servicio de mantenimiento de senderos 2026"></div>
-    <div class="frow2">
-      <div class="frow"><label>Tipo</label><select id="sTipo"><option value="servicio">Servicio</option><option value="bien">Bien</option></select></div>
-      <div class="frow"><label>Presupuesto referencial (USD)</label><input id="sMonto" type="number" min="0" step="0.01" placeholder="0.00"></div>
-    </div>
-    <div class="frow2">
-      <div class="frow"><label>Plazo estimado (días)</label><input id="sPlazo" type="number" min="1" value="30"></div>
-      <div class="frow"><label>Garantías</label><select id="sGar"><option value="no">No requiere</option><option value="si">Anticipo / fiel cumplimiento</option></select></div>
-    </div>
-    <div id="sRoute"></div>
-    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="okS">Registrar solicitud</button></div>`);
-  function route(){
-    const plazo=Number($("#sPlazo",o).value)||0,gar=$("#sGar",o).value==="si";
-    const contrato=gar||plazo>30;
-    $("#sRoute",o).innerHTML=`<div class="routebox ${contrato?"route-adenda":"route-acta"}">
-      ${contrato?`<b>Vía: CONTRATO.</b> ${gar?"Requiere garantías":"El plazo supera los 30 días"} → el proceso no se resuelve con orden de compra/servicio. Se prepara el expediente en La Mágica y se envía a la <b>Unidad Operativa</b> para elaboración legal.`:
-      `<b>Vía: orden de compra / orden de servicio.</b> Sin garantías y plazo ≤ 30 días → se resuelve directamente en <b>La Mágica</b> (momentos 1–4).`}</div>`;
-  }
-  $("#sPlazo",o).oninput=route;$("#sGar",o).onchange=route;route();
-  $("#cancel",o).onclick=()=>closeModal(o);
-  $("#okS",o).onclick=()=>{
-    const s={id:"s"+Date.now(),fecha:todayISO(),area:$("#sArea",o).value,objeto:$("#sObj",o).value.trim(),
-      tipoBS:$("#sTipo",o).value,monto:parseFloat($("#sMonto",o).value)||0,
-      plazo:Number($("#sPlazo",o).value)||0,garantias:$("#sGar",o).value==="si",
-      estado:"borrador",owner:SES.user,ac:SES.rol==="ac"?SES.user:""};
-    if(!s.objeto){alert("Describe el objeto de la contratación.");return;}
-    s.via=viaSolicitud(s);
-    CLM.solicitudes.unshift(s);saveCLM();
-    logAdd("🆕",`Solicitud registrada: «${s.objeto.slice(0,50)}» (vía ${s.via==="contrato"?"contrato":"orden"})`);
-    closeModal(o);vSolicitudes();toast("Solicitud registrada");
-  };
-}
-
-/* ================= VISTA: ALERTAS ================= */
-function vAlertas(){
-  const list=alertList();
-  $("#view").innerHTML=`<div class="up">
-    <p class="psub" style="margin-bottom:14px">El motor de reglas revisa el portafolio en cada visita: vencimientos, ventanas de renovación (≤90 días), envíos pendientes a la Unidad Operativa, proveedores sin calificar y solicitudes sin iniciar.</p>
-    ${list.length?list.map(a=>alertRowHTML(a)).join(""):`<div class="empty"><div style="font-size:34px;margin-bottom:8px">✅</div><div style="font-weight:700;color:var(--ink)">Nada pendiente</div><div style="font-size:13px">Todo el portafolio está bajo control.</div></div>`}
-  </div>`;
-  bindAlertRows();
-}
-
-/* ================= VISTA: REPORTES ================= */
-function vReportes(){
-  const mine=myContracts();
-  function agg(keyFn){
-    const m={};
-    mine.forEach(c=>{const k=keyFn(c)||"—";
-      if(!m[k])m[k]={n:0,monto:0,ven:0};
-      m[k].n++;m[k].monto+=montoDe(c);
-      if(statusLive(c).key==="vencido")m[k].ven++;});
-    return Object.entries(m).sort((a,b)=>b[1].monto-a[1].monto);
-  }
-  const total=mine.reduce((a,c)=>a+montoDe(c),0);
-  const porCat=agg(c=>c.cat),porArea=agg(c=>c.area),porAC=agg(c=>c.ac);
-  const tbl=(rows,label)=>`<div class="tablewrap"><table class="list" style="min-width:0">
-    <thead><tr><th>${label}</th><th style="text-align:right">Contratos</th><th style="text-align:right">Monto</th><th style="text-align:right">% del total</th></tr></thead>
-    <tbody>${rows.map(([k,v])=>`<tr style="cursor:default"><td style="font-weight:600">${esc(k)}</td><td style="text-align:right">${v.n}</td><td style="text-align:right;white-space:nowrap">${money(v.monto)}</td><td style="text-align:right">${total?(v.monto/total*100).toFixed(1):0}%</td></tr>`).join("")}</tbody></table></div>`;
-  $("#view").innerHTML=`<div class="up">
-    <div class="toolbar">
-      <div style="flex:1"><p class="psub" style="margin:0">Analítica del portafolio ${SES.rol==="uo"?"completo":"asignado"} · ${mine.length} contratos · ${money(total)} en total.</p></div>
-      <button class="btn line sm" id="expCsv">⬇ Exportar CSV del portafolio</button>
-    </div>
-    <div class="charts">
-      <div class="panel"><p class="ptitle">Monto por categoría</p><p class="psub">valor total vigente por tipo de gasto</p>
-        ${barChartH(porCat.slice(0,10).map(([label,v])=>({label,value:v.monto,tip:`<b>${esc(label)}</b><br>${v.n} contrato(s) · ${money(v.monto)}`})),v=>moneyShort(v))}</div>
-      <div class="panel"><p class="ptitle">Monto por área protegida</p><p class="psub">top 10 de ${porArea.length} áreas</p>
-        ${barChartH(porArea.slice(0,10).map(([label,v])=>({label,value:v.monto,tip:`<b>${esc(label)}</b><br>${v.n} contrato(s) · ${money(v.monto)}`})),v=>moneyShort(v))}</div>
-    </div>
-    <div class="charts" style="grid-template-columns:1fr 1fr">
-      <div><p class="ptitle" style="margin:6px 0 8px">Resumen por categoría</p>${tbl(porCat,"Categoría")}</div>
-      <div><p class="ptitle" style="margin:6px 0 8px">Resumen por AC</p>${tbl(porAC.slice(0,15),"Administradora")}</div>
-    </div>
-  </div>`;
-  $("#expCsv").onclick=()=>{
-    const BOM="\uFEFF";
-    const head=["Nro","Objeto","Area","Categoria","Proveedor","AC","Monto original","Monto vigente","Inicio","Firma","Fin","Estado","Adenda","Calificacion"];
-    const rows=mine.map(c=>{const o=ov(c);return [c.nro,c.detalle,c.area,c.cat,c.proveedor,c.ac,c.monto,montoDe(c),c.inicio,c.firma,c.fin,statusLive(c).label,tieneAdenda(c)?(c.tipoAdenda||"Sí"):"No",o.evaluado?o.score:""].map(v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`).join(";");});
-    const blob=new Blob([BOM+[head.join(";")].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Portafolio_CLM_FAP_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
-    logAdd("⬇️","Exportación CSV del portafolio");
-    toast("CSV del portafolio exportado");
-  };
-}
-
-/* ================= VISTA: BITÁCORA ================= */
-function vActividad(){
-  $("#view").innerHTML=`<div class="up">
-    <div class="toolbar">
-      <div style="flex:1"><p class="psub" style="margin:0">Registro de auditoría del CLM: cada acción del equipo (documentos, terminaciones, calificaciones, envíos y notas) queda con autor y fecha. Se guarda en este navegador.</p></div>
-      ${CLM.log.length?`<button class="btn line sm" id="expLog">⬇ Exportar bitácora</button>`:""}
-    </div>
-    <div class="panel">
-      ${CLM.log.length?`<ul class="tl">${CLM.log.map(l=>`<li><div class="t">${esc(l.icon)} ${esc(l.txt)}${l.ref?` — <a href="#" data-ref="${esc(l.ref)}">${esc(l.ref)}</a>`:""}</div><div class="s">${esc(l.user)} · ${new Date(l.ts).toLocaleString("es-EC")}</div></li>`).join("")}</ul>`
-      :`<div class="empty">Aún no hay actividad registrada.</div>`}
-    </div>
-  </div>`;
-  $("#view").querySelectorAll("[data-ref]").forEach(a=>a.onclick=e=>{
-    e.preventDefault();
-    const i=CONTRACTS.findIndex(c=>c.nro===a.dataset.ref);
-    if(i>=0)go("detalle",i);
-  });
-  const ex=$("#expLog");
-  if(ex)ex.onclick=()=>{
-    const BOM="\uFEFF";
-    const rows=CLM.log.map(l=>[l.ts,l.user,l.txt,l.ref||""].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";"));
-    const blob=new Blob([BOM+["Fecha;Usuario;Accion;Contrato"].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Bitacora_CLM_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
-  };
-}
-
-/* ================= VISTA: HERRAMIENTAS EMBEBIDAS ================= */
-function vFrame(src,notice){
-  $("#view").innerHTML=`
-    <div class="framebar"><span>🧩</span><span style="flex:1">${esc(notice)}</span><a class="btn sm line" href="${esc(src)}" target="_blank" rel="noopener">Abrir en pestaña propia ↗</a></div>
-    <iframe class="toolframe" id="toolframe" src="${esc(src)}" title="Herramienta integrada"></iframe>`;
-  /* Si la herramienta no carga (p. ej. el archivo del CLM se abrió suelto,
-     fuera del sitio publicado), mostrar una explicación en vez de un recuadro roto.
-     La Mágica pesa ~2 MB: mientras readyState sea "loading" hay que esperar, no juzgar. */
-  let intentos=0;
-  (function vigilarFrame(){
-    const f=document.getElementById("toolframe");
-    if(!f)return;
-    let st=null,fallo=false;
-    try{
-      st=f.contentDocument?{rs:f.contentDocument.readyState,kids:f.contentDocument.body?f.contentDocument.body.children.length:0}:null;
-    }catch(e){fallo=true;/* las herramientas son del mismo sitio: documento inaccesible = página de error del navegador */}
-    if(st&&st.kids>0)return;                                   // cargó bien
-    intentos++;
-    /* documento nulo o inaccesible = página de error del navegador (las herramientas son del mismo sitio) */
-    if(intentos>=4&&(fallo||!st||(st.rs!=="loading"&&st.kids===0))){
-      f.outerHTML=`<div class="content"><div class="panel up" style="max-width:640px;margin:30px auto;text-align:center">
-        <div style="font-size:38px;margin-bottom:10px">🔌</div>
-        <p class="ptitle" style="font-size:16px">La herramienta no está disponible desde aquí</p>
-        <p class="psub" style="max-width:460px;margin:0 auto 16px">Este archivo del CLM se abrió <b>fuera del sitio publicado</b>, y las herramientas integradas viven en carpetas vecinas del repositorio. En el sitio publicado en GitHub Pages este módulo carga completo, aquí mismo.</p>
-        <a class="btn" href="${esc(src)}" target="_blank" rel="noopener">Intentar abrir en pestaña propia ↗</a>
-      </div></div>`;
-      return;
-    }
-    if(intentos<40)setTimeout(vigilarFrame,800);               // sigue cargando: paciencia
-  })();
-}
-
-/* ================= ARRANQUE ================= */
 loadCLM();
-async function boot(){
-  try{
-    const r=await fetch(DATA_URL,{cache:"no-store"});
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    const data=await r.json();
-    if(Array.isArray(data)&&data.length){
-      CONTRACTS=data;
-      dataSource={label:`Base viva · ${data.length} contratos`,live:true};
-    }
-  }catch(e){}
-  if(!CONTRACTS.length){
-    try{
-      const seed=JSON.parse(document.getElementById("seed-data").textContent);
-      if(Array.isArray(seed)&&seed.length){
-        CONTRACTS=seed;
-        dataSource={label:`Copia embebida · ${seed.length} contratos`,live:false};
-      }
-    }catch(e2){}
-  }
-  if(!CONTRACTS.length)dataSource={label:"Sin datos disponibles",live:false};
-  const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
-  if(m&&VIEWS[m[1]]){ST.view=m[1];if(m[2]!=null)ST.cur=+m[2];}
-  render();
-}
-boot();
+fetch(DATA_URL).then(r=>r.json()).then(d=>{CONTRACTS=d;dataSource={label:"Base viva · "+d.length+" contratos",live:true};render();}).catch(e=>{console.warn("No se cargó la base de contratos",e);render();});
+render();
 </script>
 </body>
 </html>
