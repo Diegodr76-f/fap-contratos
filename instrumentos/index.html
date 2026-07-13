@@ -13328,12 +13328,13 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .campo input[readonly]{background:var(--azul-claro);color:var(--azul);font-weight:600}
 .campo .nota{font-size:11px;color:var(--gris);margin-top:2px}
 .campo .warn-txt{font-size:11px;color:var(--warn);font-weight:600;margin-top:2px}
-/* El documento en pantalla replica el formato institucional del Word final:
-   Arial 11pt negro, justificado, cláusulas en negrita negra. */
-#preview{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:34px 40px;min-height:420px;font-family:Arial,Calibri,sans-serif;font-size:14.7px;color:#000;line-height:1.45;box-shadow:0 1px 4px rgba(16,26,61,.06)}
+/* El documento en pantalla replica el formato institucional del Word final
+   (el mismo de las plantillas de La Mágica): Titillium Web 10pt negro,
+   justificado, cláusulas en negrita negra. */
+#preview{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:34px 40px;min-height:420px;font-family:'Titillium Web',Calibri,sans-serif;font-size:13.5px;color:#000;line-height:1.45;box-shadow:0 1px 4px rgba(16,26,61,.06)}
 #preview h1,#preview h2,#preview h3{color:#000}
-#preview h1{font-size:14.7px;font-weight:700;text-align:center;margin-bottom:14px}
-#preview h2{font-size:14.7px;font-weight:700;margin:14px 0 6px}
+#preview h1{font-size:13.5px;font-weight:700;text-align:center;margin-bottom:14px}
+#preview h2{font-size:13.5px;font-weight:700;margin:14px 0 6px}
 #preview p{margin-bottom:8px;text-align:justify}
 #preview li{text-align:justify}
 #preview ul,#preview ol{margin:0 0 8px 22px}
@@ -13378,9 +13379,9 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .toolbar button:hover{background:var(--azul-claro)}
 .toolbar .sep{width:1px;background:var(--borde);margin:0 4px}
 .toolbar select{font-family:inherit;font-size:12px;border:1px solid var(--borde);border-radius:5px;padding:4px;background:#fff;cursor:pointer}
-#editor,#rep-editor{background:#fff;border:1px solid var(--borde);border-radius:0 0 8px 8px;min-height:400px;padding:26px 32px;font-family:Arial,Calibri,sans-serif;font-size:14.7px;color:#000;line-height:1.45;outline:none}
-#editor h1,#rep-editor h1{color:#000;font-size:14.7px;font-weight:700;text-align:center;margin-bottom:14px}
-#editor h2,#rep-editor h2{color:#000;font-size:14.7px;font-weight:700;margin:14px 0 6px}
+#editor,#rep-editor{background:#fff;border:1px solid var(--borde);border-radius:0 0 8px 8px;min-height:400px;padding:26px 32px;font-family:'Titillium Web',Calibri,sans-serif;font-size:13.5px;color:#000;line-height:1.45;outline:none}
+#editor h1,#rep-editor h1{color:#000;font-size:13.5px;font-weight:700;text-align:center;margin-bottom:14px}
+#editor h2,#rep-editor h2{color:#000;font-size:13.5px;font-weight:700;margin:14px 0 6px}
 #editor p,#rep-editor p{margin-bottom:8px;text-align:justify}
 #editor li,#rep-editor li{text-align:justify}
 #editor ul,#editor ol,#rep-editor ul,#rep-editor ol{margin:0 0 8px 22px}
@@ -14914,17 +14915,18 @@ async function construirDocx(p, datos, cuerpoOverride){
   // cuerpoOverride: HTML ya editado a mano; igual se pasa por rellenarDatos para
   // completar variables sueltas (p. ej. de una cláusula recién insertada).
   const cuerpo = limpiarHtmlDoc(rellenarDatos(cuerpoOverride !== undefined ? cuerpoOverride : p.cuerpo, datos, false));
-  // Estilo institucional FIAS/FAP (igual al contrato de referencia): Arial 11pt
-  // negro, todo justificado, cláusulas en negrita negra, tablas con borde negro.
+  // Estilo institucional FIAS/FAP, calcado de las plantillas Word de La Mágica:
+  // Titillium Web 10pt negro, todo justificado, cláusulas en negrita negra,
+  // interlineado sencillo y un espacio uniforme entre párrafos.
   const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-    body{font-family:Arial,Calibri,sans-serif;font-size:11pt;color:#000;line-height:1.15}
-    h1{font-size:11pt;font-weight:bold;text-align:center;margin:0 0 10pt}
-    h2{font-size:11pt;font-weight:bold;margin:12pt 0 6pt;text-align:justify}
+    body{font-family:'Titillium Web',Calibri,sans-serif;font-size:10pt;color:#000;line-height:1.15}
+    h1{font-size:10pt;font-weight:bold;text-align:center;margin:0 0 10pt}
+    h2{font-size:10pt;font-weight:bold;margin:10pt 0 6pt;text-align:justify}
     p{text-align:justify;margin:0 0 8pt}
     li{text-align:justify;margin-bottom:4pt}
     ul,ol{margin:0 0 8pt 24pt}
     table{border-collapse:collapse;width:100%;margin:6pt 0}
-    td,th{border:1pt solid #000;padding:3pt 6pt;font-size:11pt;text-align:left}
+    td,th{border:1pt solid #000;padding:3pt 6pt;font-size:10pt;text-align:left}
     th{font-weight:bold;text-align:center}
   </style></head><body>${cuerpo}</body></html>`;
   const blob = htmlDocx.asBlob(docHtml, { orientation:'portrait', margins:{ top:1134, right:1134, bottom:1134, left:1134 } });
