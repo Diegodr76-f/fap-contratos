@@ -59,6 +59,11 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
     con 📋 en la plantilla o en el documento final (donde sus variables se llenan solas con
     los datos del formulario); 📌 guarda el texto seleccionado de cualquier documento como
     variante nueva, y 🔢 renumera las cláusulas (PRIMERA, SEGUNDA…) tras insertar o quitar.
+    Las cláusulas insertadas con 📋 en una plantilla quedan **vinculadas**: si la cláusula
+    se corrige en el repositorio, la herramienta ofrece actualizarla en todas las plantillas
+    que la usan (y si en alguna fue editada a mano, pregunta si reemplazar o conservar esa
+    versión). Los valores rellenados heredan el formato de la plantilla (negrita solo si la
+    variable estaba en negrita) y los montos salen con formato de miles (USD 1.000,00).
   - **Editar documento final**: tras llenar el formulario se puede retocar a mano el texto
     exacto que se descargará, con barra completa de formato (tablas, sangrías, mayúsculas).
   - **Papel membretado oficial (🖼)**: los instrumentos redactados con plantillas HTML

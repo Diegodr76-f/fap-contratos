@@ -13350,7 +13350,12 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .cc-tag-fila{border:1px solid var(--borde);border-radius:8px;padding:8px;margin-bottom:6px;background:#fff}
 .cc-tag-fila code{background:var(--azul-claro);padding:1px 5px;border-radius:4px}
 .cc-val{font-family:inherit;font-size:12.5px;border:1px solid var(--borde);border-radius:5px;padding:5px}
-.ph-ok{color:var(--texto);font-weight:700}
+/* Valor lleno en la vista previa: hereda color y negrita del texto que lo rodea
+   (la vista debe ser casi final); solo un tinte suave indica que se llenó solo. */
+.ph-ok{color:inherit;font-weight:inherit;background:rgba(155,197,61,.13);border-radius:3px}
+/* Cláusula vinculada al repositorio (solo se distingue dentro del editor) */
+#editor .cl-vinc{border-left:3px solid #C9D6F2;padding-left:10px}
+#editor .cl-vinc:hover{border-left-color:var(--azul)}
 .acciones-gen{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 
 /* Barra de acciones rápidas + progreso */
@@ -14330,9 +14335,18 @@ function aplicarNumeroSugerido(){
   varsDe(p).forEach(v => { if(/numero|nro$/i.test(v)) datosForm[v] = num; });
   renderContenido();
 }
+/* Variables de dinero (por nombre): se imprimen con miles y dos decimales. */
+const esDinero = v => !esLetras(v) && /(^|_)(monto|precio|valor|subtotal|iva|total|presupuesto|punit|ptotal)/i.test(v);
+function fmtMonto(x){
+  const n = aNumero(x);
+  if(isNaN(n)) return String(x);
+  const [e, d] = n.toFixed(2).split('.');
+  return e.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + d;
+}
 function valorDe(datos, v){
   let val = datos[v] || '';
   if(esFecha(v) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
+  if(val && esDinero(v)) val = fmtMonto(val);
   return val;
 }
 function rellenarDatos(html, datos, preview){
@@ -14341,7 +14355,9 @@ function rellenarDatos(html, datos, preview){
     if(preview){
       return val ? `<span class="ph-ok">${esc(val)}</span>` : `<span class="ph-pend">{{${esc(v)}}}</span>`;
     }
-    return val ? `<strong>${esc(val)}</strong>` : `<strong>__________</strong>`;
+    // Sin <strong>: el valor hereda el formato que la variable tenga en la
+    // plantilla (si {{proveedor}} está en negrita, sale en negrita; si no, no).
+    return val ? esc(val) : '__________';
   });
 }
 
@@ -14718,6 +14734,7 @@ function datosDocx(p, base, enLote){
     let val = base[t] !== undefined && base[t] !== null ? String(base[t]) : '';
     if(!val && esLetras(t) && base[baseLetras(t)]) val = numeroALetras(base[baseLetras(t)]);
     if(esFecha(t) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
+    if(val && esDinero(t)) val = fmtMonto(val);
     datos[t] = val;
   });
   est.condiciones.forEach(cn => { datos[cn.nombre] = enLote ? true : condForm[cn.nombre] !== false; });
@@ -14732,11 +14749,13 @@ function datosDocx(p, base, enLote){
     // Totales automáticos de la tabla de ítems (docs 7-10 y 12 del catálogo)
     if(l.nombre === 'items' && est.escalares.includes('subtotal') && !datos.subtotal){
       const st = filas.reduce((s, f) => s + (aNumero(f.ptotal) || 0), 0);
-      datos.subtotal = st.toFixed(2);
+      datos.subtotal = fmtMonto(st);
       const pct = parseFloat(datos.ivaPct || base.ivaPct || 15);
-      if(est.escalares.includes('iva') && !datos.iva) datos.iva = (st * pct / 100).toFixed(2);
-      if(est.escalares.includes('total') && !datos.total) datos.total = (st * (1 + pct / 100)).toFixed(2);
+      if(est.escalares.includes('iva') && !datos.iva) datos.iva = fmtMonto(st * pct / 100);
+      if(est.escalares.includes('total') && !datos.total) datos.total = fmtMonto(st * (1 + pct / 100));
     }
+    // Los precios de las filas salen con formato de miles/decimales
+    filas.forEach(f => ['punit','ptotal'].forEach(cmp => { if(l.campos.includes(cmp) && f[cmp]) f[cmp] = fmtMonto(f[cmp]); }));
   });
   return datos;
 }
@@ -15608,12 +15627,72 @@ function insertarClausulaEnDoc(clId, varId){
       let val = datos[x] || '';
       if(esFecha(x) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
       if(!val && esLetras(x) && datos[baseLetras(x)]) val = numeroALetras(datos[baseLetras(x)]);
-      return val ? `<strong>${esc(val)}</strong>` : m;
+      if(val && esDinero(x)) val = fmtMonto(val);
+      return val ? esc(val) : m;
     });
   }
   const el = restaurarCaret(insertTarget);
-  if(el) document.execCommand('insertHTML', false, cuerpo + '<p><br></p>');
+  if(el){
+    if(insertTarget === 'editor'){
+      // En el editor de plantillas la cláusula queda VINCULADA al repositorio:
+      // una marca invisible permite actualizarla cuando la cláusula cambie allá.
+      const tmp = 'clv' + Date.now().toString(36);
+      document.execCommand('insertHTML', false,
+        `<div class="cl-vinc" id="${tmp}" data-cl="${clId}" data-var="${varId}" title="Cláusula vinculada al repositorio: si allá cambia, aquí se te ofrece actualizarla">${cuerpo}</div><p><br></p>`);
+      const bloque = document.getElementById(tmp);
+      if(bloque){ bloque.removeAttribute('id'); bloque.setAttribute('data-h', hashHTML(bloque.innerHTML)); }
+    } else {
+      document.execCommand('insertHTML', false, cuerpo + '<p><br></p>');
+    }
+  }
   cerrarModal();
+}
+/* ============ Cláusulas vinculadas (repositorio → plantillas) ============ */
+function htmlCanon(html){
+  const d = document.createElement('div'); d.innerHTML = html || '';
+  return d.innerHTML.replace(/\s+/g,' ').trim();
+}
+function hashHTML(html){
+  const s = htmlCanon(html);
+  let h = 5381;
+  for(let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+/* Al guardar una variante en el repositorio, busca las plantillas HTML que la
+   tienen vinculada y ofrece actualizarlas. Si en una plantilla el bloque fue
+   editado a mano, pregunta: reemplazar o conservar (y desvincular). */
+function sincronizarClausulaEnPlantillas(cl, v){
+  const hRepo = hashHTML(v.cuerpo);
+  const objetivo = plantillas.filter(p => p.tipo !== 'docx' && p.cuerpo &&
+    p.cuerpo.includes(`data-cl="${cl.id}"`) && p.cuerpo.includes(`data-var="${v.id}"`));
+  if(!objetivo.length) return;
+  // ¿Algún bloque quedó desactualizado respecto al repositorio?
+  const desactualizadas = objetivo.filter(p => {
+    const d = document.createElement('div'); d.innerHTML = p.cuerpo;
+    return Array.from(d.querySelectorAll(`[data-cl="${cl.id}"][data-var="${v.id}"]`))
+      .some(b => b.getAttribute('data-h') !== hRepo);
+  });
+  if(!desactualizadas.length) return;
+  if(!confirm(`Esta cláusula está vinculada en ${desactualizadas.length} plantilla(s):\n\n• ${desactualizadas.map(p=>p.nombre).join('\n• ')}\n\n¿Actualizarla también ahí?`)) return;
+  let actualizadas = 0, desvinculadas = 0;
+  desactualizadas.forEach(p => {
+    const d = document.createElement('div'); d.innerHTML = p.cuerpo;
+    let cambio = false;
+    d.querySelectorAll(`[data-cl="${cl.id}"][data-var="${v.id}"]`).forEach(b => {
+      if(b.getAttribute('data-h') === hRepo) return;              // ya está al día
+      const intacto = hashHTML(b.innerHTML) === b.getAttribute('data-h');
+      if(intacto || confirm(`En «${p.nombre}» esta cláusula fue editada a mano después de insertarla.\n\nAceptar: reemplazarla por la versión nueva del repositorio.\nCancelar: conservar la versión editada (queda desvinculada y no se vuelve a preguntar).`)){
+        b.innerHTML = v.cuerpo; b.setAttribute('data-h', hRepo); actualizadas++;
+      } else {
+        b.removeAttribute('data-cl'); b.removeAttribute('data-var'); b.removeAttribute('data-h');
+        b.removeAttribute('title'); b.classList.remove('cl-vinc'); desvinculadas++;
+      }
+      cambio = true;
+    });
+    if(cambio){ p.cuerpo = d.innerHTML; p.actualizado = hoy(); }
+  });
+  guardar(); renderLista();
+  alert(`Cláusula actualizada en ${actualizadas} lugar(es).${desvinculadas ? ` ${desvinculadas} se conservaron con su versión editada (desvinculadas).` : ''}`);
 }
 function guardarSeleccionComoClausula(target){
   const cont = document.getElementById(target);
@@ -15752,6 +15831,7 @@ function guardarVariante(){
   document.getElementById('lista-clausulas').innerHTML = listaClausulasHtml();
   const e = document.getElementById('rep-estado');
   if(e){ e.textContent = '✓ Guardado'; setTimeout(() => { if(e) e.textContent = ''; }, 2500); }
+  sincronizarClausulaEnPlantillas(act.cl, act.v);
 }
 function duplicarVariante(){
   const act = varianteActual(); if(!act) return;
