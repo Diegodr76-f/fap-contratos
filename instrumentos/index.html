@@ -13391,6 +13391,15 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .eb .toolbar{margin-top:9px}
 .eb #editor{min-height:180px;border-radius:0 0 8px 8px}
 .ic[disabled]{opacity:.35;cursor:default}
+.eb.vinc{border-left:3px solid var(--azul)}
+.eb.pers{border-left:3px solid var(--warn)}
+.eb-origen{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:7px;padding-left:34px}
+.eb-src{font-size:10.5px;font-weight:700;border-radius:6px;padding:3px 8px;display:inline-flex;gap:4px;align-items:center}
+.eb-src.repo{background:var(--azul-claro);color:var(--azul)}
+.eb-src.pers{background:#FDF0D2;color:var(--warn)}
+.eb-var{font-family:inherit;font-size:11.5px;border:1px solid var(--borde);border-radius:6px;padding:3px 6px;background:#fff;color:var(--texto)}
+.eb-avlink{margin:8px 0 0;padding:7px 10px;font-size:11.5px;color:var(--warn);background:#FDF0D2;border-radius:7px}
+.eb-tit[readonly]{background:#F5F7FB;color:var(--gris);cursor:default}
 
 /* ---------- Editor ---------- */
 .ed-meta{display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px;margin-bottom:12px}
@@ -13994,6 +14003,7 @@ let busqCp = '';       // buscador de la pestaña Contrapartes
 let varSelId = null;
 let varInsertTarget = null;
 let bloqueEditando = null;       // id del bloque de la plantilla abierto en el editor (Fase 1)
+let modoClausula = null;         // cómo actúa el modal de cláusulas: insertar / bloqueNuevo / bloqueVincular
 let ultimoRangeEditable = null;  // última posición del cursor dentro de un editor (para insertar ahí)
 let ultimoEditableId = null;
 let seleccion = null;
@@ -15538,11 +15548,45 @@ function asegurarBloques(p){
   if(!Array.isArray(p.bloques) || !p.bloques.length) p.bloques = migrarABloques(p);
   return p.bloques;
 }
+/* ---- Fase 2 · bloques vinculados al repositorio de cláusulas ---- */
+function buscarVariante(clId, varId){
+  const cl = clausulas.find(c => c.id === clId); if(!cl) return null;
+  const v = cl.variantes.find(x => x.id === varId) || cl.variantes[0];
+  return v ? { cl, v } : null;
+}
+/* Un bloque vinculado y NO personalizado refleja siempre el texto vivo de su
+   variante del repositorio: aquí se refresca su cuerpo/título antes de ensamblar
+   o mostrar. Si la variante ya no existe, el bloque se desvincula y conserva su
+   último texto (no se pierde nada). */
+function refrescarBloquesVinculados(p){
+  (p.bloques||[]).forEach(b => {
+    if(!b.refCl || b.personalizado) return;
+    const r = buscarVariante(b.refCl, b.refVar);
+    if(r){ b.refVar = r.v.id; b.titulo = r.cl.nombre; b.cuerpo = r.v.cuerpo; b.refHash = hashHTML(r.v.cuerpo); }
+    else { b.refCl = null; b.refVar = null; }
+  });
+}
+/* Propaga una variante recién guardada: refresca el cuerpo almacenado de todas
+   las plantillas que la usan por referencia. Devuelve conteos para el aviso. */
+function propagarClausulaABloques(cl){
+  let alDia = 0, person = 0; const nombres = [];
+  plantillas.forEach(p => {
+    if(p.tipo === 'docx' || !Array.isArray(p.bloques)) return;
+    const usa = p.bloques.some(b => b.refCl === cl.id);
+    if(!usa) return;
+    nombres.push(p.nombre);
+    p.bloques.forEach(b => { if(b.refCl === cl.id){ if(b.personalizado) person++; else alDia++; } });
+    p.cuerpo = ensamblarCuerpo(p);   // refresca los bloques vinculados no personalizados
+  });
+  return { plantillas: nombres, alDia, personalizadas: person };
+}
 /* Reensambla el HTML de la plantilla desde los bloques, numerando las cláusulas
    por su orden. Es lo que se guarda en p.cuerpo y alimenta todo lo demás. */
 function ensamblarCuerpo(p){
+  asegurarBloques(p);
+  refrescarBloquesVinculados(p);
   let n = 0;
-  return asegurarBloques(p).map(b => {
+  return p.bloques.map(b => {
     if(b.tipo === 'clausula'){
       n++;
       const ord = ORDINALES[n-1] || `${n}.ª`;
@@ -15556,7 +15600,12 @@ function commitBloqueAbierto(p){
   if(bloqueEditando){
     const ed = document.getElementById('editor');
     const b = (p.bloques||[]).find(x => x.id === bloqueEditando);
-    if(ed && b) b.cuerpo = ed.innerHTML;
+    if(ed && b){
+      b.cuerpo = ed.innerHTML;
+      // Si es un bloque vinculado y lo editaste a mano, queda «personalizado»:
+      // una actualización de la cláusula del repositorio ya no lo pisará.
+      if(b.refCl && !b.personalizado && hashHTML(b.cuerpo) !== b.refHash) b.personalizado = true;
+    }
   }
   p.cuerpo = ensamblarCuerpo(p);
 }
@@ -15567,9 +15616,24 @@ function renderEditar(c, p){
   const tarjetas = bloques.map((b, i) => {
     const abierto = bloqueEditando === b.id;
     const esCl = b.tipo === 'clausula';
+    const r = b.refCl ? buscarVariante(b.refCl, b.refVar) : null;
+    const vinculado = !!r && !b.personalizado;
     const insignia = esCl
       ? `<span class="eb-num cl">${ORDINALES[nCl++] || (nCl+'ª')}<small>CLÁUSULA</small></span>`
       : `<span class="eb-num tx">${esc(b.titulo||'Texto').slice(0,10)||'Texto'}<small>TEXTO</small></span>`;
+    // Chip de origen + (si vinculado) selector de variante
+    let origen = '';
+    if(r && b.personalizado){
+      origen = `<span class="eb-src pers" title="Salió del repositorio pero la editaste; una actualización de la cláusula base no la toca.">⚿ Personalizada · ${esc(r.cl.nombre)}</span>
+        <button class="btn sec mini" onclick="revertirBloque('${b.id}')" title="Descartar tus cambios y volver a la versión del repositorio">↺ Volver a la del repositorio</button>`;
+    } else if(r){
+      const opts = r.cl.variantes.map(v => `<option value="${v.id}" ${v.id===r.v.id?'selected':''}>${esc(v.nombre)}</option>`).join('');
+      origen = `<span class="eb-src repo" title="Referencia viva al repositorio: si la cláusula cambia allá, esta plantilla se actualiza sola.">🔗 Repositorio</span>
+        <select class="eb-var" onchange="cambiarVarianteBloque('${b.id}',this.value)" title="Variante de la cláusula">${opts}</select>
+        <button class="btn sec mini" onclick="desvincularBloque('${b.id}')" title="Soltar la referencia y quedarte con este texto como propio">✂ Desvincular</button>`;
+    } else if(esCl){
+      origen = `<button class="btn sec mini" onclick="vincularBloque('${b.id}')" title="Enlazar este bloque a una cláusula del repositorio">🔗 Vincular al repositorio</button>`;
+    }
     const cabecera = `
       <div class="eb-cab">
         <span class="eb-mov">
@@ -15577,16 +15641,18 @@ function renderEditar(c, p){
           <button class="ic" title="Bajar" onclick="moverBloque('${b.id}',1)" ${i===bloques.length-1?'disabled':''}>▼</button>
         </span>
         ${insignia}
-        <input class="eb-tit" value="${esc(b.titulo||'')}" placeholder="${esCl?'Nombre de la cláusula (ej. ANTECEDENTES)':'Etiqueta del bloque (ej. Firmas)'}" oninput="fijarTituloBloque('${b.id}',this.value)">
-        <button class="btn sec mini" onclick="alternarTipoBloque('${b.id}')" title="Cambiar entre cláusula numerada y texto libre">${esCl?'≡ Cláusula':'¶ Texto'}</button>
+        <input class="eb-tit" value="${esc(b.titulo||'')}" ${vinculado?'readonly title="El nombre viene de la cláusula del repositorio"':''} placeholder="${esCl?'Nombre de la cláusula (ej. ANTECEDENTES)':'Etiqueta del bloque (ej. Firmas)'}" oninput="fijarTituloBloque('${b.id}',this.value)">
+        ${!r ? `<button class="btn sec mini" onclick="alternarTipoBloque('${b.id}')" title="Cambiar entre cláusula numerada y texto libre">${esCl?'≡ Cláusula':'¶ Texto'}</button>` : ''}
         <button class="btn ${abierto?'':'sec'} mini" onclick="${abierto?`cerrarBloque()`:`editarBloque('${b.id}')`}">${abierto?'✓ Listo':'✎ Editar'}</button>
         <button class="btn peligro mini" onclick="eliminarBloque('${b.id}')" title="Quitar bloque">✕</button>
-      </div>`;
+      </div>
+      ${origen ? `<div class="eb-origen">${origen}</div>` : ''}`;
     if(abierto){
-      return `<div class="eb abierto">${cabecera}${buildToolbar('editor', true, false)}<div id="editor" contenteditable="true">${b.cuerpo||''}</div></div>`;
+      const aviso = vinculado ? `<div class="eb-avlink">🔗 Vinculada al repositorio. Si editas el texto aquí, este bloque quedará <b>personalizado</b> y dejará de recibir las actualizaciones de la cláusula.</div>` : '';
+      return `<div class="eb abierto">${cabecera}${aviso}${buildToolbar('editor', true, false)}<div id="editor" contenteditable="true">${b.cuerpo||''}</div></div>`;
     }
     const prev = (b.cuerpo||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,150);
-    return `<div class="eb" ondblclick="editarBloque('${b.id}')">${cabecera}<div class="eb-prev">${esc(prev)||'<vacío>'}</div></div>`;
+    return `<div class="eb${vinculado?' vinc':''}${b.personalizado?' pers':''}" ondblclick="editarBloque('${b.id}')">${cabecera}<div class="eb-prev">${esc(prev)||'<vacío>'}</div></div>`;
   }).join('');
   c.innerHTML = `
     <div class="ed-meta">
@@ -15597,7 +15663,8 @@ function renderEditar(c, p){
     <div class="eb-barra">
       <span class="eb-hint">La plantilla es una lista de bloques. Arrastra el orden con ▲▼, edita cada uno con ✎. Las cláusulas se numeran solas (PRIMERA, SEGUNDA…) según su orden.</span>
       <div class="eb-add">
-        <button class="btn mini" onclick="agregarBloque('clausula')">＋ Cláusula</button>
+        <button class="btn mini" onclick="agregarClausulaDelRepositorio()" title="Insertar una cláusula del repositorio como bloque vinculado">🔗 Cláusula del repositorio</button>
+        <button class="btn sec mini" onclick="agregarBloque('clausula')">＋ Cláusula propia</button>
         <button class="btn sec mini" onclick="agregarBloque('texto')">＋ Texto</button>
       </div>
     </div>
@@ -15658,6 +15725,62 @@ function alternarTipoBloque(id){
   commitBloqueAbierto(p);
   const b = p.bloques.find(x => x.id === id); if(!b) return;
   b.tipo = b.tipo === 'clausula' ? 'texto' : 'clausula';
+  p.cuerpo = ensamblarCuerpo(p); guardar(); renderContenido();
+}
+/* ---- Fase 2 · operaciones de vinculación de bloques ---- */
+function agregarClausulaDelRepositorio(){
+  const p = plActual(); if(!p) return;
+  commitBloqueAbierto(p);
+  modoClausula = { tipo:'bloqueNuevo' };
+  abrirPickerClausula();
+}
+function vincularBloque(id){
+  const p = plActual(); if(!p) return;
+  commitBloqueAbierto(p);
+  modoClausula = { tipo:'bloqueVincular', id };
+  abrirPickerClausula();
+}
+/* Dispatcher del modal de cláusulas según el modo activo. */
+function elegirClausula(clId, varId){
+  const m = modoClausula || { tipo:'insertar' };
+  if(m.tipo === 'insertar'){ insertarClausulaEnDoc(clId, varId); return; }
+  const p = plActual();
+  if(p && m.tipo === 'bloqueNuevo'){
+    const b = bloqueDesdeVariante(clId, varId);
+    if(b){ p.bloques.push(b); bloqueEditando = null; p.cuerpo = ensamblarCuerpo(p); guardar(); }
+  } else if(p && m.tipo === 'bloqueVincular'){
+    const b = p.bloques.find(x => x.id === m.id), r = buscarVariante(clId, varId);
+    if(b && r){ b.tipo='clausula'; b.refCl=clId; b.refVar=r.v.id; b.personalizado=false; b.titulo=r.cl.nombre; b.cuerpo=r.v.cuerpo; b.refHash=hashHTML(r.v.cuerpo); p.cuerpo=ensamblarCuerpo(p); guardar(); }
+  }
+  modoClausula = null;
+  cerrarModal(); renderContenido();
+}
+function bloqueDesdeVariante(clId, varId){
+  const r = buscarVariante(clId, varId); if(!r) return null;
+  return { id: uid(), tipo:'clausula', refCl: clId, refVar: r.v.id, personalizado:false,
+    titulo: r.cl.nombre, cuerpo: r.v.cuerpo, refHash: hashHTML(r.v.cuerpo) };
+}
+function cambiarVarianteBloque(id, varId){
+  const p = plActual(); if(!p) return;
+  commitBloqueAbierto(p);
+  const b = p.bloques.find(x => x.id === id); if(!b || !b.refCl) return;
+  const r = buscarVariante(b.refCl, varId); if(!r) return;
+  b.refVar = r.v.id; b.personalizado = false; b.cuerpo = r.v.cuerpo; b.refHash = hashHTML(r.v.cuerpo);
+  p.cuerpo = ensamblarCuerpo(p); guardar(); renderContenido();
+}
+function desvincularBloque(id){
+  const p = plActual(); if(!p) return;
+  commitBloqueAbierto(p);
+  const b = p.bloques.find(x => x.id === id); if(!b) return;
+  b.refCl = null; b.refVar = null; b.personalizado = false; b.refHash = null;   // conserva el texto como propio
+  p.cuerpo = ensamblarCuerpo(p); guardar(); renderContenido();
+}
+function revertirBloque(id){
+  const p = plActual(); if(!p) return;
+  const b = p.bloques.find(x => x.id === id); if(!b || !b.refCl) return;
+  if(!confirm('¿Descartar tus cambios en este bloque y volver a la versión del repositorio?')) return;
+  b.personalizado = false;
+  if(bloqueEditando === id) bloqueEditando = null;
   p.cuerpo = ensamblarCuerpo(p); guardar(); renderContenido();
 }
 function buildToolbar(target, conVariables, esRepo){
@@ -16035,8 +16158,15 @@ function extracto(html){
 }
 function abrirModalClausulas(target){
   insertTarget = target;
+  modoClausula = { tipo:'insertar' };
+  abrirPickerClausula();
+}
+function abrirPickerClausula(){
+  const titulo = modoClausula && modoClausula.tipo === 'bloqueNuevo' ? '🔗 Añadir cláusula del repositorio como bloque'
+    : modoClausula && modoClausula.tipo === 'bloqueVincular' ? '🔗 Vincular el bloque a una cláusula'
+    : '📋 Insertar cláusula del repositorio';
   abrirModal(`
-    <div class="m-cab"><h3>📋 Insertar cláusula del repositorio</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cab"><h3>${titulo}</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       <div class="campo" style="margin-bottom:10px"><input type="search" id="mc-busq" placeholder="Buscar cláusula por nombre, categoría o texto…" oninput="renderModalClausulas()"></div>
       <div id="mc-lista"></div>
@@ -16065,7 +16195,7 @@ function renderModalClausulas(){
       <div class="modal-clausula">
         <div class="modal-clausula-titulo">${esc(cl.nombre)}</div>
         ${variantes.map(v => `
-          <div class="modal-variante" onclick="insertarClausulaEnDoc('${cl.id}','${v.id}')">
+          <div class="modal-variante" onclick="elegirClausula('${cl.id}','${v.id}')">
             <div><b>${esc(v.nombre)}</b> ${extraerVariables(v.cuerpo).map(x => `<span class="chip-var">${esc(x)}</span>`).join('')}</div>
             <div class="mv-extracto">${esc(extracto(v.cuerpo))}</div>
           </div>`).join('')}
@@ -16289,6 +16419,15 @@ function guardarVariante(){
   document.getElementById('lista-clausulas').innerHTML = listaClausulasHtml();
   const e = document.getElementById('rep-estado');
   if(e){ e.textContent = '✓ Guardado'; setTimeout(() => { if(e) e.textContent = ''; }, 2500); }
+  // Propagación automática a los bloques vinculados (Fase 2): sin diálogos, las
+  // plantillas que referencian esta cláusula quedan al día por definición.
+  const prop = propagarClausulaABloques(act.cl);
+  if(prop.plantillas.length){
+    guardar();
+    alert(`Cláusula actualizada en el repositorio.\n\nSe reflejó sola en ${prop.plantillas.length} plantilla(s) que la usan por referencia:\n• ${prop.plantillas.join('\n• ')}` +
+      (prop.personalizadas ? `\n\n${prop.personalizadas} bloque(s) personalizado(s) se conservaron sin cambios.` : ''));
+  }
+  // Cláusulas insertadas a mano (copias .cl-vinc del modo anterior) — con diálogo.
   sincronizarClausulaEnPlantillas(act.cl, act.v);
 }
 function duplicarVariante(){
