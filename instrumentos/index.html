@@ -13956,6 +13956,13 @@ function tagsGobernados(){
   concordancias.forEach(g => Object.keys(g.tags||{}).forEach(t => s.add(t)));
   return s;
 }
+/* Variables marcadas como «Concordancia» en el diccionario pero que NO están
+   dentro de ningún grupo con opciones: por eso no producen selector de género
+   al generar (el error típico «no me lee como opción de género»). */
+function concordanciasHuerfanas(){
+  const gob = tagsGobernados();
+  return variablesRepo.filter(v => v.grupo === 'Concordancia' && !gob.has(v.nombre));
+}
 /* Grupos aplicables a una plantilla: aquellos con al menos un tag en sus variables. */
 function concordanciasDe(vars){
   const set = new Set(vars);
@@ -16036,8 +16043,17 @@ function renderVariables(c){
   const sel = variablesRepo.find(v => v.id === varSelId) || null;
   const grupos = {};
   filtradas.forEach(v => { (grupos[v.grupo] = grupos[v.grupo] || []).push(v); });
+  const huerfanas = concordanciasHuerfanas();
+  const avisoHuerfanas = huerfanas.length ? `
+    <div class="aviso-tags" style="background:#FDF0D2">
+      <b>⚥ ${huerfanas.length} variable(s) de concordancia no pertenecen a ningún grupo</b>
+      <p style="margin:7px 0">Están marcadas como «Concordancia» pero <b>no producen selector de género/opción al generar</b>, porque el selector lo crea el <b>grupo</b> (con sus opciones), no la etiqueta del diccionario. Por eso una como <code>{{ellaadministradorcontador}}</code> «no se lee como opción».</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">${huerfanas.slice(0,24).map(v=>`<code onclick="abrirConcordancias()" style="cursor:pointer" title="Añádela a un grupo en «Grupos de concordancia»">{{${esc(v.nombre)}}}</code>`).join('')}${huerfanas.length>24?` <span style="font-size:11px;color:var(--gris)">y ${huerfanas.length-24} más…</span>`:''}</div>
+      <p class="nota" style="margin-top:8px">Para que funcionen: <b>Grupos de concordancia → edita o crea el grupo</b> (p. ej. «Administrador/a Contador/a»), define sus <b>opciones</b> (Masculino | Femenino…) y <b>añade estos tags</b> con la palabra que sale en cada opción. <button class="btn sec mini" onclick="abrirConcordancias()">Abrir Grupos de concordancia</button></p>
+    </div>` : '';
   c.innerHTML = `
     <div class="banner-edicion" style="margin-bottom:12px">Este es el diccionario único de variables del ecosistema FAP: el mismo catálogo de tags que usan las plantillas Word (docxtemplater), La Mágica y el CRM. Las plantillas y cláusulas de esta herramienta deben usar estos nombres para que todo el sistema hable el mismo idioma.</div>
+    ${avisoHuerfanas}
     <div class="campo" style="margin-bottom:8px"><input type="search" id="busq-var-tab" value="${esc(busqVarTab)}" placeholder="Buscar variable por nombre, descripción o ejemplo…" oninput="busqVarTab=this.value;renderContenido();const e=document.getElementById('busq-var-tab');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}"></div>
     <div class="cats" style="padding:0 0 10px">${gruposVar().map(g => `<button class="chip ${g===grupoVarFiltro?'activo':''}" onclick="grupoVarFiltro='${g.replace(/'/g,"\\'")}';renderContenido()">${esc(g)}</button>`).join('')}</div>
     <div class="gen-grid" style="grid-template-columns:1fr 360px">
@@ -16117,11 +16133,14 @@ function editarConcordancia(id){
       <div class="campo"><label>Etiqueta (lo que se lee al llenar)</label><input id="cc-etiqueta" value="${esc(g.etiqueta)}" placeholder="Contratista (persona natural o empresa)"></div>
       <div class="campo"><label>Opciones (sepáralas con « | »)</label><input id="cc-opciones" value="${esc(opcionesTxt)}" oninput="rerenderTagsConc()" placeholder="Masculino | Femenino | Empresa"><div class="nota">El orden importa: cada tag define una palabra por cada opción, en este mismo orden.</div></div>
       <label style="font-size:12.5px;font-weight:600">Tags gobernados y su palabra en cada opción</label>
+      <div class="nota" style="margin:2px 0 6px">Cada tag es una palabra que cambia según la opción elegida. P. ej. para el grupo «Administrador/a Contador/a» con opciones Masculino | Femenino: <code>ellaadministradorcontador</code> → «el administrador contador» / «la administradora contadora».</div>
       <div id="cc-tags">${tagsRows||'<div class="nota">Añade el primer tag abajo.</div>'}</div>
       <div style="display:flex;gap:6px;margin-top:6px">
-        <input id="cc-nuevo-tag" placeholder="elLaContratista" style="flex:1">
+        <input id="cc-nuevo-tag" list="cc-huerfanas-dl" placeholder="Nombre del tag (ej. ellaadministradorcontador)" style="flex:1">
+        <datalist id="cc-huerfanas-dl">${concordanciasHuerfanas().map(v=>`<option value="${esc(v.nombre)}">`).join('')}</datalist>
         <button class="btn sec mini" onclick="agregarTagConc()">+ Añadir tag</button>
       </div>
+      ${concordanciasHuerfanas().length ? `<div class="nota" style="margin-top:5px">💡 Al escribir, verás sugerencias de tags de concordancia que aún no están en ningún grupo — añádelos aquí para que funcionen.</div>` : ''}
     </div>
     <div class="m-pie">
       <button class="btn sec" onclick="abrirConcordancias()">Cancelar</button>
@@ -16161,7 +16180,9 @@ function agregarTagConc(){
   if(!t) return;
   const existentes = leerTagsConc();
   if(existentes[t]){ alert('Ese tag ya está en el grupo.'); return; }
-  existentes[t] = [];
+  // Si el tag ya existe en el diccionario, su «ejemplo» siembra la 1.ª opción.
+  const reg = buscarVar(t);
+  existentes[t] = reg && reg.ejemplo ? [reg.ejemplo] : [];
   const cont = document.getElementById('cc-tags');
   const ops = opcionesActualesConc();
   cont.innerHTML = Object.keys(existentes).map(x => filaTagConc(x, existentes[x], ops)).join('');
