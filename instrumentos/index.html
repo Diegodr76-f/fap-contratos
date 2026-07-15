@@ -14825,8 +14825,29 @@ const cacheEstructura = {};
 function varsDe(p){
   return p.tipo === 'docx' ? estructuraDocx(p).escalares : extraerVariables(p.cuerpo);
 }
+/* Acepta las marcas de revisión (control de cambios) del XML de Word: descarta
+   el texto borrado (<w:del>, <w:moveFrom>) y conserva el insertado (<w:ins>,
+   <w:moveTo>). Sin esto, el texto viejo tachado y el nuevo aparecen pegados y
+   rompen los {tags} (p. ej. {fechaInforme}→{fechaAdj} se leía {fechaInformefechaAdj}). */
+function aceptarRevisionesXml(xml){
+  return String(xml)
+    .replace(/<w:del\b[^>]*>[\s\S]*?<\/w:del>/g, '')
+    .replace(/<w:moveFrom\b[^>]*>[\s\S]*?<\/w:moveFrom>/g, '')
+    .replace(/<w:ins\b[^>]*>/g, '').replace(/<\/w:ins>/g, '')
+    .replace(/<w:moveTo\b[^>]*>/g, '').replace(/<\/w:moveTo>/g, '')
+    .replace(/<w:rPrChange\b[^>]*>[\s\S]*?<\/w:rPrChange>/g, '')
+    .replace(/<w:pPrChange\b[^>]*>[\s\S]*?<\/w:pPrChange>/g, '');
+}
+function docxTieneRevisiones(p){
+  const b64 = archivoDocxDe(p); if(!b64) return false;
+  try{
+    const zip = new PizZip(b64ABytes(b64));
+    return Object.keys(zip.files).filter(n => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))
+      .some(n => /<w:(del|ins|moveFrom|moveTo)\b/.test(zip.files[n].asText()));
+  }catch(e){ return false; }
+}
 /* Texto plano del .docx (cuerpo + encabezados + pies), uniendo los runs para
-   ver los tags completos aunque Word los parta. */
+   ver los tags completos aunque Word los parta. Acepta las revisiones primero. */
 function textoDocx(p){
   const b64 = archivoDocxDe(p); if(!b64) return '';
   let texto = '';
@@ -14834,7 +14855,7 @@ function textoDocx(p){
     const zip = new PizZip(b64ABytes(b64));
     Object.keys(zip.files)
       .filter(n => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))
-      .forEach(n => { texto += zip.files[n].asText().replace(/<[^>]*>/g,'') + '\n'; });
+      .forEach(n => { texto += aceptarRevisionesXml(zip.files[n].asText()).replace(/<[^>]*>/g,'') + '\n'; });
   }catch(e){ return ''; }
   return texto.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
 }
@@ -14905,7 +14926,7 @@ function estructuraDocx(p){
     const zip = new PizZip(b64ABytes(b64));
     Object.keys(zip.files)
       .filter(n => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))
-      .forEach(n => { texto += zip.files[n].asText().replace(/<[^>]*>/g,'') + '\n'; });
+      .forEach(n => { texto += aceptarRevisionesXml(zip.files[n].asText()).replace(/<[^>]*>/g,'') + '\n'; });
   }catch(e){ return vacia; }
   texto = texto.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
   const est = { escalares:[], condiciones:[], listas:[] };
@@ -14973,6 +14994,11 @@ function explicarErrorDocx(e){
 }
 function generarBlobDocx(p, datos){
   const zip = new PizZip(b64ABytes(archivoDocxDe(p)));
+  // Acepta las revisiones (control de cambios) antes de rellenar: el texto viejo
+  // tachado se descarta, así los {tags} no quedan partidos por las marcas.
+  Object.keys(zip.files)
+    .filter(n => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))
+    .forEach(n => { zip.file(n, aceptarRevisionesXml(zip.files[n].asText())); });
   const doc = new window.docxtemplater(zip, {
     paragraphLoop: true, linebreaks: true,
     nullGetter(part){ return part.module ? '' : '__________'; }
@@ -16682,6 +16708,7 @@ function guardarPlantilla(){
 function renderEditarDocx(c, p){
   const est = estructuraDocx(p);
   const problemas = validarTagsDocx(p);
+  const revisiones = docxTieneRevisiones(p);
   const chip = t => `<span class="chip-var${buscarVar(t) ? '' : ' chip-var-warn'}" title="${buscarVar(t) ? esc((buscarVar(t).descripcion||'')) : 'No está en el repositorio de variables'}">{${esc(t)}}</span>`;
   const sinRegistrar = est.escalares.filter(t => !buscarVar(t)).length + est.listas.filter(l => !buscarVar(l.nombre)).length;
   c.innerHTML = `
@@ -16690,6 +16717,7 @@ function renderEditarDocx(c, p){
       <div class="campo"><label>Categoría</label><input id="ed-cat" list="cats-dl" value="${esc(p.categoria)}"><datalist id="cats-dl">${categorias().filter(x=>x!=='Todas').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
       <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
+    ${revisiones ? `<div class="aviso-tags" style="background:var(--azul-claro);border-left-color:var(--azul);color:var(--texto)"><b>ℹ Esta plantilla tiene «Control de cambios» activo en Word.</b><p style="margin:6px 0 0">La herramienta usa el <b>texto final</b> (acepta las revisiones automáticamente), así los tags se leen y se rellenan bien. <b>Recomendación:</b> en Word ve a <i>Revisar → Aceptar todos los cambios</i> y <i>Revisar → Control de cambios (desactivar)</i>, y vuelve a subir la plantilla, para evitar confusiones.</p></div>` : ''}
     ${problemas.length ? avisoTagsHTML(problemas) : ''}
     <div class="card">
       <h3>📄 Plantilla Word real</h3>
