@@ -61,6 +61,25 @@ La raíz (`https://[tu-usuario].github.io/fap-contratos/`) redirige automáticam
 
 ## Actualización de datos
 
-El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el flujo de Power Automate
-todas las mañanas a partir de la hoja "Export" del Excel maestro. Si el flujo falla, la AC puede seguir
-usando el botón "Actualizar base desde Excel" dentro de la app como respaldo manual.
+El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el robot de GitHub Actions
+(`scripts/actualizar_datos.py`) todas las mañanas a partir de la hoja "Export" del Excel maestro. Si el
+flujo falla, la AC puede seguir usando el botón "Actualizar base desde Excel" dentro de la app como
+respaldo manual.
+
+## Seguridad de los datos (frase de acceso)
+
+Como el sitio es estático y público, los datos NO se publican en claro: se cifran con **AES-256-GCM**
+(clave derivada de una frase de acceso con PBKDF2-SHA256). Esto aplica al `contratos_export.json` diario
+y a las copias embebidas (`seed-data` del CLM, `EMBEDDED` del CRM). Quien abra los archivos sin la frase
+solo ve un bloque cifrado ilegible.
+
+- **Al entrar**, el CLM/CRM piden la **frase de acceso** una sola vez; queda guardada en el navegador
+  (`localStorage`) y el descifrado ocurre localmente con WebCrypto. Nada de servidores nuevos ni librerías externas.
+- **El robot diario** cifra con el secreto **`DATA_KEY`** (repositorio → *Settings → Secrets and variables →
+  Actions*). Debe valer **exactamente la misma frase** que usan las ACs. Sin ese secreto, el robot no publica
+  (falla a propósito) para no exponer datos en claro.
+- **Rotar la frase:** cambia el valor de `DATA_KEY`, vuelve a cifrar las copias embebidas y avisa la nueva
+  frase al equipo.
+
+> Alcance: la frase es compartida por el equipo (no es login por persona). Protege los datos *publicados*
+> de aquí en adelante; el historial de git anterior a esta protección aún contiene versiones en claro.
