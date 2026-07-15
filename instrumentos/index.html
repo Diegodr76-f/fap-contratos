@@ -13372,6 +13372,14 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .prog .barra > div{height:100%;background:var(--azul);border-radius:6px;transition:width .25s}
 .prog.completo .barra > div{background:var(--ok)}
 
+/* ---------- Aviso de tags mal escritos en plantilla Word ---------- */
+.aviso-tags{background:#FDF0D2;border:1px solid #E9C46A;border-left:4px solid var(--warn);border-radius:10px;padding:14px 16px;margin-bottom:14px;color:#7A4B12;font-size:13px}
+.aviso-tags b{color:var(--warn)}
+.aviso-tags ol{margin:9px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:7px}
+.aviso-tags li{line-height:1.5}
+.aviso-tags code{background:rgba(180,83,9,.12);padding:1px 5px;border-radius:4px;font-size:12px}
+.aviso-tags .nota{margin:11px 0 0;font-size:12px;color:#8A6534}
+
 /* ---------- Editor por bloques (Fase 1) ---------- */
 .eb-barra{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .eb-hint{font-size:12px;color:var(--gris);max-width:60ch}
@@ -14722,6 +14730,74 @@ const cacheEstructura = {};
 function varsDe(p){
   return p.tipo === 'docx' ? estructuraDocx(p).escalares : extraerVariables(p.cuerpo);
 }
+/* Texto plano del .docx (cuerpo + encabezados + pies), uniendo los runs para
+   ver los tags completos aunque Word los parta. */
+function textoDocx(p){
+  const b64 = archivoDocxDe(p); if(!b64) return '';
+  let texto = '';
+  try{
+    const zip = new PizZip(b64ABytes(b64));
+    Object.keys(zip.files)
+      .filter(n => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))
+      .forEach(n => { texto += zip.files[n].asText().replace(/<[^>]*>/g,'') + '\n'; });
+  }catch(e){ return ''; }
+  return texto.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+}
+/* Revisa los {tags} del .docx y detecta los errores típicos de etiquetar en
+   Word ANTES de que docxtemplater falle con un mensaje en inglés: llave de
+   cierre convertida en comilla, nombres con punto/espacio/comilla, y bloques
+   {#x}…{/x} con nombres que no coinciden o sin cerrar. Devuelve mensajes claros. */
+function validarTagsDocx(p){
+  const texto = textoDocx(p); if(!texto) return [];
+  const problemas = [];
+  const ctx = i => '…' + texto.slice(Math.max(0, i-32), i+34).replace(/\s+/g,' ').trim() + '…';
+  // 1. Cada { debe cerrar con } antes del siguiente {; el nombre debe ser limpio
+  const re = /\{/g; let m;
+  while((m = re.exec(texto)) !== null){
+    const i = m.index;
+    const cierre = texto.indexOf('}', i);
+    const otro = texto.indexOf('{', i+1);
+    if(cierre === -1 || (otro !== -1 && otro < cierre)){
+      const finTrozo = otro > i ? otro : i + 40;
+      const trozo = texto.slice(i, finTrozo).split('\n')[0].trim();
+      problemas.push(`El tag «${esc(trozo.slice(0,32))}» quedó <b>sin cerrar</b>. Revisa que la llave de cierre <code>}</code> no se haya vuelto una comilla «”» u otro símbolo. ${ctx(i)}`);
+      continue;
+    }
+    const cuerpo = texto.slice(i+1, cierre);
+    if(!/^[#\/^]?[\wáéíóúñÁÉÍÓÚÑ]+$/.test(cuerpo)){
+      problemas.push(`El tag «{${cuerpo}}» tiene un <b>carácter no permitido</b> (punto, espacio, tilde en la llave o comilla). Usa solo letras/números sin espacios, p. ej. <code>{nroItem}</code>. ${ctx(i)}`);
+    }
+  }
+  // 2. Balance de bloques {#x}…{/x} / {^x}…{/x}
+  const pila = [];
+  const reB = /\{([#\/^])([\wáéíóúñÁÉÍÓÚÑ]+)\}/g; let b;
+  while((b = reB.exec(texto)) !== null){
+    if(b[1] === '#' || b[1] === '^') pila.push({ nombre:b[2], i:b.index });
+    else {
+      const top = pila.pop();
+      if(!top) problemas.push(`Hay un cierre <code>{/${b[2]}}</code> sin su apertura <code>{#${b[2]}}</code>. ${ctx(b.index)}`);
+      else if(top.nombre !== b[2]) problemas.push(`El bloque <code>{#${top.nombre}}</code> se cierra con <code>{/${b[2]}}</code>: los nombres <b>deben ser idénticos</b> («${top.nombre}» ≠ «${b[2]}», ojo con tildes y mayúsculas). ${ctx(top.i)}`);
+    }
+  }
+  pila.forEach(t => problemas.push(`El bloque <code>{#${t.nombre}}</code> se abrió pero <b>nunca se cerró</b> con <code>{/${t.nombre}}</code>. ${ctx(t.i)}`));
+  return [...new Set(problemas)];
+}
+function avisoTagsHTML(probs){
+  return `<div class="aviso-tags"><b>⚠ La plantilla tiene ${probs.length} problema(s) de tags que impiden generar el documento:</b>
+    <ol>${probs.map(x => `<li>${x}</li>`).join('')}</ol>
+    <p class="nota">Corrígelos en Word y vuelve a subir la plantilla. Recuerda: un tag es <code>{nombre}</code> — con llaves rectas <code>{ }</code> (no comillas), sin espacios ni puntos, y los bloques abren con <code>{#nombre}</code> y cierran con <code>{/nombre}</code> escrito <b>igual</b>.</p></div>`;
+}
+/* Traduce los mensajes de docxtemplater (inglés) a algo entendible. */
+function traducirDocxErr(s){
+  return String(s)
+    .replace(/The tag beginning with "([^"]+)" is unclosed/gi, 'El tag que empieza con «$1» quedó sin cerrar (falta la llave «}» — ¿quedó como comilla «”»?)')
+    .replace(/The tag "([^"]+)" is closed by the tag "([^"]+)"/gi, 'El bloque «$1» se cierra con un nombre distinto («$2»): deben ser idénticos (ojo con tildes y mayúsculas)')
+    .replace(/Unopened tag/gi, 'Cierre de bloque sin su apertura')
+    .replace(/Unclosed tag/gi, 'Tag sin cerrar')
+    .replace(/Unclosed loop/gi, 'Bloque sin cerrar')
+    .replace(/Duplicate (open|close) tag/gi, 'Tag de $1 duplicado')
+    .replace(/Raw tag not in a paragraph/gi, 'Un tag quedó fuera de un párrafo');
+}
 /* Lee el .docx y clasifica sus tags: escalares, condiciones ({#tag} booleano,
    para cláusulas opcionales) y listas ({#tag} registrado como «repetible»). */
 function estructuraDocx(p){
@@ -14797,8 +14873,8 @@ function datosDocx(p, base, enLote){
 }
 function explicarErrorDocx(e){
   if(e && e.properties && e.properties.errors && e.properties.errors.length)
-    return e.properties.errors.map(x => (x.properties && x.properties.explanation) || x.message).join('\n');
-  return e.message || String(e);
+    return traducirDocxErr(e.properties.errors.map(x => (x.properties && x.properties.explanation) || x.message).join('\n'));
+  return traducirDocxErr(e.message || String(e));
 }
 function generarBlobDocx(p, datos){
   const zip = new PizZip(b64ABytes(archivoDocxDe(p)));
@@ -14816,6 +14892,8 @@ function actualizarPreviewDocx(){
   tPrevDocx = setTimeout(async () => {
     const p = plActual(); if(!p || p.tipo !== 'docx') return;
     const el = document.getElementById('preview'); if(!el) return;
+    const probs = validarTagsDocx(p);
+    if(probs.length){ el.innerHTML = avisoTagsHTML(probs); return; }
     try{
       const blob = generarBlobDocx(p, datosDocx(p, datosForm));
       el.innerHTML = '';
@@ -14825,7 +14903,7 @@ function actualizarPreviewDocx(){
         el.innerHTML = '<p style="color:var(--gris)">Vista previa no disponible; el Word se genera igual.</p>';
       }
     }catch(e){
-      el.innerHTML = `<p style="color:var(--warn);font-size:13px">⚠ La plantilla tiene un problema de tags:<br>${esc(explicarErrorDocx(e))}</p>`;
+      el.innerHTML = `<div class="aviso-tags"><b>⚠ La plantilla tiene un problema de tags</b><p>${esc(explicarErrorDocx(e))}</p><p class="nota">Descarga la plantilla, corrige el tag en Word y vuelve a subirla.</p></div>`;
     }
   }, 350);
 }
@@ -15233,6 +15311,13 @@ async function descargarWord(){
   const p = plActual(); if(!p) return;
   const vars = varsDe(p);
   if(p.tipo === 'docx'){
+    const problemas = validarTagsDocx(p);
+    if(problemas.length){
+      alert('No se puede generar: la plantilla tiene tags mal escritos.\n\n' +
+        problemas.map((x,i) => `${i+1}. ${x.replace(/<[^>]+>/g,'')}`).join('\n\n') +
+        '\n\nCorrígelos en Word y vuelve a subir la plantilla.');
+      return;
+    }
     const pendientes = vars.filter(v => !valorDe(datosForm, v) && !(esLetras(v) && datosForm[baseLetras(v)]));
     if(pendientes.length && !confirm('Campos sin completar: ' + pendientes.map(etiqueta).join(', ') + '.\n\n¿Generar de todas formas? (aparecerán como líneas en blanco)')) return;
     try{
@@ -16472,6 +16557,7 @@ function guardarPlantilla(){
 }
 function renderEditarDocx(c, p){
   const est = estructuraDocx(p);
+  const problemas = validarTagsDocx(p);
   const chip = t => `<span class="chip-var${buscarVar(t) ? '' : ' chip-var-warn'}" title="${buscarVar(t) ? esc((buscarVar(t).descripcion||'')) : 'No está en el repositorio de variables'}">{${esc(t)}}</span>`;
   const sinRegistrar = est.escalares.filter(t => !buscarVar(t)).length + est.listas.filter(l => !buscarVar(l.nombre)).length;
   c.innerHTML = `
@@ -16480,6 +16566,7 @@ function renderEditarDocx(c, p){
       <div class="campo"><label>Categoría</label><input id="ed-cat" list="cats-dl" value="${esc(p.categoria)}"><datalist id="cats-dl">${categorias().filter(x=>x!=='Todas').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
       <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
+    ${problemas.length ? avisoTagsHTML(problemas) : ''}
     <div class="card">
       <h3>📄 Plantilla Word real</h3>
       <p style="font-size:13px;line-height:1.6;margin-bottom:10px">El contenido y el formato de esta plantilla —colores, listas a., b., c., numeración, membrete con logos, pies de página, tablas, estilos— <b>se editan directamente en Word</b>, con todo su poder. Esta herramienta no toca el formato: solo rellena los <code style="background:var(--azul-claro);padding:1px 5px;border-radius:4px">{tags}</code> con los datos.</p>
