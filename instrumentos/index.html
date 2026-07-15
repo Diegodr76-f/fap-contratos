@@ -13913,6 +13913,94 @@ function concordanciasSemilla(){
       } }
   ];
 }
+/* Consolidación de tags de concordancia huérfanos conocidos: agrupa las
+   variantes/duplicados sueltos (distinta mayúscula, con/sin sufijo, intentos
+   previos fallidos) en grupos reales con sus opciones. Extiende los grupos
+   sembrados (contratista, administradorContrato) y crea los que faltan
+   (administrador del AP, administrador/a contador/a, género del AP). Nunca
+   pisa un valor ya escrito a mano: solo rellena tags que falten. */
+function paqueteConsolidacionConcordancias(){
+  return [
+    { nombre:'contratista', etiqueta:'Contratista (persona natural o empresa)',
+      opciones:['Persona natural — masculino','Persona natural — femenino','Persona jurídica (empresa)'],
+      tags:{
+        ElLaContratista:        ['El CONTRATISTA','La CONTRATISTA','La CONTRATISTA'],
+        dellaContratista:       ['del CONTRATISTA','de la CONTRATISTA','de la CONTRATISTA'],
+        DELLACONTRATISTA:       ['DEL CONTRATISTA','DE LA CONTRATISTA','DE LA CONTRATISTA'],
+        habilitacionContratista:['habilitado','habilitada','habilitada'],
+        habilitadoac:           ['habilitado','habilitada','habilitada'],
+        conmismocontratista:    ['con el mismo CONTRATISTA','con la misma CONTRATISTA','con la misma CONTRATISTA'],
+        incumplidoa:            ['incumplido','incumplida','incumplida'],
+        lolahabilite:           ['lo inhabilite','la inhabilite','la inhabilite'],
+        consideradoac:          ['considerado','considerada','considerada']
+      } },
+    { nombre:'administradorContrato', etiqueta:'Administrador/a del contrato',
+      opciones:['Masculino','Femenino'],
+      tags:{
+        autorizadoa:               ['autorizado','autorizada'],
+        administradordecontrato:   ['administrador de contrato','administradora de contrato'],
+        Ellaadministradordecontrato:['El administrador de contrato','La administradora de contrato']
+      } },
+    { nombre:'administradorAP', etiqueta:'Administrador/a del área protegida (por parte del MAE)',
+      opciones:['Masculino','Femenino'],
+      tags:{
+        administrador_delAP:   ['el administrador del área protegida','la administradora del área protegida'],
+        eladministrador:       ['el administrador','la administradora'],
+        laadministradora:      ['el administrador','la administradora'],
+        deladministrador:      ['del administrador','de la administradora'],
+        delaadministradora:    ['del administrador','de la administradora'],
+        aladministrador:       ['al administrador','a la administradora'],
+        alaadministradora:     ['al administrador','a la administradora'],
+        ellaadministradorAP:   ['el administrador','la administradora'],
+        dellaadministradorAP:  ['del administrador','de la administradora'],
+        allaadministrador:     ['al administrador','a la administradora'],
+        allaadministradorAP:   ['al administrador','a la administradora'],
+        ElLaadministradorAP:   ['El administrador','La administradora']
+      } },
+    { nombre:'administradorContadora', etiqueta:'Administrador/a Contador/a (FIAS)',
+      opciones:['Masculino','Femenino'],
+      tags:{
+        administradoracontadora:         ['administrador contador','administradora contadora'],
+        ellaadministradorcontador:       ['el administrador contador','la administradora contadora'],
+        dellaadministradorcontador:      ['del administrador contador','de la administradora contadora'],
+        allaadministradorcontador:       ['al administrador contador','a la administradora contadora'],
+        ellaadministradoracontadora:     ['el administrador contador','la administradora contadora'],
+        dellaadministradoracontadora:    ['del administrador contador','de la administradora contadora'],
+        allaadministradoracontadora:     ['al administrador contador','a la administradora contadora']
+      } },
+    { nombre:'generoAP', etiqueta:'Género del Área Protegida (el/la, del/de la, al/a la)',
+      opciones:['Masculino','Femenino'],
+      tags:{
+        della:  ['del','de la'],
+        ellaAP: ['el','la'],
+        dellaAP:['del','de la'],
+        allaAP: ['al','a la']
+      } }
+  ];
+}
+/* Aplica el paquete: crea los grupos que falten y agrega SOLO los tags que aún
+   no están en su grupo (no toca los ya definidos). Devuelve un resumen. */
+function consolidarConcordanciasAuto(){
+  let creados = 0, ampliados = 0, tagsNuevos = 0;
+  paqueteConsolidacionConcordancias().forEach(def => {
+    let g = concordancias.find(x => x.nombre === def.nombre);
+    let esNuevo = false;
+    if(!g){
+      g = { id: uid(), nombre: def.nombre, etiqueta: def.etiqueta, opciones: def.opciones.slice(), tags: {} };
+      concordancias.push(g);
+      creados++; esNuevo = true;
+    }
+    if(g.opciones.length !== def.opciones.length) return;   // el grupo cambió de forma; no forzamos
+    let huboAmpliacion = false;
+    Object.keys(def.tags).forEach(t => {
+      if(!g.tags[t]){ g.tags[t] = def.tags[t].slice(); tagsNuevos++; huboAmpliacion = true; }
+    });
+    if(huboAmpliacion && !esNuevo) ampliados++;
+  });
+  concordancias.forEach(registrarTagsConcordancia);
+  guardar();
+  return { creados, ampliados, tagsNuevos, quedan: concordanciasHuerfanas().length };
+}
 /* Busca a qué grupo de concordancia pertenece un tag, y una vista previa de sus
    opciones (p. ej. «el contratista / la contratista»), para explicarlo en la UI. */
 function grupoDeTag(tag){ return concordancias.find(g => g.tags && g.tags[tag]) || null; }
@@ -16050,6 +16138,7 @@ function renderVariables(c){
       <p style="margin:7px 0">Están marcadas como «Concordancia» pero <b>no producen selector de género/opción al generar</b>, porque el selector lo crea el <b>grupo</b> (con sus opciones), no la etiqueta del diccionario. Por eso una como <code>{{ellaadministradorcontador}}</code> «no se lee como opción».</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">${huerfanas.slice(0,24).map(v=>`<code onclick="abrirConcordancias()" style="cursor:pointer" title="Añádela a un grupo en «Grupos de concordancia»">{{${esc(v.nombre)}}}</code>`).join('')}${huerfanas.length>24?` <span style="font-size:11px;color:var(--gris)">y ${huerfanas.length-24} más…</span>`:''}</div>
       <p class="nota" style="margin-top:8px">Para que funcionen: <b>Grupos de concordancia → edita o crea el grupo</b> (p. ej. «Administrador/a Contador/a»), define sus <b>opciones</b> (Masculino | Femenino…) y <b>añade estos tags</b> con la palabra que sale en cada opción. <button class="btn sec mini" onclick="abrirConcordancias()">Abrir Grupos de concordancia</button></p>
+      <p class="nota" style="margin-top:6px">💡 Muchas de estas coinciden con familias conocidas (administrador/a del AP, administrador/a contador/a, género del área protegida…). <button class="btn mini" onclick="ejecutarConsolidacionAuto()">🧹 Consolidar automáticamente</button> las agrupa por ti sin pisar nada de lo que ya tengas.</p>
     </div>` : '';
   c.innerHTML = `
     <div class="banner-edicion" style="margin-bottom:12px">Este es el diccionario único de variables del ecosistema FAP: el mismo catálogo de tags que usan las plantillas Word (docxtemplater), La Mágica y el CRM. Las plantillas y cláusulas de esta herramienta deben usar estos nombres para que todo el sistema hable el mismo idioma.</div>
@@ -16087,6 +16176,7 @@ function renderVariables(c){
         <div class="card" style="margin-top:12px">
           <h3 style="margin:0 0 6px">⚥ Grupos de concordancia</h3>
           <p style="font-size:12.5px;color:var(--gris);margin-bottom:8px">Cuadros combinados: una sola elección al llenar (p. ej. contratista masculino/femenino/empresa) cambia varias palabras a la vez en todo el documento.</p>
+          ${huerfanas.length ? `<button class="btn mini" style="margin-bottom:8px" onclick="ejecutarConsolidacionAuto()">🧹 Consolidar automáticamente (${huerfanas.length})</button>` : ''}
           <button class="btn sec" onclick="abrirConcordancias()">Administrar grupos (${concordancias.length})</button>
         </div>
       </div>
@@ -16117,10 +16207,23 @@ function abrirConcordancias(){
         </ol>
       </div>
       <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">Cada grupo tiene unas <b>opciones</b> (lo que eliges al llenar) y unos <b>tags</b>; para cada tag defines qué palabra sale en cada opción.</p>
+      ${concordanciasHuerfanas().length ? `<div class="aviso-tags" style="margin-bottom:10px"><b>⚥ ${concordanciasHuerfanas().length} tag(s) sueltos sin grupo.</b> <button class="btn mini" onclick="ejecutarConsolidacionAuto()">🧹 Consolidar automáticamente</button></div>` : ''}
       <div class="conc-lista">${filas||'<div class="vacio">Aún no hay grupos.</div>'}</div>
       <button class="btn sec mini" style="margin-top:10px" onclick="editarConcordancia('')">+ Nuevo grupo</button>
     </div>
     <div class="m-pie"><button class="btn" onclick="cerrarModal()">Cerrar</button></div>`);
+}
+function ejecutarConsolidacionAuto(){
+  const r = consolidarConcordanciasAuto();
+  const partes = [];
+  if(r.creados) partes.push(`${r.creados} grupo(s) nuevo(s) creado(s)`);
+  if(r.ampliados) partes.push(`${r.ampliados} grupo(s) existente(s) ampliado(s)`);
+  partes.push(`${r.tagsNuevos} tag(s) enganchado(s)`);
+  let msg = `Consolidación aplicada: ${partes.join(', ')}.`;
+  msg += r.quedan ? `\n\nQuedan ${r.quedan} tag(s) sin reconocer (nombres nuevos que no coinciden con ninguna familia conocida) — agrégalos a mano en su grupo.` : '\n\nYa no queda ninguna variable de concordancia huérfana.';
+  alert(msg);
+  if(document.getElementById('modal-fondo').classList.contains('abierto')) abrirConcordancias();
+  else renderContenido();
 }
 function editarConcordancia(id){
   const g = id ? concordancias.find(x=>x.id===id) : { id:'', nombre:'', etiqueta:'', opciones:['Masculino','Femenino'], tags:{} };
