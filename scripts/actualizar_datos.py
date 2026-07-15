@@ -4,12 +4,36 @@ Robot de actualización del CRM de Contratos FAP.
 Descarga el Excel maestro desde OneDrive (link secreto EXCEL_URL),
 lee la hoja "2026" + la hoja "Export" y regenera crm/contratos_export.json.
 """
-import os, re, json, datetime, sys
+import os, re, json, base64, datetime, sys
 import requests, openpyxl
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 URL = os.environ.get("EXCEL_URL", "").strip()
 if not URL:
     sys.exit("ERROR: falta el secreto EXCEL_URL en el repositorio.")
+
+# Frase de acceso para cifrar los datos publicados. Es obligatoria: sin ella no
+# publicamos, para no exponer nunca los contratos en texto plano.
+DATA_KEY = os.environ.get("DATA_KEY", "").strip()
+if not DATA_KEY:
+    sys.exit("ERROR: falta el secreto DATA_KEY. No se publica en claro por seguridad. "
+             "Añádelo en Settings → Secrets and variables → Actions.")
+
+ITER = 250000
+
+def cifrar(plaintext_bytes, passphrase):
+    """AES-256-GCM con clave derivada de la frase (PBKDF2-SHA256).
+    Compatible con el descifrado WebCrypto del CLM y el CRM."""
+    salt = os.urandom(16)
+    iv = os.urandom(12)
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=ITER)
+    key = kdf.derive(passphrase.encode("utf-8"))
+    ct = AESGCM(key).encrypt(iv, plaintext_bytes, None)  # ciphertext + tag de 16 bytes
+    b = lambda x: base64.b64encode(x).decode("ascii")
+    return {"fap_enc": 1, "kdf": "PBKDF2-SHA256", "iter": ITER,
+            "salt": b(salt), "iv": b(iv), "ct": b(ct)}
 
 # Forzar descarga directa en links de OneDrive/SharePoint
 if "download=1" not in URL:
@@ -112,9 +136,11 @@ if len(out) < 10:
     sys.exit(f"ERROR: solo se leyeron {len(out)} contratos; algo cambió en el Excel. "
              "No se publica para no dañar los datos actuales.")
 
+plaintext = json.dumps(out, ensure_ascii=False, default=str).encode("utf-8")
+sobre = cifrar(plaintext, DATA_KEY)
 with open("crm/contratos_export.json", "w", encoding="utf-8") as f:
-    json.dump(out, f, ensure_ascii=False, default=str)
+    json.dump(sobre, f, ensure_ascii=False)
 
-print(f"OK: {len(out)} contratos publicados, "
+print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['link'])} con link, "
       f"{sum(1 for c in out if c['cerrado'])} cerrados.")
