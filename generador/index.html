@@ -80,21 +80,6 @@ function load(){
         if(chg) saveTpls();
       }
     }
-    // Refresco dirigido: fuerza (una sola vez por versión) la actualización de plantillas
-    // cuya versión en el seed sea mayor que la ya aplicada, sin tocar el resto de plantillas.
-    if(__SEED__.tpls){ try{
-      var TPL_REFRESH={'6_Informe_justificacion.docx':2};
-      var applied={}; try{ var ar=localStorage.getItem('fap_tpl_refresh'); if(ar) applied=JSON.parse(ar)||{}; }catch(e){}
-      var rchg=false, achg=false;
-      for(var rk in TPL_REFRESH){ if(TPL_REFRESH.hasOwnProperty(rk) && __SEED__.tpls[rk]){
-        if((applied[rk]||0) < TPL_REFRESH[rk]){
-          ST.tpls[rk]=__SEED__.tpls[rk]; rchg=true;
-          applied[rk]=TPL_REFRESH[rk]; achg=true;
-        }
-      } }
-      if(rchg) saveTpls();
-      if(achg){ try{ localStorage.setItem('fap_tpl_refresh', JSON.stringify(applied)); }catch(e){} }
-    }catch(e){} }
     if(!hadV3 && __SEED__.cfg){ST.cfg=Object.assign({},CFG_DEF,__SEED__.cfg); save();}
   }catch(e){} }
   migrateAreas();
@@ -129,7 +114,9 @@ function areaById(id){ var a=areasList().find(function(x){return x.id===id;}); r
 function exportBuild(){
   if(!Object.keys(ST.tpls).length){ toast('Carga al menos una plantilla antes de exportar.'); return; }
   var inline='',best=0,ss=document.getElementsByTagName('script');
-  for(var i=0;i<ss.length;i++){ if(!ss[i].src && ss[i].textContent.length>best){best=ss[i].textContent.length; inline=ss[i].textContent;} }
+  // toma el script de la app: el inline más grande que NO sea el seed de plantillas embebidas
+  // (en una copia exportada el seed pesa más que el código y antes se colaba como "app")
+  for(var i=0;i<ss.length;i++){ if(ss[i].src) continue; var tc=ss[i].textContent; if(tc.replace(/^\s+/,'').lastIndexOf('window.__SEED__=',0)===0) continue; if(tc.length>best){best=tc.length; inline=tc;} }
   inline=inline.replace(/<\/script>/gi,'<\\/script>');
   var seed=("window.__SEED__="+JSON.stringify({tpls:ST.tpls,cfg:ST.cfg})+";").replace(/<\/script>/gi,'<\\/script>');
   var head=document.head.outerHTML;
