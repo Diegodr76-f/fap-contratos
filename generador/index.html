@@ -5,30 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Herramienta FAP — Rellenado de plantillas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Spectral:wght@500;600&amp;display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/pizzip@3.2.0/dist/pizzip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.66.4/docxtemplater.min.js"></script>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
-  body{font-family:'Titillium Web',system-ui,-apple-system,Segoe UI,sans-serif;background:#F4F6FB;color:#1A1D29;-webkit-font-smoothing:antialiased}
-  ::placeholder{color:#A7AEC0}
+  body{font-family:'Instrument Sans',system-ui,-apple-system,Segoe UI,sans-serif;background:#F5F4F1;color:#20231F;-webkit-font-smoothing:antialiased}
+  ::placeholder{color:#A9A69C}
   button{font-family:inherit}
   input,select,textarea{font-family:inherit}
   @keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   .scr{animation:up .25s ease}
-  .inp{width:100%;border:1.5px solid #D7DCEA;border-radius:9px;padding:10px 12px;font-size:14px;color:#1A1D29;background:#fff;outline:none}
-  .inp:focus{border-color:#00249C;box-shadow:0 0 0 3px rgba(0,36,156,.10)}
-  .inp:disabled,.auto{background:#F2F4FB;color:#5A6072;border-color:#E7EAF4}
-  label.fl{display:block;font-size:12.5px;font-weight:700;color:#3A4050;margin:0 0 6px}
-  .help{font-size:11.5px;color:#9AA0B2;margin-top:5px;line-height:1.4}
-  .card{background:#fff;border:1px solid #E7EAF4;border-radius:14px;padding:18px 20px}
+  .inp{width:100%;border:1.5px solid #D8D5CD;border-radius:9px;padding:10px 12px;font-size:14px;color:#20231F;background:#fff;outline:none}
+  .inp:focus{border-color:#2E6E5E;box-shadow:0 0 0 3px rgba(46,110,94,.10)}
+  .inp:disabled,.auto{background:#F4F3EE;color:#5A574E;border-color:#EAE8E2}
+  label.fl{display:block;font-size:12.5px;font-weight:700;color:#4A4840;margin:0 0 6px}
+  .help{font-size:11.5px;color:#A9A69C;margin-top:5px;line-height:1.4}
+  .card{background:#fff;border:1px solid #EAE8E2;border-radius:14px;padding:18px 20px}
   .navbtn{all:unset;cursor:pointer;display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:9px;transition:background .15s}
-  .navbtn:hover{background:#EEF1FB}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0B153F;color:#fff;padding:13px 22px;border-radius:11px;font-weight:600;font-size:14px;box-shadow:0 10px 30px rgba(11,21,63,.3);opacity:0;transition:.3s;z-index:99;pointer-events:none;max-width:80vw}
+  .navbtn:hover{background:#E7EFEC}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#20231F;color:#fff;padding:13px 22px;border-radius:11px;font-weight:600;font-size:14px;box-shadow:0 10px 30px rgba(32,35,31,.3);opacity:0;transition:.3s;z-index:99;pointer-events:none;max-width:80vw}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
   .gridf{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:720px){.gridf{grid-template-columns:1fr}}
+
+  /* ===== identidad tipográfica unificada (serif en títulos) ===== */
+  h1,h2{font-family:'Spectral',Georgia,serif;font-weight:600;letter-spacing:.1px}
 </style>
 </head>
 <body><div id='app'></div><div id='toast' class='toast'></div>
@@ -444,7 +447,7 @@ function render(){
   var app=document.getElementById('app');
   var navDef=[{id:'guia',n:'1',label:'Guía'},{id:'plantillas',n:'2',label:'Plantillas'},{id:'captura',n:'3',label:'Captura'},{id:'documentos',n:'4',label:'Documentos'},{id:'historial',n:'H',label:'Historial'},{id:'datos',n:'i',label:'Hoja de Datos'}];
   var loaded=Object.keys(ST.tpls).length;
-  var sidebar=navDef.map(function(it){var a=ST.nav===it.id;var badge=(it.id==='plantillas'&&loaded<TPL_SLOTS.length)?"<span style='margin-left:auto;font-size:10px;font-weight:700;color:#B4690E;background:#FBF1E1;padding:2px 7px;border-radius:99px'>"+loaded+"/"+TPL_SLOTS.length+"</span>":"";return "<button class='navbtn' onclick=\"go('"+it.id+"')\" style='background:"+(a?'#EEF1FB':'transparent')+"'><span style='width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;background:"+(a?'#00249C':'#EEF1FB')+";color:"+(a?'#fff':'#7A8090')+"'>"+it.n+"</span><span style='font-weight:600;font-size:14.5px;color:"+(a?'#00249C':'#3A4050')+"'>"+it.label+"</span>"+badge+"</button>";}).join('');
+  var sidebar=navDef.map(function(it){var a=ST.nav===it.id;var badge=(it.id==='plantillas'&&loaded<TPL_SLOTS.length)?"<span style='margin-left:auto;font-size:10px;font-weight:700;color:#A46A1F;background:#FBF6EC;padding:2px 7px;border-radius:99px'>"+loaded+"/"+TPL_SLOTS.length+"</span>":"";return "<button class='navbtn' onclick=\"go('"+it.id+"')\" style='background:"+(a?'#E7EFEC':'transparent')+"'><span style='width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;background:"+(a?'#2E6E5E':'#E7EFEC')+";color:"+(a?'#fff':'#8B887F')+"'>"+it.n+"</span><span style='font-weight:600;font-size:14.5px;color:"+(a?'#2E6E5E':'#4A4840')+"'>"+it.label+"</span>"+badge+"</button>";}).join('');
 
   var body='';
   if(!cur() && ST.nav!=='datos' && ST.nav!=='plantillas' && ST.nav!=='guia' && ST.nav!=='historial'){ body=renderInicio(); }
@@ -457,15 +460,15 @@ function render(){
   else if(ST.nav==='datos') body=renderDatos();
 
   app.innerHTML=
-  "<header style='display:flex;align-items:center;gap:16px;background:#fff;border-bottom:1px solid #E3E6F0;padding:0 22px;height:64px;flex:0 0 auto'>"
-   +"<div style='width:40px;height:40px;border-radius:10px;background:#00249C;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700'>FAP</div>"
-   +"<div style='line-height:1.15'><div style='font-weight:700;font-size:15px;color:#0B153F'>Fondo de Áreas Protegidas</div><div style='font-size:12px;color:#7A8090'>Rellenado de plantillas · "+esc(headerArea())+"</div></div>"
+  "<header style='display:flex;align-items:center;gap:16px;background:#fff;border-bottom:1px solid #E4E2DC;padding:0 22px;height:64px;flex:0 0 auto'>"
+   +"<div style='width:40px;height:40px;border-radius:10px;background:#2E6E5E;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700'>FAP</div>"
+   +"<div style='line-height:1.15'><div style='font-weight:700;font-size:15px;color:#20231F'>Fondo de Áreas Protegidas</div><div style='font-size:12px;color:#8B887F'>Rellenado de plantillas · "+esc(headerArea())+"</div></div>"
    +"<div style='flex:1'></div>"
-   +(cur()?("<div style='text-align:right;line-height:1.2;margin-right:6px'><div style='font-size:11px;color:#7A8090;font-weight:600'>Progreso</div><div id='prog' style='font-size:13px;color:#0B153F;font-weight:700'>"+md+" de 4 momentos</div></div><div style='width:110px;height:8px;border-radius:99px;background:#E7EAF4;overflow:hidden'><div id='progbar' style='height:100%;background:#00249C;width:"+(md/4*100)+"%;transition:width .4s'></div></div>"):"")
+   +(cur()?("<div style='text-align:right;line-height:1.2;margin-right:6px'><div style='font-size:11px;color:#8B887F;font-weight:600'>Progreso</div><div id='prog' style='font-size:13px;color:#20231F;font-weight:700'>"+md+" de 4 momentos</div></div><div style='width:110px;height:8px;border-radius:99px;background:#EAE8E2;overflow:hidden'><div id='progbar' style='height:100%;background:#2E6E5E;width:"+(md/4*100)+"%;transition:width .4s'></div></div>"):"")
   +"</header>"
   +"<div style='display:flex;flex:1;min-height:0'>"
-   +"<nav style='flex:0 0 220px;background:#fff;border-right:1px solid #E3E6F0;padding:16px 12px;display:flex;flex-direction:column;gap:4px'>"
-     +"<div style='font-size:11px;font-weight:700;letter-spacing:.7px;color:#9AA0B2;text-transform:uppercase;padding:6px 12px'>Proceso</div>"+sidebar
+   +"<nav style='flex:0 0 220px;background:#fff;border-right:1px solid #E4E2DC;padding:16px 12px;display:flex;flex-direction:column;gap:4px'>"
+     +"<div style='font-size:11px;font-weight:700;letter-spacing:.7px;color:#A9A69C;text-transform:uppercase;padding:6px 12px'>Proceso</div>"+sidebar
      +"<div style='flex:1'></div>"+renderExpBox()
    +"</nav>"
    +"<main style='flex:1;min-width:0;overflow:auto'><div style='max-width:1080px;margin:0 auto;padding:26px 32px 80px' class='scr'>"+body+"</div></main>"
@@ -474,11 +477,11 @@ function render(){
 
 function renderExpBox(){
   var opts=ST.exps.map(function(e){return "<option value='"+e.id+"' "+(e.id===ST.curId?'selected':'')+">"+esc(e.nombre)+"</option>";}).join('');
-  return "<div style='background:#F7F8FC;border:1px solid #EAEDF5;border-radius:11px;padding:12px'>"
-   +"<div style='font-size:11px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px'>Expediente activo</div>"
-   +(ST.exps.length?("<select class='inp' style='padding:7px 9px;font-size:13px;margin-bottom:8px' onchange='switchExp(this.value)'>"+opts+"</select>"):"<div style='font-size:12.5px;color:#7A8090;margin-bottom:8px'>Sin expedientes aún.</div>")
-   +"<button onclick='crearExp()' style='all:unset;cursor:pointer;display:block;text-align:center;background:#00249C;color:#fff;font-weight:700;font-size:12.5px;padding:8px;border-radius:8px'>+ Nuevo proceso</button>"
-   +(ST.exps.length?"<button onclick='borrarExp()' style='all:unset;cursor:pointer;display:block;text-align:center;color:#B23B3B;font-weight:600;font-size:12px;padding:7px 0 0;margin-top:4px;width:100%'>Eliminar este expediente</button>":"")
+  return "<div style='background:#FAFAF7;border:1px solid #EAE8E2;border-radius:11px;padding:12px'>"
+   +"<div style='font-size:11px;font-weight:700;color:#A9A69C;text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px'>Expediente activo</div>"
+   +(ST.exps.length?("<select class='inp' style='padding:7px 9px;font-size:13px;margin-bottom:8px' onchange='switchExp(this.value)'>"+opts+"</select>"):"<div style='font-size:12.5px;color:#8B887F;margin-bottom:8px'>Sin expedientes aún.</div>")
+   +"<button onclick='crearExp()' style='all:unset;cursor:pointer;display:block;text-align:center;background:#2E6E5E;color:#fff;font-weight:700;font-size:12.5px;padding:8px;border-radius:8px'>+ Nuevo proceso</button>"
+   +(ST.exps.length?"<button onclick='borrarExp()' style='all:unset;cursor:pointer;display:block;text-align:center;color:#A6453C;font-weight:600;font-size:12px;padding:7px 0 0;margin-top:4px;width:100%'>Eliminar este expediente</button>":"")
    +"</div>";
 }
 function switchExp(id){ST.curId=id;ST.step=0;save();render();}
@@ -487,11 +490,11 @@ function borrarExp(){if(!cur())return;if(!confirm('¿Eliminar el expediente «'+
 
 function renderInicio(){
   return "<div style='max-width:560px;margin:40px auto;text-align:center'>"
-   +"<div style='display:inline-block;font-size:12px;font-weight:700;color:#00249C;background:#EEF1FB;padding:5px 11px;border-radius:99px;text-transform:uppercase'>Empieza aquí</div>"
-   +"<h1 style='font-size:30px;color:#0B153F;margin:16px 0 8px'>Crea tu primer proceso</h1>"
-   +"<p style='font-size:15px;color:#6B7180;line-height:1.55'>Cada proceso de contratación es un expediente. Crea uno, llénalo por momentos y genera los documentos rellenando tus plantillas Word.</p>"
-   +"<button onclick='crearExp()' style='all:unset;cursor:pointer;margin-top:18px;background:#00249C;color:#fff;font-weight:700;font-size:15px;padding:13px 26px;border-radius:11px'>+ Nuevo proceso</button>"
-   +"<p style='font-size:13px;color:#9AA0B2;margin-top:14px'>Antes: carga tus plantillas en <a href='#' onclick=\"go('plantillas');return false\" style='color:#00249C;font-weight:700'>Plantillas</a> y configura tu área en <a href='#' onclick=\"go('datos');return false\" style='color:#00249C;font-weight:700'>Hoja de Datos</a>.</p></div>";
+   +"<div style='display:inline-block;font-size:12px;font-weight:700;color:#2E6E5E;background:#E7EFEC;padding:5px 11px;border-radius:99px;text-transform:uppercase'>Empieza aquí</div>"
+   +"<h1 style='font-size:30px;color:#20231F;margin:16px 0 8px'>Crea tu primer proceso</h1>"
+   +"<p style='font-size:15px;color:#6E6B63;line-height:1.55'>Cada proceso de contratación es un expediente. Crea uno, llénalo por momentos y genera los documentos rellenando tus plantillas Word.</p>"
+   +"<button onclick='crearExp()' style='all:unset;cursor:pointer;margin-top:18px;background:#2E6E5E;color:#fff;font-weight:700;font-size:15px;padding:13px 26px;border-radius:11px'>+ Nuevo proceso</button>"
+   +"<p style='font-size:13px;color:#A9A69C;margin-top:14px'>Antes: carga tus plantillas en <a href='#' onclick=\"go('plantillas');return false\" style='color:#2E6E5E;font-weight:700'>Plantillas</a> y configura tu área en <a href='#' onclick=\"go('datos');return false\" style='color:#2E6E5E;font-weight:700'>Hoja de Datos</a>.</p></div>";
 }
 
 function renderGuia(){
@@ -500,33 +503,33 @@ function renderGuia(){
    {n:'2',t:'Crea tu proceso',d:'Pulsa + Nuevo proceso y elige el tipo: comparación de precios, selección directa o compra directa.'},
    {n:'3',t:'Captura el proceso por momentos',d:'Eliges los datos de cada momento. La herramienta arma los valores automáticamente.'},
    {n:'4',t:'Genera',d:'En Documentos pulsas Generar: se descarga el documento con tu formato institucional, listo para imprimir y firmar.'}];
-  var cards=pasos.map(function(e){return "<div class='card'><div style='display:flex;align-items:center;gap:10px;margin-bottom:9px'><span style='width:30px;height:30px;border-radius:9px;background:#00249C;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700'>"+e.n+"</span><span style='font-weight:700;font-size:15px;color:#0B153F'>"+e.t+"</span></div><div style='font-size:13.5px;color:#6B7180;line-height:1.5'>"+e.d+"</div></div>";}).join('');
-  var warn = engineReady()?"":"<div class='card' style='background:#FBF1E1;border-color:#F0E0C0;margin-bottom:18px'><b style='color:#8A5210'>Para generar, descarga este HTML.</b><div style='font-size:13px;color:#8A5210;margin-top:4px'>El motor de generación no se cargó en esta vista. Descarga el archivo y ábrelo en tu navegador; ahí funciona.</div></div>";
+  var cards=pasos.map(function(e){return "<div class='card'><div style='display:flex;align-items:center;gap:10px;margin-bottom:9px'><span style='width:30px;height:30px;border-radius:9px;background:#2E6E5E;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700'>"+e.n+"</span><span style='font-weight:700;font-size:15px;color:#20231F'>"+e.t+"</span></div><div style='font-size:13.5px;color:#6E6B63;line-height:1.5'>"+e.d+"</div></div>";}).join('');
+  var warn = engineReady()?"":"<div class='card' style='background:#FBF6EC;border-color:#F0E4CE;margin-bottom:18px'><b style='color:#A46A1F'>Para generar, descarga este HTML.</b><div style='font-size:13px;color:#A46A1F;margin-top:4px'>El motor de generación no se cargó en esta vista. Descarga el archivo y ábrelo en tu navegador; ahí funciona.</div></div>";
   return warn
-   +"<div style='display:inline-block;font-size:12px;font-weight:700;color:#00249C;background:#EEF1FB;padding:5px 11px;border-radius:99px;text-transform:uppercase'>Cómo funciona</div>"
-   +"<h1 style='font-size:30px;color:#0B153F;margin:14px 0 8px'>Un proceso, documentado en minutos</h1>"
-   +"<p style='font-size:16px;color:#6B7180;max-width:660px;line-height:1.55;margin:0 0 24px'>La herramienta te guía paso a paso para llenar un proceso y generar automáticamente los documentos correspondientes, con tu formato institucional exacto.</p>"
+   +"<div style='display:inline-block;font-size:12px;font-weight:700;color:#2E6E5E;background:#E7EFEC;padding:5px 11px;border-radius:99px;text-transform:uppercase'>Cómo funciona</div>"
+   +"<h1 style='font-size:30px;color:#20231F;margin:14px 0 8px'>Un proceso, documentado en minutos</h1>"
+   +"<p style='font-size:16px;color:#6E6B63;max-width:660px;line-height:1.55;margin:0 0 24px'>La herramienta te guía paso a paso para llenar un proceso y generar automáticamente los documentos correspondientes, con tu formato institucional exacto.</p>"
    +"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:22px'>"+cards+"</div>"
-   +"<button onclick=\"crearExp()\" style='all:unset;cursor:pointer;background:#00249C;color:#fff;font-weight:700;font-size:15px;padding:12px 24px;border-radius:10px'>+ Nuevo proceso →</button>";
+   +"<button onclick=\"crearExp()\" style='all:unset;cursor:pointer;background:#2E6E5E;color:#fff;font-weight:700;font-size:15px;padding:12px 24px;border-radius:10px'>+ Nuevo proceso →</button>";
 }
 
 function renderPlantillas(){
-  var warn = engineReady()?"":"<div class='card' style='background:#FBF1E1;border-color:#F0E0C0;margin-bottom:18px'><b style='color:#8A5210'>Motor de relleno no disponible en esta vista.</b><div style='font-size:13px;color:#8A5210;margin-top:4px'>Puedes cargar las plantillas igual; la generación funcionará cuando descargues y abras este HTML.</div></div>";
+  var warn = engineReady()?"":"<div class='card' style='background:#FBF6EC;border-color:#F0E4CE;margin-bottom:18px'><b style='color:#A46A1F'>Motor de relleno no disponible en esta vista.</b><div style='font-size:13px;color:#A46A1F;margin-top:4px'>Puedes cargar las plantillas igual; la generación funcionará cuando descargues y abras este HTML.</div></div>";
   var rows=TPL_SLOTS.map(function(s){
     var has=!!ST.tpls[s.f];
     return "<div class='card' style='display:flex;align-items:center;gap:14px;padding:14px 16px'>"
-     +"<span style='width:30px;height:30px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:700;background:"+(has?'#E7F4EC':'#EEF0F6')+";color:"+(has?'#1E7A4D':'#9AA0B2')+"'>"+(has?'✓':'·')+"</span>"
-     +"<div style='flex:1;min-width:0'><div style='font-weight:700;font-size:14px;color:#0B153F'>"+esc(s.label)+"</div><div style='font-size:12px;color:#9AA0B2'>"+esc(s.f)+"</div></div>"
-     +"<label style='all:unset;cursor:pointer;background:"+(has?'#EEF1FB':'#00249C')+";color:"+(has?'#00249C':'#fff')+";font-weight:700;font-size:13px;padding:8px 14px;border-radius:8px'>"+(has?'Reemplazar':'Cargar .docx')+"<input type='file' accept='.docx' style='display:none' data-slot=\""+s.f+"\" onchange='onTplUpload(this)'></label>"
-     +(has?"<button onclick=\"delTpl('"+s.f+"')\" style='all:unset;cursor:pointer;color:#B23B3B;font-weight:700;font-size:18px;padding:0 4px'>×</button>":"")
+     +"<span style='width:30px;height:30px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:700;background:"+(has?'#E7EFEC':'#F2F1ED')+";color:"+(has?'#2E6E5E':'#A9A69C')+"'>"+(has?'✓':'·')+"</span>"
+     +"<div style='flex:1;min-width:0'><div style='font-weight:700;font-size:14px;color:#20231F'>"+esc(s.label)+"</div><div style='font-size:12px;color:#A9A69C'>"+esc(s.f)+"</div></div>"
+     +"<label style='all:unset;cursor:pointer;background:"+(has?'#E7EFEC':'#2E6E5E')+";color:"+(has?'#2E6E5E':'#fff')+";font-weight:700;font-size:13px;padding:8px 14px;border-radius:8px'>"+(has?'Reemplazar':'Cargar .docx')+"<input type='file' accept='.docx' style='display:none' data-slot=\""+s.f+"\" onchange='onTplUpload(this)'></label>"
+     +(has?"<button onclick=\"delTpl('"+s.f+"')\" style='all:unset;cursor:pointer;color:#A6453C;font-weight:700;font-size:18px;padding:0 4px'>×</button>":"")
      +"</div>";
   }).join('');
   var loaded=Object.keys(ST.tpls).length;
   return warn
-   +"<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Plantillas Word</h1>"
-   +"<p style='font-size:15px;color:#6B7180;margin:0 0 6px;max-width:640px;line-height:1.5'>Sube tus 13 plantillas <b>etiquetadas</b> (con {objeto}, {fechaInicio}, {#items}…). Quedan guardadas en este navegador; no hay que volver a subirlas.</p>"
-   +"<p style='font-size:13px;font-weight:700;color:"+(loaded===TPL_SLOTS.length?'#1E7A4D':'#B4690E')+";margin:0 0 18px'>"+loaded+" de "+TPL_SLOTS.length+" plantillas cargadas</p>"
-   +"<div class='card' style='display:flex;align-items:center;gap:12px;margin-bottom:18px;background:#EEF1FB;border-color:#DCE2F7'><div style='flex:1'><div style='font-weight:700;color:#00249C'>Exportar herramienta para las ACs</div><div style='font-size:12.5px;color:#5A6072;line-height:1.45'>Genera un solo archivo HTML con las plantillas ya embebidas. Las ACs lo abren, llenan su área y generan documentos — nunca tocan las plantillas.</div></div><button onclick='exportBuild()' style='all:unset;cursor:pointer;flex:0 0 auto;background:#00249C;color:#fff;font-weight:700;font-size:13px;padding:10px 16px;border-radius:9px'>Exportar .html</button></div>"
+   +"<h1 style='font-size:28px;color:#20231F;margin:0 0 4px'>Plantillas Word</h1>"
+   +"<p style='font-size:15px;color:#6E6B63;margin:0 0 6px;max-width:640px;line-height:1.5'>Sube tus 13 plantillas <b>etiquetadas</b> (con {objeto}, {fechaInicio}, {#items}…). Quedan guardadas en este navegador; no hay que volver a subirlas.</p>"
+   +"<p style='font-size:13px;font-weight:700;color:"+(loaded===TPL_SLOTS.length?'#2E6E5E':'#A46A1F')+";margin:0 0 18px'>"+loaded+" de "+TPL_SLOTS.length+" plantillas cargadas</p>"
+   +"<div class='card' style='display:flex;align-items:center;gap:12px;margin-bottom:18px;background:#E7EFEC;border-color:#CFE3DA'><div style='flex:1'><div style='font-weight:700;color:#2E6E5E'>Exportar herramienta para las ACs</div><div style='font-size:12.5px;color:#5A574E;line-height:1.45'>Genera un solo archivo HTML con las plantillas ya embebidas. Las ACs lo abren, llenan su área y generan documentos — nunca tocan las plantillas.</div></div><button onclick='exportBuild()' style='all:unset;cursor:pointer;flex:0 0 auto;background:#2E6E5E;color:#fff;font-weight:700;font-size:13px;padding:10px 16px;border-radius:9px'>Exportar .html</button></div>"
    +"<div style='display:flex;flex-direction:column;gap:10px'>"+rows+"</div>";
 }
 function onTplUpload(input){
@@ -582,7 +585,7 @@ function recompute(){
   var d=D(),n=nInv();
   var montos=d.provs.slice(0,n).map(function(p){return num(p.monto)>0?num(p.monto):Infinity;});
   var mn=Math.min.apply(null,montos);
-  for(var j=0;j<n;j++){var cd=by('oferta_card'+j),bd=by('oferta_badge'+j),p=d.provs[j];if(cd){var best=n>1&&num(p.monto)>0&&num(p.monto)===mn;cd.style.borderColor=best?'#1E7A4D':'#E7EAF4';if(bd){bd.textContent=(p.razon||('Proveedor '+(j+1)))+(best?' · oferta más baja':'');bd.style.color=best?'#1E7A4D':'#00249C';}}}
+  for(var j=0;j<n;j++){var cd=by('oferta_card'+j),bd=by('oferta_badge'+j),p=d.provs[j];if(cd){var best=n>1&&num(p.monto)>0&&num(p.monto)===mn;cd.style.borderColor=best?'#2E6E5E':'#EAE8E2';if(bd){bd.textContent=(p.razon||('Proveedor '+(j+1)))+(best?' · oferta más baja':'');bd.style.color=best?'#2E6E5E':'#2E6E5E';}}}
   var adjSel=document.querySelector("select[data-k='adjudicado']");
   if(adjSel){var op=offeredProvs(),cur=d.adjudicado||'';
     if(cur&&!op.some(function(p){return p.razon===cur;})){d.adjudicado='';cur='';if(by('a_rucadj'))by('a_rucadj').value='—';if(by('a_montoadj'))by('a_montoadj').value='—';if(by('a_montoletras'))by('a_montoletras').value='—';}
@@ -590,7 +593,7 @@ function recompute(){
   var done=doneArr(),md=done.filter(Boolean).length;
   if(by('prog'))by('prog').textContent=md+' de 4 momentos';
   if(by('progbar'))by('progbar').style.width=(md/4*100)+'%';
-  for(var i=0;i<4;i++){var s=by('stepmark'+i);if(s){s.innerHTML=done[i]?'✓':(i+1);s.style.background=done[i]?'#1E7A4D':(ST.step===i?'#00249C':'#fff');s.style.color=(done[i]||ST.step===i)?'#fff':'#9AA0B2';}}
+  for(var i=0;i<4;i++){var s=by('stepmark'+i);if(s){s.innerHTML=done[i]?'✓':(i+1);s.style.background=done[i]?'#2E6E5E':(ST.step===i?'#2E6E5E':'#fff');s.style.color=(done[i]||ST.step===i)?'#fff':'#A9A69C';}}
   renderRail();
 }
 
@@ -599,29 +602,29 @@ function renderRail(){
   var areaLbl=d.areaId?(A().ap||'—'):(areasList().length>1?'— elige el área —':(A().ap||'—'));
   var rows=[['Área protegida',areaLbl],['Tipo de proceso',d.tipoProceso||'—'],['Bien / servicio',d.bienServicio||'—'],['Código',codigoProceso()],['Presupuesto',d.presupuesto?money(num(d.presupuesto)):'—'],['Total calculado',money(t.total)]];
   var docs=documents();
-  el.innerHTML="<div class='card' style='padding:20px'><div style='font-size:13px;font-weight:700;color:#00249C;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px'>Estado del proceso</div>"
-   +rows.map(function(r){return "<div style='display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #F0F2F8'><span style='font-size:14.5px;color:#7A8090'>"+r[0]+"</span><span style='font-size:14.5px;font-weight:700;color:#0B153F;text-align:right'>"+esc(r[1])+"</span></div>";}).join('')+"</div>"
-   +"<div class='card' style='padding:20px;margin-top:16px'><div style='font-size:13px;font-weight:700;color:#00249C;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px'>Documentos que aplican</div>"
-   +docs.map(function(x){return "<div style='display:flex;align-items:center;gap:11px;padding:9px 0'><span style='width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:"+(x.ready?'#E7F4EC':'#EEF0F6')+";color:"+(x.ready?'#1E7A4D':'#9AA0B2')+"'>"+(x.ready?'✓':'·')+"</span><span style='font-size:14.5px;color:"+(x.ready?'#2A2F3C':'#9AA0B2')+";line-height:1.3'>"+esc(x.name)+"</span></div>";}).join('')
-   +"<button onclick=\"go('documentos')\" style='all:unset;cursor:pointer;width:100%;text-align:center;box-sizing:border-box;background:#EEF1FB;color:#00249C;font-weight:700;font-size:14px;padding:11px;border-radius:9px;margin-top:14px'>Ir a Documentos →</button></div>";
+  el.innerHTML="<div class='card' style='padding:20px'><div style='font-size:13px;font-weight:700;color:#2E6E5E;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px'>Estado del proceso</div>"
+   +rows.map(function(r){return "<div style='display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #F2F1ED'><span style='font-size:14.5px;color:#8B887F'>"+r[0]+"</span><span style='font-size:14.5px;font-weight:700;color:#20231F;text-align:right'>"+esc(r[1])+"</span></div>";}).join('')+"</div>"
+   +"<div class='card' style='padding:20px;margin-top:16px'><div style='font-size:13px;font-weight:700;color:#2E6E5E;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px'>Documentos que aplican</div>"
+   +docs.map(function(x){return "<div style='display:flex;align-items:center;gap:11px;padding:9px 0'><span style='width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:"+(x.ready?'#E7EFEC':'#F2F1ED')+";color:"+(x.ready?'#2E6E5E':'#A9A69C')+"'>"+(x.ready?'✓':'·')+"</span><span style='font-size:14.5px;color:"+(x.ready?'#1F2320':'#A9A69C')+";line-height:1.3'>"+esc(x.name)+"</span></div>";}).join('')
+   +"<button onclick=\"go('documentos')\" style='all:unset;cursor:pointer;width:100%;text-align:center;box-sizing:border-box;background:#E7EFEC;color:#2E6E5E;font-weight:700;font-size:14px;padding:11px;border-radius:9px;margin-top:14px'>Ir a Documentos →</button></div>";
 }
 
 function renderCaptura(){
   var done=doneArr();
-  var stepper="<div style='display:flex;gap:4px;background:#fff;border:1px solid #E7EAF4;border-radius:13px;padding:6px;margin-bottom:20px'>"
-   +[0,1,2,3].map(function(i){var b=['Momento 1','Momento 2','Momento 3','Momento 4'][i];var sub=['Apertura','Adjudicación','Recepción','Entrega'][i];var active=ST.step===i;return "<button onclick='setStep("+i+")' style='all:unset;cursor:pointer;flex:1;display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:9px;background:"+(active?'#EEF1FB':'transparent')+"'><span id='stepmark"+i+"' style='width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:"+(done[i]?'#1E7A4D':(active?'#00249C':'#fff'))+";color:"+((done[i]||active)?'#fff':'#9AA0B2')+";border:"+((done[i]||active)?'none':'1.5px solid #D7DCEA')+"'>"+(done[i]?'✓':(i+1))+"</span><span style='text-align:left;line-height:1.15'><span style='display:block;font-weight:700;font-size:13px;color:"+(active?'#00249C':'#3A4050')+"'>"+b+"</span><span style='display:block;font-size:11px;color:#9AA0B2'>"+sub+"</span></span></button>";}).join('')+"</div>";
+  var stepper="<div style='display:flex;gap:4px;background:#fff;border:1px solid #EAE8E2;border-radius:13px;padding:6px;margin-bottom:20px'>"
+   +[0,1,2,3].map(function(i){var b=['Momento 1','Momento 2','Momento 3','Momento 4'][i];var sub=['Apertura','Adjudicación','Recepción','Entrega'][i];var active=ST.step===i;return "<button onclick='setStep("+i+")' style='all:unset;cursor:pointer;flex:1;display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:9px;background:"+(active?'#E7EFEC':'transparent')+"'><span id='stepmark"+i+"' style='width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:"+(done[i]?'#2E6E5E':(active?'#2E6E5E':'#fff'))+";color:"+((done[i]||active)?'#fff':'#A9A69C')+";border:"+((done[i]||active)?'none':'1.5px solid #D8D5CD')+"'>"+(done[i]?'✓':(i+1))+"</span><span style='text-align:left;line-height:1.15'><span style='display:block;font-weight:700;font-size:13px;color:"+(active?'#2E6E5E':'#4A4840')+"'>"+b+"</span><span style='display:block;font-size:11px;color:#A9A69C'>"+sub+"</span></span></button>";}).join('')+"</div>";
   var sections = ST.step===0?capM1():ST.step===1?capM2():ST.step===2?capM3():capM4();
   var nav="<div style='display:flex;justify-content:space-between;align-items:center;margin-top:18px'>"
-   +(ST.step>0?"<button onclick='setStep("+(ST.step-1)+")' style='all:unset;cursor:pointer;padding:11px 18px;border-radius:10px;font-weight:700;font-size:14px;color:#3A4050;background:#fff;border:1.5px solid #D7DCEA'>← Anterior</button>":"<span></span>")
-   +"<span style='font-size:13px;color:#9AA0B2;font-weight:600'>Paso "+(ST.step+1)+" de 4</span>"
-   +(ST.step<3?"<button onclick='setStep("+(ST.step+1)+")' style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#00249C'>Siguiente →</button>":"<button onclick=\"go('documentos')\" style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#00249C'>Ir a Documentos →</button>")
+   +(ST.step>0?"<button onclick='setStep("+(ST.step-1)+")' style='all:unset;cursor:pointer;padding:11px 18px;border-radius:10px;font-weight:700;font-size:14px;color:#4A4840;background:#fff;border:1.5px solid #D8D5CD'>← Anterior</button>":"<span></span>")
+   +"<span style='font-size:13px;color:#A9A69C;font-weight:600'>Paso "+(ST.step+1)+" de 4</span>"
+   +(ST.step<3?"<button onclick='setStep("+(ST.step+1)+")' style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#2E6E5E'>Siguiente →</button>":"<button onclick=\"go('documentos')\" style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#2E6E5E'>Ir a Documentos →</button>")
    +"</div>";
   setTimeout(renderRail,0);
-  return "<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Captura — "+esc(cur().nombre)+"</h1>"
-   +"<p style='font-size:15px;color:#6B7180;margin:0 0 18px'>Llena este momento. Elige siempre de las listas.</p>"+stepper
+  return "<h1 style='font-size:28px;color:#20231F;margin:0 0 4px'>Captura — "+esc(cur().nombre)+"</h1>"
+   +"<p style='font-size:15px;color:#6E6B63;margin:0 0 18px'>Llena este momento. Elige siempre de las listas.</p>"+stepper
    +"<div style='display:grid;grid-template-columns:1fr 330px;gap:22px;align-items:start'><div style='display:flex;flex-direction:column;gap:16px;min-width:0'>"+sections+nav+"</div><aside id='rail' style='position:sticky;top:8px'></aside></div>";
 }
-function block(title,help,inner){return "<div class='card'><div style='font-weight:700;font-size:16px;color:#0B153F;margin-bottom:3px'>"+title+"</div>"+(help?"<div style='font-size:12.5px;color:#7A8090;margin-bottom:14px;line-height:1.45'>"+help+"</div>":"<div style='height:8px'></div>")+inner+"</div>";}
+function block(title,help,inner){return "<div class='card'><div style='font-weight:700;font-size:16px;color:#20231F;margin-bottom:3px'>"+title+"</div>"+(help?"<div style='font-size:12.5px;color:#8B887F;margin-bottom:14px;line-height:1.45'>"+help+"</div>":"<div style='height:8px'></div>")+inner+"</div>";}
 
 function capM1(){
   var d=D(),selD=d.tipoProceso==='Selección directa por excepción',esServ=d.bienServicio==='Servicio',esBien=d.bienServicio==='Bien';
@@ -666,11 +669,11 @@ function capM2(){
       "<div class='gridf'>"+fAuto('x_adj','Proveedor adjudicado',adjudicado()||'—')+fAuto('a_rucadj','RUC',(adjProvObj()&&adjProvObj().ruc)||'—')+fAuto('a_montoadj','Monto',adjMonto()>0?money(adjMonto()):'—')+fAuto('a_montoletras','Monto en letras',montoEnLetras(adjMonto())||'—')+"</div>");
   }else{
     if(d.tipoProceso==='Comparación de precios'){
-      s+="<div class='card' style='margin-bottom:18px;border:1.5px solid "+(d.desierto?'#E7C3C3':'#E7EAF4')+";background:"+(d.desierto?'#FDF7F7':'#fff')+"'>"+desiertoToggle()+"</div>";
+      s+="<div class='card' style='margin-bottom:18px;border:1.5px solid "+(d.desierto?'#E3BDB6':'#EAE8E2')+";background:"+(d.desierto?'#FBF2F0':'#fff')+"'>"+desiertoToggle()+"</div>";
     }
     if(d.desierto){
       s+=block('2 · Proceso desierto','El proceso se declara desierto: no hay proveedor adjudicado. En Documentos genera el <b>Acta de adjudicación</b> (con la parte de declaratoria desierta). No se emite orden, recepción ni entrega.',
-        "<div style='font-size:13.5px;color:#7A8090'>Si finalmente vas a adjudicar, desmarca «Declarar desierto» arriba.</div>");
+        "<div style='font-size:13.5px;color:#8B887F'>Si finalmente vas a adjudicar, desmarca «Declarar desierto» arriba.</div>");
     }else{
       s+=block('2 · Adjudicación','Solo aparecen los proveedores que presentaron oferta. Su RUC y monto se completan solos.',
         "<div class='gridf'>"+fText('fechaAdj','Fecha de adjudicación',{type:'date'})
@@ -692,7 +695,7 @@ function capM3(){
 }
 function capM4(){
   var esBien=D().bienServicio==='Bien';
-  if(!esBien) return block('1 · Entrega al área protegida','Aplica solo a bienes. Los servicios se cierran con el Informe de satisfacción (Momento 3).',"<div style='font-size:13.5px;color:#7A8090'>Este proceso es un servicio: no requiere entrega de bienes al área.</div>");
+  if(!esBien) return block('1 · Entrega al área protegida','Aplica solo a bienes. Los servicios se cierran con el Informe de satisfacción (Momento 3).',"<div style='font-size:13.5px;color:#8B887F'>Este proceso es un servicio: no requiere entrega de bienes al área.</div>");
   return block('1 · Entrega al área protegida','Todo bien se entrega formalmente al jefe de área (custodia del MAE). Aquí se genera el <b>acta única de cierre</b> del proceso.',
     "<div class='gridf'>"+fText('cedulaJefe','Cédula del jefe de área',{ph:'0000000000'})+fText('correoJefe','Correo del jefe de área',{ph:'jefe@fias.org.ec'})+"</div>");
 }
@@ -702,14 +705,14 @@ function modalidadGroup(){
   if(!d.bienServicio) return '';
   function opt(key,label){
     var on=!!d[key];
-    return "<button type='button' onclick=\"toggleModalidad('"+key+"')\" style='all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;padding:10px 13px;border:1.5px solid "+(on?'#00249C':'#E7EAF4')+";border-radius:9px;background:"+(on?'#EEF1FB':'#fff')+";font-size:13.5px;font-weight:600;color:"+(on?'#00249C':'#3A4050')+"'>"
-     +"<span style='width:17px;height:17px;flex:0 0 auto;border-radius:5px;border:2px solid "+(on?'#00249C':'#C7CCDC')+";background:"+(on?'#00249C':'#fff')+";display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:11px;line-height:1'>"+(on?'✓':'')+"</span>"+label+"</button>";
+    return "<button type='button' onclick=\"toggleModalidad('"+key+"')\" style='all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;padding:10px 13px;border:1.5px solid "+(on?'#2E6E5E':'#EAE8E2')+";border-radius:9px;background:"+(on?'#E7EFEC':'#fff')+";font-size:13.5px;font-weight:600;color:"+(on?'#2E6E5E':'#4A4840')+"'>"
+     +"<span style='width:17px;height:17px;flex:0 0 auto;border-radius:5px;border:2px solid "+(on?'#2E6E5E':'#C9C6BC')+";background:"+(on?'#2E6E5E':'#fff')+";display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:11px;line-height:1'>"+(on?'✓':'')+"</span>"+label+"</button>";
   }
   var contrato=esContrato();
   var nota;
-  if(contrato) nota="<div style='font-size:12.5px;color:#8A5210;background:#FBF1E1;border:1px solid #F0E0C0;border-radius:8px;padding:8px 10px;line-height:1.45'>Con garantías, el proceso va por <b>contrato</b>: la orden no aplica.</div>";
-  else if(d.pagoContraEntrega) nota="<div style='font-size:12.5px;color:#1E7A4D;background:#E7F4EC;border:1px solid #CDE8D6;border-radius:8px;padding:8px 10px;line-height:1.45'>Pago contra entrega: habilita la <b>orden</b> de compra/servicio.</div>";
-  else nota="<div style='font-size:12.5px;color:#9AA0B2;line-height:1.45'>Marca la modalidad para habilitar la orden.</div>";
+  if(contrato) nota="<div style='font-size:12.5px;color:#A46A1F;background:#FBF6EC;border:1px solid #F0E4CE;border-radius:8px;padding:8px 10px;line-height:1.45'>Con garantías, el proceso va por <b>contrato</b>: la orden no aplica.</div>";
+  else if(d.pagoContraEntrega) nota="<div style='font-size:12.5px;color:#2E6E5E;background:#E7EFEC;border:1px solid #CFE3DA;border-radius:8px;padding:8px 10px;line-height:1.45'>Pago contra entrega: habilita la <b>orden</b> de compra/servicio.</div>";
+  else nota="<div style='font-size:12.5px;color:#A9A69C;line-height:1.45'>Marca la modalidad para habilitar la orden.</div>";
   return "<div style='grid-column:1/-1'><label class='fl'>Modalidad de pago / garantías</label>"
    +"<div style='display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 8px'>"+opt('pagoContraEntrega','Pago contra entrega')+opt('garAnticipo','Garantía de buen uso de anticipo')+opt('garFielCumpl','Garantía de fiel cumplimiento')+"</div>"+nota+"</div>";
 }
@@ -723,8 +726,8 @@ function toggleModalidad(key){
 function desiertoToggle(){
   var d=D(),on=!!d.desierto;
   return "<div style='display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap'>"
-   +"<div><div style='font-weight:700;font-size:14px;color:#0B153F'>¿Declarar el proceso desierto?</div><div style='font-size:12.5px;color:#7A8090;line-height:1.4;max-width:440px'>Actívalo si no hubo ofertas o ninguna califica. Se puede con o sin ofertas registradas. Cierra el proceso con el acta de adjudicación (parte de declaratoria desierta).</div></div>"
-   +"<button type='button' onclick='toggleDesierto()' style='all:unset;cursor:pointer;flex:0 0 auto;padding:10px 16px;border-radius:9px;font-weight:700;font-size:13.5px;border:1.5px solid "+(on?'#B23B3B':'#E7EAF4')+";background:"+(on?'#FBECEC':'#fff')+";color:"+(on?'#B23B3B':'#3A4050')+"'>"+(on?'✓ Declarado desierto':'Declarar desierto')+"</button></div>";
+   +"<div><div style='font-weight:700;font-size:14px;color:#20231F'>¿Declarar el proceso desierto?</div><div style='font-size:12.5px;color:#8B887F;line-height:1.4;max-width:440px'>Actívalo si no hubo ofertas o ninguna califica. Se puede con o sin ofertas registradas. Cierra el proceso con el acta de adjudicación (parte de declaratoria desierta).</div></div>"
+   +"<button type='button' onclick='toggleDesierto()' style='all:unset;cursor:pointer;flex:0 0 auto;padding:10px 16px;border-radius:9px;font-weight:700;font-size:13.5px;border:1.5px solid "+(on?'#A6453C':'#EAE8E2')+";background:"+(on?'#F9EDE9':'#fff')+";color:"+(on?'#A6453C':'#4A4840')+"'>"+(on?'✓ Declarado desierto':'Declarar desierto')+"</button></div>";
 }
 function toggleDesierto(){var d=D();d.desierto=!d.desierto;if(d.desierto){d.adjudicado='';}save();render();}
 
@@ -732,11 +735,11 @@ function provRows(modo){
   var d=D(),n=nInv();var html="<div style='display:flex;flex-direction:column;gap:12px'>";
   for(var i=0;i<n;i++){var p=d.provs[i];
     if(modo==='invite'){
-      html+="<div style='border:1px solid #E7EAF4;border-radius:10px;padding:12px'><div style='font-weight:700;font-size:13px;color:#00249C;margin-bottom:8px'>Proveedor "+(i+1)+"</div>"
+      html+="<div style='border:1px solid #EAE8E2;border-radius:10px;padding:12px'><div style='font-weight:700;font-size:13px;color:#2E6E5E;margin-bottom:8px'>Proveedor "+(i+1)+"</div>"
        +pf(i,'razon','Razón social (solo el nombre)',p.razon)+"</div>";
     }else{
       var best=n>1&&num(p.monto)>0&&num(p.monto)===Math.min.apply(null,d.provs.slice(0,n).map(function(x){return num(x.monto)>0?num(x.monto):Infinity;}));
-      html+="<div id='oferta_card"+i+"' style='border:1px solid "+(best?'#1E7A4D':'#E7EAF4')+";border-radius:10px;padding:12px'><div id='oferta_badge"+i+"' style='font-weight:700;font-size:13px;color:"+(best?'#1E7A4D':'#00249C')+";margin-bottom:8px'>"+esc(p.razon||('Proveedor '+(i+1)))+(best?' · oferta más baja':'')+"</div><div class='gridf'>"
+      html+="<div id='oferta_card"+i+"' style='border:1px solid "+(best?'#2E6E5E':'#EAE8E2')+";border-radius:10px;padding:12px'><div id='oferta_badge"+i+"' style='font-weight:700;font-size:13px;color:"+(best?'#2E6E5E':'#2E6E5E')+";margin-bottom:8px'>"+esc(p.razon||('Proveedor '+(i+1)))+(best?' · oferta más baja':'')+"</div><div class='gridf'>"
        +(esCD()?'':pf(i,'fof','Fecha de oferta',p.fof,'date'))+pf(i,'ruc','RUC / Cédula',p.ruc)+pf(i,'monto','Monto ofertado (USD)',p.monto,'number')+"</div></div>";
     }
   }
@@ -748,32 +751,32 @@ function onProv(el){var i=+el.dataset.p,k=el.dataset.pk;D().provs[i][k]=el.value
 function itemRows(withPrice){
   var d=D(),t=itemTotals();
   var cols=withPrice?'24px 1fr 76px 62px 92px 24px':'24px 1fr 110px 80px 24px';
-  var head="<div style='display:grid;grid-template-columns:"+cols+";gap:8px;margin-bottom:6px;font-size:11px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.3px'><span></span><span>Descripción</span><span>Unidad</span><span>Cant.</span>"+(withPrice?"<span>P. unit</span>":"")+"<span></span></div>";
+  var head="<div style='display:grid;grid-template-columns:"+cols+";gap:8px;margin-bottom:6px;font-size:11px;font-weight:700;color:#A9A69C;text-transform:uppercase;letter-spacing:.3px'><span></span><span>Descripción</span><span>Unidad</span><span>Cant.</span>"+(withPrice?"<span>P. unit</span>":"")+"<span></span></div>";
   var rows=d.items.map(function(it,i){
     var r="<div style='display:grid;grid-template-columns:"+cols+";gap:8px;align-items:center;margin-bottom:6px'>"
-     +"<span style='font-size:12px;color:#9AA0B2;text-align:center'>"+(i+1)+"</span>"
+     +"<span style='font-size:12px;color:#A9A69C;text-align:center'>"+(i+1)+"</span>"
      +"<input class='inp' style='padding:7px 9px' placeholder='Descripción' value=\""+esc(it.desc)+"\" data-i='"+i+"' data-ik='desc' oninput='onItem(this)'>"
      +"<select class='inp' style='padding:7px 6px' data-i='"+i+"' data-ik='unidad' onchange='onItem(this)'><option value=''>—</option>"+UNIDAD.map(function(u){return "<option "+(it.unidad===u?'selected':'')+">"+u+"</option>";}).join('')+"</select>"
      +"<input class='inp' style='padding:7px 9px' type='number' placeholder='Cant.' value=\""+esc(it.cantidad)+"\" data-i='"+i+"' data-ik='cantidad' oninput='onItem(this)'>";
     if(withPrice) r+="<input class='inp' style='padding:7px 9px' type='number' placeholder='0.00' value=\""+esc(it.punit)+"\" data-i='"+i+"' data-ik='punit' oninput='onItem(this)'>";
-    r+=(d.items.length>1?"<button onclick='delItem("+i+")' style='all:unset;cursor:pointer;color:#B23B3B;text-align:center;font-weight:700'>×</button>":"<span></span>")+"</div>";
+    r+=(d.items.length>1?"<button onclick='delItem("+i+")' style='all:unset;cursor:pointer;color:#A6453C;text-align:center;font-weight:700'>×</button>":"<span></span>")+"</div>";
     return r;
   }).join('');
-  var rowsWrap = d.items.length>8 ? "<div style='max-height:360px;overflow:auto;border:1px solid #F0F2F8;border-radius:8px;padding:10px'>"+head+rows+"</div>" : head+rows;
+  var rowsWrap = d.items.length>8 ? "<div style='max-height:360px;overflow:auto;border:1px solid #F2F1ED;border-radius:8px;padding:10px'>"+head+rows+"</div>" : head+rows;
   var counter="<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px'>"
-    +"<label style='font-size:12.5px;font-weight:700;color:#3A4050'>Número de ítems</label>"
+    +"<label style='font-size:12.5px;font-weight:700;color:#4A4840'>Número de ítems</label>"
     +"<input id='itemcount' class='inp' style='width:90px' type='number' min='1' max='300' value='"+d.items.length+"'>"
-    +"<button onclick=\"setItemCount(document.getElementById('itemcount').value)\" style='all:unset;cursor:pointer;background:#EEF1FB;color:#00249C;font-weight:700;font-size:13px;padding:8px 14px;border-radius:8px'>Aplicar</button>"
-    +"<button onclick='addItem()' style='all:unset;cursor:pointer;color:#00249C;font-weight:700;font-size:13px;padding:8px 6px'>+ Agregar uno</button>"
-    +"<button onclick='togglePaste()' style='all:unset;cursor:pointer;background:"+(PASTE_OPEN?'#00249C':'#EEF1FB')+";color:"+(PASTE_OPEN?'#fff':'#00249C')+";font-weight:700;font-size:13px;padding:8px 14px;border-radius:8px'>📋 Pegar desde Excel</button>"
-    +"<span style='font-size:11.5px;color:#9AA0B2'>Crea de golpe las filas que necesites (ej.: 100).</span></div>";
+    +"<button onclick=\"setItemCount(document.getElementById('itemcount').value)\" style='all:unset;cursor:pointer;background:#E7EFEC;color:#2E6E5E;font-weight:700;font-size:13px;padding:8px 14px;border-radius:8px'>Aplicar</button>"
+    +"<button onclick='addItem()' style='all:unset;cursor:pointer;color:#2E6E5E;font-weight:700;font-size:13px;padding:8px 6px'>+ Agregar uno</button>"
+    +"<button onclick='togglePaste()' style='all:unset;cursor:pointer;background:"+(PASTE_OPEN?'#2E6E5E':'#E7EFEC')+";color:"+(PASTE_OPEN?'#fff':'#2E6E5E')+";font-weight:700;font-size:13px;padding:8px 14px;border-radius:8px'>📋 Pegar desde Excel</button>"
+    +"<span style='font-size:11.5px;color:#A9A69C'>Crea de golpe las filas que necesites (ej.: 100).</span></div>";
   var out=counter+pastePanel()+rowsWrap;
   if(withPrice){
-    out+="<div style='display:flex;align-items:center;gap:10px;margin:12px 0'><label style='font-size:12.5px;font-weight:700;color:#3A4050'>IVA (%)</label><input class='inp' style='width:90px' type='number' data-k='ivaPct' value=\""+esc(d.ivaPct)+"\" oninput='onField(this)'><span style='font-size:11.5px;color:#9AA0B2'>Editable por si el bien o servicio tiene tarifa distinta.</span></div>";
-    out+="<div style='background:#F7F8FC;border-radius:9px;padding:10px 14px;display:flex;flex-direction:column;gap:4px'>"
-     +"<div style='display:flex;justify-content:space-between'><span style='color:#7A8090;font-size:13px'>Subtotal</span><span id='a_sub' style='font-weight:700'>"+money(t.sub)+"</span></div>"
-     +"<div style='display:flex;justify-content:space-between'><span style='color:#7A8090;font-size:13px'>IVA (<span id='a_ivalbl'>"+ivaPct()+"</span>%)</span><span id='a_iva' style='font-weight:700'>"+money(t.iva)+"</span></div>"
-     +"<div style='display:flex;justify-content:space-between;border-top:1px solid #E7EAF4;padding-top:5px'><span style='color:#0B153F;font-weight:700;font-size:13px'>Total</span><span id='a_total' style='font-weight:700;color:#00249C'>"+money(t.total)+"</span></div></div>";
+    out+="<div style='display:flex;align-items:center;gap:10px;margin:12px 0'><label style='font-size:12.5px;font-weight:700;color:#4A4840'>IVA (%)</label><input class='inp' style='width:90px' type='number' data-k='ivaPct' value=\""+esc(d.ivaPct)+"\" oninput='onField(this)'><span style='font-size:11.5px;color:#A9A69C'>Editable por si el bien o servicio tiene tarifa distinta.</span></div>";
+    out+="<div style='background:#FAFAF7;border-radius:9px;padding:10px 14px;display:flex;flex-direction:column;gap:4px'>"
+     +"<div style='display:flex;justify-content:space-between'><span style='color:#8B887F;font-size:13px'>Subtotal</span><span id='a_sub' style='font-weight:700'>"+money(t.sub)+"</span></div>"
+     +"<div style='display:flex;justify-content:space-between'><span style='color:#8B887F;font-size:13px'>IVA (<span id='a_ivalbl'>"+ivaPct()+"</span>%)</span><span id='a_iva' style='font-weight:700'>"+money(t.iva)+"</span></div>"
+     +"<div style='display:flex;justify-content:space-between;border-top:1px solid #EAE8E2;padding-top:5px'><span style='color:#20231F;font-weight:700;font-size:13px'>Total</span><span id='a_total' style='font-weight:700;color:#2E6E5E'>"+money(t.total)+"</span></div></div>";
   }
   return out;
 }
@@ -799,11 +802,11 @@ function qtyCell(s){return /^\d{1,6}([.,]\d{1,3})?$/.test((s||'').trim());}
 function qtyVal(s){return (s||'').trim().replace(',','.');}
 function pastePanel(){
   if(!PASTE_OPEN) return '';
-  return "<div class='card scr' style='margin-bottom:12px;background:#F9FAFD;border:1.5px dashed #D7DCEA;position:relative'>" +
-         "<button onclick='togglePaste()' style='all:unset;cursor:pointer;position:absolute;top:10px;right:10px;color:#9AA0B2;font-weight:700;font-size:16px'>×</button>" +
-         "<label class='fl' style='color:#00249C'>Pegar pedido (Orgánico)</label>" +
+  return "<div class='card scr' style='margin-bottom:12px;background:#FAFAF7;border:1.5px dashed #D8D5CD;position:relative'>" +
+         "<button onclick='togglePaste()' style='all:unset;cursor:pointer;position:absolute;top:10px;right:10px;color:#A9A69C;font-weight:700;font-size:16px'>×</button>" +
+         "<label class='fl' style='color:#2E6E5E'>Pegar pedido (Orgánico)</label>" +
          "<textarea id='pastebox' class='inp' rows='5' placeholder='Pega aquí tu lista o tabla...' style='font-family:monospace;font-size:12px'></textarea>" +
-         "<button onclick='procesarPaste()' style='background:#00249C; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; margin-top:8px; font-weight:bold;'>Procesar pedido</button>" +
+         "<button onclick='procesarPaste()' style='background:#2E6E5E; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; margin-top:8px; font-weight:bold;'>Procesar pedido</button>" +
          "</div>";
 }
 
@@ -932,32 +935,32 @@ function procesarPaste(){
 
 }
 function renderDocumentos(){
-  if(!D().tipoProceso) return "<h1 style='font-size:28px;color:#0B153F'>Generador de documentos</h1><p style='color:#6B7180'>Primero elige el tipo de proceso en <a href='#' onclick=\"go('captura');return false\" style='color:#00249C;font-weight:700'>Captura</a>.</p>";
+  if(!D().tipoProceso) return "<h1 style='font-size:28px;color:#20231F'>Generador de documentos</h1><p style='color:#6E6B63'>Primero elige el tipo de proceso en <a href='#' onclick=\"go('captura');return false\" style='color:#2E6E5E;font-weight:700'>Captura</a>.</p>";
   var docs=documents(),done=doneArr();
   var groups=[{n:'1',label:'Momento 1 · Apertura',mi:0},{n:'2',label:esCD()?'Momento 2 · Proveedor':'Momento 2 · Adjudicación',mi:1},{n:'3',label:'Momento 3 · Recepción',mi:2},{n:'4',label:'Momento 4 · Entrega al área',mi:3}];
-  var warn = engineReady()?"":"<div class='card' style='background:#FBF1E1;border-color:#F0E0C0;margin-bottom:18px'><b style='color:#8A5210'>Descarga este HTML para generar.</b><div style='font-size:13px;color:#8A5210;margin-top:4px'>El motor de relleno no cargó en esta vista previa.</div></div>";
-  var html=warn+"<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Generador de documentos</h1><p style='font-size:15px;color:#6B7180;margin:0 0 24px'>Cada documento rellena TU plantilla. Si falta cargarla, te lleva a <a href='#' onclick=\"go('plantillas');return false\" style='color:#00249C;font-weight:700'>Plantillas</a>.</p>";
+  var warn = engineReady()?"":"<div class='card' style='background:#FBF6EC;border-color:#F0E4CE;margin-bottom:18px'><b style='color:#A46A1F'>Descarga este HTML para generar.</b><div style='font-size:13px;color:#A46A1F;margin-top:4px'>El motor de relleno no cargó en esta vista previa.</div></div>";
+  var html=warn+"<h1 style='font-size:28px;color:#20231F;margin:0 0 4px'>Generador de documentos</h1><p style='font-size:15px;color:#6E6B63;margin:0 0 24px'>Cada documento rellena TU plantilla. Si falta cargarla, te lleva a <a href='#' onclick=\"go('plantillas');return false\" style='color:#2E6E5E;font-weight:700'>Plantillas</a>.</p>";
   if(requiereUnidadOperativa()){
-    html+="<div class='card' style='border:1.5px solid #C7D0EC;background:#EEF1FB;margin-bottom:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap'>"
-     +"<div style='flex:1;min-width:240px'><div style='font-weight:700;font-size:16px;color:#00249C;margin-bottom:4px'>"+(puedeOrden()?'Esta orden la firma el Director Ejecutivo':'Este proceso va por contrato')+"</div><div style='font-size:13px;color:#5A6072;line-height:1.45'>"+esc(motivoUnidadOperativa())+"</div></div>"
-     +"<button onclick=\"go('unidad')\" style='all:unset;cursor:pointer;flex:0 0 auto;background:#00249C;color:#fff;font-weight:700;font-size:14px;padding:12px 20px;border-radius:10px'>Enviar a la Unidad Operativa \u2192</button>"
+    html+="<div class='card' style='border:1.5px solid #CFE3DA;background:#E7EFEC;margin-bottom:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap'>"
+     +"<div style='flex:1;min-width:240px'><div style='font-weight:700;font-size:16px;color:#2E6E5E;margin-bottom:4px'>"+(puedeOrden()?'Esta orden la firma el Director Ejecutivo':'Este proceso va por contrato')+"</div><div style='font-size:13px;color:#5A574E;line-height:1.45'>"+esc(motivoUnidadOperativa())+"</div></div>"
+     +"<button onclick=\"go('unidad')\" style='all:unset;cursor:pointer;flex:0 0 auto;background:#2E6E5E;color:#fff;font-weight:700;font-size:14px;padding:12px 20px;border-radius:10px'>Enviar a la Unidad Operativa \u2192</button>"
      +"</div>";
   }
   groups.forEach(function(g){
     var items=docs.filter(function(x){return x.m===g.mi+1;});if(!items.length)return;
     var complete=done[g.mi];
-    html+="<div style='margin-bottom:24px'><div style='display:flex;align-items:center;gap:10px;margin-bottom:12px'><span style='width:28px;height:28px;border-radius:8px;background:"+(complete?'#1E7A4D':'#00249C')+";color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px'>"+g.n+"</span><span style='font-weight:700;font-size:16px;color:#0B153F'>"+g.label+"</span><span style='font-size:12px;font-weight:700;color:"+(complete?'#1E7A4D':'#B4690E')+";background:"+(complete?'#E7F4EC':'#FBF1E1')+";padding:3px 9px;border-radius:99px'>"+(complete?'Completo':'Pendiente')+"</span></div>"
+    html+="<div style='margin-bottom:24px'><div style='display:flex;align-items:center;gap:10px;margin-bottom:12px'><span style='width:28px;height:28px;border-radius:8px;background:"+(complete?'#2E6E5E':'#2E6E5E')+";color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px'>"+g.n+"</span><span style='font-weight:700;font-size:16px;color:#20231F'>"+g.label+"</span><span style='font-size:12px;font-weight:700;color:"+(complete?'#2E6E5E':'#A46A1F')+";background:"+(complete?'#E7EFEC':'#FBF6EC')+";padding:3px 9px;border-radius:99px'>"+(complete?'Completo':'Pendiente')+"</span></div>"
      +"<div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px'>";
     items.forEach(function(x){
       var gen=cur()&&cur().generated[x.id];
       var hasTpl=x.tpl&&!!ST.tpls[x.tpl];
-      html+="<div class='card' style='padding:16px;border:1.5px solid "+(gen?'#1E7A4D':(x.ready?'#C7D0EC':'#E7EAF4'))+";display:flex;flex-direction:column;gap:11px'>"
-       +"<div style='display:flex;justify-content:space-between;gap:8px'><span style='font-weight:700;font-size:14.5px;color:#0B153F;line-height:1.35'>"+esc(x.name)+"</span><span style='flex:0 0 auto;font-size:11px;font-weight:700;color:"+(gen?'#1E7A4D':(x.ready?'#00249C':'#9AA0B2'))+";background:"+(gen?'#E7F4EC':(x.ready?'#EEF1FB':'#F2F4FB'))+";padding:3px 8px;border-radius:99px;height:fit-content'>"+(gen?'Generado ✓':(x.ready?'Listo':'Bloqueado'))+"</span></div>"
-       +"<div style='font-size:12.5px;color:#7A8090;line-height:1.45;min-height:34px'>"+esc(x.note)+(x.ready&&!hasTpl?" <b style='color:#B4690E'>· falta cargar la plantilla</b>":"")+"</div>"
-       +(x.warn30?"<div style='font-size:12px;color:#8A5210;background:#FBF1E1;border:1px solid #F0E0C0;border-radius:8px;padding:8px 10px;line-height:1.4'><b>⚠ Plazo mayor a 30 días.</b> Las órdenes aplican solo cuando el tiempo de entrega o prestación no supera los 30 días. Coordina con Cata y Diego antes de emitirla.</div>":"")
-       +(x.warn8000?"<div style='font-size:12px;color:#8A5210;background:#FBF1E1;border:1px solid #F0E0C0;border-radius:8px;padding:8px 10px;line-height:1.4'><b>⚠ Monto mayor a USD 8.000 (con IVA).</b> Esta orden la firma el Director Ejecutivo. Envíala a la Unidad Operativa para la toma de firmas.</div>":"")
-       +(x.ready?"<button onclick='gen(\""+x.id+"\")' style='all:unset;cursor:pointer;text-align:center;box-sizing:border-box;font-weight:700;font-size:14px;padding:10px;border-radius:9px;background:"+(gen?'#E7F4EC':'#00249C')+";color:"+(gen?'#1E7A4D':'#fff')+"'>"+(gen?'Generado ✓ · volver a generar':'▶  Generar .docx')+"</button>"
-         :"<button disabled style='text-align:center;font-weight:700;font-size:14px;padding:10px;border-radius:9px;background:#EFF1F6;color:#A7AEC0;border:none'>Completa este momento</button>")
+      html+="<div class='card' style='padding:16px;border:1.5px solid "+(gen?'#2E6E5E':(x.ready?'#CFE3DA':'#EAE8E2'))+";display:flex;flex-direction:column;gap:11px'>"
+       +"<div style='display:flex;justify-content:space-between;gap:8px'><span style='font-weight:700;font-size:14.5px;color:#20231F;line-height:1.35'>"+esc(x.name)+"</span><span style='flex:0 0 auto;font-size:11px;font-weight:700;color:"+(gen?'#2E6E5E':(x.ready?'#2E6E5E':'#A9A69C'))+";background:"+(gen?'#E7EFEC':(x.ready?'#E7EFEC':'#F4F3EE'))+";padding:3px 8px;border-radius:99px;height:fit-content'>"+(gen?'Generado ✓':(x.ready?'Listo':'Bloqueado'))+"</span></div>"
+       +"<div style='font-size:12.5px;color:#8B887F;line-height:1.45;min-height:34px'>"+esc(x.note)+(x.ready&&!hasTpl?" <b style='color:#A46A1F'>· falta cargar la plantilla</b>":"")+"</div>"
+       +(x.warn30?"<div style='font-size:12px;color:#A46A1F;background:#FBF6EC;border:1px solid #F0E4CE;border-radius:8px;padding:8px 10px;line-height:1.4'><b>⚠ Plazo mayor a 30 días.</b> Las órdenes aplican solo cuando el tiempo de entrega o prestación no supera los 30 días. Coordina con Cata y Diego antes de emitirla.</div>":"")
+       +(x.warn8000?"<div style='font-size:12px;color:#A46A1F;background:#FBF6EC;border:1px solid #F0E4CE;border-radius:8px;padding:8px 10px;line-height:1.4'><b>⚠ Monto mayor a USD 8.000 (con IVA).</b> Esta orden la firma el Director Ejecutivo. Envíala a la Unidad Operativa para la toma de firmas.</div>":"")
+       +(x.ready?"<button onclick='gen(\""+x.id+"\")' style='all:unset;cursor:pointer;text-align:center;box-sizing:border-box;font-weight:700;font-size:14px;padding:10px;border-radius:9px;background:"+(gen?'#E7EFEC':'#2E6E5E')+";color:"+(gen?'#2E6E5E':'#fff')+"'>"+(gen?'Generado ✓ · volver a generar':'▶  Generar .docx')+"</button>"
+         :"<button disabled style='text-align:center;font-weight:700;font-size:14px;padding:10px;border-radius:9px;background:#F2F1ED;color:#A9A69C;border:none'>Completa este momento</button>")
        +"</div>";
     });
     html+="</div></div>";
@@ -983,10 +986,10 @@ function renderUnidad(){
   var d=D(),ar=A(),c=ST.cfg;
   var lead = puedeOrden() ? 'El monto supera USD 8.000 (con IVA): la orden la firma el Director Ejecutivo, por lo que el expediente va a la Unidad Operativa para la toma de firmas.' : 'Este proceso se formaliza mediante <b>contrato</b>, por lo que no se emite orden de compra/servicio; el expediente va a la Unidad Operativa para la elaboraci\u00f3n del instrumento jur\u00eddico.';
   var f=function(id,label,val,ph){ return "<div><label class='fl'>"+label+"</label><input class='inp' id='"+id+"' value=\""+esc(val||'')+"\" placeholder=\""+esc(ph||'')+"\"></div>"; };
-  return "<a href='#' onclick=\"go('documentos');return false\" style='display:inline-block;font-size:13px;font-weight:700;color:#00249C;text-decoration:none;margin-bottom:10px'>\u2190 Volver a Documentos</a>"
-   +"<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Enviar a la Unidad Operativa</h1>"
-   +"<p style='font-size:15px;color:#6B7180;margin:0 0 16px;max-width:720px;line-height:1.5'>"+lead+" Los datos vienen del proceso ya capturado en La M\u00e1gica; solo revisa y adjunta los archivos.</p>"
-   +"<div class='card' style='background:#FBF1E1;border-color:#F0E0C0;margin-bottom:18px'><div style='font-size:13px;color:#8A5210;line-height:1.45'><b>\u00bfPor qu\u00e9 va a la Unidad Operativa?</b> "+esc(motivoUnidadOperativa())+"</div></div>"
+  return "<a href='#' onclick=\"go('documentos');return false\" style='display:inline-block;font-size:13px;font-weight:700;color:#2E6E5E;text-decoration:none;margin-bottom:10px'>\u2190 Volver a Documentos</a>"
+   +"<h1 style='font-size:28px;color:#20231F;margin:0 0 4px'>Enviar a la Unidad Operativa</h1>"
+   +"<p style='font-size:15px;color:#6E6B63;margin:0 0 16px;max-width:720px;line-height:1.5'>"+lead+" Los datos vienen del proceso ya capturado en La M\u00e1gica; solo revisa y adjunta los archivos.</p>"
+   +"<div class='card' style='background:#FBF6EC;border-color:#F0E4CE;margin-bottom:18px'><div style='font-size:13px;color:#A46A1F;line-height:1.45'><b>\u00bfPor qu\u00e9 va a la Unidad Operativa?</b> "+esc(motivoUnidadOperativa())+"</div></div>"
    +"<div class='card' style='padding:20px'>"
      +"<div class='gridf' style='gap:16px'>"
        +f('uoArea','\u00c1rea protegida',ar.ap)
@@ -997,16 +1000,16 @@ function renderUnidad(){
        +f('uoNombre','Nombre del proceso administrativo',cur()?cur().nombre:'')
      +"</div>"
      +"<div style='margin-top:16px'><label class='fl'>Objeto de la contrataci\u00f3n</label><textarea class='inp' id='uoObjeto' rows='2'>"+esc(d.objeto||'')+"</textarea></div>"
-     +"<div style='margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:#6B7180'><span><b style='color:#0B153F'>C\u00f3digo:</b> "+esc(codigoProceso())+"</span><span><b style='color:#0B153F'>Proveedor:</b> "+esc(adjudicado()||'\u2014')+"</span><span><b style='color:#0B153F'>Monto (con IVA):</b> "+(montoConIva()>0?money(montoConIva()):'\u2014')+"</span></div>"
+     +"<div style='margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:#6E6B63'><span><b style='color:#20231F'>C\u00f3digo:</b> "+esc(codigoProceso())+"</span><span><b style='color:#20231F'>Proveedor:</b> "+esc(adjudicado()||'\u2014')+"</span><span><b style='color:#20231F'>Monto (con IVA):</b> "+(montoConIva()>0?money(montoConIva()):'\u2014')+"</span></div>"
      +"<div style='margin-top:16px'><label class='fl'>Observaciones (opcional)</label><textarea class='inp' id='uoObs' rows='2' placeholder='Notas para la Unidad Operativa'></textarea></div>"
      +"<div style='margin-top:16px'><label class='fl'>Adjunte los archivos del proceso</label>"
-       +"<input type='file' id='uoFiles' multiple accept='.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,image/*,video/*,audio/*' style='display:block;width:100%;padding:10px;border:1.5px dashed #C7D0EC;border-radius:9px;background:#F7F8FC' onchange='uoListFiles()'>"
+       +"<input type='file' id='uoFiles' multiple accept='.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,image/*,video/*,audio/*' style='display:block;width:100%;padding:10px;border:1.5px dashed #CFE3DA;border-radius:9px;background:#FAFAF7' onchange='uoListFiles()'>"
        +"<div class='help'>Hasta 10 archivos, 100 MB cada uno. Word, Excel, PPT, PDF, imagen, video o audio.</div>"
-       +"<div id='uoFileList' style='margin-top:8px;font-size:13px'><span style='color:#9AA0B2'>Ning\u00fan archivo seleccionado.</span></div>"
+       +"<div id='uoFileList' style='margin-top:8px;font-size:13px'><span style='color:#A9A69C'>Ning\u00fan archivo seleccionado.</span></div>"
      +"</div>"
-     +"<div style='margin-top:14px;padding:10px 12px;border-radius:8px;background:#F7F9FD;border:1px dashed #DCE2F7;color:#00249C;font-weight:600;font-size:13px'>Carpeta sugerida en SharePoint/OneDrive: "+esc(uoCarpeta())+"</div>"
-     +"<button onclick='enviarUnidad()' style='all:unset;cursor:pointer;box-sizing:border-box;width:100%;text-align:center;margin-top:18px;background:#00249C;color:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:10px'>Enviar a la Unidad Operativa</button>"
-     +"<p id='uoStatus' style='margin-top:12px;font-weight:700;color:#1E7A4D;font-size:14px' role='status' aria-live='polite'></p>"
+     +"<div style='margin-top:14px;padding:10px 12px;border-radius:8px;background:#FAFAF7;border:1px dashed #CFE3DA;color:#2E6E5E;font-weight:600;font-size:13px'>Carpeta sugerida en SharePoint/OneDrive: "+esc(uoCarpeta())+"</div>"
+     +"<button onclick='enviarUnidad()' style='all:unset;cursor:pointer;box-sizing:border-box;width:100%;text-align:center;margin-top:18px;background:#2E6E5E;color:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:10px'>Enviar a la Unidad Operativa</button>"
+     +"<p id='uoStatus' style='margin-top:12px;font-weight:700;color:#2E6E5E;font-size:14px' role='status' aria-live='polite'></p>"
    +"</div>";
 }
 
@@ -1014,20 +1017,20 @@ function uoListFiles(){
   var el=document.getElementById('uoFiles'), box=document.getElementById('uoFileList');
   if(!el||!box) return;
   var fs=el.files;
-  if(!fs||!fs.length){ box.innerHTML="<span style='color:#9AA0B2'>Ning\u00fan archivo seleccionado.</span>"; return; }
+  if(!fs||!fs.length){ box.innerHTML="<span style='color:#A9A69C'>Ning\u00fan archivo seleccionado.</span>"; return; }
   var total=0,rows='';
-  for(var i=0;i<fs.length;i++){ total+=fs[i].size; rows+="<div style='display:flex;justify-content:space-between;gap:10px;padding:4px 0'><span style='color:#0B153F'>"+esc(fs[i].name)+"</span><span style='color:#9AA0B2'>"+(Math.round(fs[i].size/1024))+" KB</span></div>"; }
-  box.innerHTML=rows+"<div style='border-top:1px solid #EAEDF5;margin-top:6px;padding-top:6px;font-weight:700;color:#00249C'>"+fs.length+" archivo(s) \u00b7 "+(Math.round(total/1024/1024*10)/10)+" MB</div>";
+  for(var i=0;i<fs.length;i++){ total+=fs[i].size; rows+="<div style='display:flex;justify-content:space-between;gap:10px;padding:4px 0'><span style='color:#20231F'>"+esc(fs[i].name)+"</span><span style='color:#A9A69C'>"+(Math.round(fs[i].size/1024))+" KB</span></div>"; }
+  box.innerHTML=rows+"<div style='border-top:1px solid #EAE8E2;margin-top:6px;padding-top:6px;font-weight:700;color:#2E6E5E'>"+fs.length+" archivo(s) \u00b7 "+(Math.round(total/1024/1024*10)/10)+" MB</div>";
 }
 
 function enviarUnidad(){
   var status=document.getElementById('uoStatus');
-  var setS=function(t,color){ if(status){ status.textContent=t; status.style.color=color||'#1E7A4D'; } };
+  var setS=function(t,color){ if(status){ status.textContent=t; status.style.color=color||'#2E6E5E'; } };
   var filesEl=document.getElementById('uoFiles');
   var files=filesEl?filesEl.files:null;
-  if(!files||!files.length){ setS('Adjunta al menos un archivo del proceso.','#B23B3B'); toast('Adjunta al menos un archivo del proceso.'); return; }
-  if(files.length>10){ setS('El l\u00edmite es de 10 archivos por env\u00edo.','#B23B3B'); toast('M\u00e1ximo 10 archivos.'); return; }
-  for(var k=0;k<files.length;k++){ if(files[k].size>100*1024*1024){ setS('El archivo \u00ab'+files[k].name+'\u00bb supera los 100 MB.','#B23B3B'); toast('Un archivo supera los 100 MB.'); return; } }
+  if(!files||!files.length){ setS('Adjunta al menos un archivo del proceso.','#A6453C'); toast('Adjunta al menos un archivo del proceso.'); return; }
+  if(files.length>10){ setS('El l\u00edmite es de 10 archivos por env\u00edo.','#A6453C'); toast('M\u00e1ximo 10 archivos.'); return; }
+  for(var k=0;k<files.length;k++){ if(files[k].size>100*1024*1024){ setS('El archivo \u00ab'+files[k].name+'\u00bb supera los 100 MB.','#A6453C'); toast('Un archivo supera los 100 MB.'); return; } }
   var val=function(id){ var e=document.getElementById(id); return e?String(e.value).trim():''; };
   var meta={
     idEnvio:(cur()?cur().id:'')+'|'+new Date().toISOString(),
@@ -1038,24 +1041,24 @@ function enviarUnidad(){
     objeto:val('uoObjeto'), observaciones:val('uoObs'),
     nombreCarpeta:uoCarpeta(), fecha:new Date().toISOString()
   };
-  setS('Preparando '+files.length+' archivo(s)\u2026','#00249C');
+  setS('Preparando '+files.length+' archivo(s)\u2026','#2E6E5E');
   var arr=[]; for(var i=0;i<files.length;i++) arr.push(files[i]);
   Promise.all(arr.map(function(fl){ return fileToB64(fl).then(function(b){ return {nombre:fl.name, tipo:fl.type||'application/octet-stream', tamanio:fl.size, contenido:b}; }); }))
   .then(function(archivos){
     var payload=Object.assign({},meta,{archivos:archivos});
     if(!FLOW_DOCS_URL){
       try{ console.log('Env\u00edo a Unidad Operativa (configura FLOW_DOCS_URL para subirlo):',payload); }catch(e){}
-      setS('Env\u00edo preparado ('+archivos.length+' archivo(s)). Configura la URL del flujo (FLOW_DOCS_URL) para subirlo a la Unidad Operativa.','#B4690E');
+      setS('Env\u00edo preparado ('+archivos.length+' archivo(s)). Configura la URL del flujo (FLOW_DOCS_URL) para subirlo a la Unidad Operativa.','#A46A1F');
       toast('Env\u00edo preparado. Falta configurar la URL del flujo.');
       return;
     }
-    setS('Enviando a la Unidad Operativa\u2026','#00249C');
+    setS('Enviando a la Unidad Operativa\u2026','#2E6E5E');
     fetch(FLOW_DOCS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
       .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return true; })
-      .then(function(){ setS('\u2713 Enviado a la Unidad Operativa. Se subieron '+archivos.length+' archivo(s) para su revisi\u00f3n.','#1E7A4D'); toast('Proceso enviado a la Unidad Operativa.'); })
-      .catch(function(e){ setS('No se pudo enviar ('+((e&&e.message)||'error')+'). Revisa la URL del flujo o tu conexi\u00f3n e int\u00e9ntalo de nuevo.','#B23B3B'); toast('No se pudo enviar el proceso.'); });
+      .then(function(){ setS('\u2713 Enviado a la Unidad Operativa. Se subieron '+archivos.length+' archivo(s) para su revisi\u00f3n.','#2E6E5E'); toast('Proceso enviado a la Unidad Operativa.'); })
+      .catch(function(e){ setS('No se pudo enviar ('+((e&&e.message)||'error')+'). Revisa la URL del flujo o tu conexi\u00f3n e int\u00e9ntalo de nuevo.','#A6453C'); toast('No se pudo enviar el proceso.'); });
   })
-  .catch(function(){ setS('No se pudieron leer los archivos adjuntos.','#B23B3B'); toast('No se pudieron leer los archivos.'); });
+  .catch(function(){ setS('No se pudieron leer los archivos adjuntos.','#A6453C'); toast('No se pudieron leer los archivos.'); });
 }
 
 //===================== HISTORIAL / REGISTRO CENTRAL =====================
@@ -1186,41 +1189,41 @@ function renderHistorial(){
   var areas=areasList();
   var filt=all.filter(function(e){return !HIST.area||e.areaId===HIST.area;});
   var areaOpts="<option value=''>Todas las áreas</option>"+areas.map(function(a){return "<option value='"+a.id+"' "+(HIST.area===a.id?'selected':'')+">"+esc(a.ap+(a.siglas?' ('+a.siglas+')':''))+"</option>";}).join('');
-  var head="<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Historial de procesos cerrados</h1>"
-   +"<p style='font-size:15px;color:#6B7180;margin:0 0 18px;max-width:680px;line-height:1.5'>Se registra un proceso cada vez que generas su documento de cierre (acta de entrega-recepción, acta de entrega al área o informe de satisfacción). Es la fuente de verdad local y funciona sin conexión.</p>";
+  var head="<h1 style='font-size:28px;color:#20231F;margin:0 0 4px'>Historial de procesos cerrados</h1>"
+   +"<p style='font-size:15px;color:#6E6B63;margin:0 0 18px;max-width:680px;line-height:1.5'>Se registra un proceso cada vez que generas su documento de cierre (acta de entrega-recepción, acta de entrega al área o informe de satisfacción). Es la fuente de verdad local y funciona sin conexión.</p>";
   // Nota de sincronización (Power Automate / M365 Basic)
-  var nota="<div class='card' style='background:#EEF1FB;border-color:#C7D0EC;margin-bottom:16px'>"
-   +"<div style='font-weight:700;font-size:14px;color:#00249C;margin-bottom:6px'>¿Cómo llega esto al registro central?</div>"
-   +"<div style='font-size:12.8px;color:#3A4050;line-height:1.55'>Cada cierre descarga un pequeño archivo <b>.json</b> de metadatos. Guárdalo en tu carpeta sincronizada de <b>OneDrive/SharePoint</b> (la que Diego te indique). Un flujo de Power Automate con el disparador estándar <i>«cuando se crea un archivo en una carpeta»</i> lo levanta y lo anota en la Lista central. No se necesita inicio de sesión ni permisos premium. También puedes exportar un solo archivo consolidado del día y subir ese en lugar de uno por entrega.</div></div>";
+  var nota="<div class='card' style='background:#E7EFEC;border-color:#CFE3DA;margin-bottom:16px'>"
+   +"<div style='font-weight:700;font-size:14px;color:#2E6E5E;margin-bottom:6px'>¿Cómo llega esto al registro central?</div>"
+   +"<div style='font-size:12.8px;color:#4A4840;line-height:1.55'>Cada cierre descarga un pequeño archivo <b>.json</b> de metadatos. Guárdalo en tu carpeta sincronizada de <b>OneDrive/SharePoint</b> (la que Diego te indique). Un flujo de Power Automate con el disparador estándar <i>«cuando se crea un archivo en una carpeta»</i> lo levanta y lo anota en la Lista central. No se necesita inicio de sesión ni permisos premium. También puedes exportar un solo archivo consolidado del día y subir ese en lugar de uno por entrega.</div></div>";
   // Controles
   var controles="<div class='card' style='margin-bottom:16px'><div style='display:flex;flex-wrap:wrap;gap:12px;align-items:end'>"
    +"<div><label class='fl'>Filtrar por área</label><select class='inp' style='min-width:220px' onchange='onHistArea(this.value)'>"+areaOpts+"</select></div>"
    +"<div><label class='fl'>Desde</label><input class='inp' type='date' value=\""+esc(HIST.desde)+"\" oninput='onHistDesde(this.value)'></div>"
    +"<div><label class='fl'>Hasta</label><input class='inp' type='date' value=\""+esc(HIST.hasta)+"\" oninput='onHistHasta(this.value)'></div>"
-   +"<button onclick='exportRango()' style='all:unset;cursor:pointer;background:#EEF1FB;color:#00249C;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:9px'>Exportar rango</button>"
-   +"<button onclick='exportHoy()' style='all:unset;cursor:pointer;background:#00249C;color:#fff;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:9px'>Exportar consolidado de hoy</button>"
+   +"<button onclick='exportRango()' style='all:unset;cursor:pointer;background:#E7EFEC;color:#2E6E5E;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:9px'>Exportar rango</button>"
+   +"<button onclick='exportHoy()' style='all:unset;cursor:pointer;background:#2E6E5E;color:#fff;font-weight:700;font-size:13.5px;padding:10px 16px;border-radius:9px'>Exportar consolidado de hoy</button>"
    +"</div></div>";
   // Contador
   var contador="<div style='display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px'>"
-   +"<div class='card' style='padding:16px 22px;flex:0 0 auto'><div style='font-size:12px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.5px'>Procesos cerrados"+(HIST.area?' (área)':'')+"</div><div style='font-size:30px;font-weight:700;color:#00249C'>"+filt.length+"</div></div>"
-   +(HIST.area?"":"<div class='card' style='padding:16px 22px;flex:0 0 auto'><div style='font-size:12px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.5px'>Áreas con actividad</div><div style='font-size:30px;font-weight:700;color:#0B153F'>"+(new Set(all.map(function(e){return e.areaId||e.areaNombre;}))).size+"</div></div>")
+   +"<div class='card' style='padding:16px 22px;flex:0 0 auto'><div style='font-size:12px;font-weight:700;color:#A9A69C;text-transform:uppercase;letter-spacing:.5px'>Procesos cerrados"+(HIST.area?' (área)':'')+"</div><div style='font-size:30px;font-weight:700;color:#2E6E5E'>"+filt.length+"</div></div>"
+   +(HIST.area?"":"<div class='card' style='padding:16px 22px;flex:0 0 auto'><div style='font-size:12px;font-weight:700;color:#A9A69C;text-transform:uppercase;letter-spacing:.5px'>Áreas con actividad</div><div style='font-size:30px;font-weight:700;color:#20231F'>"+(new Set(all.map(function(e){return e.areaId||e.areaNombre;}))).size+"</div></div>")
    +"</div>";
   // Tabla
   var tabla;
   if(!filt.length){
-    tabla="<div class='card' style='text-align:center;color:#7A8090;padding:34px'>Aún no hay procesos cerrados"+(HIST.area?' en esta área':'')+".</div>";
+    tabla="<div class='card' style='text-align:center;color:#8B887F;padding:34px'>Aún no hay procesos cerrados"+(HIST.area?' en esta área':'')+".</div>";
   }else{
     var rows=filt.map(function(e){
-      return "<div style='display:grid;grid-template-columns:150px 1fr 120px 110px 100px 90px;gap:10px;align-items:center;padding:11px 12px;border-bottom:1px solid #F0F2F8;font-size:13px'>"
-       +"<span style='color:#7A8090'>"+esc(fechaHora(e.fecha))+"</span>"
-       +"<span><b style='color:#0B153F'>"+esc(e.codigoProceso||'—')+"</b><div style='color:#9AA0B2;font-size:12px'>"+esc(e.areaNombre||'—')+" · "+esc(e.proveedor||'—')+"</div></span>"
-       +"<span style='color:#3A4050'>"+esc(e.tipoProceso||'—')+"</span>"
-       +"<span style='color:#3A4050'>"+esc((e.bienServicio||'')+(e.tipoBien?' · '+e.tipoBien:''))+"</span>"
-       +"<span style='font-weight:700;color:#00249C;text-align:right'>"+money(num(e.monto))+"</span>"
-       +"<button onclick=\"dlMetaByFecha('"+esc(e.fecha)+"')\" style='all:unset;cursor:pointer;text-align:center;color:#00249C;font-weight:700;font-size:12px;background:#EEF1FB;padding:6px 8px;border-radius:7px'>⬇ .json</button>"
+      return "<div style='display:grid;grid-template-columns:150px 1fr 120px 110px 100px 90px;gap:10px;align-items:center;padding:11px 12px;border-bottom:1px solid #F2F1ED;font-size:13px'>"
+       +"<span style='color:#8B887F'>"+esc(fechaHora(e.fecha))+"</span>"
+       +"<span><b style='color:#20231F'>"+esc(e.codigoProceso||'—')+"</b><div style='color:#A9A69C;font-size:12px'>"+esc(e.areaNombre||'—')+" · "+esc(e.proveedor||'—')+"</div></span>"
+       +"<span style='color:#4A4840'>"+esc(e.tipoProceso||'—')+"</span>"
+       +"<span style='color:#4A4840'>"+esc((e.bienServicio||'')+(e.tipoBien?' · '+e.tipoBien:''))+"</span>"
+       +"<span style='font-weight:700;color:#2E6E5E;text-align:right'>"+money(num(e.monto))+"</span>"
+       +"<button onclick=\"dlMetaByFecha('"+esc(e.fecha)+"')\" style='all:unset;cursor:pointer;text-align:center;color:#2E6E5E;font-weight:700;font-size:12px;background:#E7EFEC;padding:6px 8px;border-radius:7px'>⬇ .json</button>"
        +"</div>";
     }).join('');
-    var thead="<div style='display:grid;grid-template-columns:150px 1fr 120px 110px 100px 90px;gap:10px;padding:9px 12px;border-bottom:2px solid #E7EAF4;font-size:11.5px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.4px'><span>Fecha</span><span>Proceso · área · proveedor</span><span>Tipo</span><span>Bien / servicio</span><span style='text-align:right'>Monto</span><span style='text-align:center'>Metadatos</span></div>";
+    var thead="<div style='display:grid;grid-template-columns:150px 1fr 120px 110px 100px 90px;gap:10px;padding:9px 12px;border-bottom:2px solid #EAE8E2;font-size:11.5px;font-weight:700;color:#A9A69C;text-transform:uppercase;letter-spacing:.4px'><span>Fecha</span><span>Proceso · área · proveedor</span><span>Tipo</span><span>Bien / servicio</span><span style='text-align:right'>Monto</span><span style='text-align:center'>Metadatos</span></div>";
     tabla="<div class='card' style='padding:0;overflow:hidden'>"+thead+rows+"</div>";
   }
   return head+nota+controles+contador+tabla;
@@ -1232,10 +1235,10 @@ function renderDatos(){
   function af(i,key,label,ph){var a=areasList()[i]||{};return "<div><label class='fl'>"+label+"</label><input class='inp' value=\""+esc(a[key]||'')+"\" data-ai='"+i+"' data-ak='"+key+"' placeholder=\""+esc(ph||'')+"\" oninput='onArea(this)'></div>";}
   var list=areasList();
   var areasHtml=list.map(function(a,i){
-    return "<div class='card' style='border:1.5px solid #E7EAF4;margin-bottom:12px'>"
+    return "<div class='card' style='border:1.5px solid #EAE8E2;margin-bottom:12px'>"
      +"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:12px'>"
-      +"<div style='font-weight:700;font-size:14px;color:#00249C'>Área "+(i+1)+(a.siglas?' · '+esc(a.siglas):'')+"</div>"
-      +(list.length>1?"<button onclick='delArea("+i+")' style='all:unset;cursor:pointer;color:#B23B3B;font-weight:600;font-size:12.5px'>Eliminar área</button>":"")
+      +"<div style='font-weight:700;font-size:14px;color:#2E6E5E'>Área "+(i+1)+(a.siglas?' · '+esc(a.siglas):'')+"</div>"
+      +(list.length>1?"<button onclick='delArea("+i+")' style='all:unset;cursor:pointer;color:#A6453C;font-weight:600;font-size:12.5px'>Eliminar área</button>":"")
      +"</div>"
      +"<div class='gridf'>"
       +af(i,'ap','Área protegida','Parque Nacional…')+af(i,'siglas','Siglas (para el código)','PNY')
@@ -1243,20 +1246,20 @@ function renderDatos(){
       +af(i,'lugar','Lugar de entrega / prestación','')+af(i,'ciudad','Ciudad','Quito')
      +"</div></div>";
   }).join('');
-  return "<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Hoja de Datos</h1>"
-   +"<p style='font-size:15px;color:#6B7180;margin:0 0 22px;max-width:640px;line-height:1.5'>Configura tus datos una sola vez. Si administras varias áreas protegidas, agrégalas todas aquí; al crear un proceso podrás elegir a cuál pertenece. Tus datos personales de AC son únicos y no se repiten por área.</p>"
-   +"<div class='card' style='margin-bottom:16px'><div style='font-weight:700;font-size:15px;color:#0B153F;margin-bottom:14px'>Tus datos (Administrador/a contador/a)</div><div class='gridf'>"
+  return "<h1 style='font-size:28px;color:#20231F;margin:0 0 4px'>Hoja de Datos</h1>"
+   +"<p style='font-size:15px;color:#6E6B63;margin:0 0 22px;max-width:640px;line-height:1.5'>Configura tus datos una sola vez. Si administras varias áreas protegidas, agrégalas todas aquí; al crear un proceso podrás elegir a cuál pertenece. Tus datos personales de AC son únicos y no se repiten por área.</p>"
+   +"<div class='card' style='margin-bottom:16px'><div style='font-weight:700;font-size:15px;color:#20231F;margin-bottom:14px'>Tus datos (Administrador/a contador/a)</div><div class='gridf'>"
    +cf('ac','Administrador/a contador/a (AC)','')+cf('acCorreo','Correo de la AC','ac@fias.org.ec')+"</div></div>"
-   +"<div class='card' style='margin-bottom:16px'><div style='font-weight:700;font-size:15px;color:#0B153F;margin-bottom:4px'>Firma para órdenes &gt; USD 8.000</div><div style='font-size:12.5px;color:#7A8090;margin-bottom:14px;line-height:1.45'>Cuando el total con IVA supera los USD 8.000, la orden la firma el Director Ejecutivo. Estos datos se imprimen en la orden solo en ese caso.</div><div class='gridf'>"
+   +"<div class='card' style='margin-bottom:16px'><div style='font-weight:700;font-size:15px;color:#20231F;margin-bottom:4px'>Firma para órdenes &gt; USD 8.000</div><div style='font-size:12.5px;color:#8B887F;margin-bottom:14px;line-height:1.45'>Cuando el total con IVA supera los USD 8.000, la orden la firma el Director Ejecutivo. Estos datos se imprimen en la orden solo en ese caso.</div><div class='gridf'>"
    +cf('director','Director Ejecutivo (nombre)','')+cf('directorCargo','Cargo','Director Ejecutivo')+"</div></div>"
    +"<div class='card' style='margin-bottom:16px'>"
-   +"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'><div style='font-weight:700;font-size:15px;color:#0B153F'>Mis áreas protegidas</div><span style='font-size:12px;font-weight:700;color:#00249C;background:#EEF1FB;padding:3px 10px;border-radius:99px'>"+list.length+(list.length===1?' área':' áreas')+"</span></div>"
-   +"<div style='font-size:12.5px;color:#7A8090;margin-bottom:14px;line-height:1.45'>Cada área tiene sus propias siglas, jefe y lugar de entrega.</div>"
+   +"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'><div style='font-weight:700;font-size:15px;color:#20231F'>Mis áreas protegidas</div><span style='font-size:12px;font-weight:700;color:#2E6E5E;background:#E7EFEC;padding:3px 10px;border-radius:99px'>"+list.length+(list.length===1?' área':' áreas')+"</span></div>"
+   +"<div style='font-size:12.5px;color:#8B887F;margin-bottom:14px;line-height:1.45'>Cada área tiene sus propias siglas, jefe y lugar de entrega.</div>"
    +areasHtml
-   +"<button onclick='addArea()' style='all:unset;cursor:pointer;display:inline-block;background:#EEF1FB;color:#00249C;font-weight:700;font-size:13.5px;padding:9px 16px;border-radius:9px;margin-top:2px'>+ Agregar área</button>"
+   +"<button onclick='addArea()' style='all:unset;cursor:pointer;display:inline-block;background:#E7EFEC;color:#2E6E5E;font-weight:700;font-size:13.5px;padding:9px 16px;border-radius:9px;margin-top:2px'>+ Agregar área</button>"
    +"</div>"
-   +"<div class='card'><div style='font-weight:700;font-size:15px;color:#0B153F;margin-bottom:8px'>Causales de excepción (referencia)</div><div style='font-size:12.5px;color:#7A8090;margin-bottom:10px'>El texto completo se inyecta con la etiqueta {causalTexto}.</div>"
-   +CAUSALES.map(function(x){return "<div style='padding:9px 0;border-bottom:1px solid #F0F2F8'><div style='font-weight:700;font-size:13.5px;color:#00249C'>"+esc(x.short)+"</div><div style='font-size:12.5px;color:#6B7180;line-height:1.5'>"+esc(x.full)+"</div></div>";}).join('')+"</div>";
+   +"<div class='card'><div style='font-weight:700;font-size:15px;color:#20231F;margin-bottom:8px'>Causales de excepción (referencia)</div><div style='font-size:12.5px;color:#8B887F;margin-bottom:10px'>El texto completo se inyecta con la etiqueta {causalTexto}.</div>"
+   +CAUSALES.map(function(x){return "<div style='padding:9px 0;border-bottom:1px solid #F2F1ED'><div style='font-weight:700;font-size:13.5px;color:#2E6E5E'>"+esc(x.short)+"</div><div style='font-size:12.5px;color:#6E6B63;line-height:1.5'>"+esc(x.full)+"</div></div>";}).join('')+"</div>";
 }
 function onCfg(el){ST.cfg[el.dataset.c]=el.value;save();}
 function onArea(el){var i=+el.dataset.ai,k=el.dataset.ak;if(ST.cfg.areas[i]){ST.cfg.areas[i][k]=el.value;save();}}

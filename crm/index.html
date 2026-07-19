@@ -6,19 +6,19 @@
 <title>CRM de Contratos FAP · Administradoras Contadoras</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Spectral:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/pizzip@3.2.0/dist/pizzip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.66.4/docxtemplater.min.js"></script>
 <style>
   :root{
-    --navy:#00249C; --ink:#0B153F; --bg:#F4F6FB; --card:#ffffff;
-    --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
-    --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
-    --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB;
+    --navy:#2E6E5E; --ink:#20231F; --bg:#F5F4F1; --card:#ffffff;
+    --line:#E4E2DC; --line2:#EAE8E2; --muted:#6E6B63; --muted2:#A9A69C;
+    --green:#2E6E5E; --greenbg:#E7EFEC; --amber:#A46A1F; --amberbg:#FBF6EC;
+    --red:#A6453C; --redbg:#F9EDE9; --tint:#E7EFEC;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
-  body{font-family:'Titillium Web',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+  body{font-family:'Instrument Sans',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
   button{font-family:inherit}
   ::placeholder{color:var(--muted2)}
   input,select,textarea{font-family:inherit;font-size:14px}
@@ -42,7 +42,7 @@
   .wrap{max-width:1180px;margin:0 auto;padding:26px 30px 90px}
 
   .login-shell{min-height:calc(100vh - 66px);display:flex;align-items:center;justify-content:center;padding:30px}
-  .login-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:34px 34px 30px;max-width:460px;width:100%;box-shadow:0 18px 50px rgba(11,21,63,.07)}
+  .login-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:34px 34px 30px;max-width:460px;width:100%;box-shadow:0 18px 50px rgba(32,35,31,.07)}
   .eyebrow{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.6px;color:var(--navy);background:var(--tint);padding:5px 11px;border-radius:99px;text-transform:uppercase}
   h1{font-size:27px;font-weight:700;color:var(--ink);margin:14px 0 6px;letter-spacing:-.4px}
   .lead{font-size:15px;color:var(--muted);margin:0 0 22px;line-height:1.55}
@@ -77,12 +77,12 @@
 
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
   .cc{background:#fff;border:1px solid var(--line2);border-radius:15px;padding:18px 18px 16px;cursor:pointer;transition:box-shadow .15s,transform .15s;position:relative;border-left:5px solid var(--line)}
-  .cc:hover{box-shadow:0 14px 34px rgba(11,21,63,.09);transform:translateY(-2px)}
+  .cc:hover{box-shadow:0 14px 34px rgba(32,35,31,.09);transform:translateY(-2px)}
   .cc.g{border-left-color:var(--green)} .cc.a{border-left-color:var(--amber)} .cc.r{border-left-color:var(--red)} .cc.done{border-left-color:var(--muted2);opacity:.82}
   .cc-top{display:flex;align-items:flex-start;gap:10px;justify-content:space-between}
   .cc-nro{font-size:12px;font-weight:700;color:var(--navy);letter-spacing:.2px}
   .badge{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:99px;white-space:nowrap}
-  .b-g{background:var(--greenbg);color:var(--green)} .b-a{background:var(--amberbg);color:var(--amber)} .b-r{background:var(--redbg);color:var(--red)} .b-d{background:#EEF0F5;color:var(--muted)}
+  .b-g{background:var(--greenbg);color:var(--green)} .b-a{background:var(--amberbg);color:var(--amber)} .b-r{background:var(--redbg);color:var(--red)} .b-d{background:#F2F1ED;color:var(--muted)}
   .cc-title{font-size:15px;font-weight:700;color:var(--ink);margin:8px 0 3px;line-height:1.32}
   .cc-area{font-size:12.5px;color:var(--muted);margin-bottom:12px}
   .cc-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
@@ -92,7 +92,7 @@
   /* table */
   .tablewrap{background:#fff;border:1px solid var(--line2);border-radius:15px;overflow:hidden}
   table.list{width:100%;border-collapse:collapse}
-  table.list th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted2);text-align:left;padding:13px 14px;border-bottom:1.5px solid var(--line2);background:#FAFBFE;white-space:nowrap}
+  table.list th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted2);text-align:left;padding:13px 14px;border-bottom:1.5px solid var(--line2);background:#FAFAF7;white-space:nowrap}
   table.list td{font-size:13px;padding:12px 14px;border-bottom:1px solid var(--line2);vertical-align:middle}
   table.list tr{cursor:pointer}
   table.list tbody tr:hover{background:var(--tint)}
@@ -110,7 +110,7 @@
   .panel{background:#fff;border:1px solid var(--line2);border-radius:16px;padding:22px 24px}
   .phase{display:flex;align-items:center;gap:0;margin:2px 0 18px}
   .step{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700;color:var(--muted2)}
-  .step .d{width:26px;height:26px;border-radius:8px;background:#EEF0F5;color:var(--muted2);display:flex;align-items:center;justify-content:center;font-size:13px}
+  .step .d{width:26px;height:26px;border-radius:8px;background:#F2F1ED;color:var(--muted2);display:flex;align-items:center;justify-content:center;font-size:13px}
   .step.on{color:var(--navy)} .step.on .d{background:var(--navy);color:#fff}
   .step.past{color:var(--green)} .step.past .d{background:var(--greenbg);color:var(--green)}
   .flow-line{flex:1;height:2px;background:var(--line2);margin:0 10px;min-width:20px}
@@ -119,7 +119,7 @@
   .dl .v{font-size:14.5px;color:var(--ink);font-weight:600}
   .dl .full{grid-column:1/-1}
   .h-title{font-size:20px;font-weight:700;color:var(--ink);margin:0 0 2px;line-height:1.28}
-  .linkbar{display:flex;align-items:center;gap:10px;background:var(--tint);border:1px solid #D7DEF6;border-radius:12px;padding:12px 14px;margin:0 0 18px}
+  .linkbar{display:flex;align-items:center;gap:10px;background:var(--tint);border:1px solid #CFE3DA;border-radius:12px;padding:12px 14px;margin:0 0 18px}
   .linkbar .lt{font-size:13px;font-weight:700;color:var(--ink)}
   .linkbar .ls{font-size:12px;color:var(--muted)}
   .detail-actions{position:sticky;top:20px}
@@ -133,8 +133,8 @@
   .actbtn:disabled:hover{border-color:var(--line);background:#fff}
   .note{font-size:12.5px;color:var(--muted);line-height:1.5;background:var(--bg);border:1px solid var(--line2);border-radius:11px;padding:12px 14px;margin-top:14px}
 
-  .overlay{position:fixed;inset:0;background:rgba(11,21,63,.42);display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto;z-index:50}
-  .modal{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:26px 28px 24px;box-shadow:0 30px 80px rgba(11,21,63,.3);animation:up .22s ease}
+  .overlay{position:fixed;inset:0;background:rgba(32,35,31,.42);display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto;z-index:50}
+  .modal{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:26px 28px 24px;box-shadow:0 30px 80px rgba(32,35,31,.3);animation:up .22s ease}
   .modal h2{font-size:20px;font-weight:700;margin:0 0 4px;color:var(--ink)}
   .modal .sub{font-size:13.5px;color:var(--muted);margin:0 0 18px;line-height:1.5}
   .frow{margin-bottom:15px}
@@ -150,13 +150,13 @@
   .radio .rt{font-size:14px;font-weight:700;color:var(--ink)}
   .radio .rd{font-size:12px;color:var(--muted);margin-top:1px}
   .routebox{border-radius:12px;padding:14px 15px;margin:6px 0 4px;font-size:13.5px;line-height:1.5;border:1.5px solid}
-  .route-acta{background:var(--greenbg);border-color:#BCE6CE;color:#15703F}
-  .route-adenda{background:var(--amberbg);border-color:#F0DCA6;color:#8A5E06}
-  .route-block{background:var(--redbg);border-color:#F3C0C0;color:#A32020}
+  .route-acta{background:var(--greenbg);border-color:#CFE3DA;color:#25594C}
+  .route-adenda{background:var(--amberbg);border-color:#F0E4CE;color:#A46A1F}
+  .route-block{background:var(--redbg);border-color:#E3BDB6;color:#8A382F}
   .secdiv{font-size:11.5px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line2)}
   .catchip{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.2px;white-space:nowrap}
-  .adchip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:#EEF1FB;color:var(--navy);border:1px solid #C9D3F2;white-space:nowrap}
-  .steps{background:#F4F7FE;border:1px solid #D7DFF5;border-radius:12px;padding:14px 16px;margin-top:14px}
+  .adchip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:#E7EFEC;color:var(--navy);border:1px solid #C9D3F2;white-space:nowrap}
+  .steps{background:#EFF4F2;border:1px solid #CFE3DA;border-radius:12px;padding:14px 16px;margin-top:14px}
   .steps h3{margin:0 0 8px;font-size:13.5px;color:var(--navy)}
   .steps ol{margin:0;padding-left:20px;font-size:13px;line-height:1.7;color:var(--ink)}
   .routebox b{font-weight:700}
@@ -170,10 +170,14 @@
   .scorebox .big{font-size:30px;font-weight:700;line-height:1}
   .scorebox .lab{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
   .semaforo{font-size:13px;font-weight:700;padding:6px 13px;border-radius:99px}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13.5px;font-weight:600;padding:13px 20px;border-radius:12px;box-shadow:0 14px 40px rgba(11,21,63,.3);z-index:80;display:flex;align-items:center;gap:10px;animation:up .25s ease}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13.5px;font-weight:600;padding:13px 20px;border-radius:12px;box-shadow:0 14px 40px rgba(32,35,31,.3);z-index:80;display:flex;align-items:center;gap:10px;animation:up .25s ease}
   .empty{text-align:center;padding:60px 20px;color:var(--muted)}
   .empty svg{margin-bottom:12px}
-  .draftbadge{display:inline-block;font-size:10.5px;font-weight:700;color:#8A5E06;background:var(--amberbg);border:1px solid #F0DCA6;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.4px}
+  .draftbadge{display:inline-block;font-size:10.5px;font-weight:700;color:#A46A1F;background:var(--amberbg);border:1px solid #F0E4CE;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.4px}
+
+  /* ===== identidad tipográfica unificada (serif en títulos y cifras) ===== */
+  h1,.h-title,.modal h2,.brand-t{font-family:'Spectral',Georgia,serif;font-weight:600;letter-spacing:.1px}
+  .kpi-n,.scorebox .big{font-family:'Spectral',Georgia,serif;font-weight:600}
 </style>
 </head>
 <body>
@@ -362,14 +366,14 @@ async function fapDecrypt(env, pass){
 function fapAskPass(msg){
   return new Promise(resolve=>{
     const wrap=document.createElement("div");
-    wrap.style.cssText="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#F4F6FB,#E8EDFB);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;padding:24px";
-    wrap.innerHTML=`<form style="background:#fff;border:1px solid #E3E8F5;border-radius:18px;padding:30px 30px 26px;max-width:420px;width:100%;box-shadow:0 18px 50px rgba(11,21,63,.12)">
-      <div style="width:48px;height:48px;border-radius:12px;background:#00249C;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:19px;margin-bottom:14px">🔒</div>
-      <h1 style="font-size:21px;font-weight:700;margin:0 0 6px;color:#0B153F;letter-spacing:-.3px">Acceso protegido</h1>
-      <p style="margin:0 0 16px;color:#5A6484;font-size:14px;line-height:1.5">Esta herramienta maneja información de contratos. Ingresa la <b>frase de acceso</b> que te compartió tu equipo para desbloquearla.</p>
-      ${msg?`<div style="background:#FDECEC;color:#B3261E;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:12px">${msg}</div>`:""}
-      <input type="password" autocomplete="current-password" autofocus placeholder="Frase de acceso" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #D6DCEC;border-radius:11px;font-size:15px;color:#0B153F;outline:none" />
-      <button type="submit" style="all:unset;cursor:pointer;display:block;text-align:center;width:100%;box-sizing:border-box;margin-top:14px;padding:12px;background:#00249C;color:#fff;border-radius:11px;font-weight:700;font-size:15px">Entrar</button>
+    wrap.style.cssText="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#F5F4F1,#ECEAE2);font-family:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;padding:24px";
+    wrap.innerHTML=`<form style="background:#fff;border:1px solid #EAF0F5;border-radius:18px;padding:30px 30px 26px;max-width:420px;width:100%;box-shadow:0 18px 50px rgba(32,35,31,.12)">
+      <div style="width:48px;height:48px;border-radius:12px;background:#2E6E5E;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:19px;margin-bottom:14px">🔒</div>
+      <h1 style="font-family:'Spectral',Georgia,serif;font-size:22px;font-weight:600;margin:0 0 6px;color:#20231F;letter-spacing:.1px">Acceso protegido</h1>
+      <p style="margin:0 0 16px;color:#6E6B63;font-size:14px;line-height:1.5">Esta herramienta maneja información de contratos. Ingresa la <b>frase de acceso</b> que te compartió tu equipo para desbloquearla.</p>
+      ${msg?`<div style="background:#F9EDE9;color:#A6453C;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:12px">${msg}</div>`:""}
+      <input type="password" autocomplete="current-password" autofocus placeholder="Frase de acceso" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #DDDBD3;border-radius:11px;font-size:15px;color:#20231F;outline:none" />
+      <button type="submit" style="all:unset;cursor:pointer;display:block;text-align:center;width:100%;box-sizing:border-box;margin-top:14px;padding:12px;background:#2E6E5E;color:#fff;border-radius:11px;font-weight:700;font-size:15px">Entrar</button>
     </form>`;
     const input=wrap.querySelector("input");
     wrap.querySelector("form").addEventListener("submit",e=>{
@@ -408,7 +412,7 @@ async function boot(){
 }
 
 /* ================= HELPERS ================= */
-const NAVY="#00249C";
+const NAVY="#2E6E5E";
 const $=(s,el=document)=>el.querySelector(s);
 const money=n=> (n==null||n==="")?"—":"$"+Number(n).toLocaleString("es-EC",{minimumFractionDigits:2,maximumFractionDigits:2});
 /* ---- Monto en letras (es-EC, uso legal) ---- */
@@ -456,7 +460,7 @@ function montoEnLetras(n){
   return s;
 }
 /* Campo para completar manualmente en el borrador (resaltado, visible en Word) */
-function manual(txt){ return `<span style="background:#FCF3DD;color:#8A5E06;padding:1px 4px;border-radius:3px">[COMPLETAR: ${esc(txt)}]</span>`; }
+function manual(txt){ return `<span style="background:#FBF6EC;color:#A46A1F;padding:1px 4px;border-radius:3px">[COMPLETAR: ${esc(txt)}]</span>`; }
 function manualIf(val, label){ return (val&&String(val).trim())?esc(val):manual(label); }
 /* Para plantillas .docx reales: texto plano (docxtemplater no interpreta HTML) */
 function manualDocx(txt){ return `«COMPLETAR: ${txt}»`; }
@@ -472,19 +476,19 @@ function tieneAdenda(c){ return norm(c.adenda).startsWith("s"); }
 function montoAdenda(c){ const d=montoDe(c)-c.monto; return d>0.009?d:0; }
 /* colores por categoría (chip + filtro) */
 const CAT_COLORS=[
-  [/combustible/,        {bg:"#FDEBD7",fg:"#9A5B10"}],
-  [/mantenimiento/,      {bg:"#E3EBFC",fg:"#1D48B8"}],
-  [/arrenda|arriendo/,   {bg:"#EFE6FA",fg:"#6B34B8"}],
-  [/consultor|profesional/,{bg:"#DDF3F0",fg:"#0E7D6F"}],
-  [/limpieza/,           {bg:"#E2F5E4",fg:"#1F7A34"}],
-  [/internet|conectividad/,{bg:"#DDF0F9",fg:"#0B6E96"}],
-  [/radio/,              {bg:"#FBE3EE",fg:"#B03070"}],
-  [/embarcaci|vessel|nav/,{bg:"#E0EFF6",fg:"#255E7E"}]
+  [/combustible/,        {bg:"#FBF6EC",fg:"#A46A1F"}],
+  [/mantenimiento/,      {bg:"#EAF0F5",fg:"#3D6480"}],
+  [/arrenda|arriendo/,   {bg:"#F0EBF5",fg:"#6A5089"}],
+  [/consultor|profesional/,{bg:"#E7EFEC",fg:"#2E6E5E"}],
+  [/limpieza/,           {bg:"#EDF2E4",fg:"#5F7A3D"}],
+  [/internet|conectividad/,{bg:"#E4F0F0",fg:"#2E6E70"}],
+  [/radio/,              {bg:"#F5EBF0",fg:"#96536E"}],
+  [/embarcaci|vessel|nav/,{bg:"#E8EEF2",fg:"#46657A"}]
 ];
 function catColor(cat){
   const s=norm(cat);
   for(const [re,c] of CAT_COLORS) if(re.test(s)) return c;
-  return {bg:"#ECEEF4",fg:"#5A6072"};
+  return {bg:"#F0EEE9",fg:"#5A574E"};
 }
 function catChip(cat, extra){
   const col=catColor(cat);
@@ -663,7 +667,7 @@ function renderList(){
     </div>
     <div class="toolbar">
       <div class="search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A9A69C" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <input id="q" placeholder="Buscar por contrato, proveedor o área…" value="${esc(q)}">
       </div>
       <div class="chips">
@@ -705,7 +709,7 @@ function bindRows(){
 }
 function emptyHTML(){
   return `<div class="empty">
-    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#A9A69C" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
     <div style="font-weight:700;color:var(--ink)">Sin resultados</div>
     <div style="font-size:13.5px">Ajusta el filtro o la búsqueda.</div>
   </div>`;
@@ -1281,22 +1285,22 @@ function docShell(inner, nro){
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
   <style>
     @page{margin:2.2cm 2.4cm}
-    body{font-family:'Titillium Web',Calibri,Arial,sans-serif;color:#0B153F;font-size:11pt;line-height:1.5}
-    .draft{background:#FCF3DD;border:1px solid #F0DCA6;color:#8A5E06;font-size:9pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:10px}
-    .hd{border-bottom:3px solid #00249C;padding-bottom:10px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end}
-    .hd .b{font-size:15pt;font-weight:700;color:#00249C}
-    .hd .s{font-size:9pt;color:#6B7180}
-    h1{font-size:14pt;color:#00249C;margin:0 0 4px;text-transform:uppercase;letter-spacing:.4px}
-    .code{font-size:9pt;color:#6B7180;margin-bottom:16px}
+    body{font-family:'Instrument Sans',Calibri,Arial,sans-serif;color:#20231F;font-size:11pt;line-height:1.5}
+    .draft{background:#FBF6EC;border:1px solid #F0E4CE;color:#A46A1F;font-size:9pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:10px}
+    .hd{border-bottom:3px solid #2E6E5E;padding-bottom:10px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end}
+    .hd .b{font-size:15pt;font-weight:700;color:#2E6E5E}
+    .hd .s{font-size:9pt;color:#6E6B63}
+    h1{font-size:14pt;color:#2E6E5E;margin:0 0 4px;text-transform:uppercase;letter-spacing:.4px}
+    .code{font-size:9pt;color:#6E6B63;margin-bottom:16px}
     table{width:100%;border-collapse:collapse;margin:10px 0 16px}
-    td,th{border:1px solid #C9CEDD;padding:6px 9px;font-size:10.5pt;text-align:left;vertical-align:top}
-    th{background:#EEF1FB;color:#00249C;font-weight:700;width:34%}
-    .sec{font-size:11pt;font-weight:700;color:#00249C;margin:16px 0 6px;border-bottom:1px solid #E3E6F0;padding-bottom:3px}
+    td,th{border:1px solid #C9C6BC;padding:6px 9px;font-size:10.5pt;text-align:left;vertical-align:top}
+    th{background:#E7EFEC;color:#2E6E5E;font-weight:700;width:34%}
+    .sec{font-size:11pt;font-weight:700;color:#2E6E5E;margin:16px 0 6px;border-bottom:1px solid #E4E2DC;padding-bottom:3px}
     p{margin:6px 0}
     .sign{margin-top:44px;display:flex;justify-content:space-between}
     .sign div{width:44%;text-align:center;font-size:10pt}
-    .line{border-top:1px solid #0B153F;margin-bottom:5px}
-    .ft{margin-top:30px;font-size:8.5pt;color:#9AA0B2;border-top:1px solid #E3E6F0;padding-top:8px}
+    .line{border-top:1px solid #20231F;margin-bottom:5px}
+    .ft{margin-top:30px;font-size:8.5pt;color:#A9A69C;border-top:1px solid #E4E2DC;padding-top:8px}
   </style></head><body>
   <span class="draft">Borrador — sujeto a revisión de Asesoría Legal FAP</span>
   <div class="hd"><div><div class="b">Fondo de Áreas Protegidas — FAP</div><div class="s">Administrado por FIAS · Sistema Nacional de Áreas Protegidas</div></div><div class="s">Generado<br>${longDate()}</div></div>
@@ -1354,7 +1358,7 @@ function informeModificacionDoc(c,x,titulo){
       <p style="margin-top:18px">Atentamente,</p>
       <p style="margin-top:34px"><b>${esc(c.ac||"—")}</b><br>Administrador/a contador/a<br>FIAS</p>
       ${x.just?`<div class="sec" style="margin-top:18px">Justificación adicional registrada por la AC</div><p>${esc(x.just)}</p>`:""}
-      <p style="font-size:9pt;color:#6B7180;margin-top:14px">Instrumento a preparar por Legal FAP: <b>${esc(x.instrumento)}</b> (${x.pct>=25?"≥ 25% del monto original":"< 25% del monto original"}). Acumulado con adendas previas: ${x.pctAcum!=null?x.pctAcum.toFixed(1):x.pct.toFixed(1)}% (límite institucional: 50%).</p>
+      <p style="font-size:9pt;color:#6E6B63;margin-top:14px">Instrumento a preparar por Legal FAP: <b>${esc(x.instrumento)}</b> (${x.pct>=25?"≥ 25% del monto original":"< 25% del monto original"}). Acumulado con adendas previas: ${x.pctAcum!=null?x.pctAcum.toFixed(1):x.pct.toFixed(1)}% (límite institucional: 50%).</p>
     `;
     return docShellOficial("FAP-2026-11", `INFORME DE ADMINISTRADOR DE CONTRATO PARA ADENDA<br>${esc(c.nro)} - "${esc(c.detalle)}"`, inner, c.nro);
   }
@@ -1369,7 +1373,7 @@ function informeModificacionDoc(c,x,titulo){
     ${baseTable(c)}
     <div class="sec">Detalle de la modificación</div>
     ${detalle}
-    <p style="font-size:10pt;color:#6B7180">La presente modificación <b>no altera el objeto</b> del contrato.</p>
+    <p style="font-size:10pt;color:#6E6B63">La presente modificación <b>no altera el objeto</b> del contrato.</p>
     <div class="sec">Justificación</div><p>${esc(x.just)}</p>
     <div class="sec">Recomendación</div>
     <p>Se recomienda a la Asesoría Legal FAP la preparación del instrumento correspondiente (<b>${esc(x.instrumento)}</b>) con base en la justificación expuesta.</p>
@@ -1380,23 +1384,23 @@ function docShellOficial(codigo, tituloDoc, inner, nro){
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
   <style>
     @page{margin:2.2cm 2.4cm}
-    body{font-family:'Titillium Web',Calibri,Arial,sans-serif;color:#0B153F;font-size:10.5pt;line-height:1.5}
-    .draft{background:#FCF3DD;border:1px solid #F0DCA6;color:#8A5E06;font-size:9pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:12px}
+    body{font-family:'Instrument Sans',Calibri,Arial,sans-serif;color:#20231F;font-size:10.5pt;line-height:1.5}
+    .draft{background:#FBF6EC;border:1px solid #F0E4CE;color:#A46A1F;font-size:9pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:5px 10px;border-radius:5px;display:inline-block;margin-bottom:12px}
     .ohd{width:100%;border-collapse:collapse;margin-bottom:14px}
-    .ohd td{border:1px solid #0B153F;padding:6px 10px;font-size:10pt;vertical-align:middle}
+    .ohd td{border:1px solid #20231F;padding:6px 10px;font-size:10pt;vertical-align:middle}
     .ohd .brand{font-weight:700;text-align:center}
     .ohd .ttl{font-weight:700;text-align:center;font-size:11pt}
     table{width:100%;border-collapse:collapse;margin:8px 0 14px}
-    td,th{border:1px solid #C9CEDD;padding:6px 9px;font-size:10pt;text-align:left;vertical-align:top}
-    th{background:#EEF1FB;color:#00249C;font-weight:700}
+    td,th{border:1px solid #C9C6BC;padding:6px 9px;font-size:10pt;text-align:left;vertical-align:top}
+    th{background:#E7EFEC;color:#2E6E5E;font-weight:700}
     h2.cl{font-size:10.5pt;font-weight:700;margin:16px 0 6px}
     p{margin:6px 0;text-align:justify}
     ul{margin:6px 0;padding-left:20px}
     li{margin:4px 0;text-align:justify}
     .sign{margin-top:36px;width:100%;border-collapse:collapse}
     .sign td{border:none;text-align:center;font-size:9.5pt;padding:0 10px;vertical-align:top}
-    .ln{border-top:1px solid #0B153F;margin:36px 6px 6px}
-    .ft{margin-top:26px;font-size:8.5pt;color:#9AA0B2;border-top:1px solid #E3E6F0;padding-top:8px}
+    .ln{border-top:1px solid #20231F;margin:36px 6px 6px}
+    .ft{margin-top:26px;font-size:8.5pt;color:#A9A69C;border-top:1px solid #E4E2DC;padding-top:8px}
   </style></head><body>
   <span class="draft">Borrador — sujeto a revisión de Asesoría Legal FAP</span>
   <table class="ohd"><tr>
@@ -1485,7 +1489,7 @@ function calificacionDoc(c,x){
   const rows=x.grupos.map((g,gi)=>{
     const a=x.aportes[gi];
     const detalle=g.items.map((txt,ii)=>`<tr><td style="font-size:9.5pt">${esc(txt)}</td><td style="text-align:center">${x.vals[gi][ii]}/3</td></tr>`).join("");
-    return `<tr><td colspan="2" style="background:#EEF1FB;font-weight:700">${esc(g.nombre)} — ${(g.w*100)}%</td></tr>${detalle}
+    return `<tr><td colspan="2" style="background:#E7EFEC;font-weight:700">${esc(g.nombre)} — ${(g.w*100)}%</td></tr>${detalle}
       <tr><td style="text-align:right;font-weight:700">Subtotal (${a.suma}/${a.max}) · aporte ponderado</td><td style="text-align:center;font-weight:700">${a.aporte.toFixed(2)}</td></tr>`;
   }).join("");
   return docShell(`
@@ -1495,9 +1499,9 @@ function calificacionDoc(c,x){
     <table>
       <tr><th style="width:auto">Criterio</th><th style="width:auto;text-align:center">Puntaje</th></tr>
       ${rows}
-      <tr><td style="text-align:right;font-weight:700;font-size:11.5pt">CALIFICACIÓN FINAL</td><td style="text-align:center;font-weight:700;color:#00249C;font-size:11.5pt">${Number(x.score).toFixed(2)}/100</td></tr>
+      <tr><td style="text-align:right;font-weight:700;font-size:11.5pt">CALIFICACIÓN FINAL</td><td style="text-align:center;font-weight:700;color:#2E6E5E;font-size:11.5pt">${Number(x.score).toFixed(2)}/100</td></tr>
     </table>
-    <p style="font-size:9pt;color:#6B7180">Escala: 90–100 Confiable (Preferente) · 80–89 Satisfactorio · 70–79 Aceptable–Observado · 60–69 Deficiente–Inaceptable · &lt;60 No recomendado. Mínimo aprobatorio: 70/100.</p>
+    <p style="font-size:9pt;color:#6E6B63">Escala: 90–100 Confiable (Preferente) · 80–89 Satisfactorio · 70–79 Aceptable–Observado · 60–69 Deficiente–Inaceptable · &lt;60 No recomendado. Mínimo aprobatorio: 70/100.</p>
     <div class="sec">Resultado</div>
     <p><b>Semáforo:</b> ${esc(x.t.sem)}</p>
     <p><b>Consecuencia:</b> ${esc(x.t.cons)}</p>
@@ -1568,7 +1572,7 @@ function renderEnvioUnidad(){
       <div class="frow"><label>Observaciones para la Unidad Operativa (opcional)</label><textarea id="uoObs" placeholder="Notas adicionales"></textarea></div>
       <div class="frow">
         <label>Adjunta los archivos (borrador generado + contrato firmado)</label>
-        <input type="file" id="uoFilesCRM" multiple accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,image/*" onchange="uoListFilesCRM()" style="padding:10px;border:1.5px dashed #C7D0EC;border-radius:10px;background:var(--bg)">
+        <input type="file" id="uoFilesCRM" multiple accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,image/*" onchange="uoListFilesCRM()" style="padding:10px;border:1.5px dashed #CFE3DA;border-radius:10px;background:var(--bg)">
         <div style="font-size:12px;color:var(--muted);margin-top:6px">Hasta 10 archivos, 100 MB cada uno.</div>
         <div id="uoFileListCRM" style="margin-top:8px;font-size:13px"><span style="color:var(--muted2)">Ningún archivo seleccionado.</span></div>
       </div>

@@ -34,6 +34,19 @@ y envío a la Unidad Operativa por el mismo flujo de Power Automate
 (portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
 calificaciones, bitácora) se guarda en el navegador (`localStorage`).
 
+## Identidad visual unificada
+
+Las tres herramientas (CLM, CRM y La Mágica) y la portada comparten una sola
+identidad visual:
+
+- **Tipografía:** Instrument Sans para la interfaz y Spectral (serif) para
+  títulos y cifras destacadas.
+- **Paleta:** verde institucional `#2E6E5E` como color primario, fondo cálido
+  `#F5F4F1`, tinta `#20231F`, y acentos ámbar `#A46A1F`, rojo `#A6453C`,
+  azul `#3D6480` y violeta `#6A5089` para estados y categorías.
+- **Superficies:** tarjetas blancas con bordes `#E4E2DC`, cabeceras de tabla
+  `#FAFAF7` y sombras cálidas suaves; el CLM usa barra lateral oscura `#1F2320`.
+
 ## Estructura
 
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
