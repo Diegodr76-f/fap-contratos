@@ -72,6 +72,25 @@ function tplsPropias(){ try{ return JSON.parse(localStorage.getItem('fap_tpls_pr
 function marcarTplPropia(slot){ try{ var p=tplsPropias(); p[slot]=true; localStorage.setItem('fap_tpls_propias',JSON.stringify(p)); }catch(e){} }
 function desmarcarTplPropia(slot){ try{ var p=tplsPropias(); delete p[slot]; localStorage.setItem('fap_tpls_propias',JSON.stringify(p)); }catch(e){} }
 function seedVAplicado(){ try{ return Number(localStorage.getItem('fap_seed_v')||0); }catch(e){ return 0; } }
+function abToB64(buf){ var b=new Uint8Array(buf),s='',c=0x8000; for(var i=0;i<b.length;i+=c){ s+=String.fromCharCode.apply(null,b.subarray(i,i+c)); } return btoa(s); }
+// Descarga las plantillas desde la carpeta del repo (plantillas/) cuando la herramienta
+// se sirve por web. Así, cambiar un formato es solo reemplazar el .docx en esa carpeta y
+// hacer commit — no hay que re-incrustar nada. Las plantillas que la AC subió a mano
+// (propias) no se tocan. En file:// o sin conexión, se queda con las embebidas (seed).
+function fetchTemplatesFromFolder(){
+  if(location.protocol!=='http:' && location.protocol!=='https:') return;
+  if(typeof fetch!=='function') return;
+  var propias=tplsPropias(), pending=TPL_SLOTS.length, changed=false;
+  function done(){ if(--pending<=0){ if(changed) saveTpls(); render(); } }
+  TPL_SLOTS.forEach(function(s){
+    if(propias[s.f]){ done(); return; }
+    fetch('plantillas/'+encodeURIComponent(s.f),{cache:'no-cache'})
+      .then(function(r){ if(!r.ok) throw 0; return r.arrayBuffer(); })
+      .then(function(buf){ var b64=abToB64(buf); if(ST.tpls[s.f]!==b64){ ST.tpls[s.f]=b64; changed=true; } })
+      .catch(function(){})
+      .then(done);
+  });
+}
 function load(){
   var hadV3=false,hadTpls=false;
   try{ var r=localStorage.getItem('fap_v3'); if(r){hadV3=true; var o=JSON.parse(r); ST.cfg=Object.assign({},CFG_DEF,o.cfg||{}); ST.exps=o.exps||[]; ST.curId=o.curId||null;} }catch(e){}
@@ -524,7 +543,7 @@ function renderPlantillas(){
   var loaded=Object.keys(ST.tpls).length;
   return warn
    +"<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Plantillas Word</h1>"
-   +"<p style='font-size:15px;color:#6B7180;margin:0 0 6px;max-width:640px;line-height:1.5'>Sube tus 13 plantillas <b>etiquetadas</b> (con {objeto}, {fechaInicio}, {#items}…). Quedan guardadas en este navegador; no hay que volver a subirlas.</p>"
+   +"<p style='font-size:15px;color:#6B7180;margin:0 0 6px;max-width:660px;line-height:1.5'>Las plantillas oficiales se cargan solas desde la carpeta <b>plantillas/</b> del repositorio. Para cambiar un formato, reemplaza el <b>.docx</b> en esa carpeta (GitHub) y listo — todas lo reciben al abrir. Si subes una aquí a mano, esa copia manda en tu navegador hasta que la elimines.</p>"
    +"<p style='font-size:13px;font-weight:700;color:"+(loaded===TPL_SLOTS.length?'#1E7A4D':'#B4690E')+";margin:0 0 18px'>"+loaded+" de "+TPL_SLOTS.length+" plantillas cargadas</p>"
    +"<div class='card' style='display:flex;align-items:center;gap:12px;margin-bottom:18px;background:#EEF1FB;border-color:#DCE2F7'><div style='flex:1'><div style='font-weight:700;color:#00249C'>Exportar herramienta para las ACs</div><div style='font-size:12.5px;color:#5A6072;line-height:1.45'>Genera un solo archivo HTML con las plantillas ya embebidas. Las ACs lo abren, llenan su área y generan documentos — nunca tocan las plantillas.</div></div><button onclick='exportBuild()' style='all:unset;cursor:pointer;flex:0 0 auto;background:#00249C;color:#fff;font-weight:700;font-size:13px;padding:10px 16px;border-radius:9px'>Exportar .html</button></div>"
    +"<div style='display:flex;flex-direction:column;gap:10px'>"+rows+"</div>";
@@ -1266,5 +1285,6 @@ function delArea(i){var list=areasList();if(list.length<=1){toast('Debe quedar a
 //===================== INIT =====================
 load();
 render();
+fetchTemplatesFromFolder();
 </script>
 </body></html>
