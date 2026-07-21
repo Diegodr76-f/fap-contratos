@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calificador de Ofertas · FAP · FIAS</title>
+<meta name="description" content="Herramienta de calificación y evaluación de ofertas del FAP/FIAS para procesos de selección por convocatoria: consultorías por puntos y adquisiciones de bienes/servicios por Cumple/No Cumple. Calcula puntajes técnicos y económicos, aplica umbrales, ordena oferentes y genera el acta de calificación.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
+    --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
+    --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
+    --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0E9AA7;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:'Titillium Web',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45}
+  a{color:var(--navy);text-decoration:none}
+  button{font-family:inherit}
+  input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
+  ::placeholder{color:var(--muted2)}
+  h1,h2,h3,h4,p{margin:0}
+  @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .up{animation:up .25s ease}
+
+  /* ===== topbar ===== */
+  .topbar{display:flex;align-items:center;gap:13px;background:#fff;border-bottom:1px solid var(--line);padding:0 22px;height:60px;position:sticky;top:0;z-index:30}
+  .logo{width:40px;height:40px;border-radius:10px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:0 0 auto}
+  .brand .t{font-weight:700;font-size:15.5px;line-height:1.1}
+  .brand .s{font-size:11.5px;color:var(--muted)}
+  .tb-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+  .wrap{max-width:1200px;margin:0 auto;padding:22px 22px 90px}
+
+  /* ===== atoms ===== */
+  .btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--navy);color:#fff;font-weight:700;font-size:13px;padding:10px 15px;border-radius:10px;transition:filter .15s;white-space:nowrap}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.line{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+  .btn.line:hover{background:var(--bg);filter:none}
+  .btn.danger{background:var(--red)}
+  .btn.ghost{background:transparent;color:var(--muted);border:1.5px solid transparent}
+  .btn.ghost:hover{background:var(--tint);color:var(--navy);filter:none}
+  .btn.sm{padding:7px 11px;font-size:12px;border-radius:9px}
+  .btn.xs{padding:4px 8px;font-size:11.5px;border-radius:8px}
+  .btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+
+  .panel{background:#fff;border:1px solid var(--line2);border-radius:15px;padding:20px 22px;margin-bottom:16px}
+  .phead{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+  .phead .n{width:30px;height:30px;border-radius:9px;background:var(--tint);color:var(--navy);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;flex:0 0 auto}
+  .ptitle{font-size:15px;font-weight:700}
+  .psub{font-size:12px;color:var(--muted);margin-top:2px}
+  .phead .grow{flex:1;min-width:0}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+  .b-g{background:var(--greenbg);color:var(--green)} .b-a{background:var(--amberbg);color:var(--amber)}
+  .b-r{background:var(--redbg);color:var(--red)} .b-d{background:#EEF0F5;color:var(--muted)}
+  .b-n{background:var(--tint);color:var(--navy)} .b-v{background:#EFE6FA;color:var(--violet)}
+
+  label.fld{display:block;font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--muted2);margin:0 0 5px}
+  .in,select.in,textarea.in{width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;background:#fff}
+  .in:focus,select.in:focus,textarea.in:focus{outline:none;border-color:var(--navy)}
+  textarea.in{resize:vertical;min-height:52px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr}}
+
+  .seg{display:inline-flex;border:1.5px solid var(--line);border-radius:11px;overflow:hidden;background:#fff}
+  .seg button{all:unset;cursor:pointer;padding:9px 15px;font-size:12.5px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:7px}
+  .seg button.on{background:var(--navy);color:#fff}
+  .seg button:not(.on):hover{background:var(--tint);color:var(--navy)}
+
+  .hint{font-size:12px;color:var(--muted);background:var(--tint);border:1px solid var(--line2);border-radius:11px;padding:11px 13px}
+  .hint b{color:var(--ink)}
+  .callout{font-size:12.5px;color:var(--ink);background:#F4FAFF;border:1px solid #D6E7F5;border-left:4px solid var(--teal);border-radius:11px;padding:12px 14px}
+  .fx{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;background:#0B153F;color:#DCE3FF;padding:9px 12px;border-radius:9px;display:inline-block;margin-top:6px}
+
+  /* config lists */
+  .crit-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px dashed var(--line)}
+  .crit-row:last-child{border-bottom:0}
+  .crit-row .grow{flex:1;min-width:0}
+  .crit-row .max{width:78px;flex:0 0 auto}
+  .grp-box{border:1px solid var(--line2);border-radius:12px;padding:13px 15px;margin-bottom:12px;background:#FCFDFF}
+  .grp-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .grp-head .gt{font-weight:700;font-size:13.5px;flex:1;min-width:0}
+  .grp-sum{font-size:11.5px;font-weight:700;color:var(--navy);background:var(--tint);padding:3px 9px;border-radius:99px;white-space:nowrap}
+
+  /* matrix table */
+  .tablewrap{background:#fff;border:1px solid var(--line2);border-radius:14px;overflow-x:auto}
+  table.mx{width:100%;border-collapse:collapse;min-width:640px}
+  table.mx th,table.mx td{padding:9px 10px;border-bottom:1px solid var(--line2);text-align:center;vertical-align:middle}
+  table.mx thead th{font-size:11px;font-weight:700;color:var(--muted);background:#FAFBFE;border-bottom:1.5px solid var(--line2);text-align:center}
+  table.mx thead .grp{color:var(--navy);letter-spacing:.2px}
+  table.mx thead .cn{font-weight:600;color:var(--muted);font-size:10.5px;line-height:1.25;min-width:96px}
+  table.mx thead .cn small{display:block;color:var(--navy);font-weight:700;font-size:11px;margin-top:2px}
+  table.mx td.of{text-align:left;min-width:150px}
+  table.mx td.of input{margin-bottom:4px}
+  table.mx .cell input{width:66px;text-align:center;padding:7px 4px;border:1.5px solid var(--line);border-radius:8px}
+  table.mx .cell input:focus{outline:none;border-color:var(--navy)}
+  table.mx .cell input.over{border-color:var(--red);background:var(--redbg)}
+  table.mx .pricec input{width:112px;text-align:right;padding:7px 8px;border:1.5px solid var(--line);border-radius:8px}
+  table.mx select.cn-sel{padding:6px 6px;border:1.5px solid var(--line);border-radius:8px;font-size:12px;font-weight:700}
+  table.mx select.cn-sel.si{color:var(--green)} table.mx select.cn-sel.no{color:var(--red)}
+  .miniof{font-size:11px;color:var(--muted)}
+
+  /* results */
+  table.rz{width:100%;border-collapse:collapse;min-width:640px}
+  table.rz th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted2);text-align:left;padding:11px 12px;border-bottom:1.5px solid var(--line2);background:#FAFBFE;white-space:nowrap}
+  table.rz td{font-size:13px;padding:11px 12px;border-bottom:1px solid var(--line2);vertical-align:middle}
+  table.rz td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.rz tr.win td{background:var(--greenbg)}
+  table.rz tr.out td{color:var(--muted)}
+  .rankpill{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--tint);color:var(--navy);font-weight:700;align-items:center;justify-content:center;font-size:12px}
+  .rankpill.one{background:var(--green);color:#fff}
+  .bar{height:7px;border-radius:99px;background:var(--line);overflow:hidden;min-width:60px}
+  .bar > i{display:block;height:100%;background:var(--navy);border-radius:99px}
+  .winner{display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,#E7F6EE,#F4FAFF);border:1px solid #BFE6CF;border-radius:14px;padding:15px 18px;margin-bottom:16px}
+  .winner .medal{width:44px;height:44px;border-radius:12px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .winner .wt{font-size:12px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px}
+  .winner .wn{font-size:17px;font-weight:700}
+  .winner .ws{font-size:12.5px;color:var(--muted)}
+  .empty{text-align:center;color:var(--muted);padding:26px}
+
+  /* acta */
+  .acta{background:#fff;border:1px solid var(--line2);border-radius:15px;padding:0;overflow:hidden}
+  .acta-doc{padding:30px 34px}
+  .acta-lh{display:flex;align-items:center;gap:13px;border-bottom:2px solid var(--navy);padding-bottom:12px;margin-bottom:18px}
+  .acta-lh .t1{font-weight:700;font-size:13.5px;letter-spacing:.3px}
+  .acta-lh .t2{font-size:11.5px;color:var(--muted)}
+  .acta h2.actitle{font-size:16px;font-weight:700;text-align:center;margin:6px 0 2px}
+  .acta .acsub{text-align:center;font-size:12.5px;color:var(--muted);margin-bottom:18px}
+  .acta h3{font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;margin:20px 0 8px;border-bottom:1px solid var(--line2);padding-bottom:5px}
+  .acta table{width:100%;border-collapse:collapse;margin:6px 0}
+  .acta table th,.acta table td{border:1px solid var(--line);padding:7px 9px;font-size:12px;text-align:left}
+  .acta table th{background:var(--tint);font-weight:700;color:var(--ink)}
+  .acta table td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .acta .kv{display:grid;grid-template-columns:190px 1fr;gap:2px 12px;font-size:12.5px}
+  .acta .kv dt{font-weight:700;color:var(--muted)}
+  .acta .firma{display:inline-block;width:230px;text-align:center;margin:34px 26px 0 0;font-size:12px}
+  .acta .firma .line{border-top:1px solid var(--ink);margin-bottom:4px;padding-top:4px}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:11px;font-size:13px;font-weight:600;box-shadow:0 14px 34px rgba(11,21,63,.28);z-index:80;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+  /* print */
+  .print-only{display:none}
+  @media print{
+    @page{margin:14mm}
+    body{background:#fff;font-size:11.5px}
+    .no-print,.topbar,.tb-actions{display:none !important}
+    .wrap{max-width:none;padding:0}
+    .acta{border:0;border-radius:0}
+    .acta-doc{padding:0}
+    .print-only{display:block}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar no-print">
+  <div class="logo">FAP</div>
+  <div class="brand">
+    <div class="t">Calificador de Ofertas</div>
+    <div class="s">FAP · Fondo de Áreas Protegidas — FIAS</div>
+  </div>
+  <div class="tb-actions">
+    <button class="btn line sm" id="btnEjemplos">Cargar ejemplo ▾</button>
+    <button class="btn line sm" id="btnNuevo">Nuevo</button>
+    <button class="btn line sm" id="btnGuardar">Guardar</button>
+    <button class="btn line sm" id="btnCargar">Abrir</button>
+    <button class="btn line sm" id="btnCSV">CSV</button>
+    <button class="btn sm" id="btnImprimir">Imprimir acta</button>
+    <input type="file" id="fileIn" accept="application/json" style="display:none">
+  </div>
+</div>
+
+<div class="wrap" id="app"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   Calificador de Ofertas — FAP / FIAS
+   Herramienta 100% del lado del cliente (sin backend, sin CDN de scripts).
+   Cubre los dos esquemas de calificación que usa el FAP en sus convocatorias:
+     A) POR PUNTOS  — consultorías y servicios: criterios técnicos ponderados
+        + oferta económica inverso-proporcional, con umbral técnico mínimo.
+     B) CUMPLE / NO CUMPLE — bienes/servicios con postcalificación: requisitos
+        legales y técnicos habilitantes y adjudicación al menor precio.
+   ========================================================================= */
+const $  = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const esc = s => (s==null?"":String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = (p='id')=>p+Math.random().toString(36).slice(2,8);
+const num = v => { const n = parseFloat(String(v==null?'':v).replace(/[^\d.,-]/g,'').replace(/\.(?=\d{3}\b)/g,'').replace(',','.')); return isFinite(n)?n:0; };
+const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
+const r2 = n => Math.round(n*100)/100;
+const fUSD = n => '$'+(num(n)).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fNum = n => (Math.round(n*100)/100).toLocaleString('es-EC',{maximumFractionDigits:2});
+const todayEC = ()=> new Date().toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
+
+/* --------------------------------- presets ------------------------------- */
+function presetConsultoria(){
+  return {
+    tipo:'puntos',
+    objeto:'Consultoría Especializada en Delitos Ambientales y Procesos Sancionatorios',
+    codigo:'FIAS-FAP-CONS-2025',
+    entidad:'Fondo de Inversión Ambiental Sostenible (FIAS) — Programa Fondo de Áreas Protegidas (FAP)',
+    tipoProceso:'Consultoría (persona natural o jurídica)',
+    lugar:'Quito D.M.',
+    presupuesto:'',
+    umbralTecnico:75,
+    comision:'Presidente/a de la Comisión de Calificación\nDelegado/a técnico/a FAP-FIAS\nDelegado/a MAE / Área protegida',
+    grupos:[
+      {id:'g1', tipo:'tecnico', nombre:'Perfil profesional', criterios:[
+        {id:'c1', nombre:'Título de tercer nivel en Ing. Ambiental o afines a Gestión Ambiental / Ciencias Biológicas (se valora el cuarto nivel). Registrado en SENESCYT.', max:15},
+        {id:'c2', nombre:'≥ 2 años de experiencia profesional en planificación, evaluación y seguimiento ambiental y normativa aplicable.', max:10},
+        {id:'c3', nombre:'≥ 1 año en manejo de bases de datos técnicos, informes técnicos o monitoreo de ilícitos ambientales.', max:10},
+      ]},
+      {id:'g2', tipo:'tecnico', nombre:'Oferta técnica', criterios:[
+        {id:'c4', nombre:'Pertinencia y alcance del trabajo en relación con los Términos de Referencia.', max:25},
+        {id:'c5', nombre:'Claridad y detalle en los aspectos relevantes del servicio.', max:20},
+      ]},
+      {id:'ge', tipo:'economico', nombre:'Oferta económica', peso:20, formula:'inverso'},
+    ],
+    oferentes:[
+      {id:uid('of'), nombre:'Consultora Ambiental Andina S.A.', ruc:'1790000001001', precio:'18500', scores:{c1:15,c2:10,c3:9,c4:25,c5:19}, gates:{}, obs:''},
+      {id:uid('of'), nombre:'Ing. María Fernanda Terán (persona natural)', ruc:'1710000002001', precio:'16900', scores:{c1:13,c2:10,c3:10,c4:25,c5:18}, gates:{}, obs:''},
+      {id:uid('of'), nombre:'GeoAmbiente Consultores Cía. Ltda.', ruc:'1790000003001', precio:'15200', scores:{c1:12,c2:8,c3:8,c4:20,c5:15}, gates:{}, obs:''},
+    ],
+  };
+}
+function presetBienes(){
+  return {
+    tipo:'cumple',
+    objeto:'Adquisición de un motor fuera de borda para la embarcación del Parque Nacional Machalilla',
+    codigo:'FIAS-FAP-2026',
+    entidad:'Fondo de Inversión Ambiental Sostenible (FIAS) — Programa Fondo de Áreas Protegidas (FAP)',
+    tipoProceso:'Bienes (concurso de ofertas con postcalificación)',
+    lugar:'Quito D.M.',
+    presupuesto:'40000',
+    umbralTecnico:75,
+    comision:'Presidente/a de la Comisión de Calificación y Adquisiciones\nDelegado/a técnico/a FAP-FIAS\nAdministrador/a PNM — MAE',
+    reqLegales:[
+      {id:'l1', nombre:'Nombramiento / documento del representante legal'},
+      {id:'l2', nombre:'Copia de identificación del representante legal'},
+      {id:'l3', nombre:'Copia de papeleta de votación vigente'},
+      {id:'l4', nombre:'Copia del RUC'},
+      {id:'l5', nombre:'Certificado del SRI — obligaciones tributarias al día'},
+    ],
+    reqTecnicos:[
+      {id:'t1', nombre:'Cumplimiento de especificaciones técnicas'},
+      {id:'t2', nombre:'Tiempo de entrega del bien'},
+      {id:'t3', nombre:'Tipo y plazos de garantía técnica'},
+    ],
+    grupos:[{id:'ge', tipo:'economico', nombre:'Oferta económica', peso:100, formula:'menor'}],
+    oferentes:[
+      {id:uid('of'), nombre:'Motores Náuticos del Pacífico Cía. Ltda.', ruc:'0990000001001', precio:'38900', scores:{}, gates:{l1:true,l2:true,l3:true,l4:true,l5:true,t1:true,t2:true,t3:true}, obs:''},
+      {id:uid('of'), nombre:'Marina Import S.A.', ruc:'0990000002001', precio:'37500', scores:{}, gates:{l1:true,l2:true,l3:true,l4:true,l5:false,t1:true,t2:true,t3:true}, obs:''},
+    ],
+  };
+}
+function blankState(tipo){
+  const base = {
+    tipo:tipo||'puntos', objeto:'', codigo:'', entidad:'Fondo de Inversión Ambiental Sostenible (FIAS) — Programa FAP',
+    tipoProceso: tipo==='cumple'?'Bienes / Servicios':'Consultoría / Servicios', lugar:'Quito D.M.',
+    presupuesto:'', umbralTecnico:75, comision:'Presidente/a de la Comisión de Calificación\nDelegado/a técnico/a\nDelegado/a',
+    oferentes:[],
+  };
+  if(tipo==='cumple'){
+    base.reqLegales=[{id:uid('l'),nombre:'Copia del RUC'},{id:uid('l'),nombre:'Certificado del SRI al día'}];
+    base.reqTecnicos=[{id:uid('t'),nombre:'Cumplimiento de especificaciones técnicas'}];
+    base.grupos=[{id:'ge',tipo:'economico',nombre:'Oferta económica',peso:100,formula:'menor'}];
+  }else{
+    base.grupos=[
+      {id:uid('g'),tipo:'tecnico',nombre:'Perfil / hoja de vida',criterios:[{id:uid('c'),nombre:'Formación académica',max:20},{id:uid('c'),nombre:'Experiencia',max:20}]},
+      {id:uid('g'),tipo:'tecnico',nombre:'Oferta técnica',criterios:[{id:uid('c'),nombre:'Metodología / pertinencia',max:40}]},
+      {id:'ge',tipo:'economico',nombre:'Oferta económica',peso:20,formula:'inverso'},
+    ];
+  }
+  base.oferentes=[emptyOf(base),emptyOf(base)];
+  return base;
+}
+function emptyOf(S){ return {id:uid('of'),nombre:'',ruc:'',precio:'',scores:{},gates:{},obs:''}; }
+
+/* --------------------------------- state --------------------------------- */
+const LS='fap_calificador_v1';
+let S = load();
+function load(){ try{ const r=localStorage.getItem(LS); if(r) return JSON.parse(r); }catch(e){} return presetConsultoria(); }
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){} }
+
+/* helpers over the model */
+const gruposTecnicos = ()=> (S.grupos||[]).filter(g=>g.tipo==='tecnico');
+const grupoEco = ()=> (S.grupos||[]).find(g=>g.tipo==='economico') || {peso:0,formula:S.tipo==='cumple'?'menor':'inverso',nombre:'Oferta económica'};
+const critList  = ()=> gruposTecnicos().flatMap(g=>g.criterios.map(c=>({...c,grupo:g.nombre,gid:g.id})));
+const gateList  = ()=> [...(S.reqLegales||[]).map(r=>({...r,fase:'legal'})), ...(S.reqTecnicos||[]).map(r=>({...r,fase:'tecnico'}))];
+const tecMaxTotal = ()=> gruposTecnicos().reduce((a,g)=>a+g.criterios.reduce((x,c)=>x+num(c.max),0),0);
+const puntosTotales = ()=> tecMaxTotal() + num(grupoEco().peso);
+
+/* --------------------------------- engine -------------------------------- */
+function compute(){
+  const ofs = S.oferentes||[];
+  const eco = grupoEco();
+  const pesoEco = num(eco.peso);
+  ofs.forEach(o=>{
+    o._tec=0; o._tecMax=tecMaxTotal(); o._eco=0; o._total=0; o._pasa=false; o._rank=null;
+    if(o.descal) return;
+    if(S.tipo==='puntos'){
+      let t=0;
+      critList().forEach(c=>{ t += clamp(num(o.scores[c.id]),0,num(c.max)); });
+      o._tec=r2(t);
+      o._pasa = o._tec >= num(S.umbralTecnico);
+    }else{
+      o._legalOk = (S.reqLegales||[]).every(r=>o.gates[r.id]===true);
+      o._tecOk   = (S.reqTecnicos||[]).every(r=>o.gates[r.id]===true);
+      o._pasa = o._legalOk && o._tecOk;
+    }
+  });
+  const validos = ofs.filter(o=>o._pasa && num(o.precio)>0);
+  const pmin = validos.length ? Math.min(...validos.map(o=>num(o.precio))) : 0;
+  ofs.forEach(o=>{
+    const p=num(o.precio);
+    if(o._pasa && p>0 && pmin>0){
+      o._eco = r2((S.tipo==='cumple'?100:pesoEco) * (pmin/p));
+    }
+    o._total = S.tipo==='puntos' ? r2(o._tec + (o._pasa?o._eco:0)) : (o._pasa?o._eco:0);
+  });
+  const passers = ofs.filter(o=>o._pasa);
+  const ranked = [...passers].sort((a,b)=> S.tipo==='cumple' ? num(a.precio)-num(b.precio) : b._total-a._total);
+  ranked.forEach((o,i)=>o._rank=i+1);
+  return { pmin, pesoEco, winner:ranked[0]||null, ranked, nPass:passers.length, nTot:ofs.length };
+}
+
+/* --------------------------------- render -------------------------------- */
+function render(){
+  const app=$("#app");
+  app.innerHTML = viewProceso() + viewMatrizConfig() + viewOferentes() + `<div id="resultados"></div><div id="acta" class="no-print" style="margin-top:16px"></div>` + viewBasesSection();
+  bindProceso(); bindConfig(); bindOferentes(); bindBases();
+  renderResultados();
+  save();
+}
+
+/* ---- panel 1: datos del proceso ---- */
+function viewProceso(){
+  const esPuntos = S.tipo==='puntos';
+  return `
+  <div class="panel up no-print">
+    <div class="phead">
+      <div class="n">1</div>
+      <div class="grow">
+        <div class="ptitle">Datos del proceso de selección</div>
+        <div class="psub">Convocatoria del FAP administrada por el FIAS. Elige el esquema de calificación según el tipo de contratación.</div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <label class="fld">Esquema de calificación</label>
+      <div class="seg" id="segTipo">
+        <button data-t="puntos" class="${esPuntos?'on':''}">${icoStar()} Por puntos · Consultoría / Servicios</button>
+        <button data-t="cumple" class="${!esPuntos?'on':''}">${icoCheck()} Cumple / No cumple · Bienes</button>
+      </div>
+      <div class="hint" style="margin-top:10px">
+        ${esPuntos
+          ? `<b>Por puntos:</b> criterios técnicos ponderados (perfil + oferta técnica) sobre <b>${fNum(tecMaxTotal())}</b> pts, más oferta económica <b>inverso-proporcional</b> (${fNum(num(grupoEco().peso))} pts). Solo pasan a la económica quienes alcancen el <b>umbral técnico</b>. Total sobre <b>${fNum(puntosTotales())}</b> pts.`
+          : `<b>Cumple / No cumple:</b> los requisitos legales y técnicos son <b>habilitantes</b> (todos deben cumplir). Entre quienes cumplen, se adjudica al de <b>menor precio</b>.`}
+      </div>
+    </div>
+    <div class="grid2">
+      <div style="grid-column:1/-1"><label class="fld">Objeto de la contratación</label><input class="in" id="f_objeto" value="${esc(S.objeto)}" placeholder="Ej.: Adquisición de… / Consultoría en…"></div>
+      <div><label class="fld">Código del proceso</label><input class="in" id="f_codigo" value="${esc(S.codigo)}" placeholder="FIAS-FAP-2026"></div>
+      <div><label class="fld">Tipo de contratación</label><input class="in" id="f_tipoProceso" value="${esc(S.tipoProceso)}"></div>
+      <div style="grid-column:1/-1"><label class="fld">Entidad contratante</label><input class="in" id="f_entidad" value="${esc(S.entidad)}"></div>
+      <div><label class="fld">Presupuesto referencial (USD, opcional)</label><input class="in" id="f_presupuesto" value="${esc(S.presupuesto)}" placeholder="40000.00" inputmode="decimal"></div>
+      <div><label class="fld">Lugar / fecha del acta</label><input class="in" id="f_lugar" value="${esc(S.lugar)}" placeholder="Quito D.M."></div>
+      ${esPuntos?`<div><label class="fld" title="Puntaje técnico mínimo para pasar a la evaluación económica">Umbral técnico mínimo (pts, sobre ${fNum(tecMaxTotal())})</label><input class="in" id="f_umbral" value="${esc(S.umbralTecnico)}" inputmode="decimal"></div>`:``}
+      <div style="grid-column:1/-1"><label class="fld">Comisión de Calificación (un miembro por línea)</label><textarea class="in" id="f_comision" rows="3">${esc(S.comision)}</textarea></div>
+    </div>
+  </div>`;
+}
+function bindProceso(){
+  $$("#segTipo button").forEach(b=>b.onclick=()=>{
+    if(b.dataset.t===S.tipo) return;
+    if(!confirm('Cambiar de esquema reinicia la matriz de evaluación con la plantilla base del nuevo esquema. Los datos del proceso y los oferentes se conservan. ¿Continuar?')) return;
+    const keep = {objeto:S.objeto,codigo:S.codigo,entidad:S.entidad,lugar:S.lugar,presupuesto:S.presupuesto,comision:S.comision,oferentes:S.oferentes};
+    S = Object.assign(blankState(b.dataset.t), keep);
+    render();
+  });
+  const bindF=(id,key)=>{ const el=$(id); if(el) el.oninput=()=>{ S[key]=el.value; if(id==='#f_umbral'||id==='#f_presupuesto'){renderResultados();} else if(id==='#f_objeto'||id==='#f_codigo'||id==='#f_entidad'||id==='#f_lugar'||id==='#f_comision'||id==='#f_tipoProceso'){renderResultados();} save(); }; };
+  bindF('#f_objeto','objeto'); bindF('#f_codigo','codigo'); bindF('#f_tipoProceso','tipoProceso');
+  bindF('#f_entidad','entidad'); bindF('#f_presupuesto','presupuesto'); bindF('#f_lugar','lugar');
+  bindF('#f_comision','comision');
+  const u=$('#f_umbral'); if(u) u.oninput=()=>{ S.umbralTecnico=num(u.value); renderResultados(); save(); };
+}
+
+/* ---- panel 2: matriz de evaluación (config) ---- */
+function viewMatrizConfig(){
+  if(S.tipo==='puntos'){
+    const tot=puntosTotales();
+    return `
+    <div class="panel no-print">
+      <div class="phead">
+        <div class="n">2</div>
+        <div class="grow">
+          <div class="ptitle">Matriz de evaluación (criterios y ponderaciones)</div>
+          <div class="psub">Edita los criterios técnicos y sus puntos. El puntaje de cada grupo es la suma de sus criterios.</div>
+        </div>
+        <span class="badge ${tot===100?'b-g':'b-a'}">${tot===100?'✓ ':''}Total ${fNum(tot)} pts${tot!==100?' (ideal 100)':''}</span>
+      </div>
+      ${gruposTecnicos().map(g=>viewGrupoTec(g)).join('')}
+      <button class="btn line sm" id="addGrupo">+ Añadir grupo técnico</button>
+      ${viewGrupoEco()}
+      <div class="callout" style="margin-top:14px">
+        <b>Cómo se califica.</b> Cada oferente recibe la suma de sus puntos técnicos. Solo quienes alcanzan el
+        <b>umbral técnico (${fNum(num(S.umbralTecnico))} pts)</b> pasan a la evaluación económica. La económica se
+        reparte inverso-proporcional a la más barata:
+        <span class="fx">puntaje económico = ${fNum(num(grupoEco().peso))} × (precio más bajo ÷ precio del oferente)</span>
+        El <b>total = técnico + económico</b> y gana el mayor total.
+      </div>
+    </div>`;
+  }
+  return `
+  <div class="panel no-print">
+    <div class="phead">
+      <div class="n">2</div>
+      <div class="grow">
+        <div class="ptitle">Requisitos habilitantes (Cumple / No cumple)</div>
+        <div class="psub">Todos los requisitos son de cumplimiento obligatorio. Quien no cumpla uno queda descalificado y no pasa a la oferta económica.</div>
+      </div>
+    </div>
+    ${viewReqBox('Requisitos legales', S.reqLegales||[], 'legal')}
+    ${viewReqBox('Requisitos técnicos', S.reqTecnicos||[], 'tecnico')}
+    <div class="callout" style="margin-top:14px">
+      <b>Cómo se adjudica.</b> Entre los oferentes que <b>cumplen todos</b> los requisitos legales y técnicos, se
+      adjudica al de <b>menor precio</b>. El puntaje económico mostrado (referencial) es
+      <span class="fx">100 × (precio más bajo ÷ precio del oferente)</span> solo para ordenar la tabla.
+    </div>
+  </div>`;
+}
+function viewGrupoTec(g){
+  const sum=g.criterios.reduce((a,c)=>a+num(c.max),0);
+  return `
+  <div class="grp-box" data-g="${g.id}">
+    <div class="grp-head">
+      <input class="in gname" data-g="${g.id}" value="${esc(g.nombre)}" style="flex:1;font-weight:700">
+      <span class="grp-sum">${fNum(sum)} pts</span>
+      <button class="btn ghost xs delGrupo" data-g="${g.id}" title="Eliminar grupo">✕</button>
+    </div>
+    ${g.criterios.map(c=>`
+      <div class="crit-row">
+        <input class="in critname grow" data-g="${g.id}" data-c="${c.id}" value="${esc(c.nombre)}" placeholder="Criterio de evaluación">
+        <input class="in critmax max" data-g="${g.id}" data-c="${c.id}" value="${esc(c.max)}" inputmode="decimal" title="Puntos máximos">
+        <button class="btn ghost xs delCrit" data-g="${g.id}" data-c="${c.id}" title="Eliminar criterio">✕</button>
+      </div>`).join('')}
+    <button class="btn line xs addCrit" data-g="${g.id}" style="margin-top:9px">+ Criterio</button>
+  </div>`;
+}
+function viewGrupoEco(){
+  const g=grupoEco();
+  return `
+  <div class="grp-box" style="background:#F4FAFF;border-color:#D6E7F5">
+    <div class="grp-head">
+      <div class="gt">${icoCoin()} Oferta económica <span style="color:var(--muted);font-weight:600">· inverso-proporcional</span></div>
+      <span class="grp-sum">${fNum(num(g.peso))} pts</span>
+    </div>
+    <div class="crit-row" style="border:0">
+      <label class="fld" style="margin:0 8px 0 0;text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink)">Puntos de la oferta económica</label>
+      <input class="in max" id="ecoPeso" value="${esc(g.peso)}" inputmode="decimal">
+    </div>
+  </div>`;
+}
+function viewReqBox(titulo, arr, fase){
+  return `
+  <div class="grp-box" data-fase="${fase}">
+    <div class="grp-head"><div class="gt">${fase==='legal'?icoDoc():icoWrench()} ${esc(titulo)}</div><span class="grp-sum">${arr.length} req.</span></div>
+    ${arr.map(r=>`
+      <div class="crit-row">
+        <input class="in reqname grow" data-fase="${fase}" data-r="${r.id}" value="${esc(r.nombre)}" placeholder="Requisito">
+        <button class="btn ghost xs delReq" data-fase="${fase}" data-r="${r.id}" title="Eliminar">✕</button>
+      </div>`).join('')}
+    <button class="btn line xs addReq" data-fase="${fase}" style="margin-top:9px">+ Requisito</button>
+  </div>`;
+}
+function bindConfig(){
+  // grupos técnicos
+  $$(".gname").forEach(el=>el.onchange=()=>{ const g=S.grupos.find(x=>x.id===el.dataset.g); if(g){g.nombre=el.value; render();} });
+  $$(".critname").forEach(el=>el.onchange=()=>{ const g=S.grupos.find(x=>x.id===el.dataset.g); const c=g&&g.criterios.find(x=>x.id===el.dataset.c); if(c){c.nombre=el.value; render();} });
+  $$(".critmax").forEach(el=>el.onchange=()=>{ const g=S.grupos.find(x=>x.id===el.dataset.g); const c=g&&g.criterios.find(x=>x.id===el.dataset.c); if(c){c.max=num(el.value); render();} });
+  $$(".addCrit").forEach(el=>el.onclick=()=>{ const g=S.grupos.find(x=>x.id===el.dataset.g); if(g){g.criterios.push({id:uid('c'),nombre:'',max:10}); render();} });
+  $$(".delCrit").forEach(el=>el.onclick=()=>{ const g=S.grupos.find(x=>x.id===el.dataset.g); if(g){g.criterios=g.criterios.filter(c=>c.id!==el.dataset.c); render();} });
+  $$(".delGrupo").forEach(el=>el.onclick=()=>{ if(gruposTecnicos().length<=1){toast('Debe existir al menos un grupo técnico');return;} S.grupos=S.grupos.filter(g=>g.id!==el.dataset.g); render(); });
+  const ag=$("#addGrupo"); if(ag) ag.onclick=()=>{ const eco=S.grupos.filter(g=>g.tipo==='economico'); const tec=gruposTecnicos(); S.grupos=[...tec,{id:uid('g'),tipo:'tecnico',nombre:'Nuevo grupo',criterios:[{id:uid('c'),nombre:'',max:10}]},...eco]; render(); };
+  const ep=$("#ecoPeso"); if(ep) ep.onchange=()=>{ grupoEco().peso=num(ep.value); render(); };
+  // requisitos (cumple)
+  $$(".reqname").forEach(el=>el.onchange=()=>{ const arr = el.dataset.fase==='legal'?S.reqLegales:S.reqTecnicos; const r=arr.find(x=>x.id===el.dataset.r); if(r){r.nombre=el.value; render();} });
+  $$(".addReq").forEach(el=>el.onclick=()=>{ const k=el.dataset.fase==='legal'?'reqLegales':'reqTecnicos'; S[k]=[...(S[k]||[]),{id:uid(el.dataset.fase[0]),nombre:''}]; render(); });
+  $$(".delReq").forEach(el=>el.onclick=()=>{ const k=el.dataset.fase==='legal'?'reqLegales':'reqTecnicos'; S[k]=(S[k]||[]).filter(r=>r.id!==el.dataset.r); render(); });
+}
+
+/* ---- panel 3: oferentes (matriz de calificación) ---- */
+function viewOferentes(){
+  const ofs=S.oferentes||[];
+  return `
+  <div class="panel no-print">
+    <div class="phead">
+      <div class="n">3</div>
+      <div class="grow">
+        <div class="ptitle">Oferentes y calificación</div>
+        <div class="psub">${S.tipo==='puntos'
+          ? 'Ingresa el puntaje consolidado de la Comisión por cada criterio (0 al máximo) y el precio ofertado.'
+          : 'Marca Cumple / No cumple por cada requisito y el precio ofertado.'}</div>
+      </div>
+      <button class="btn sm" id="addOf">+ Oferente</button>
+    </div>
+    ${ofs.length? `<div class="tablewrap">${S.tipo==='puntos'?matrizPuntos():matrizCumple()}</div>` : `<div class="empty">Aún no hay oferentes. Pulsa <b>+ Oferente</b> para empezar.</div>`}
+  </div>`;
+}
+function matrizPuntos(){
+  const grupos=gruposTecnicos();
+  const eco=grupoEco();
+  let h='<table class="mx"><thead><tr><th rowspan="2" style="text-align:left">Oferente</th>';
+  grupos.forEach(g=>{ h+=`<th class="grp" colspan="${g.criterios.length}">${esc(g.nombre)}</th>`; });
+  h+=`<th rowspan="2">Precio<br>(USD)</th><th rowspan="2"></th></tr><tr>`;
+  grupos.forEach(g=>g.criterios.forEach(c=>{ h+=`<th class="cn">${esc(c.nombre.length>46?c.nombre.slice(0,44)+'…':c.nombre)}<small>/ ${fNum(num(c.max))}</small></th>`; }));
+  h+='</tr></thead><tbody>';
+  S.oferentes.forEach(o=>{
+    h+=`<tr><td class="of"><input class="in ofn" data-of="${o.id}" data-k="nombre" value="${esc(o.nombre)}" placeholder="Razón social / nombre"><input class="in ofr" data-of="${o.id}" data-k="ruc" value="${esc(o.ruc)}" placeholder="RUC / cédula" style="font-size:12px"></td>`;
+    grupos.forEach(g=>g.criterios.forEach(c=>{
+      const v=o.scores[c.id]; const over=num(v)>num(c.max);
+      h+=`<td class="cell"><input class="scoreIn ${over?'over':''}" data-of="${o.id}" data-c="${c.id}" value="${v==null?'':esc(v)}" inputmode="decimal" title="máx ${fNum(num(c.max))}"></td>`;
+    }));
+    h+=`<td class="pricec"><input class="priceIn" data-of="${o.id}" value="${esc(o.precio)}" inputmode="decimal" placeholder="0.00"></td>`;
+    h+=`<td><button class="btn ghost xs delOf" data-of="${o.id}" title="Eliminar oferente">✕</button></td></tr>`;
+  });
+  h+='</tbody></table>';
+  return h;
+}
+function matrizCumple(){
+  const L=S.reqLegales||[], T=S.reqTecnicos||[];
+  let h='<table class="mx"><thead><tr><th rowspan="2" style="text-align:left">Oferente</th>';
+  if(L.length) h+=`<th class="grp" colspan="${L.length}">Requisitos legales</th>`;
+  if(T.length) h+=`<th class="grp" colspan="${T.length}">Requisitos técnicos</th>`;
+  h+=`<th rowspan="2">Precio<br>(USD)</th><th rowspan="2"></th></tr><tr>`;
+  [...L,...T].forEach(r=>{ h+=`<th class="cn">${esc(r.nombre.length>40?r.nombre.slice(0,38)+'…':r.nombre)}</th>`; });
+  h+='</tr></thead><tbody>';
+  S.oferentes.forEach(o=>{
+    h+=`<tr><td class="of"><input class="in ofn" data-of="${o.id}" data-k="nombre" value="${esc(o.nombre)}" placeholder="Razón social / nombre"><input class="in ofr" data-of="${o.id}" data-k="ruc" value="${esc(o.ruc)}" placeholder="RUC / cédula" style="font-size:12px"></td>`;
+    [...L,...T].forEach(r=>{
+      const v=o.gates[r.id]; const cls=v===true?'si':v===false?'no':'';
+      h+=`<td><select class="cn-sel gateIn ${cls}" data-of="${o.id}" data-r="${r.id}"><option value="">—</option><option value="1" ${v===true?'selected':''}>Cumple</option><option value="0" ${v===false?'selected':''}>No</option></select></td>`;
+    });
+    h+=`<td class="pricec"><input class="priceIn" data-of="${o.id}" value="${esc(o.precio)}" inputmode="decimal" placeholder="0.00"></td>`;
+    h+=`<td><button class="btn ghost xs delOf" data-of="${o.id}" title="Eliminar oferente">✕</button></td></tr>`;
+  });
+  h+='</tbody></table>';
+  return h;
+}
+function bindOferentes(){
+  const add=$("#addOf"); if(add) add.onclick=()=>{ S.oferentes.push(emptyOf(S)); render(); };
+  $$(".delOf").forEach(el=>el.onclick=()=>{ S.oferentes=S.oferentes.filter(o=>o.id!==el.dataset.of); render(); });
+  const of=id=>S.oferentes.find(o=>o.id===id);
+  $$(".ofn,.ofr").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o[el.dataset.k]=el.value; renderResultados(); save();} });
+  $$(".scoreIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){ o.scores[el.dataset.c]=el.value; const c=critList().find(x=>x.id===el.dataset.c); el.classList.toggle('over', c && num(el.value)>num(c.max)); renderResultados(); save(); } });
+  $$(".priceIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o.precio=el.value; renderResultados(); save();} });
+  $$(".gateIn").forEach(el=>el.onchange=()=>{ const o=of(el.dataset.of); if(o){ o.gates[el.dataset.r]= el.value===''?null:(el.value==='1'); el.className='cn-sel gateIn '+(el.value==='1'?'si':el.value==='0'?'no':''); renderResultados(); save(); } });
+}
+
+/* ---- panel 4: resultados ---- */
+function renderResultados(){
+  const R=compute();
+  const box=$("#resultados"); if(!box) return;
+  const ofs=S.oferentes||[];
+  const conNombre=ofs.filter(o=>o.nombre.trim()||o.precio);
+  let winnerBanner='';
+  if(R.winner){
+    const w=R.winner;
+    winnerBanner=`
+    <div class="winner">
+      <div class="medal">${icoTrophy()}</div>
+      <div style="flex:1;min-width:0">
+        <div class="wt">Oferta recomendada para adjudicación</div>
+        <div class="wn">${esc(w.nombre||'(sin nombre)')}</div>
+        <div class="ws">${S.tipo==='puntos'
+          ? `Puntaje total <b>${fNum(w._total)} / ${fNum(puntosTotales())}</b> — Técnico ${fNum(w._tec)} + Económico ${fNum(w._eco)} · Precio ${fUSD(w.precio)}`
+          : `Cumple todos los requisitos · <b>menor precio</b>: ${fUSD(w.precio)}`}</div>
+      </div>
+    </div>`;
+  }
+  box.innerHTML=`
+  <div class="panel no-print">
+    <div class="phead">
+      <div class="n">4</div>
+      <div class="grow"><div class="ptitle">Resultados de la calificación</div>
+      <div class="psub">${R.nPass} de ${R.nTot} oferente(s) ${S.tipo==='puntos'?`superan el umbral de ${fNum(num(S.umbralTecnico))} pts`:'cumplen todos los requisitos'}. ${R.pmin?`Precio más bajo (válido): ${fUSD(R.pmin)}.`:''}</div></div>
+    </div>
+    ${winnerBanner}
+    ${conNombre.length? tablaResultados(R) : `<div class="empty">Completa la matriz para ver los resultados.</div>`}
+  </div>`;
+  renderActa(R);
+}
+function tablaResultados(R){
+  const ofs=S.oferentes||[];
+  const ordered=[...ofs].sort((a,b)=>{
+    if(a._pasa!==b._pasa) return a._pasa?-1:1;
+    return S.tipo==='cumple' ? (num(a.precio)||1e15)-(num(b.precio)||1e15) : b._total-a._total;
+  });
+  const totMax=puntosTotales();
+  let h='<div class="tablewrap"><table class="rz"><thead><tr><th>#</th><th>Oferente</th>';
+  if(S.tipo==='puntos') h+=`<th>Técnico</th><th>Umbral</th><th>Económico</th><th>Total</th><th style="width:130px">Ranking</th>`;
+  else h+=`<th>Legal</th><th>Técnico</th><th>Estado</th>`;
+  h+='<th class="num">Precio</th></tr></thead><tbody>';
+  ordered.forEach(o=>{
+    const win = R.winner && o.id===R.winner.id;
+    const cls = win?'win':(!o._pasa?'out':'');
+    h+=`<tr class="${cls}"><td>${o._rank?`<span class="rankpill ${o._rank===1?'one':''}">${o._rank}</span>`:'—'}</td>`;
+    h+=`<td><b>${esc(o.nombre||'(sin nombre)')}</b>${o.ruc?`<div class="miniof">RUC/CI: ${esc(o.ruc)}</div>`:''}</td>`;
+    if(S.tipo==='puntos'){
+      const pct = totMax? clamp(o._total/totMax*100,0,100):0;
+      h+=`<td class="num">${fNum(o._tec)} / ${fNum(o._tecMax)}</td>`;
+      h+=`<td>${o._pasa?'<span class="badge b-g">Pasa</span>':'<span class="badge b-r">No pasa</span>'}</td>`;
+      h+=`<td class="num">${o._pasa?fNum(o._eco):'—'}</td>`;
+      h+=`<td class="num"><b>${fNum(o._total)}</b><div class="bar" style="margin-top:5px"><i style="width:${pct}%;background:${win?'var(--green)':'var(--navy)'}"></i></div></td>`;
+    }else{
+      h+=`<td>${o._legalOk?'<span class="badge b-g">Cumple</span>':'<span class="badge b-r">No</span>'}</td>`;
+      h+=`<td>${o._tecOk?'<span class="badge b-g">Cumple</span>':'<span class="badge b-r">No</span>'}</td>`;
+      h+=`<td>${o._pasa?(win?'<span class="badge b-g">Adjudicado</span>':'<span class="badge b-n">Habilitado</span>'):'<span class="badge b-r">Descalificado</span>'}</td>`;
+    }
+    h+=`<td class="num">${o.precio?fUSD(o.precio):'—'}</td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  return h;
+}
+
+/* ---- acta / informe imprimible ---- */
+function renderActa(R){
+  const box=$("#acta"); if(!box) return;
+  const ofs=(S.oferentes||[]).filter(o=>o.nombre.trim()||o.precio);
+  const comision=(S.comision||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const totMax=puntosTotales();
+  const ordered=[...(S.oferentes||[])].sort((a,b)=>{
+    if(a._pasa!==b._pasa) return a._pasa?-1:1;
+    return S.tipo==='cumple' ? (num(a.precio)||1e15)-(num(b.precio)||1e15) : b._total-a._total;
+  });
+  let detalle='';
+  if(S.tipo==='puntos'){
+    detalle=`<h3>Detalle de la evaluación técnica</h3><table><thead><tr><th>Oferente</th>${critList().map(c=>`<th>${esc(c.nombre.length>26?c.nombre.slice(0,24)+'…':c.nombre)}<br><small>/${fNum(num(c.max))}</small></th>`).join('')}<th>Técnico</th></tr></thead><tbody>${
+      ofs.map(o=>`<tr><td>${esc(o.nombre||'—')}</td>${critList().map(c=>`<td class="n">${o.scores[c.id]==null||o.scores[c.id]===''?'—':fNum(clamp(num(o.scores[c.id]),0,num(c.max)))}</td>`).join('')}<td class="n"><b>${fNum(o._tec)}</b></td></tr>`).join('')
+    }</tbody></table>`;
+  }else{
+    detalle=`<h3>Verificación de requisitos (Cumple / No cumple)</h3><table><thead><tr><th>Oferente</th>${gateList().map(r=>`<th>${esc(r.nombre.length>22?r.nombre.slice(0,20)+'…':r.nombre)}</th>`).join('')}</tr></thead><tbody>${
+      ofs.map(o=>`<tr><td>${esc(o.nombre||'—')}</td>${gateList().map(r=>`<td class="n">${o.gates[r.id]===true?'Cumple':o.gates[r.id]===false?'No':'—'}</td>`).join('')}</tr>`).join('')
+    }</tbody></table>`;
+  }
+  box.innerHTML=`
+  <div class="acta">
+    <div class="acta-doc" id="actaDoc">
+      <div class="acta-lh"><div class="logo">FAP</div><div><div class="t1">FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE — FIAS</div><div class="t2">Programa Fondo de Áreas Protegidas (FAP) · Comisión de Calificación</div></div></div>
+      <h2 class="actitle">Acta de calificación y selección de ofertas</h2>
+      <div class="acsub">${esc(S.objeto||'(objeto de la contratación)')}</div>
+      <dl class="kv">
+        <dt>Código del proceso</dt><dd>${esc(S.codigo||'—')}</dd>
+        <dt>Tipo de contratación</dt><dd>${esc(S.tipoProceso||'—')} · Esquema: ${S.tipo==='puntos'?'calificación por puntos':'Cumple / No cumple + menor precio'}</dd>
+        <dt>Entidad contratante</dt><dd>${esc(S.entidad||'—')}</dd>
+        ${S.presupuesto?`<dt>Presupuesto referencial</dt><dd>${fUSD(S.presupuesto)}</dd>`:''}
+        <dt>Lugar y fecha</dt><dd>${esc(S.lugar||'—')}, ${todayEC()}</dd>
+        ${S.tipo==='puntos'?`<dt>Umbral técnico mínimo</dt><dd>${fNum(num(S.umbralTecnico))} de ${fNum(tecMaxTotal())} puntos técnicos</dd>`:''}
+      </dl>
+
+      ${detalle}
+
+      <h3>Resultado de la calificación y orden de prelación</h3>
+      <table><thead><tr><th>Orden</th><th>Oferente</th>${S.tipo==='puntos'?'<th>Técnico</th><th>Económico</th><th>Total</th>':'<th>Requisitos</th>'}<th>Precio (USD)</th><th>Condición</th></tr></thead><tbody>
+      ${ordered.map(o=>`<tr><td class="n">${o._rank||'—'}</td><td>${esc(o.nombre||'—')}${o.ruc?`<br><small>${esc(o.ruc)}</small>`:''}</td>${
+        S.tipo==='puntos'
+          ? `<td class="n">${fNum(o._tec)}</td><td class="n">${o._pasa?fNum(o._eco):'—'}</td><td class="n"><b>${fNum(o._total)}</b> / ${fNum(totMax)}</td>`
+          : `<td>${o._pasa?'Cumple todos':'Incumple'}</td>`
+      }<td class="n">${o.precio?fUSD(o.precio):'—'}</td><td>${o._pasa?(R.winner&&o.id===R.winner.id?'<b>Adjudicado</b>':(S.tipo==='puntos'?'Calificado':'Habilitado')):'Descalificado'}</td></tr>`).join('')}
+      </tbody></table>
+
+      <h3>Recomendación de la Comisión</h3>
+      <p style="font-size:12.5px">${R.winner
+        ? `Con base en la evaluación realizada conforme a las bases del concurso, la Comisión de Calificación recomienda adjudicar el proceso a <b>${esc(R.winner.nombre||'')}</b>${R.winner.ruc?` (${esc(R.winner.ruc)})`:''}, por un valor de <b>${fUSD(R.winner.precio)}</b>, por haber ${S.tipo==='puntos'?`obtenido el mayor puntaje total (<b>${fNum(R.winner._total)}</b> de ${fNum(totMax)} puntos)`:'cumplido todos los requisitos habilitantes y presentado el menor precio'} entre las ofertas presentadas.`
+        : `De acuerdo con la evaluación, ${(S.oferentes||[]).length? 'ninguna oferta cumple los requisitos para ser adjudicada, por lo que la Comisión recomienda declarar <b>desierto</b> el proceso.' : 'no se han registrado ofertas.'}`}</p>
+
+      <h3>Comisión de Calificación</h3>
+      <div style="margin-top:6px">${(comision.length?comision:['','','']).map(m=>`<span class="firma"><span class="line"></span>${esc(m||'Nombre y firma')}</span>`).join('')}</div>
+    </div>
+  </div>`;
+}
+
+/* ---- panel 5: texto normalizado para las bases ---- */
+function basesText(){
+  const L=['\r'];
+  if(S.tipo==='puntos'){
+    const tot=puntosTotales(), tecMax=tecMaxTotal(), umbral=num(S.umbralTecnico), pesoEco=num(grupoEco().peso);
+    const out=[];
+    out.push(`CRITERIOS Y SUBCRITERIOS DE CALIFICACIÓN (sobre ${fNum(tot)} puntos)`);
+    out.push('');
+    out.push(`La calificación de las propuestas se realizará sobre un total de ${fNum(tot)} puntos, distribuidos en los siguientes parámetros:`);
+    out.push('');
+    gruposTecnicos().forEach(g=>{
+      const s=g.criterios.reduce((a,c)=>a+num(c.max),0);
+      out.push(`• ${g.nombre.toUpperCase()} — ${fNum(s)} puntos`);
+      g.criterios.forEach(c=> out.push(`    - ${c.nombre}  (${fNum(num(c.max))} pts)`));
+    });
+    out.push(`• OFERTA ECONÓMICA — ${fNum(pesoEco)} puntos`);
+    out.push(`    Se otorgará el máximo puntaje (${fNum(pesoEco)} pts) a la oferta más económica y, de forma inverso-proporcional, a las demás, aplicando la fórmula:`);
+    out.push(`        Puntaje económico = ${fNum(pesoEco)} × (Precio más bajo ÷ Precio del oferente)`);
+    out.push('');
+    out.push(`UMBRAL TÉCNICO: pasarán a la evaluación de la oferta económica únicamente los oferentes que obtengan un mínimo de ${fNum(umbral)} puntos (sobre ${fNum(tecMax)}) en la evaluación técnica (perfil + oferta técnica).`);
+    out.push('');
+    out.push(`PUNTAJE TOTAL = puntaje técnico + puntaje económico. Se adjudicará al oferente que obtenga el mayor puntaje total.`);
+    return out.join('\n');
+  }
+  const out=[];
+  out.push('CRITERIOS DE CALIFICACIÓN');
+  out.push('');
+  out.push('Los requisitos legales y técnicos se evaluarán bajo la modalidad CUMPLE / NO CUMPLE y tienen carácter habilitante:');
+  out.push('');
+  out.push('REQUISITOS LEGALES:');
+  (S.reqLegales||[]).forEach(r=>out.push(`    - ${r.nombre}`));
+  out.push('');
+  out.push('REQUISITOS TÉCNICOS:');
+  (S.reqTecnicos||[]).forEach(r=>out.push(`    - ${r.nombre}`));
+  out.push('');
+  out.push('El oferente que no cumpla la totalidad de los requisitos legales no continuará en la evaluación técnica; y el que no cumpla la totalidad de los requisitos técnicos quedará descalificado y su oferta económica no será abierta ni considerada.');
+  out.push('');
+  out.push('ADJUDICACIÓN: entre los oferentes que cumplan la totalidad de los requisitos legales y técnicos, se adjudicará al de MENOR PRECIO.');
+  return out.join('\n');
+}
+function viewBasesSection(){
+  return `
+  <div class="panel no-print">
+    <div class="phead">
+      <div class="n">5</div>
+      <div class="grow">
+        <div class="ptitle">Sección de calificación para las bases</div>
+        <div class="psub">Texto normalizado — generado a partir de la matriz de arriba — listo para copiar y pegar en la <b>sección de criterios de calificación</b> de las bases de concurso. Así las bases y la herramienta siempre dicen lo mismo.</div>
+      </div>
+      <button class="btn line sm" id="copiaBases">Copiar texto</button>
+    </div>
+    <pre style="white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;background:#FAFBFE;border:1px solid var(--line2);border-radius:12px;padding:16px 18px;margin:0;color:var(--ink);overflow-x:auto" id="basesPre">${esc(basesText())}</pre>
+  </div>`;
+}
+function bindBases(){
+  const b=$("#copiaBases"); if(!b) return;
+  b.onclick=async ()=>{
+    const t=basesText();
+    try{ await navigator.clipboard.writeText(t); toast('Texto copiado'); }
+    catch(e){ const pre=$("#basesPre"); const r=document.createRange(); r.selectNodeContents(pre); const s=getSelection(); s.removeAllRanges(); s.addRange(r); try{document.execCommand('copy');toast('Texto copiado');}catch(_){toast('Selecciona y copia manualmente');} }
+  };
+}
+
+/* --------------------------------- toolbar ------------------------------- */
+function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'),2200); }
+function download(name, text, mime='application/json'){ const b=new Blob([text],{type:mime}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
+
+$("#btnNuevo").onclick=()=>{ if(!confirm('Iniciar un proceso nuevo en blanco (esquema por puntos)?')) return; S=blankState('puntos'); render(); toast('Proceso nuevo'); };
+$("#btnGuardar").onclick=()=>{ const nm=(S.codigo||'proceso').replace(/[^\w-]+/g,'_'); download('calificacion_'+nm+'.json', JSON.stringify(S,null,2)); toast('Descargado'); };
+$("#btnCargar").onclick=()=>$("#fileIn").click();
+$("#fileIn").onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=()=>{ try{ const d=JSON.parse(rd.result); if(!d.tipo) throw 0; S=d; render(); toast('Proceso cargado'); }catch(err){ toast('Archivo no válido'); } e.target.value=''; }; rd.readAsText(f); };
+$("#btnCSV").onclick=()=>{ download((S.codigo||'resultados')+'.csv', toCSV(), 'text/csv'); toast('CSV descargado'); };
+$("#btnImprimir").onclick=()=>window.print();
+
+let menuOpen=false;
+$("#btnEjemplos").onclick=(e)=>{
+  e.stopPropagation();
+  if(menuOpen){ closeMenu(); return; }
+  const b=$("#btnEjemplos"); const r=b.getBoundingClientRect();
+  const m=document.createElement('div'); m.id='exMenu';
+  m.style.cssText=`position:fixed;top:${r.bottom+6}px;left:${r.left}px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px rgba(11,21,63,.16);z-index:60;overflow:hidden;min-width:280px`;
+  m.innerHTML=`
+    <button class="exitem" data-p="cons" style="all:unset;cursor:pointer;display:block;padding:12px 14px;border-bottom:1px solid var(--line2);width:100%;box-sizing:border-box"><b>Consultoría por puntos</b><div style="font-size:11.5px;color:var(--muted)">Delitos ambientales · 35/45/20 · umbral 75</div></button>
+    <button class="exitem" data-p="bien" style="all:unset;cursor:pointer;display:block;padding:12px 14px;width:100%;box-sizing:border-box"><b>Bienes · Cumple / No cumple</b><div style="font-size:11.5px;color:var(--muted)">Motor fuera de borda PN Machalilla · menor precio</div></button>`;
+  document.body.appendChild(m); menuOpen=true;
+  $$(".exitem",m).forEach(it=>it.onclick=()=>{ S = it.dataset.p==='cons'?presetConsultoria():presetBienes(); render(); closeMenu(); toast('Ejemplo cargado'); });
+  setTimeout(()=>document.addEventListener('click',closeMenu,{once:true}),0);
+};
+function closeMenu(){ const m=$("#exMenu"); if(m)m.remove(); menuOpen=false; }
+
+function toCSV(){
+  const R=compute(); const rows=[];
+  const H=['Orden','Oferente','RUC/CI','Precio'];
+  if(S.tipo==='puntos'){ critList().forEach(c=>H.push(c.nombre)); H.push('Tecnico','Umbral','Economico','Total'); }
+  else{ gateList().forEach(r=>H.push(r.nombre)); H.push('Legal','Tecnico','Estado'); }
+  rows.push(H);
+  const ordered=[...(S.oferentes||[])].sort((a,b)=>{ if(a._pasa!==b._pasa)return a._pasa?-1:1; return S.tipo==='cumple'?(num(a.precio)||1e15)-(num(b.precio)||1e15):b._total-a._total; });
+  ordered.forEach(o=>{
+    const row=[o._rank||'', o.nombre||'', o.ruc||'', num(o.precio)||''];
+    if(S.tipo==='puntos'){ critList().forEach(c=>row.push(o.scores[c.id]==null?'':clamp(num(o.scores[c.id]),0,num(c.max)))); row.push(o._tec, o._pasa?'Pasa':'No pasa', o._pasa?o._eco:'', o._total); }
+    else{ gateList().forEach(r=>row.push(o.gates[r.id]===true?'Cumple':o.gates[r.id]===false?'No cumple':'')); row.push(o._legalOk?'Cumple':'No', o._tecOk?'Cumple':'No', o._pasa?(R.winner&&o.id===R.winner.id?'Adjudicado':'Habilitado'):'Descalificado'); }
+    rows.push(row);
+  });
+  return rows.map(r=>r.map(v=>{ const s=String(v==null?'':v); return /[",;\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(';')).join('\n');
+}
+
+/* icons */
+function icoStar(){return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 17.8 6.8 19l1-5.8-4.3-4.1 5.9-.9z"/></svg>';}
+function icoCheck(){return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>';}
+function icoCoin(){return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><circle cx="12" cy="12" r="9"/><path d="M15 9.5a2.5 2 0 0 0-3-1.3c-1.3.3-1.8 1.2-1.5 2 .5 1.4 4 .6 4.5 2.2.3.9-.4 1.8-1.7 2.1a2.5 2 0 0 1-3-1.3M12 6.5v11"/></svg>';}
+function icoDoc(){return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';}
+function icoWrench(){return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M14.7 6.3a4 4 0 0 0 5 5l-8.4 8.4a2 2 0 0 1-3-3z"/></svg>';}
+function icoTrophy(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9a6 6 0 0 0 12 0V4H6z"/><path d="M6 6H4v1a3 3 0 0 0 3 3M18 6h2v1a3 3 0 0 1-3 3M9 20h6M10 15v5M14 15v5"/></svg>';}
+
+/* go */
+render();
+</script>
+</body>
+</html>

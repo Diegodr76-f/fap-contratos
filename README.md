@@ -2,6 +2,47 @@
 
 Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gestión del ciclo de vida de contratos.
 
+## Calificador de Ofertas — evaluación de procesos de selección
+
+**`/calificacion/index.html`** es la herramienta para calcular y ordenar las ofertas de los
+**procesos de selección por convocatoria** (los que generan las *bases de concurso*). Nace para
+resolver el problema de que la calificación es difícil de aplicar a mano. Es una página HTML
+autónoma (sin backend ni librerías externas) y cubre los **dos esquemas** que usa el FAP:
+
+| Esquema | Para qué procesos | Cómo califica |
+|---------|-------------------|---------------|
+| **Por puntos** | Consultorías y servicios | Criterios técnicos ponderados (p. ej. Perfil 35 + Oferta técnica 45) **+** oferta económica **inverso-proporcional** (20). Solo pasan a la económica quienes superan el **umbral técnico**. Gana el mayor puntaje total (sobre 100). |
+| **Cumple / No cumple** | Bienes y servicios con postcalificación | Requisitos legales y técnicos **habilitantes** (todos deben cumplir). Entre quienes cumplen, se adjudica al **menor precio**. |
+
+**Qué hace:**
+
+- Matriz de evaluación **editable** (criterios, puntos, requisitos y umbral) — sirve para *distintos*
+  procesos de adquisiciones y consultorías, no solo para un caso.
+- Ingreso de varios oferentes con su precio y el puntaje consolidado de la Comisión por criterio.
+- Cálculo automático: puntaje técnico, aplicación del umbral, puntaje económico inverso-proporcional,
+  total, **orden de prelación** y **oferta recomendada** para adjudicación.
+- **Acta de calificación** imprimible con membrete FAP-FIAS, detalle por criterio, prelación,
+  recomendación de la Comisión y bloques de firma.
+- Exportación **CSV** de resultados, guardar/abrir el proceso en **JSON**, y persistencia local.
+- **Sección de calificación para las bases**: genera el texto normalizado (idéntico a la matriz)
+  para pegarlo en la sección de criterios de calificación de las bases — así las *bases* y la
+  *herramienta* siempre dicen lo mismo.
+
+Trae dos ejemplos precargados con casos reales: **Consultoría de Delitos Ambientales** (por puntos,
+35/45/20, umbral 75) y **Adquisición de motor fuera de borda PN Machalilla** (Cumple/No cumple, menor
+precio). Está integrada dentro del CLM (menú *Herramientas integradas → Calificador de ofertas*).
+
+## Plantillas de bases de concurso
+
+**`/bases/`** contiene dos **plantillas estándar de bases** en Word, actualizadas y con la sección de
+calificación redactada de forma clara y sin ambigüedad (coincide exactamente con el Calificador):
+
+- `Plantilla_Bases_Consultoria_por_puntos_FAP-FIAS.docx` — consultorías (calificación por puntos).
+- `Plantilla_Bases_Bienes_Servicios_CumpleNoCumple_FAP-FIAS.docx` — bienes/servicios (Cumple/No cumple + menor precio).
+
+Se reutilizan reemplazando los campos entre `[CORCHETES]`. La sección de criterios de calificación de
+cada plantilla puede regenerarse desde el Calificador de Ofertas para mantener la coherencia.
+
 ## CLM — Contract Lifecycle Management (aplicación unificada)
 
 **`/clm/index.html`** es la plataforma única y funcional que reúne todo el ciclo de vida
@@ -54,6 +95,7 @@ calificaciones, bitácora) se guarda en el navegador (`localStorage`).
 Cada herramienta tiene su propio enlace en GitHub Pages:
 
 - **CLM (plataforma unificada):** https://[tu-usuario].github.io/fap-contratos/clm/
+- Calificador de Ofertas: https://[tu-usuario].github.io/fap-contratos/calificacion/
 - CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
 - La Mágica: https://[tu-usuario].github.io/fap-contratos/generador/
 
