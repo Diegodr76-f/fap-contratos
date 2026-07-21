@@ -24,8 +24,11 @@ autónoma (sin backend ni librerías externas) y cubre los **dos esquemas** que 
 - **Acta de adjudicación** con el formato oficial de la Comisión (Acta N.º, Datos del proceso,
   quórum, orden del día, PRIMERO–QUINTO, cierre y firmas por rol). Se puede **imprimir/guardar en PDF**
   (la vista se adapta al esquema: puntajes o Cumple/No cumple, con desglose de IVA) o **descargar en Word**
-  (botón *Acta Word*), que rellena la plantilla oficial `plantillas/Acta_de_adjudicacion.docx` con el
-  mismo motor docxtemplater que usa La Mágica. Presupuesto y monto adjudicado se expresan también en letras.
+  (botón *Acta Word*), que rellena la plantilla correcta con el mismo motor docxtemplater que usa La Mágica.
+  Según el esquema, el botón elige automáticamente la plantilla:
+  `plantillas/Acta_de_adjudicacion.docx` (Cumple/No cumple · comparación de precios, la plantilla oficial
+  del equipo) o `plantillas/Acta_de_adjudicacion_puntos.docx` (consultorías por puntos, con tablas de
+  puntaje técnico y económico). Presupuesto y monto adjudicado se expresan también en letras.
 - Exportación **CSV** de resultados, guardar/abrir el proceso en **JSON**, y persistencia local.
 - **Sección de calificación para las bases**: genera el texto normalizado (idéntico a la matriz)
   para pegarlo en la sección de criterios de calificación de las bases — así las *bases* y la

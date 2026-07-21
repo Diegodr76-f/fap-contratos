@@ -929,8 +929,9 @@ $("#btnCSV").onclick=()=>{ download((S.codigo||'resultados')+'.csv', toCSV(), 't
 $("#btnImprimir").onclick=()=>window.print();
 $("#btnActaWord").onclick=()=>generarActaWord();
 
-/* Rellena la plantilla oficial del acta de adjudicación (plantillas/Acta_de_adjudicacion.docx)
-   con los datos del proceso, usando el mismo motor docxtemplater que La Mágica y el CLM. */
+/* Rellena la plantilla oficial del acta de adjudicación con los datos del proceso,
+   usando el mismo motor docxtemplater que La Mágica y el CLM. Elige la plantilla según
+   el esquema: Cumple/No cumple (comparación de precios) o por puntos (con tablas de puntaje). */
 function generarActaWord(){
   const DT=window.docxtemplater||window.Docxtemplater;
   if(!(window.PizZip && DT)){ toast('Motor de plantillas no disponible; usa “Imprimir acta”.'); return; }
@@ -939,19 +940,43 @@ function generarActaWord(){
   const pres=com.find(m=>/presiden/i.test(m.rol))||com[0]||{};
   const secr=com.find(m=>/secretar/i.test(m.rol))||com[com.length-1]||{};
   const ofs=(S.oferentes||[]).filter(o=>o.nombre.trim()||o.precio);
+  const cal=ofs.filter(o=>o._pasa);
   const w=R.winner;
-  const data={
-    objeto:S.objeto||'', area:S.area||'', modalidad:S.modalidad||'',
-    presupuesto: S.presupuesto?fUSD(S.presupuesto):'', presupuestoLetras: S.presupuesto?numeroALetras(S.presupuesto):'',
-    partida:S.partida||'', lineaNombre:S.lineaNombre||'',
-    fechaInvitacion:S.fechaInvitacion||'', fechaLimite:S.fechaLimiteOfertas||'',
-    fechaAdj:S.fechaSesion||'', fechaInicio:S.fechaInicio||'',
-    jefe:pres.nombre||'', ac:secr.nombre||'',
-    provs: ofs.map(o=>({razon:o.nombre||'', fof:''})),
-    monto1: ofs[0]?fUSD(ofs[0].precio):'', monto2: ofs[1]?fUSD(ofs[1].precio):'', monto3: ofs[2]?fUSD(ofs[2].precio):'',
-    proveedor: w?(w.nombre||''):'', proveedorRuc: w?(w.ruc||''):'', montoLetras: w?numeroALetras(w.precio):''
-  };
-  fetch('plantillas/Acta_de_adjudicacion.docx',{cache:'no-cache'})
+  const ivaP=num(S.ivaPct)||0;
+  const sinIva=p=>fUSD(num(p)/(1+ivaP/100)), ivaVal=p=>fUSD(num(p)-num(p)/(1+ivaP/100));
+  let tpl, data;
+  if(S.tipo==='puntos'){
+    tpl='plantillas/Acta_de_adjudicacion_puntos.docx';
+    data={
+      actaNo:S.actaNo||'001', objeto:S.objeto||'', area:S.area||'', modalidad:S.modalidad||'',
+      presupuesto: S.presupuesto?fUSD(S.presupuesto):'—', presupuestoLetras: S.presupuesto?numeroALetras(S.presupuesto):'',
+      partida:S.partida||'', lineaNombre:S.lineaNombre||'',
+      fechaInvitacion:S.fechaInvitacion||'', fechaLimite:S.fechaLimiteOfertas||'',
+      fechaSesion:S.fechaSesion||'____________', horaSesion:S.horaSesion||'__h__', lugarSesion:S.lugarSesion||'____________',
+      memoNro:S.memoNro||'____________', fechaInicio:S.fechaInicio||'____________',
+      umbral:fNum(num(S.umbralTecnico)), tecMax:fNum(tecMaxTotal()), puntosTotal:fNum(puntosTotales()),
+      comision: com.map(m=>({nombre:m.nombre||'(por designar)', cargo:m.cargo||'', rol:m.rol||''})),
+      provs: ofs.map(o=>({razon:o.nombre||''})),
+      tecnicos: ofs.map(o=>({razon:o.nombre||'', tecnico:fNum(o._tec), umbralRes:o._pasa?'Pasa':'No pasa'})),
+      economicos: cal.map(o=>({razon:o.nombre||'', sinIva:sinIva(o.precio), iva:ivaVal(o.precio), total:fUSD(o.precio), puntajeEco:fNum(o._eco), puntajeTotal:fNum(o._total)+' / '+fNum(puntosTotales())})),
+      proveedor: w?(w.nombre||''):'____________', proveedorRuc: w?(w.ruc||'____________'):'____________',
+      montoTotal: w?fUSD(w.precio):'____________', montoLetras: w?numeroALetras(w.precio):''
+    };
+  }else{
+    tpl='plantillas/Acta_de_adjudicacion.docx';
+    data={
+      objeto:S.objeto||'', area:S.area||'', modalidad:S.modalidad||'',
+      presupuesto: S.presupuesto?fUSD(S.presupuesto):'', presupuestoLetras: S.presupuesto?numeroALetras(S.presupuesto):'',
+      partida:S.partida||'', lineaNombre:S.lineaNombre||'',
+      fechaInvitacion:S.fechaInvitacion||'', fechaLimite:S.fechaLimiteOfertas||'',
+      fechaAdj:S.fechaSesion||'', fechaInicio:S.fechaInicio||'',
+      jefe:pres.nombre||'', ac:secr.nombre||'',
+      provs: ofs.map(o=>({razon:o.nombre||'', fof:''})),
+      monto1: ofs[0]?fUSD(ofs[0].precio):'', monto2: ofs[1]?fUSD(ofs[1].precio):'', monto3: ofs[2]?fUSD(ofs[2].precio):'',
+      proveedor: w?(w.nombre||''):'', proveedorRuc: w?(w.ruc||''):'', montoLetras: w?numeroALetras(w.precio):''
+    };
+  }
+  fetch(tpl,{cache:'no-cache'})
     .then(r=>{ if(!r.ok) throw new Error('fetch'); return r.arrayBuffer(); })
     .then(buf=>{
       const zip=new PizZip(buf);
