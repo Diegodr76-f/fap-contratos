@@ -28,7 +28,11 @@ autónoma (sin backend ni librerías externas) y cubre los **dos esquemas** que 
   Según el esquema, el botón elige automáticamente la plantilla:
   `plantillas/Acta_de_adjudicacion.docx` (Cumple/No cumple · comparación de precios, la plantilla oficial
   del equipo) o `plantillas/Acta_de_adjudicacion_puntos.docx` (consultorías por puntos, con tablas de
-  puntaje técnico y económico). Presupuesto y monto adjudicado se expresan también en letras.
+  puntaje técnico y económico). Las dos plantillas usan bucles: el quórum se adapta a los miembros
+  agregados en la herramienta (`{#items}{miembros}`) y las tablas técnica y económica generan una fila
+  o bloque por oferente (Word no permite columnas dinámicas). Presupuesto y monto adjudicado se expresan
+  también en letras. La lista completa de tags para editar las plantillas está en
+  `calificacion/plantillas/TAGS.md`.
 - Exportación **CSV** de resultados, guardar/abrir el proceso en **JSON**, y persistencia local.
 - **Sección de calificación para las bases**: genera el texto normalizado (idéntico a la matriz)
   para pegarlo en la sección de criterios de calificación de las bases — así las *bases* y la

@@ -939,43 +939,44 @@ function generarActaWord(){
   const com=S.comision||[];
   const pres=com.find(m=>/presiden/i.test(m.rol))||com[0]||{};
   const secr=com.find(m=>/secretar/i.test(m.rol))||com[com.length-1]||{};
+  const medios=com.filter(m=>m!==pres&&m!==secr); // miembros intermedios → bucle {#items} del formato oficial
   const ofs=(S.oferentes||[]).filter(o=>o.nombre.trim()||o.precio);
   const cal=ofs.filter(o=>o._pasa);
   const w=R.winner;
   const ivaP=num(S.ivaPct)||0;
   const sinIva=p=>fUSD(num(p)/(1+ivaP/100)), ivaVal=p=>fUSD(num(p)-num(p)/(1+ivaP/100));
-  let tpl, data;
-  if(S.tipo==='puntos'){
-    tpl='plantillas/Acta_de_adjudicacion_puntos.docx';
-    data={
-      actaNo:S.actaNo||'001', objeto:S.objeto||'', area:S.area||'', modalidad:S.modalidad||'',
-      presupuesto: S.presupuesto?fUSD(S.presupuesto):'—', presupuestoLetras: S.presupuesto?numeroALetras(S.presupuesto):'',
-      partida:S.partida||'', lineaNombre:S.lineaNombre||'',
-      fechaInvitacion:S.fechaInvitacion||'', fechaLimite:S.fechaLimiteOfertas||'',
-      fechaSesion:S.fechaSesion||'____________', horaSesion:S.horaSesion||'__h__', lugarSesion:S.lugarSesion||'____________',
-      memoNro:S.memoNro||'____________', fechaInicio:S.fechaInicio||'____________',
-      umbral:fNum(num(S.umbralTecnico)), tecMax:fNum(tecMaxTotal()), puntosTotal:fNum(puntosTotales()),
-      comision: com.map(m=>({nombre:m.nombre||'(por designar)', cargo:m.cargo||'', rol:m.rol||''})),
-      provs: ofs.map(o=>({razon:o.nombre||''})),
-      tecnicos: ofs.map(o=>({razon:o.nombre||'', tecnico:fNum(o._tec), umbralRes:o._pasa?'Pasa':'No pasa'})),
-      economicos: cal.map(o=>({razon:o.nombre||'', sinIva:sinIva(o.precio), iva:ivaVal(o.precio), total:fUSD(o.precio), puntajeEco:fNum(o._eco), puntajeTotal:fNum(o._total)+' / '+fNum(puntosTotales())})),
-      proveedor: w?(w.nombre||''):'____________', proveedorRuc: w?(w.ruc||'____________'):'____________',
-      montoTotal: w?fUSD(w.precio):'____________', montoLetras: w?numeroALetras(w.precio):''
-    };
-  }else{
-    tpl='plantillas/Acta_de_adjudicacion.docx';
-    data={
-      objeto:S.objeto||'', area:S.area||'', modalidad:S.modalidad||'',
-      presupuesto: S.presupuesto?fUSD(S.presupuesto):'', presupuestoLetras: S.presupuesto?numeroALetras(S.presupuesto):'',
-      partida:S.partida||'', lineaNombre:S.lineaNombre||'',
-      fechaInvitacion:S.fechaInvitacion||'', fechaLimite:S.fechaLimiteOfertas||'',
-      fechaAdj:S.fechaSesion||'', fechaInicio:S.fechaInicio||'',
-      jefe:pres.nombre||'', ac:secr.nombre||'',
-      provs: ofs.map(o=>({razon:o.nombre||'', fof:''})),
-      monto1: ofs[0]?fUSD(ofs[0].precio):'', monto2: ofs[1]?fUSD(ofs[1].precio):'', monto3: ofs[2]?fUSD(ofs[2].precio):'',
-      proveedor: w?(w.nombre||''):'', proveedorRuc: w?(w.ruc||''):'', montoLetras: w?numeroALetras(w.precio):''
-    };
-  }
+  const enPres=o=>S.presupuesto?(num(o.precio)<=num(S.presupuesto)?'Sí':'No'):'—';
+  const difPres=o=>{ if(!S.presupuesto) return '—'; const d=num(S.presupuesto)-num(o.precio); return (d<0?'-':'')+fUSD(Math.abs(d)); };
+  const ordenados=[...cal].sort((a,b)=> S.tipo==='puntos' ? b._total-a._total : num(a.precio)-num(b.precio));
+  // Un solo paquete de datos para ambas plantillas: cualquier tag documentado en
+  // plantillas/TAGS.md funciona en cualquiera de las dos actas.
+  const data={
+    actaNo:S.actaNo||'001', objeto:S.objeto||'', area:S.area||'', modalidad:S.modalidad||'',
+    presupuesto: S.presupuesto?fUSD(S.presupuesto):'—', presupuestoLetras: S.presupuesto?numeroALetras(S.presupuesto):'',
+    partida:S.partida||'', lineaNombre:S.lineaNombre||'',
+    fechaInvitacion:S.fechaInvitacion||'', fechaLimite:S.fechaLimiteOfertas||'',
+    fechaSesion:S.fechaSesion||'____________', fechaAdj:S.fechaSesion||'', horaSesion:S.horaSesion||'__h__', lugarSesion:S.lugarSesion||'____________',
+    memoNro:S.memoNro||'____________', fechaInicio:S.fechaInicio||'____________',
+    umbral:fNum(num(S.umbralTecnico)), tecMax:fNum(tecMaxTotal()), puntosTotal:fNum(puntosTotales()), pesoEco:fNum(num(grupoEco().peso)),
+    jefe:pres.nombre||'', ac:secr.nombre||'',
+    comision: com.map(m=>({nombre:m.nombre||'(por designar)', cargo:m.cargo||'', rol:m.rol||''})),
+    items: medios.map(m=>({miembros:m.nombre||'(por designar)', cargo:m.cargo||'', rol:m.rol||''})),
+    provs: ofs.map(o=>({razon:o.nombre||'', fof:''})),
+    monto1: ofs[0]?fUSD(ofs[0].precio):'', monto2: ofs[1]?fUSD(ofs[1].precio):'', monto3: ofs[2]?fUSD(ofs[2].precio):'',
+    tecnicos: S.tipo==='puntos'
+      ? ofs.map(o=>({razon:o.nombre||'', tecnico:fNum(o._tec), umbralRes:o._pasa?'Pasa':'No pasa'}))
+      : ofs.map(o=>({razon:o.nombre||'', resultado:o._pasa?'CALIFICA':'NO CALIFICA',
+          reqs:gateList().map(r=>({req:r.nombre, res:o.gates[r.id]===true?'Cumple':o.gates[r.id]===false?'No cumple':'—'}))})),
+    economicos: cal.map(o=>({razon:o.nombre||'', sinIva:sinIva(o.precio), iva:ivaVal(o.precio), total:fUSD(o.precio),
+      enPresupuesto:enPres(o), difPresupuesto:difPres(o),
+      puntajeEco:S.tipo==='puntos'?fNum(o._eco):'—', puntajeTotal:S.tipo==='puntos'?(fNum(o._total)+' / '+fNum(puntosTotales())):'—'})),
+    prelacion: ordenados.map((o,i)=>({orden:i+1, razon:o.nombre||'',
+      tec:S.tipo==='puntos'?fNum(o._tec):'Cumple', eco:S.tipo==='puntos'?fNum(o._eco):'—',
+      totalPts:S.tipo==='puntos'?fNum(o._total):fUSD(o.precio)})),
+    proveedor: w?(w.nombre||''):'____________', proveedorRuc: w?(w.ruc||'____________'):'____________',
+    montoTotal: w?fUSD(w.precio):'____________', montoLetras: w?numeroALetras(w.precio):''
+  };
+  const tpl = S.tipo==='puntos' ? 'plantillas/Acta_de_adjudicacion_puntos.docx' : 'plantillas/Acta_de_adjudicacion.docx';
   fetch(tpl,{cache:'no-cache'})
     .then(r=>{ if(!r.ok) throw new Error('fetch'); return r.arrayBuffer(); })
     .then(buf=>{
