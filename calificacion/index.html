@@ -105,6 +105,9 @@
   table.mx .cell input:focus{outline:none;border-color:var(--navy)}
   table.mx .cell input.over{border-color:var(--red);background:var(--redbg)}
   table.mx .pricec input{width:112px;text-align:right;padding:7px 8px;border:1.5px solid var(--line);border-radius:8px}
+  table.mx .pricec input.over{border-color:var(--red);background:var(--redbg)}
+  table.mx tr.rechRow{background:#FBF7F7}
+  table.mx tr.rechRow .ofn{text-decoration:line-through;color:var(--muted)}
   table.mx select.cn-sel{padding:6px 6px;border:1.5px solid var(--line);border-radius:8px;font-size:12px;font-weight:700}
   table.mx select.cn-sel.si{color:var(--green)} table.mx select.cn-sel.no{color:var(--red)}
   .miniof{font-size:11px;color:var(--muted)}
@@ -373,20 +376,32 @@ function compute(){
   const ofs = S.oferentes||[];
   const eco = grupoEco();
   const pesoEco = num(eco.peso);
+  const presup = num(S.presupuesto);
   ofs.forEach(o=>{
-    o._tec=0; o._tecMax=tecMaxTotal(); o._eco=0; o._total=0; o._pasa=false; o._rank=null;
-    if(o.descal) return;
+    o._tec=0; o._tecMax=tecMaxTotal(); o._eco=0; o._total=0; o._pasa=false; o._rank=null; o._motivo='';
+    const p=num(o.precio);
+    // 1) evaluación técnica / requisitos
+    let tecOk=true;
     if(S.tipo==='puntos'){
-      let t=0;
-      critList().forEach(c=>{ t += clamp(num(o.scores[c.id]),0,num(c.max)); });
+      let t=0; critList().forEach(c=>{ t += clamp(num(o.scores[c.id]),0,num(c.max)); });
       o._tec=r2(t);
-      o._pasa = o._tec >= num(S.umbralTecnico);
+      tecOk = o._tec >= num(S.umbralTecnico);
     }else{
       o._legalOk = (S.reqLegales||[]).every(r=>o.gates[r.id]===true);
       o._tecOk   = (S.reqTecnicos||[]).every(r=>o.gates[r.id]===true);
-      o._pasa = o._legalOk && o._tecOk;
+      tecOk = o._legalOk && o._tecOk;
     }
+    o._tecPass = tecOk;  // superó la evaluación técnica / requisitos (independiente del precio)
+    // 2) ¿supera el presupuesto referencial? (solo si hay presupuesto y precio)
+    o._sobrepasa = presup>0 && p>0 && p>presup;
+    // 3) causa por la que NO pasa (en orden de prelación de motivos)
+    if(o.descal)            o._motivo = (o.descalMotivo||'').trim() || 'Rechazada por decisión de la Comisión';
+    else if(!tecOk)         o._motivo = S.tipo==='puntos' ? 'No alcanza el umbral técnico'
+                                        : (!o._legalOk ? 'No cumple requisitos legales' : 'No cumple requisitos técnicos');
+    else if(o._sobrepasa)   o._motivo = 'Supera el presupuesto referencial';
+    o._pasa = !o.descal && tecOk && !o._sobrepasa;
   });
+  // económico: solo entre quienes pasan y tienen precio válido
   const validos = ofs.filter(o=>o._pasa && num(o.precio)>0);
   const pmin = validos.length ? Math.min(...validos.map(o=>num(o.precio))) : 0;
   ofs.forEach(o=>{
@@ -399,7 +414,7 @@ function compute(){
   const passers = ofs.filter(o=>o._pasa);
   const ranked = [...passers].sort((a,b)=> S.tipo==='cumple' ? num(a.precio)-num(b.precio) : b._total-a._total);
   ranked.forEach((o,i)=>o._rank=i+1);
-  return { pmin, pesoEco, winner:ranked[0]||null, ranked, nPass:passers.length, nTot:ofs.length };
+  return { pmin, pesoEco, winner:ranked[0]||null, ranked, nPass:passers.length, nTot:ofs.length, presup };
 }
 
 /* --------------------------------- render -------------------------------- */
@@ -633,16 +648,32 @@ function matrizPuntos(){
   grupos.forEach(g=>g.criterios.forEach(c=>{ h+=`<th class="cn">${esc(c.nombre.length>46?c.nombre.slice(0,44)+'…':c.nombre)}<small>/ ${fNum(num(c.max))}</small></th>`; }));
   h+='</tr></thead><tbody>';
   S.oferentes.forEach(o=>{
-    h+=`<tr><td class="of"><input class="in ofn" data-of="${o.id}" data-k="nombre" value="${esc(o.nombre)}" placeholder="Razón social / nombre"><input class="in ofr" data-of="${o.id}" data-k="ruc" value="${esc(o.ruc)}" placeholder="RUC / cédula" style="font-size:12px"></td>`;
+    h+=`<tr class="${o.descal?'rechRow':''}">${ofNameCell(o)}`;
     grupos.forEach(g=>g.criterios.forEach(c=>{
       const v=o.scores[c.id]; const over=num(v)>num(c.max);
       h+=`<td class="cell"><input class="scoreIn ${over?'over':''}" data-of="${o.id}" data-c="${c.id}" value="${v==null?'':esc(v)}" inputmode="decimal" title="máx ${fNum(num(c.max))}"></td>`;
     }));
-    h+=`<td class="pricec"><input class="priceIn" data-of="${o.id}" value="${esc(o.precio)}" inputmode="decimal" placeholder="0.00"></td>`;
-    h+=`<td><button class="btn ghost xs delOf" data-of="${o.id}" title="Eliminar oferente">✕</button></td></tr>`;
+    h+=priceCell(o)+ofActions(o)+'</tr>';
   });
   h+='</tbody></table>';
   return h;
+}
+/* Celdas compartidas por las dos matrices */
+function overPresup(o){ const p=num(o.precio), pr=num(S.presupuesto); return pr>0 && p>0 && p>pr; }
+function ofNameCell(o){
+  return `<td class="of">
+    <input class="in ofn" data-of="${o.id}" data-k="nombre" value="${esc(o.nombre)}" placeholder="Razón social / nombre">
+    <input class="in ofr" data-of="${o.id}" data-k="ruc" value="${esc(o.ruc)}" placeholder="RUC / cédula" style="font-size:12px">
+    ${o.descal?`<div class="miniof" style="color:var(--red);font-weight:700">⊘ Rechazada por la Comisión</div>`:''}</td>`;
+}
+function priceCell(o){
+  return `<td class="pricec"><input class="priceIn ${overPresup(o)?'over':''}" data-of="${o.id}" value="${esc(o.precio)}" inputmode="decimal" placeholder="0.00" title="${overPresup(o)?'Supera el presupuesto referencial ('+fUSD(S.presupuesto)+')':''}">${overPresup(o)?'<div class="miniof" style="color:var(--red);font-weight:700;text-align:right">↑ sobre presupuesto</div>':''}</td>`;
+}
+function ofActions(o){
+  return `<td style="white-space:nowrap">
+    <button class="btn ghost xs rechOf" data-of="${o.id}" title="${o.descal?'Habilitar esta oferta':'Rechazar / descalificar esta oferta (decisión de la Comisión)'}" style="color:${o.descal?'var(--green)':'var(--red)'};font-size:14px">${o.descal?'↺':'⊘'}</button>
+    <button class="btn ghost xs delOf" data-of="${o.id}" title="Eliminar oferente">✕</button>
+  </td>`;
 }
 function matrizCumple(){
   const L=S.reqLegales||[], T=S.reqTecnicos||[];
@@ -653,13 +684,12 @@ function matrizCumple(){
   [...L,...T].forEach(r=>{ h+=`<th class="cn">${esc(r.nombre.length>40?r.nombre.slice(0,38)+'…':r.nombre)}</th>`; });
   h+='</tr></thead><tbody>';
   S.oferentes.forEach(o=>{
-    h+=`<tr><td class="of"><input class="in ofn" data-of="${o.id}" data-k="nombre" value="${esc(o.nombre)}" placeholder="Razón social / nombre"><input class="in ofr" data-of="${o.id}" data-k="ruc" value="${esc(o.ruc)}" placeholder="RUC / cédula" style="font-size:12px"></td>`;
+    h+=`<tr class="${o.descal?'rechRow':''}">${ofNameCell(o)}`;
     [...L,...T].forEach(r=>{
       const v=o.gates[r.id]; const cls=v===true?'si':v===false?'no':'';
       h+=`<td><select class="cn-sel gateIn ${cls}" data-of="${o.id}" data-r="${r.id}"><option value="">—</option><option value="1" ${v===true?'selected':''}>Cumple</option><option value="0" ${v===false?'selected':''}>No</option></select></td>`;
     });
-    h+=`<td class="pricec"><input class="priceIn" data-of="${o.id}" value="${esc(o.precio)}" inputmode="decimal" placeholder="0.00"></td>`;
-    h+=`<td><button class="btn ghost xs delOf" data-of="${o.id}" title="Eliminar oferente">✕</button></td></tr>`;
+    h+=priceCell(o)+ofActions(o)+'</tr>';
   });
   h+='</tbody></table>';
   return h;
@@ -670,8 +700,13 @@ function bindOferentes(){
   const of=id=>S.oferentes.find(o=>o.id===id);
   $$(".ofn,.ofr").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o[el.dataset.k]=el.value; renderResultados(); save();} });
   $$(".scoreIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){ o.scores[el.dataset.c]=el.value; const c=critList().find(x=>x.id===el.dataset.c); el.classList.toggle('over', c && num(el.value)>num(c.max)); renderResultados(); save(); } });
-  $$(".priceIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o.precio=el.value; renderResultados(); save();} });
+  $$(".priceIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o.precio=el.value; const pr=num(S.presupuesto); el.classList.toggle('over', pr>0 && num(el.value)>pr); renderResultados(); save();} });
   $$(".gateIn").forEach(el=>el.onchange=()=>{ const o=of(el.dataset.of); if(o){ o.gates[el.dataset.r]= el.value===''?null:(el.value==='1'); el.className='cn-sel gateIn '+(el.value==='1'?'si':el.value==='0'?'no':''); renderResultados(); save(); } });
+  $$(".rechOf").forEach(el=>el.onclick=()=>{ const o=of(el.dataset.of); if(!o) return;
+    if(!o.descal){ const m=prompt('Motivo del rechazo / descalificación (opcional):', o.descalMotivo||''); o.descal=true; o.descalMotivo=(m||'').trim(); }
+    else { o.descal=false; o.descalMotivo=''; }
+    render();
+  });
 }
 
 /* ---- panel 4: resultados ---- */
@@ -680,6 +715,7 @@ function renderResultados(){
   const box=$("#resultados"); if(!box) return;
   const ofs=S.oferentes||[];
   const conNombre=ofs.filter(o=>o.nombre.trim()||o.precio);
+  const nSobre = ofs.filter(o=>o._sobrepasa && !o.descal).length;
   let winnerBanner='';
   if(R.winner){
     const w=R.winner;
@@ -690,18 +726,30 @@ function renderResultados(){
         <div class="wt">Oferta recomendada para adjudicación</div>
         <div class="wn">${esc(w.nombre||'(sin nombre)')}</div>
         <div class="ws">${S.tipo==='puntos'
-          ? `Puntaje total <b>${fNum(w._total)} / ${fNum(puntosTotales())}</b> — Técnico ${fNum(w._tec)} + Económico ${fNum(w._eco)} · Precio ${fUSD(w.precio)}`
-          : `Cumple todos los requisitos · <b>menor precio</b>: ${fUSD(w.precio)}`}</div>
+          ? `Puntaje total <b>${fNum(w._total)} / ${fNum(puntosTotales())}</b> — Técnico ${fNum(w._tec)} + Económico ${fNum(w._eco)}`
+          : `Cumple todos los requisitos · <b>menor precio</b>`} · Precio <b>${fUSD(w.precio)}</b> (${esc(numeroALetras(w.precio))})</div>
+      </div>
+    </div>`;
+  } else if(conNombre.length){
+    winnerBanner=`
+    <div class="winner" style="background:var(--redbg);border-color:#E6BFBF">
+      <div class="medal" style="background:var(--red)">!</div>
+      <div style="flex:1;min-width:0">
+        <div class="wt" style="color:var(--red)">Sin oferta adjudicable — se recomienda declarar desierto</div>
+        <div class="ws">Ninguna oferta reúne las condiciones para ser adjudicada. Revisa los motivos en la tabla${nSobre?' (hay ofertas que superan el presupuesto)':''}.</div>
       </div>
     </div>`;
   }
+  const avisoPres = nSobre ? `<div class="hint" style="margin-top:0;margin-bottom:14px;background:var(--redbg);border-color:#E6BFBF;color:#8A2A2A">
+      <b>${nSobre} oferta(s) superan el presupuesto referencial</b> de ${fUSD(S.presupuesto)} y por eso <b>no se recomiendan para adjudicación</b>. Si el valor es correcto y el presupuesto no, corrígelo arriba; si un oferente debe rechazarse por otra causa, usa el botón <b>⊘ Rechazar</b>.</div>` : '';
   box.innerHTML=`
   <div class="panel no-print">
     <div class="phead">
       <div class="n">4</div>
       <div class="grow"><div class="ptitle">Resultados de la calificación</div>
-      <div class="psub">${R.nPass} de ${R.nTot} oferente(s) ${S.tipo==='puntos'?`superan el umbral de ${fNum(num(S.umbralTecnico))} pts`:'cumplen todos los requisitos'}. ${R.pmin?`Precio más bajo (válido): ${fUSD(R.pmin)}.`:''}</div></div>
+      <div class="psub">${R.nPass} de ${R.nTot} oferente(s) ${S.tipo==='puntos'?`superan el umbral de ${fNum(num(S.umbralTecnico))} pts`:'cumplen todos los requisitos'}${R.presup?` y no superan el presupuesto (${fUSD(S.presupuesto)})`:''}. ${R.pmin?`Precio más bajo (válido): ${fUSD(R.pmin)}.`:''} La herramienta <b>recomienda</b> según la regla de las bases; la Comisión decide (puede rechazar con causa o declarar desierto en el acta).</div></div>
     </div>
+    ${avisoPres}
     ${winnerBanner}
     ${conNombre.length? tablaResultados(R) : `<div class="empty">Completa la matriz para ver los resultados.</div>`}
   </div>`;
@@ -723,18 +771,19 @@ function tablaResultados(R){
     const cls = win?'win':(!o._pasa?'out':'');
     h+=`<tr class="${cls}"><td>${o._rank?`<span class="rankpill ${o._rank===1?'one':''}">${o._rank}</span>`:'—'}</td>`;
     h+=`<td><b>${esc(o.nombre||'(sin nombre)')}</b>${o.ruc?`<div class="miniof">RUC/CI: ${esc(o.ruc)}</div>`:''}</td>`;
+    const motivoTag = o._pasa ? '' : `<div class="miniof" style="color:var(--red)">${esc(o._motivo||'No pasa')}</div>`;
     if(S.tipo==='puntos'){
       const pct = totMax? clamp(o._total/totMax*100,0,100):0;
       h+=`<td class="num">${fNum(o._tec)} / ${fNum(o._tecMax)}</td>`;
-      h+=`<td>${o._pasa?'<span class="badge b-g">Pasa</span>':'<span class="badge b-r">No pasa</span>'}</td>`;
+      h+=`<td>${o._pasa?'<span class="badge b-g">Pasa</span>':`<span class="badge b-r">No pasa</span>${motivoTag}`}</td>`;
       h+=`<td class="num">${o._pasa?fNum(o._eco):'—'}</td>`;
       h+=`<td class="num"><b>${fNum(o._total)}</b><div class="bar" style="margin-top:5px"><i style="width:${pct}%;background:${win?'var(--green)':'var(--navy)'}"></i></div></td>`;
     }else{
       h+=`<td>${o._legalOk?'<span class="badge b-g">Cumple</span>':'<span class="badge b-r">No</span>'}</td>`;
       h+=`<td>${o._tecOk?'<span class="badge b-g">Cumple</span>':'<span class="badge b-r">No</span>'}</td>`;
-      h+=`<td>${o._pasa?(win?'<span class="badge b-g">Adjudicado</span>':'<span class="badge b-n">Habilitado</span>'):'<span class="badge b-r">Descalificado</span>'}</td>`;
+      h+=`<td>${o._pasa?(win?'<span class="badge b-g">Adjudicado</span>':'<span class="badge b-n">Habilitado</span>'):`<span class="badge b-r">Descalificado</span>${motivoTag}`}</td>`;
     }
-    h+=`<td class="num">${o.precio?fUSD(o.precio):'—'}</td></tr>`;
+    h+=`<td class="num">${o.precio?fUSD(o.precio):'—'}${o._sobrepasa&&!o.descal?'<div class="miniof" style="color:var(--red)">↑ sobre presupuesto</div>':''}</td></tr>`;
   });
   h+='</tbody></table></div>';
   return h;
@@ -749,7 +798,9 @@ function renderActa(R){
   const secr = com.find(m=>/secretar/i.test(m.rol))||com[com.length-1]||{};
   const ivaP = num(S.ivaPct)||0;
   const totMax=puntosTotales();
-  const calificados = ofs.filter(o=>o._pasa);
+  // A la fase económica pasan quienes superaron la técnica y no fueron rechazados; entre ellos,
+  // los que superan el presupuesto se muestran pero no se adjudican.
+  const calificados = ofs.filter(o=>o._tecPass && !o.descal);
   const presLetras = S.presupuesto? numeroALetras(S.presupuesto):'—';
   const colH = o=>esc(o.nombre?trunc(o.nombre,22):'Proponente');
   const trunc=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
@@ -781,12 +832,12 @@ function renderActa(R){
   if(S.tipo==='cumple'){
     tecnico=`<table><thead><tr><th>Parámetro técnico</th>${ofs.map(o=>`<th class="n">${colH(o)}</th>`).join('')}</tr></thead><tbody>${
       gateList().map(r=>`<tr><td>${esc(r.nombre)}</td>${ofs.map(o=>`<td class="n">${o.gates[r.id]===true?'Cumple':o.gates[r.id]===false?'No cumple':'—'}</td>`).join('')}</tr>`).join('')
-    }<tr><th>Resultado de la evaluación técnica</th>${ofs.map(o=>`<td class="n"><b>${o._pasa?'CALIFICA':'NO CALIFICA'}</b></td>`).join('')}</tr></tbody></table>`;
+    }<tr><th>Resultado de la evaluación técnica</th>${ofs.map(o=>`<td class="n"><b>${o._tecPass?(o.descal?'RECHAZADA':'CALIFICA'):'NO CALIFICA'}</b></td>`).join('')}</tr></tbody></table>`;
   }else{
     tecnico=`<table><thead><tr><th>Criterio de evaluación</th><th class="n">Máx.</th>${ofs.map(o=>`<th class="n">${colH(o)}</th>`).join('')}</tr></thead><tbody>${
       critList().map(c=>`<tr><td>${esc(c.nombre)}</td><td class="n">${fNum(num(c.max))}</td>${ofs.map(o=>`<td class="n">${o.scores[c.id]==null||o.scores[c.id]===''?'—':fNum(clamp(num(o.scores[c.id]),0,num(c.max)))}</td>`).join('')}</tr>`).join('')
     }<tr><th>Subtotal técnico</th><td class="n">${fNum(tecMaxTotal())}</td>${ofs.map(o=>`<td class="n"><b>${fNum(o._tec)}</b></td>`).join('')}</tr>`+
-    `<tr><th>Umbral técnico (${fNum(num(S.umbralTecnico))})</th><td class="n">—</td>${ofs.map(o=>`<td class="n">${o._pasa?'Pasa':'No pasa'}</td>`).join('')}</tr></tbody></table>`;
+    `<tr><th>Umbral técnico (${fNum(num(S.umbralTecnico))})</th><td class="n">—</td>${ofs.map(o=>`<td class="n">${o._tecPass?'Pasa':'No pasa'}</td>`).join('')}</tr></tbody></table>`;
   }
 
   // TERCERO — evaluación económica (solo calificados)
@@ -941,13 +992,13 @@ function generarActaWord(){
   const secr=com.find(m=>/secretar/i.test(m.rol))||com[com.length-1]||{};
   const medios=com.filter(m=>m!==pres&&m!==secr); // miembros intermedios → bucle {#items} del formato oficial
   const ofs=(S.oferentes||[]).filter(o=>o.nombre.trim()||o.precio);
-  const cal=ofs.filter(o=>o._pasa);
+  const cal=ofs.filter(o=>o._tecPass && !o.descal); // pasan a la fase económica (incluye los que superan presupuesto, marcados)
   const w=R.winner;
   const ivaP=num(S.ivaPct)||0;
   const sinIva=p=>fUSD(num(p)/(1+ivaP/100)), ivaVal=p=>fUSD(num(p)-num(p)/(1+ivaP/100));
   const enPres=o=>S.presupuesto?(num(o.precio)<=num(S.presupuesto)?'Sí':'No'):'—';
   const difPres=o=>{ if(!S.presupuesto) return '—'; const d=num(S.presupuesto)-num(o.precio); return (d<0?'-':'')+fUSD(Math.abs(d)); };
-  const ordenados=[...cal].sort((a,b)=> S.tipo==='puntos' ? b._total-a._total : num(a.precio)-num(b.precio));
+  const ordenados=R.ranked; // orden de prelación entre las ofertas adjudicables (dentro de presupuesto)
   // Un solo paquete de datos para ambas plantillas: cualquier tag documentado en
   // plantillas/TAGS.md funciona en cualquiera de las dos actas.
   const data={
@@ -964,8 +1015,8 @@ function generarActaWord(){
     provs: ofs.map(o=>({razon:o.nombre||'', fof:''})),
     monto1: ofs[0]?fUSD(ofs[0].precio):'', monto2: ofs[1]?fUSD(ofs[1].precio):'', monto3: ofs[2]?fUSD(ofs[2].precio):'',
     tecnicos: S.tipo==='puntos'
-      ? ofs.map(o=>({razon:o.nombre||'', tecnico:fNum(o._tec), umbralRes:o._pasa?'Pasa':'No pasa'}))
-      : ofs.map(o=>({razon:o.nombre||'', resultado:o._pasa?'CALIFICA':'NO CALIFICA',
+      ? ofs.map(o=>({razon:o.nombre||'', tecnico:fNum(o._tec), umbralRes:o._tecPass?'Pasa':'No pasa'}))
+      : ofs.map(o=>({razon:o.nombre||'', resultado:o._tecPass?(o.descal?'RECHAZADA':'CALIFICA'):'NO CALIFICA',
           reqs:gateList().map(r=>({req:r.nombre, res:o.gates[r.id]===true?'Cumple':o.gates[r.id]===false?'No cumple':'—'}))})),
     economicos: cal.map(o=>({razon:o.nombre||'', sinIva:sinIva(o.precio), iva:ivaVal(o.precio), total:fUSD(o.precio),
       enPresupuesto:enPres(o), difPresupuesto:difPres(o),
