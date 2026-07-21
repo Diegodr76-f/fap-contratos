@@ -8,6 +8,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<!-- Motor de relleno de plantillas Word alojado en el propio repositorio (no en CDN externos),
+     igual que La Mágica y el CLM: evita bloqueos de redes corporativas y antivirus. -->
+<script src="vendor/pizzip.min.js"></script>
+<script src="vendor/docxtemplater.min.js"></script>
 <style>
   :root{
     --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
@@ -171,6 +175,7 @@
     <button class="btn line sm" id="btnGuardar">Guardar</button>
     <button class="btn line sm" id="btnCargar">Abrir</button>
     <button class="btn line sm" id="btnCSV">CSV</button>
+    <button class="btn line sm" id="btnActaWord">Acta Word</button>
     <button class="btn sm" id="btnImprimir">Imprimir acta</button>
     <input type="file" id="fileIn" accept="application/json" style="display:none">
   </div>
@@ -201,6 +206,26 @@ const fUSD = n => '$'+(num(n)).toLocaleString('es-EC',{minimumFractionDigits:2,m
 const fNum = n => (Math.round(n*100)/100).toLocaleString('es-EC',{maximumFractionDigits:2});
 const todayEC = ()=> new Date().toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
 
+/* Número a letras (dólares) para el acta: "CUARENTA MIL CON 00/100 DÓLARES…" */
+function enteroALetras(n){
+  const U=['','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve'];
+  const D=['','','','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
+  const C=['','ciento','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos'];
+  if(n===0) return 'cero';
+  const sec=x=>{ if(x===0)return''; if(x===100)return'cien'; let o=''; const c=Math.floor(x/100), r=x%100, d=Math.floor(r/10), u=r%10; if(c)o+=C[c]+' '; if(r<30)o+=U[r]; else{o+=D[d]; if(u)o+=' y '+U[u];} return o.trim(); };
+  const apoc=s=>s.replace(/uno$/,'ún'); // "veintiún mil"
+  let o='';
+  const mill=Math.floor(n/1e6), miles=Math.floor((n%1e6)/1000), resto=n%1000;
+  if(mill) o+=(mill===1?'un millón':apoc(sec(mill))+' millones')+' ';
+  if(miles) o+=(miles===1?'mil':apoc(sec(miles))+' mil')+' ';
+  if(resto) o+=sec(resto);
+  return o.trim();
+}
+function numeroALetras(v){
+  const n=num(v), ent=Math.floor(n), cts=Math.round((n-ent)*100);
+  return (enteroALetras(ent)+' con '+String(cts).padStart(2,'0')+'/100 dólares de los Estados Unidos de América').toUpperCase();
+}
+
 /* --------------------------------- presets ------------------------------- */
 function presetConsultoria(){
   return {
@@ -212,7 +237,18 @@ function presetConsultoria(){
     lugar:'Quito D.M.',
     presupuesto:'',
     umbralTecnico:75,
-    comision:'Presidente/a de la Comisión de Calificación\nDelegado/a técnico/a FAP-FIAS\nDelegado/a MAE / Área protegida',
+    actaNo:'001',
+    area:'Sistema Nacional de Áreas Protegidas — SNAP',
+    modalidad:'Concurso de ofertas (calificación por puntos)',
+    partida:'PAG 2025 — Fondo de Áreas Protegidas',
+    lineaNombre:'',
+    fechaInvitacion:'', fechaLimiteOfertas:'', fechaSesion:'', horaSesion:'', lugarSesion:'sesión virtual',
+    fechaInicio:'', memoNro:'', ivaPct:15,
+    comision:[
+      {nombre:'', cargo:'Administrador/a del área protegida — MAE', rol:'Presidente/a de la Comisión'},
+      {nombre:'', cargo:'Miembro técnico invitado', rol:'Miembro'},
+      {nombre:'', cargo:'Administrador/a contador/a (AC)', rol:'Secretario/a'},
+    ],
     grupos:[
       {id:'g1', tipo:'tecnico', nombre:'Perfil profesional', criterios:[
         {id:'c1', nombre:'Título de tercer nivel en Ing. Ambiental o afines a Gestión Ambiental / Ciencias Biológicas (se valora el cuarto nivel). Registrado en SENESCYT.', max:15},
@@ -242,7 +278,19 @@ function presetBienes(){
     lugar:'Quito D.M.',
     presupuesto:'40000',
     umbralTecnico:75,
-    comision:'Presidente/a de la Comisión de Calificación y Adquisiciones\nDelegado/a técnico/a FAP-FIAS\nAdministrador/a PNM — MAE',
+    actaNo:'001',
+    area:'Parque Nacional Machalilla',
+    modalidad:'Comparación de precios',
+    partida:'PAG 2026, subcuenta Ecuador Azul, componente 2',
+    lineaNombre:'2.2 Adquisición de motores y canoas',
+    fechaInvitacion:'21 de julio de 2026', fechaLimiteOfertas:'31 de julio de 2026, 17h30',
+    fechaSesion:'03 de agosto de 2026', horaSesion:'10h00', lugarSesion:'sesión virtual',
+    fechaInicio:'', memoNro:'', ivaPct:15,
+    comision:[
+      {nombre:'', cargo:'Administrador/a del Parque Nacional Machalilla — MAE', rol:'Presidente/a de la Comisión'},
+      {nombre:'', cargo:'Delegado/a técnico/a FAP-FIAS', rol:'Miembro'},
+      {nombre:'', cargo:'Administrador/a contador/a (AC)', rol:'Secretario/a'},
+    ],
     reqLegales:[
       {id:'l1', nombre:'Nombramiento / documento del representante legal'},
       {id:'l2', nombre:'Copia de identificación del representante legal'},
@@ -266,7 +314,15 @@ function blankState(tipo){
   const base = {
     tipo:tipo||'puntos', objeto:'', codigo:'', entidad:'Fondo de Inversión Ambiental Sostenible (FIAS) — Programa FAP',
     tipoProceso: tipo==='cumple'?'Bienes / Servicios':'Consultoría / Servicios', lugar:'Quito D.M.',
-    presupuesto:'', umbralTecnico:75, comision:'Presidente/a de la Comisión de Calificación\nDelegado/a técnico/a\nDelegado/a',
+    presupuesto:'', umbralTecnico:75,
+    actaNo:'001', area:'', modalidad: tipo==='cumple'?'Comparación de precios':'Concurso de ofertas (por puntos)',
+    partida:'', lineaNombre:'', fechaInvitacion:'', fechaLimiteOfertas:'', fechaSesion:'', horaSesion:'', lugarSesion:'sesión virtual',
+    fechaInicio:'', memoNro:'', ivaPct:15,
+    comision:[
+      {nombre:'', cargo:'Administrador/a del área protegida — MAE', rol:'Presidente/a de la Comisión'},
+      {nombre:'', cargo:'Miembro técnico invitado', rol:'Miembro'},
+      {nombre:'', cargo:'Administrador/a contador/a (AC)', rol:'Secretario/a'},
+    ],
     oferentes:[],
   };
   if(tipo==='cumple'){
@@ -287,9 +343,22 @@ function emptyOf(S){ return {id:uid('of'),nombre:'',ruc:'',precio:'',scores:{},g
 
 /* --------------------------------- state --------------------------------- */
 const LS='fap_calificador_v1';
-let S = load();
+let S = normalize(load());
 function load(){ try{ const r=localStorage.getItem(LS); if(r) return JSON.parse(r); }catch(e){} return presetConsultoria(); }
 function save(){ try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){} }
+/* Rellena campos nuevos en procesos guardados con versiones anteriores de la herramienta
+   y migra la comisión de texto (una línea por miembro) a la estructura {nombre,cargo,rol}. */
+function normalize(s){
+  const d = blankState(s.tipo||'puntos');
+  for(const k in d){ if(s[k]===undefined) s[k]=d[k]; }
+  if(typeof s.comision==='string'){
+    const roles=['Presidente/a de la Comisión','Miembro','Secretario/a'];
+    const lines=s.comision.split('\n').map(x=>x.trim()).filter(Boolean);
+    s.comision = (lines.length?lines:['','','']).map((l,i)=>({nombre:'', cargo:l, rol:roles[i]||'Miembro'}));
+  }
+  if(!Array.isArray(s.comision)||!s.comision.length) s.comision=d.comision;
+  return s;
+}
 
 /* helpers over the model */
 const gruposTecnicos = ()=> (S.grupos||[]).filter(g=>g.tipo==='tecnico');
@@ -374,7 +443,40 @@ function viewProceso(){
       <div><label class="fld">Presupuesto referencial (USD, opcional)</label><input class="in" id="f_presupuesto" value="${esc(S.presupuesto)}" placeholder="40000.00" inputmode="decimal"></div>
       <div><label class="fld">Lugar / fecha del acta</label><input class="in" id="f_lugar" value="${esc(S.lugar)}" placeholder="Quito D.M."></div>
       ${esPuntos?`<div><label class="fld" title="Puntaje técnico mínimo para pasar a la evaluación económica">Umbral técnico mínimo (pts, sobre ${fNum(tecMaxTotal())})</label><input class="in" id="f_umbral" value="${esc(S.umbralTecnico)}" inputmode="decimal"></div>`:``}
-      <div style="grid-column:1/-1"><label class="fld">Comisión de Calificación (un miembro por línea)</label><textarea class="in" id="f_comision" rows="3">${esc(S.comision)}</textarea></div>
+    </div>
+
+    <div style="margin:20px 0 12px;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);border-top:1px solid var(--line2);padding-top:16px">Datos para el acta de adjudicación</div>
+    <div class="grid2">
+      <div><label class="fld">Acta N.º</label><input class="in" id="f_actaNo" value="${esc(S.actaNo)}" placeholder="001"></div>
+      <div><label class="fld">Modalidad de selección</label><input class="in" id="f_modalidad" value="${esc(S.modalidad)}"></div>
+      <div style="grid-column:1/-1"><label class="fld">Área protegida / instancia beneficiaria</label><input class="in" id="f_area" value="${esc(S.area)}" placeholder="Parque Nacional…"></div>
+      <div><label class="fld">Fuente de financiamiento / PAG (partida)</label><input class="in" id="f_partida" value="${esc(S.partida)}"></div>
+      <div><label class="fld">Línea / componente</label><input class="in" id="f_lineaNombre" value="${esc(S.lineaNombre)}"></div>
+      <div><label class="fld">Fecha de invitación</label><input class="in" id="f_fechaInvitacion" value="${esc(S.fechaInvitacion)}" placeholder="21 de julio de 2026"></div>
+      <div><label class="fld">Fecha límite de ofertas</label><input class="in" id="f_fechaLimiteOfertas" value="${esc(S.fechaLimiteOfertas)}" placeholder="31 de julio de 2026, 17h30"></div>
+    </div>
+    <div class="grid3" style="margin-top:14px">
+      <div><label class="fld">Fecha de la sesión</label><input class="in" id="f_fechaSesion" value="${esc(S.fechaSesion)}" placeholder="03 de agosto de 2026"></div>
+      <div><label class="fld">Hora</label><input class="in" id="f_horaSesion" value="${esc(S.horaSesion)}" placeholder="10h00"></div>
+      <div><label class="fld">Lugar / modalidad de sesión</label><input class="in" id="f_lugarSesion" value="${esc(S.lugarSesion)}" placeholder="sesión virtual"></div>
+      <div><label class="fld">N.º memorando / resolución de inicio</label><input class="in" id="f_memoNro" value="${esc(S.memoNro)}" placeholder="Nro. …"></div>
+      <div><label class="fld">Fecha de inicio (memorando)</label><input class="in" id="f_fechaInicio" value="${esc(S.fechaInicio)}"></div>
+      <div><label class="fld">IVA (%) para desglose económico</label><input class="in" id="f_ivaPct" value="${esc(S.ivaPct)}" inputmode="decimal"></div>
+    </div>
+
+    <div style="margin-top:16px">
+      <label class="fld">Comisión de Calificación · quórum y firmas del acta</label>
+      <div id="comisionBox">
+        ${(S.comision||[]).map((m,i)=>`
+          <div class="crit-row" data-ci="${i}">
+            <input class="in cmNombre grow" data-ci="${i}" value="${esc(m.nombre)}" placeholder="Nombre y apellido">
+            <input class="in cmCargo grow" data-ci="${i}" value="${esc(m.cargo)}" placeholder="Cargo institucional">
+            <input class="in cmRol" data-ci="${i}" value="${esc(m.rol)}" placeholder="Rol" style="width:190px;flex:0 0 auto">
+            <button class="btn ghost xs cmDel" data-ci="${i}" title="Quitar miembro">✕</button>
+          </div>`).join('')}
+      </div>
+      <button class="btn line xs" id="cmAdd" style="margin-top:9px">+ Miembro</button>
+      <div class="psub" style="margin-top:6px">El primer <b>Presidente/a</b> y el/la <b>Secretario/a</b> se usan para el acta (campos <code>{jefe}</code> y <code>{ac}</code> de la plantilla).</div>
     </div>
   </div>`;
 }
@@ -386,11 +488,18 @@ function bindProceso(){
     S = Object.assign(blankState(b.dataset.t), keep);
     render();
   });
-  const bindF=(id,key)=>{ const el=$(id); if(el) el.oninput=()=>{ S[key]=el.value; if(id==='#f_umbral'||id==='#f_presupuesto'){renderResultados();} else if(id==='#f_objeto'||id==='#f_codigo'||id==='#f_entidad'||id==='#f_lugar'||id==='#f_comision'||id==='#f_tipoProceso'){renderResultados();} save(); }; };
-  bindF('#f_objeto','objeto'); bindF('#f_codigo','codigo'); bindF('#f_tipoProceso','tipoProceso');
-  bindF('#f_entidad','entidad'); bindF('#f_presupuesto','presupuesto'); bindF('#f_lugar','lugar');
-  bindF('#f_comision','comision');
+  const bindF=(id,key)=>{ const el=$(id); if(el) el.oninput=()=>{ S[key]=el.value; renderResultados(); save(); }; };
+  ['objeto','codigo','tipoProceso','entidad','presupuesto','lugar','actaNo','modalidad','area',
+   'partida','lineaNombre','fechaInvitacion','fechaLimiteOfertas','fechaSesion','horaSesion',
+   'lugarSesion','memoNro','fechaInicio','ivaPct'].forEach(k=>bindF('#f_'+k,k));
   const u=$('#f_umbral'); if(u) u.oninput=()=>{ S.umbralTecnico=num(u.value); renderResultados(); save(); };
+  // comisión (estructurada)
+  const cm=i=>S.comision[i];
+  $$(".cmNombre").forEach(el=>el.oninput=()=>{ const m=cm(+el.dataset.ci); if(m){m.nombre=el.value; renderResultados(); save();} });
+  $$(".cmCargo").forEach(el=>el.oninput=()=>{ const m=cm(+el.dataset.ci); if(m){m.cargo=el.value; renderResultados(); save();} });
+  $$(".cmRol").forEach(el=>el.oninput=()=>{ const m=cm(+el.dataset.ci); if(m){m.rol=el.value; renderResultados(); save();} });
+  $$(".cmDel").forEach(el=>el.onclick=()=>{ S.comision.splice(+el.dataset.ci,1); render(); });
+  const ca=$("#cmAdd"); if(ca) ca.onclick=()=>{ S.comision.push({nombre:'',cargo:'',rol:'Miembro'}); render(); };
 }
 
 /* ---- panel 2: matriz de evaluación (config) ---- */
@@ -635,55 +744,112 @@ function tablaResultados(R){
 function renderActa(R){
   const box=$("#acta"); if(!box) return;
   const ofs=(S.oferentes||[]).filter(o=>o.nombre.trim()||o.precio);
-  const comision=(S.comision||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const com=S.comision||[];
+  const pres = com.find(m=>/presiden/i.test(m.rol))||com[0]||{};
+  const secr = com.find(m=>/secretar/i.test(m.rol))||com[com.length-1]||{};
+  const ivaP = num(S.ivaPct)||0;
   const totMax=puntosTotales();
-  const ordered=[...(S.oferentes||[])].sort((a,b)=>{
-    if(a._pasa!==b._pasa) return a._pasa?-1:1;
-    return S.tipo==='cumple' ? (num(a.precio)||1e15)-(num(b.precio)||1e15) : b._total-a._total;
-  });
-  let detalle='';
-  if(S.tipo==='puntos'){
-    detalle=`<h3>Detalle de la evaluación técnica</h3><table><thead><tr><th>Oferente</th>${critList().map(c=>`<th>${esc(c.nombre.length>26?c.nombre.slice(0,24)+'…':c.nombre)}<br><small>/${fNum(num(c.max))}</small></th>`).join('')}<th>Técnico</th></tr></thead><tbody>${
-      ofs.map(o=>`<tr><td>${esc(o.nombre||'—')}</td>${critList().map(c=>`<td class="n">${o.scores[c.id]==null||o.scores[c.id]===''?'—':fNum(clamp(num(o.scores[c.id]),0,num(c.max)))}</td>`).join('')}<td class="n"><b>${fNum(o._tec)}</b></td></tr>`).join('')
-    }</tbody></table>`;
+  const calificados = ofs.filter(o=>o._pasa);
+  const presLetras = S.presupuesto? numeroALetras(S.presupuesto):'—';
+  const colH = o=>esc(o.nombre?trunc(o.nombre,22):'Proponente');
+  const trunc=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
+
+  // DATOS DEL PROCESO
+  const kv=(l,v)=>`<tr><th style="width:36%">${l}</th><td>${v||'—'}</td></tr>`;
+  const datos=`<table>${
+    kv('Objeto de la contratación', esc(S.objeto))+
+    kv('Área protegida / instancia beneficiaria', esc(S.area))+
+    kv('Modalidad de selección', esc(S.modalidad))+
+    kv('Presupuesto referencial (USD, IVA incluido)', S.presupuesto?`${fUSD(S.presupuesto)} (${esc(presLetras)})`:'—')+
+    kv('Fuente de financiamiento / PAG', esc([S.partida,S.lineaNombre].filter(Boolean).join(' — ')))+
+    kv('Fecha de invitación', esc(S.fechaInvitacion))+
+    kv('Plazo para presentación de ofertas', esc(S.fechaLimiteOfertas))
+  }</table>`;
+
+  // QUÓRUM
+  const quorum=`<h3>Constatación de quórum</h3><table><thead><tr><th>Nombre</th><th>Cargo institucional</th><th>Rol en la Comisión</th><th>Asistencia</th></tr></thead><tbody>${
+    com.map(m=>`<tr><td>${esc(m.nombre||'(por designar)')}</td><td>${esc(m.cargo)}</td><td>${esc(m.rol)}</td><td>Presencial / Virtual</td></tr>`).join('')
+  }</tbody></table>`;
+
+  // PRIMERO — proponentes recibidos
+  const recibidos=`<table><thead><tr><th>Proponente</th><th>Fecha de entrega</th><th>Hora</th><th>Estado</th></tr></thead><tbody>${
+    (ofs.length?ofs:[{nombre:''}]).map(o=>`<tr><td>${esc(o.nombre||'—')}</td><td>____________</td><td>__:__</td><td>A tiempo ☐&nbsp;&nbsp;Extemporánea ☐</td></tr>`).join('')
+  }</tbody></table>`;
+
+  // SEGUNDO — evaluación técnica
+  let tecnico;
+  if(S.tipo==='cumple'){
+    tecnico=`<table><thead><tr><th>Parámetro técnico</th>${ofs.map(o=>`<th class="n">${colH(o)}</th>`).join('')}</tr></thead><tbody>${
+      gateList().map(r=>`<tr><td>${esc(r.nombre)}</td>${ofs.map(o=>`<td class="n">${o.gates[r.id]===true?'Cumple':o.gates[r.id]===false?'No cumple':'—'}</td>`).join('')}</tr>`).join('')
+    }<tr><th>Resultado de la evaluación técnica</th>${ofs.map(o=>`<td class="n"><b>${o._pasa?'CALIFICA':'NO CALIFICA'}</b></td>`).join('')}</tr></tbody></table>`;
   }else{
-    detalle=`<h3>Verificación de requisitos (Cumple / No cumple)</h3><table><thead><tr><th>Oferente</th>${gateList().map(r=>`<th>${esc(r.nombre.length>22?r.nombre.slice(0,20)+'…':r.nombre)}</th>`).join('')}</tr></thead><tbody>${
-      ofs.map(o=>`<tr><td>${esc(o.nombre||'—')}</td>${gateList().map(r=>`<td class="n">${o.gates[r.id]===true?'Cumple':o.gates[r.id]===false?'No':'—'}</td>`).join('')}</tr>`).join('')
-    }</tbody></table>`;
+    tecnico=`<table><thead><tr><th>Criterio de evaluación</th><th class="n">Máx.</th>${ofs.map(o=>`<th class="n">${colH(o)}</th>`).join('')}</tr></thead><tbody>${
+      critList().map(c=>`<tr><td>${esc(c.nombre)}</td><td class="n">${fNum(num(c.max))}</td>${ofs.map(o=>`<td class="n">${o.scores[c.id]==null||o.scores[c.id]===''?'—':fNum(clamp(num(o.scores[c.id]),0,num(c.max)))}</td>`).join('')}</tr>`).join('')
+    }<tr><th>Subtotal técnico</th><td class="n">${fNum(tecMaxTotal())}</td>${ofs.map(o=>`<td class="n"><b>${fNum(o._tec)}</b></td>`).join('')}</tr>`+
+    `<tr><th>Umbral técnico (${fNum(num(S.umbralTecnico))})</th><td class="n">—</td>${ofs.map(o=>`<td class="n">${o._pasa?'Pasa':'No pasa'}</td>`).join('')}</tr></tbody></table>`;
   }
+
+  // TERCERO — evaluación económica (solo calificados)
+  const econRows = (label, fn) => `<tr><th>${label}</th>${calificados.map(o=>`<td class="n">${fn(o)}</td>`).join('')}</tr>`;
+  const economico = calificados.length
+    ? `<table><thead><tr><th>Concepto</th>${calificados.map(o=>`<th class="n">${colH(o)}</th>`).join('')}</tr></thead><tbody>${
+        econRows(`Valor sin IVA (USD)`, o=>fUSD(num(o.precio)/(1+ivaP/100)))+
+        econRows(`IVA (${fNum(ivaP)}%) (USD)`, o=>fUSD(num(o.precio)-num(o.precio)/(1+ivaP/100)))+
+        econRows(`Valor total ofertado (USD)`, o=>`<b>${fUSD(o.precio)}</b>`)+
+        (S.tipo==='puntos'? econRows(`Puntaje económico (${fNum(num(grupoEco().peso))})`, o=>fNum(o._eco)) : '')+
+        (S.presupuesto? econRows(`¿Se ajusta al presupuesto referencial?`, o=>num(o.precio)<=num(S.presupuesto)?'Sí':'No') : '')+
+        (S.tipo==='puntos'? econRows(`Puntaje total`, o=>`<b>${fNum(o._total)}</b> / ${fNum(totMax)}`) : '')
+      }</tbody></table>${S.presupuesto?`<p style="font-size:11.5px;color:#6B7180">Presupuesto referencial: ${fUSD(S.presupuesto)}.</p>`:''}`
+    : `<p style="font-size:12.5px"><i>Ningún proponente superó la evaluación técnica; no se abren ofertas económicas.</i></p>`;
+
+  // CUARTO — adjudicación
+  const w=R.winner;
+  const adj = w
+    ? `<p style="font-size:12.5px"><b>☑ Recomienda la adjudicación</b> a favor de <b>${esc(w.nombre||'')}</b> con RUC ${esc(w.ruc||'____________')}, por un valor total de <b>${fUSD(w.precio)}</b> (${esc(numeroALetras(w.precio))}), por ${S.tipo==='puntos'?`obtener el mayor puntaje total (${fNum(w._total)} de ${fNum(totMax)} puntos)`:'cumplir las condiciones solicitadas y ofertar el precio más bajo'}.</p>
+       <p style="font-size:12.5px">☐ Declara desierto el procedimiento.</p>`
+    : `<p style="font-size:12.5px">☐ Recomienda la adjudicación a favor de ____________________.</p>
+       <p style="font-size:12.5px"><b>☑ Declara desierto</b> el procedimiento debido a que ${ofs.length?'ninguna de las ofertas se ajusta a lo solicitado':'no se presentaron ofertas'}.</p>`;
+
+  // FIRMAS
+  const firmas = `<div style="margin-top:10px">${com.map(m=>`<span class="firma"><span class="line"></span>${esc(m.nombre||'Nombre y apellido')}<br><b>${esc(m.rol)}</b><br><span style="color:#6B7180">${esc(m.cargo)}</span></span>`).join('')}</div>`;
+
   box.innerHTML=`
   <div class="acta">
     <div class="acta-doc" id="actaDoc">
       <div class="acta-lh"><div class="logo">FAP</div><div><div class="t1">FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE — FIAS</div><div class="t2">Programa Fondo de Áreas Protegidas (FAP) · Comisión de Calificación</div></div></div>
-      <h2 class="actitle">Acta de calificación y selección de ofertas</h2>
-      <div class="acsub">${esc(S.objeto||'(objeto de la contratación)')}</div>
-      <dl class="kv">
-        <dt>Código del proceso</dt><dd>${esc(S.codigo||'—')}</dd>
-        <dt>Tipo de contratación</dt><dd>${esc(S.tipoProceso||'—')} · Esquema: ${S.tipo==='puntos'?'calificación por puntos':'Cumple / No cumple + menor precio'}</dd>
-        <dt>Entidad contratante</dt><dd>${esc(S.entidad||'—')}</dd>
-        ${S.presupuesto?`<dt>Presupuesto referencial</dt><dd>${fUSD(S.presupuesto)}</dd>`:''}
-        <dt>Lugar y fecha</dt><dd>${esc(S.lugar||'—')}, ${todayEC()}</dd>
-        ${S.tipo==='puntos'?`<dt>Umbral técnico mínimo</dt><dd>${fNum(num(S.umbralTecnico))} de ${fNum(tecMaxTotal())} puntos técnicos</dd>`:''}
-      </dl>
+      <h2 class="actitle">Acta N.º ${esc(S.actaNo||'001')}</h2>
+      <div class="acsub">Acta de calificación, selección y adjudicación — ${esc(S.objeto||'(objeto de la contratación)')}</div>
 
-      ${detalle}
+      <h3>Datos del proceso</h3>
+      ${datos}
 
-      <h3>Resultado de la calificación y orden de prelación</h3>
-      <table><thead><tr><th>Orden</th><th>Oferente</th>${S.tipo==='puntos'?'<th>Técnico</th><th>Económico</th><th>Total</th>':'<th>Requisitos</th>'}<th>Precio (USD)</th><th>Condición</th></tr></thead><tbody>
-      ${ordered.map(o=>`<tr><td class="n">${o._rank||'—'}</td><td>${esc(o.nombre||'—')}${o.ruc?`<br><small>${esc(o.ruc)}</small>`:''}</td>${
-        S.tipo==='puntos'
-          ? `<td class="n">${fNum(o._tec)}</td><td class="n">${o._pasa?fNum(o._eco):'—'}</td><td class="n"><b>${fNum(o._total)}</b> / ${fNum(totMax)}</td>`
-          : `<td>${o._pasa?'Cumple todos':'Incumple'}</td>`
-      }<td class="n">${o.precio?fUSD(o.precio):'—'}</td><td>${o._pasa?(R.winner&&o.id===R.winner.id?'<b>Adjudicado</b>':(S.tipo==='puntos'?'Calificado':'Habilitado')):'Descalificado'}</td></tr>`).join('')}
-      </tbody></table>
+      <h3>Inicio de sesión</h3>
+      <p style="font-size:12.5px">El día ${esc(S.fechaSesion||'____________')}, a las ${esc(S.horaSesion||'__h__')} horas, en ${esc(S.lugarSesion||'____________')}, se reúnen los miembros de la Comisión de Calificación, convocados por su Presidencia a través de Secretaría, para tratar el proceso de referencia.</p>
+      ${quorum}
+      <p style="font-size:12.5px">Constatado el quórum reglamentario, la Presidencia declara instalada la sesión y dispone dar lectura al orden del día: (1) antecedentes del proceso; (2) revisión y evaluación de ofertas técnicas; (3) revisión y evaluación de ofertas económicas; (4) selección y adjudicación; (5) varios.</p>
 
-      <h3>Recomendación de la Comisión</h3>
-      <p style="font-size:12.5px">${R.winner
-        ? `Con base en la evaluación realizada conforme a las bases del concurso, la Comisión de Calificación recomienda adjudicar el proceso a <b>${esc(R.winner.nombre||'')}</b>${R.winner.ruc?` (${esc(R.winner.ruc)})`:''}, por un valor de <b>${fUSD(R.winner.precio)}</b>, por haber ${S.tipo==='puntos'?`obtenido el mayor puntaje total (<b>${fNum(R.winner._total)}</b> de ${fNum(totMax)} puntos)`:'cumplido todos los requisitos habilitantes y presentado el menor precio'} entre las ofertas presentadas.`
-        : `De acuerdo con la evaluación, ${(S.oferentes||[]).length? 'ninguna oferta cumple los requisitos para ser adjudicada, por lo que la Comisión recomienda declarar <b>desierto</b> el proceso.' : 'no se han registrado ofertas.'}`}</p>
+      <h3>Primero — Antecedentes del proceso</h3>
+      <p style="font-size:12.5px">Mediante ${esc(S.memoNro?('memorando/resolución N.º '+S.memoNro):'memorando/resolución N.º ____________')}${S.fechaInicio?`, de fecha ${esc(S.fechaInicio)}`:''}, se solicitó el inicio del proceso de ${esc(S.modalidad||'selección')} para “${esc(S.objeto||'')}”. El presupuesto referencial corresponde a ${S.presupuesto?`${fUSD(S.presupuesto)} (${esc(presLetras)})`:'____________'}, previsto en el PAG aprobado. Se remitieron las invitaciones a proveedores calificados por el FIAS, recibiéndose las siguientes ofertas dentro del plazo previsto (hasta ${esc(S.fechaLimiteOfertas||'____________')}):</p>
+      ${recibidos}
 
-      <h3>Comisión de Calificación</h3>
-      <div style="margin-top:6px">${(comision.length?comision:['','','']).map(m=>`<span class="firma"><span class="line"></span>${esc(m||'Nombre y firma')}</span>`).join('')}</div>
+      <h3>Segundo — Revisión y evaluación de la oferta técnica</h3>
+      <p style="font-size:12.5px">${S.tipo==='cumple'
+        ? 'La Comisión verifica el cumplimiento de obligaciones y de las especificaciones técnicas bajo la modalidad Cumple / No cumple, con el siguiente resultado:'
+        : `La Comisión califica las propuestas técnicas conforme a los criterios de las bases. Solo pasan a la evaluación económica quienes alcancen el umbral técnico de ${fNum(num(S.umbralTecnico))} de ${fNum(tecMaxTotal())} puntos.`}</p>
+      ${tecnico}
+
+      <h3>Tercero — Revisión y evaluación de la oferta económica</h3>
+      ${economico}
+
+      <h3>Cuarto — Selección y adjudicación</h3>
+      ${adj}
+
+      <h3>Quinto — Varios</h3>
+      <p style="font-size:12.5px">Ninguno.</p>
+
+      <h3>Cierre de la sesión</h3>
+      <p style="font-size:12.5px">No existiendo más puntos que tratar, se da por terminada la sesión. Se dispone a Secretaría notificar la presente resolución al adjudicatario y a los proponentes no adjudicados, y remitir el expediente a la Coordinación del FAP para la elaboración del instrumento jurídico correspondiente. Como constancia de lo actuado y resuelto, los/las miembros de la Comisión de Calificación suscriben la presente acta.</p>
+      ${firmas}
     </div>
   </div>`;
 }
@@ -761,6 +927,44 @@ $("#btnCargar").onclick=()=>$("#fileIn").click();
 $("#fileIn").onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=()=>{ try{ const d=JSON.parse(rd.result); if(!d.tipo) throw 0; S=d; render(); toast('Proceso cargado'); }catch(err){ toast('Archivo no válido'); } e.target.value=''; }; rd.readAsText(f); };
 $("#btnCSV").onclick=()=>{ download((S.codigo||'resultados')+'.csv', toCSV(), 'text/csv'); toast('CSV descargado'); };
 $("#btnImprimir").onclick=()=>window.print();
+$("#btnActaWord").onclick=()=>generarActaWord();
+
+/* Rellena la plantilla oficial del acta de adjudicación (plantillas/Acta_de_adjudicacion.docx)
+   con los datos del proceso, usando el mismo motor docxtemplater que La Mágica y el CLM. */
+function generarActaWord(){
+  const DT=window.docxtemplater||window.Docxtemplater;
+  if(!(window.PizZip && DT)){ toast('Motor de plantillas no disponible; usa “Imprimir acta”.'); return; }
+  const R=compute();
+  const com=S.comision||[];
+  const pres=com.find(m=>/presiden/i.test(m.rol))||com[0]||{};
+  const secr=com.find(m=>/secretar/i.test(m.rol))||com[com.length-1]||{};
+  const ofs=(S.oferentes||[]).filter(o=>o.nombre.trim()||o.precio);
+  const w=R.winner;
+  const data={
+    objeto:S.objeto||'', area:S.area||'', modalidad:S.modalidad||'',
+    presupuesto: S.presupuesto?fUSD(S.presupuesto):'', presupuestoLetras: S.presupuesto?numeroALetras(S.presupuesto):'',
+    partida:S.partida||'', lineaNombre:S.lineaNombre||'',
+    fechaInvitacion:S.fechaInvitacion||'', fechaLimite:S.fechaLimiteOfertas||'',
+    fechaAdj:S.fechaSesion||'', fechaInicio:S.fechaInicio||'',
+    jefe:pres.nombre||'', ac:secr.nombre||'',
+    provs: ofs.map(o=>({razon:o.nombre||'', fof:''})),
+    monto1: ofs[0]?fUSD(ofs[0].precio):'', monto2: ofs[1]?fUSD(ofs[1].precio):'', monto3: ofs[2]?fUSD(ofs[2].precio):'',
+    proveedor: w?(w.nombre||''):'', proveedorRuc: w?(w.ruc||''):'', montoLetras: w?numeroALetras(w.precio):''
+  };
+  fetch('plantillas/Acta_de_adjudicacion.docx',{cache:'no-cache'})
+    .then(r=>{ if(!r.ok) throw new Error('fetch'); return r.arrayBuffer(); })
+    .then(buf=>{
+      const zip=new PizZip(buf);
+      const doc=new DT(zip,{paragraphLoop:true, linebreaks:true, nullGetter:()=>''});
+      doc.render(data);
+      const out=doc.getZip().generate({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+      const u=URL.createObjectURL(out); const a=document.createElement('a');
+      a.href=u; a.download='Acta_'+(S.actaNo||'001')+'_'+(S.codigo||'proceso').replace(/[^\w-]+/g,'_')+'.docx'; a.click();
+      setTimeout(()=>URL.revokeObjectURL(u),1500);
+      toast('Acta Word generada');
+    })
+    .catch(()=>toast('No se pudo cargar la plantilla del acta (ábrelo en el sitio publicado, no como archivo local).'));
+}
 
 let menuOpen=false;
 $("#btnEjemplos").onclick=(e)=>{

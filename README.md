@@ -21,8 +21,11 @@ autónoma (sin backend ni librerías externas) y cubre los **dos esquemas** que 
 - Ingreso de varios oferentes con su precio y el puntaje consolidado de la Comisión por criterio.
 - Cálculo automático: puntaje técnico, aplicación del umbral, puntaje económico inverso-proporcional,
   total, **orden de prelación** y **oferta recomendada** para adjudicación.
-- **Acta de calificación** imprimible con membrete FAP-FIAS, detalle por criterio, prelación,
-  recomendación de la Comisión y bloques de firma.
+- **Acta de adjudicación** con el formato oficial de la Comisión (Acta N.º, Datos del proceso,
+  quórum, orden del día, PRIMERO–QUINTO, cierre y firmas por rol). Se puede **imprimir/guardar en PDF**
+  (la vista se adapta al esquema: puntajes o Cumple/No cumple, con desglose de IVA) o **descargar en Word**
+  (botón *Acta Word*), que rellena la plantilla oficial `plantillas/Acta_de_adjudicacion.docx` con el
+  mismo motor docxtemplater que usa La Mágica. Presupuesto y monto adjudicado se expresan también en letras.
 - Exportación **CSV** de resultados, guardar/abrir el proceso en **JSON**, y persistencia local.
 - **Sección de calificación para las bases**: genera el texto normalizado (idéntico a la matriz)
   para pegarlo en la sección de criterios de calificación de las bases — así las *bases* y la
