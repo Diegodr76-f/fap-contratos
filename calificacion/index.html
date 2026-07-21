@@ -156,8 +156,9 @@
   @media print{
     @page{margin:14mm}
     body{background:#fff;font-size:11.5px}
-    .no-print,.topbar,.tb-actions{display:none !important}
+    .no-print,.topbar,.tb-actions,.toast{display:none !important}
     .wrap{max-width:none;padding:0}
+    #acta{margin-top:0 !important}
     .acta{border:0;border-radius:0}
     .acta-doc{padding:0}
     .print-only{display:block}
@@ -420,7 +421,7 @@ function compute(){
 /* --------------------------------- render -------------------------------- */
 function render(){
   const app=$("#app");
-  app.innerHTML = viewProceso() + viewMatrizConfig() + viewOferentes() + `<div id="resultados"></div><div id="acta" class="no-print" style="margin-top:16px"></div>` + viewBasesSection();
+  app.innerHTML = viewProceso() + viewMatrizConfig() + viewOferentes() + `<div id="resultados"></div><div id="acta" style="margin-top:16px"></div>` + viewBasesSection();
   bindProceso(); bindConfig(); bindOferentes(); bindBases();
   renderResultados();
   save();
@@ -980,12 +981,32 @@ $("#btnCSV").onclick=()=>{ download((S.codigo||'resultados')+'.csv', toCSV(), 't
 $("#btnImprimir").onclick=()=>window.print();
 $("#btnActaWord").onclick=()=>generarActaWord();
 
+/* Carga bajo demanda del motor de plantillas: si los <script> del <head> no llegaron a
+   cargar (red corporativa / antivirus / caché), se reintenta al hacer clic. */
+function cargarScript(src){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src=src+'?v='+Date.now();
+    s.onload=()=>res(); s.onerror=()=>rej(new Error(src));
+    document.head.appendChild(s);
+  });
+}
+async function asegurarMotor(){
+  const listo=()=>window.PizZip && (window.docxtemplater||window.Docxtemplater);
+  if(listo()) return true;
+  try{ if(!window.PizZip) await cargarScript('vendor/pizzip.min.js'); }catch(e){}
+  try{ if(!(window.docxtemplater||window.Docxtemplater)) await cargarScript('vendor/docxtemplater.min.js'); }catch(e){}
+  return listo();
+}
+
 /* Rellena la plantilla oficial del acta de adjudicación con los datos del proceso,
    usando el mismo motor docxtemplater que La Mágica y el CLM. Elige la plantilla según
    el esquema: Cumple/No cumple (comparación de precios) o por puntos (con tablas de puntaje). */
-function generarActaWord(){
+async function generarActaWord(){
+  if(!(window.PizZip && (window.docxtemplater||window.Docxtemplater))){
+    toast('Cargando el motor de plantillas…');
+    if(!await asegurarMotor()){ toast('No se pudo cargar el motor de plantillas (carpeta vendor/). Revisa la red o usa “Imprimir acta” → Guardar como PDF.'); return; }
+  }
   const DT=window.docxtemplater||window.Docxtemplater;
-  if(!(window.PizZip && DT)){ toast('Motor de plantillas no disponible; usa “Imprimir acta”.'); return; }
   const R=compute();
   const com=S.comision||[];
   const pres=com.find(m=>/presiden/i.test(m.rol))||com[0]||{};
