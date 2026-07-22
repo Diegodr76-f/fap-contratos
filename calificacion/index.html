@@ -687,7 +687,7 @@ function viewOferentes(){
           : 'Las ofertas económicas permanecen cerradas hasta concluir la evaluación técnica. Se abren solo entre quienes cumplen todos los requisitos (Sobre 1); la de quien no cumple se devuelve sin abrir.'}</div>
       </div>
     </div>
-    ${ofs.length? `<div class="tablewrap">${matrizEconomica()}</div>` : `<div class="empty">Agrega oferentes en el Sobre 1 para registrar aquí sus precios.</div>`}
+    <div id="sobre2wrap">${ofs.length? `<div class="tablewrap">${matrizEconomica()}</div>` : `<div class="empty">Agrega oferentes en el Sobre 1 para registrar aquí sus precios.</div>`}</div>
   </div>`;
 }
 function matrizPuntos(){
@@ -703,7 +703,7 @@ function matrizPuntos(){
       const v=o.scores[c.id]; const over=num(v)>num(c.max);
       h+=`<td class="cell"><input class="scoreIn ${over?'over':''}" data-of="${o.id}" data-c="${c.id}" value="${v==null?'':esc(v)}" inputmode="decimal" title="máx ${fNum(num(c.max))}"></td>`;
     }));
-    h+=`<td class="num" style="text-align:center;white-space:nowrap">${fNum(o._tec||0)} / ${fNum(tecMaxTotal())}${o._tecPass?' <span class="badge b-g">Pasa</span>':(o.nombre||o.precio)?' <span class="badge b-r">No pasa</span>':''}</td>`;
+    h+=`<td class="num" id="est1-${o.id}" style="text-align:center;white-space:nowrap">${estadoSobre1Inner(o)}</td>`;
     h+=ofActions(o)+'</tr>';
   });
   h+='</tbody></table>';
@@ -727,6 +727,14 @@ function ofActions(o){
     <button class="btn ghost xs delOf" data-of="${o.id}" title="Eliminar oferente">✕</button>
   </td>`;
 }
+/* Contenido de la columna "Estado" del Sobre 1 (se recalcula en vivo con refreshSobres). */
+function estadoSobre1Inner(o){
+  const tiene = o.nombre||o.precio;
+  if(o.descal) return '<span class="badge b-r">Rechazada</span>';
+  if(S.tipo==='puntos')
+    return `${fNum(o._tec||0)} / ${fNum(tecMaxTotal())}${o._tecPass?' <span class="badge b-g">Pasa</span>':(tiene?' <span class="badge b-r">No pasa</span>':'')}`;
+  return o._tecPass?'<span class="badge b-g">Cumple todo</span>':(tiene?'<span class="badge b-r">No cumple</span>':'<span class="badge b-d">—</span>');
+}
 function matrizCumple(){
   const L=S.reqLegales||[], T=S.reqTecnicos||[];
   let h='<table class="mx"><thead><tr><th rowspan="2" style="text-align:left">Oferente</th>';
@@ -741,7 +749,7 @@ function matrizCumple(){
       const v=o.gates[r.id]; const cls=v===true?'si':v===false?'no':'';
       h+=`<td><select class="cn-sel gateIn ${cls}" data-of="${o.id}" data-r="${r.id}"><option value="">—</option><option value="1" ${v===true?'selected':''}>Cumple</option><option value="0" ${v===false?'selected':''}>No</option></select></td>`;
     });
-    h+=`<td style="text-align:center;white-space:nowrap">${o._tecPass?'<span class="badge b-g">Cumple todo</span>':(o.nombre||o.precio)?'<span class="badge b-r">No cumple</span>':'<span class="badge b-d">—</span>'}</td>`;
+    h+=`<td id="est1-${o.id}" style="text-align:center;white-space:nowrap">${estadoSobre1Inner(o)}</td>`;
     h+=ofActions(o)+'</tr>';
   });
   h+='</tbody></table>';
@@ -767,14 +775,32 @@ function matrizEconomica(){
   h+='</tbody></table>';
   return h;
 }
+/* Actualiza EN VIVO la columna "Estado" del Sobre 1 y todo el Sobre 2 (badge técnico y
+   apertura del sobre económico) tras cambiar un Cumple/No cumple o un puntaje. Se llama
+   desde los handlers del Sobre 1 (los inputs con foco están en el Sobre 1, así que
+   re-renderizar el Sobre 2 no pierde lo que se está escribiendo). */
+function refreshSobres(){
+  compute();
+  (S.oferentes||[]).forEach(o=>{ const c=$("#est1-"+o.id); if(c) c.innerHTML=estadoSobre1Inner(o); });
+  const s2=$("#sobre2wrap");
+  if(s2){
+    s2.innerHTML = (S.oferentes||[]).length ? `<div class="tablewrap">${matrizEconomica()}</div>` : `<div class="empty">Agrega oferentes en el Sobre 1 para registrar aquí sus precios.</div>`;
+    bindSobre2();
+  }
+  renderResultados();
+}
+function bindSobre2(){
+  const of=id=>S.oferentes.find(o=>o.id===id);
+  $$("#sobre2wrap .priceIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o.precio=el.value; const pr=num(S.presupuesto); el.classList.toggle('over', pr>0 && num(el.value)>pr); renderResultados(); save();} });
+}
 function bindOferentes(){
   const add=$("#addOf"); if(add) add.onclick=()=>{ S.oferentes.push(emptyOf(S)); render(); };
   $$(".delOf").forEach(el=>el.onclick=()=>{ S.oferentes=S.oferentes.filter(o=>o.id!==el.dataset.of); render(); });
   const of=id=>S.oferentes.find(o=>o.id===id);
-  $$(".ofn,.ofr,.off").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o[el.dataset.k]=el.value; renderResultados(); save();} });
-  $$(".scoreIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){ o.scores[el.dataset.c]=el.value; const c=critList().find(x=>x.id===el.dataset.c); el.classList.toggle('over', c && num(el.value)>num(c.max)); renderResultados(); save(); } });
-  $$(".priceIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o.precio=el.value; const pr=num(S.presupuesto); el.classList.toggle('over', pr>0 && num(el.value)>pr); renderResultados(); save();} });
-  $$(".gateIn").forEach(el=>el.onchange=()=>{ const o=of(el.dataset.of); if(o){ o.gates[el.dataset.r]= el.value===''?null:(el.value==='1'); el.className='cn-sel gateIn '+(el.value==='1'?'si':el.value==='0'?'no':''); renderResultados(); save(); } });
+  $$(".ofn,.ofr,.off").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o[el.dataset.k]=el.value; refreshSobres(); save();} });
+  $$(".scoreIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){ o.scores[el.dataset.c]=el.value; const c=critList().find(x=>x.id===el.dataset.c); el.classList.toggle('over', c && num(el.value)>num(c.max)); refreshSobres(); save(); } });
+  bindSobre2();
+  $$(".gateIn").forEach(el=>el.onchange=()=>{ const o=of(el.dataset.of); if(o){ o.gates[el.dataset.r]= el.value===''?null:(el.value==='1'); el.className='cn-sel gateIn '+(el.value==='1'?'si':el.value==='0'?'no':''); refreshSobres(); save(); } });
   $$(".rechOf").forEach(el=>el.onclick=()=>{ const o=of(el.dataset.of); if(!o) return;
     if(!o.descal){ const m=prompt('Motivo del rechazo / descalificación (opcional):', o.descalMotivo||''); o.descal=true; o.descalMotivo=(m||'').trim(); }
     else { o.descal=false; o.descalMotivo=''; }
