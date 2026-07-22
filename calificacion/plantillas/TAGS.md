@@ -27,7 +27,9 @@ archivo en esta carpeta (GitHub) — igual que las plantillas de La Mágica.
 | `{area}` | Área protegida / instancia beneficiaria |
 | `{modalidad}` | Modalidad de selección |
 | `{presupuesto}` / `{presupuestoLetras}` | Presupuesto referencial en cifras / en letras |
-| `{partida}` / `{lineaNombre}` | Fuente de financiamiento (PAG) / línea o componente |
+| `{partida}` | Fuente de financiamiento (PAG/subcuenta/componente) |
+| `{lineaNombre}` | Línea presupuestaria compuesta: código + nombre (p. ej. "2.2 Adquisición de motores y canoas") — se arma sola a partir de `lineaCod`+`lineaNom` |
+| `{lineaCod}` / `{lineaNom}` | Línea presupuestaria por separado — código (p. ej. "2.2") y nombre, igual que en La Mágica |
 | `{fechaInvitacion}` / `{fechaLimite}` | Fechas de invitación y límite de ofertas |
 | `{fechaSesion}` (= `{fechaAdj}`) / `{horaSesion}` / `{lugarSesion}` | Sesión de la Comisión |
 | `{memoNro}` / `{fechaInicio}` | Memorando/resolución de inicio y su fecha |
