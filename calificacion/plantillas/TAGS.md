@@ -1,76 +1,59 @@
-# Tags de las plantillas del acta de adjudicación
+# Tags de las plantillas del acta
 
-El botón **Acta Word** del Calificador rellena estas plantillas con `docxtemplater`.
-**Las dos actas reciben exactamente los mismos datos**, así que cualquier tag de esta
-lista sirve en cualquiera de las dos plantillas (o en una que armes tú en Word).
-
-Para cambiar el formato: edita el `.docx` en Word conservando los tags y reemplaza el
-archivo en esta carpeta (GitHub) — igual que las plantillas de La Mágica.
+El botón **Acta Word** del Calificador rellena la plantilla que corresponde al esquema,
+con `docxtemplater`. Para cambiar el formato: edita el `.docx` en Word conservando los
+`{tags}` y reemplaza el archivo en esta carpeta (GitHub) — igual que las plantillas de La
+Mágica. Un tag que agregues sin que la herramienta lo envíe queda en blanco (no rompe nada).
 
 ## Reglas de oro (bucles)
 
-1. **Repetir una fila de tabla** (una fila por oferente/miembro): el tag de apertura
-   `{#lista}` va al **inicio de la primera celda** y el de cierre `{/lista}` al **final
-   de la última celda de esa misma fila**. Word repite la fila completa por cada elemento.
-2. **Repetir un bloque** (título + tabla + párrafos): `{#lista}` y `{/lista}` van cada
-   uno **solos en su propio párrafo**, antes y después del bloque. Todo lo que quede en
-   medio se repite.
-3. **Word no puede agregar columnas dinámicamente** (solo filas y bloques). Por eso las
-   tablas por oferente van con **una fila por oferente**, no una columna.
+1. **Repetir una fila de tabla**: `{#lista}` al inicio de la primera celda y `{/lista}` al
+   final de la última celda de esa misma fila. Word repite la fila por cada elemento.
+2. **Repetir un bloque** (título + tabla + párrafos): `{#lista}` y `{/lista}` cada uno solo
+   en su párrafo, antes y después del bloque.
+3. **Word no repite columnas dinámicamente.** Por eso la tabla de puntaje por miembro usa
+   **4 columnas fijas** (m1..m4 = los 4 primeros miembros con voz y voto). Si hay menos de 4,
+   las columnas sobrantes quedan vacías; si hay más de 4, usa la versión **Imprimir → PDF**.
 
-## Datos del proceso (tags simples)
+---
 
-| Tag | Contenido |
-|-----|-----------|
-| `{actaNo}` | Número de acta |
-| `{objeto}` | Objeto de la contratación |
-| `{area}` | Área protegida / instancia beneficiaria |
-| `{modalidad}` | Modalidad de selección |
-| `{presupuesto}` / `{presupuestoLetras}` | Presupuesto referencial en cifras / en letras |
-| `{partida}` | Fuente de financiamiento (PAG/subcuenta/componente) |
-| `{lineaNombre}` | Línea presupuestaria compuesta: código + nombre (p. ej. "2.2 Adquisición de motores y canoas") — se arma sola a partir de `lineaCod`+`lineaNom` |
-| `{lineaCod}` / `{lineaNom}` | Línea presupuestaria por separado — código (p. ej. "2.2") y nombre, igual que en La Mágica |
-| `{fechaInvitacion}` / `{fechaLimite}` | Fechas de invitación y límite de ofertas |
-| `{fechaSesion}` (= `{fechaAdj}`) / `{horaSesion}` / `{lugarSesion}` | Sesión de la Comisión |
-| `{memoNro}` / `{fechaInicio}` | Memorando/resolución de inicio y su fecha |
-| `{umbral}` / `{tecMax}` | Umbral técnico y máximo técnico (por puntos) |
-| `{pesoEco}` / `{puntosTotal}` | Puntos de la oferta económica / total del proceso |
-| `{jefe}` / `{ac}` | Nombre del Presidente/a y del Secretario/a (AC) |
+## Plantilla `Acta_de_adjudicacion.docx` — Bienes / Servicios (Cumple/No cumple)
 
-## Bucles (listas)
+Datos simples: `{objeto}` `{area}` `{modalidad}` `{presupuesto}` `{presupuestoLetras}`
+`{partida}` `{lineaNombre}` (= `{lineaCod}`+`{lineaNom}`) `{fechaInvitacion}` `{fechaLimite}`
+`{fechaAdj}` `{memoNro}` `{fechaInicio}` `{jefe}` (Presidente) `{ac}` (Secretario)
+`{proveedor}` `{proveedorRuc}` `{montoLetras}`.
 
-### `{#comision}…{/comision}` — todos los miembros
-Campos: `{nombre}`, `{cargo}`, `{rol}`.
+Bucles: `{#items}{miembros}{cargo}{rol}{/items}` (miembros del quórum, sin Presidente/
+Secretario) · `{#comision}{nombre}{rol}{cargo}{/comision}` (firmas) · `{#provs}{razon}{fof}{/provs}`
+(ofertas recibidas) · `{#tecnicos}{razon}{resultado}{#reqs}{req}{res}{/reqs}{/tecnicos}`
+(bloque técnico por oferente) · `{#economicos}{razon}{total}{difPresupuesto}{enPresupuesto}{/economicos}`
+· `{#prelacion}{orden}{razon}{tec}{eco}{totalPts}{/prelacion}`.
 
-### `{#items}…{/items}` — solo los miembros intermedios (sin Presidente ni Secretario)
-Campos: `{miembros}` (nombre), `{cargo}`, `{rol}`. Es la fila del quórum del formato
-oficial: Presidente y Secretario tienen su fila fija con `{jefe}` y `{ac}`, y esta fila
-se repite por cada miembro adicional agregado en la herramienta.
+---
 
-### `{#provs}…{/provs}` — ofertas recibidas
-Campos: `{razon}` (razón social), `{fof}` (fecha de entrega, vacío para llenar a mano).
+## Plantilla `Acta_de_adjudicacion_puntos.docx` — Consultoría (por puntos, formato FO-AD-ABC-009)
 
-### `{#tecnicos}…{/tecnicos}` — evaluación técnica (una entrada por oferente)
-- Acta **por puntos**: `{razon}`, `{tecnico}` (puntaje), `{umbralRes}` (Pasa / No pasa).
-- Acta **Cumple/No cumple**: `{razon}`, `{resultado}` (CALIFICA / NO CALIFICA) y el bucle
-  anidado `{#reqs}…{/reqs}` con `{req}` (requisito) y `{res}` (Cumple / No cumple / —).
+Cada miembro con voz y voto califica y se promedia. Datos simples: `{codigoProc}` `{actaNo}`
+`{objeto}` `{area}` `{modalidad}` `{presupuestoLetras}` `{fuente}` `{fechaInvitacion}`
+`{fechaLimite}` `{fechaAdj}` `{horaSesion}` `{lugarSesion}` `{memoNro}` `{fechaInicio}`
+`{umbral}` `{tecMax}` `{puntosTotal}` · nombres de columnas de miembros `{m1nom}` `{m2nom}`
+`{m3nom}` `{m4nom}` · adjudicación `{decisionUnica}` `{proveedor}` `{proveedorRuc}`
+`{montoAdjLetras}` `{totalAdj}`.
 
-### `{#economicos}…{/economicos}` — solo oferentes calificados
-Campos: `{razon}`, `{sinIva}`, `{iva}`, `{total}`, `{difPresupuesto}` (diferencia con el
-referencial), `{enPresupuesto}` (Sí / No), `{puntajeEco}`, `{puntajeTotal}`.
+Bucles:
 
-### `{#prelacion}…{/prelacion}` — orden de prelación (ya ordenado)
-Campos: `{orden}`, `{razon}`, `{tec}`, `{eco}`, `{totalPts}`.
-Por puntos: puntajes y total; Cumple/No cumple: ordenado por menor precio.
+- **Quórum / firmas** — `{#votM}{nombre}{cargo}{rol}{/votM}` (voz y voto) y
+  `{#sinVoto}{nombre}{cargo}{rol}{/sinVoto}` (voz sin voto y Secretaría).
+- **Ofertas recibidas** — `{#provs}{razon}{fof}{/provs}`.
+- **Matriz de documentos** — `{#docs}{formulario}{detalle}{res}{/docs}`.
+- **Evaluación técnica por oferente** (bloque) — `{#tecOfs}` … `{razon}`, tabla con
+  `{#rows}{criterio}{max}{n1}{n2}{n3}{n4}{promedio}{/rows}`, fila total `{t1}{t2}{t3}{t4}`
+  `{tecMax}` `{tecProm}`, y `{resultadoTec}` … `{/tecOfs}`.
+- **Evaluación económica por oferente** (bloque) — `{#ecoOfs}` … `{razon}` `{ruc}`, la misma
+  tabla `{#rows}…{/rows}`, la fila de oferta económica `{e}` `{ecoMax}`, la fila Total
+  `{tt1}{tt2}{tt3}{tt4}` `{puntosTotal}` `{totProm}`, `{montoLetras}` `{ahorroTxt}` … `{/ecoOfs}`.
 
-## Adjudicación
-
-| Tag | Contenido |
-|-----|-----------|
-| `{proveedor}` / `{proveedorRuc}` | Adjudicatario y su RUC |
-| `{montoTotal}` / `{montoLetras}` | Monto adjudicado en cifras / en letras |
-
-## Compatibilidad con el formato anterior
-
-`{monto1}`, `{monto2}`, `{monto3}` (precios de los 3 primeros oferentes) se siguen
-enviando por si alguna plantilla vieja los usa, pero conviene migrar a `{#economicos}`.
+Donde `n1..n4` son las notas de los miembros 1..4 en cada criterio, `t1..t4` sus totales
+técnicos, `tt1..tt4` sus totales con la económica, y `{promedio}`/`{tecProm}`/`{totProm}` los
+promedios que calcula la herramienta.
