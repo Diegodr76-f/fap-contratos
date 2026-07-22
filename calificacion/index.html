@@ -412,10 +412,24 @@ function compute(){
     }
     o._total = S.tipo==='puntos' ? r2(o._tec + (o._pasa?o._eco:0)) : (o._pasa?o._eco:0);
   });
+  // "Propuesta única presentada": si se recibió una sola oferta, las bases exigen que la
+  // Comisión se pronuncie EXPRESAMENTE sobre su conveniencia institucional antes de
+  // adjudicar — no es automático aunque la oferta cumpla todo. Mientras no haya decisión
+  // (unicaOk === null/undefined), esa oferta no cuenta como ganadora.
+  const entradas = ofs.filter(o=>o.nombre.trim()||o.precio);
+  const esUnica = entradas.length===1;
+  const unico = esUnica ? entradas[0] : null;
+  let unicoPendiente=false, unicoRechazadaPorConveniencia=false;
+  if(unico && unico._pasa){
+    if(unico.unicaOk===true){ /* confirmada: sigue en la carrera normalmente */ }
+    else if(unico.unicaOk===false){ unico._pasa=false; unico._motivo='Oferta única declarada no conveniente para los intereses institucionales'; unicoRechazadaPorConveniencia=true; }
+    else { unico._pasa=false; unico._motivo='Oferta única — pendiente de pronunciamiento de la Comisión'; unicoPendiente=true; }
+  }
   const passers = ofs.filter(o=>o._pasa);
   const ranked = [...passers].sort((a,b)=> S.tipo==='cumple' ? num(a.precio)-num(b.precio) : b._total-a._total);
   ranked.forEach((o,i)=>o._rank=i+1);
-  return { pmin, pesoEco, winner:ranked[0]||null, ranked, nPass:passers.length, nTot:ofs.length, presup };
+  return { pmin, pesoEco, winner:ranked[0]||null, ranked, nPass:passers.length, nTot:ofs.length, presup,
+    esUnica, unico, unicoPendiente, unicoRechazadaPorConveniencia };
 }
 
 /* --------------------------------- render -------------------------------- */
@@ -718,6 +732,31 @@ function renderResultados(){
   const conNombre=ofs.filter(o=>o.nombre.trim()||o.precio);
   const nSobre = ofs.filter(o=>o._sobrepasa && !o.descal).length;
   let winnerBanner='';
+  let unicaPanel='';
+  if(R.esUnica && (R.unicoPendiente || R.unicoRechazadaPorConveniencia)){
+    const u=R.unico;
+    unicaPanel = R.unicoPendiente ? `
+    <div class="winner" style="background:var(--amberbg);border-color:#E9D2A0">
+      <div class="medal" style="background:var(--amber)">${icoWrench()}</div>
+      <div style="flex:1;min-width:0">
+        <div class="wt" style="color:#8A5210">Propuesta única presentada — requiere decisión expresa</div>
+        <div class="wn">${esc(u.nombre||'(sin nombre)')}</div>
+        <div class="ws">Se recibió una sola oferta y cumple los requisitos (${S.tipo==='puntos'?`puntaje técnico ${fNum(u._tec)}`:'legal y técnico'})${u.precio?`, precio ${fUSD(u.precio)}`:''}. Según las bases, la Comisión debe pronunciarse expresamente sobre si es <b>conveniente a los intereses institucionales</b> antes de adjudicar.</div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn sm" id="unicaSi" style="background:var(--green)">✓ Es conveniente — adjudicar</button>
+          <button class="btn sm danger" id="unicaNo">✗ No es conveniente — declarar desierto</button>
+        </div>
+      </div>
+    </div>` : `
+    <div class="winner" style="background:var(--redbg);border-color:#E6BFBF">
+      <div class="medal" style="background:var(--red)">!</div>
+      <div style="flex:1;min-width:0">
+        <div class="wt" style="color:var(--red)">Propuesta única declarada no conveniente</div>
+        <div class="ws">${esc(u.nombre||'')} cumplía los requisitos, pero la Comisión determinó que no conviene a los intereses institucionales. Se recomienda declarar desierto.
+          <button class="btn ghost xs" id="unicaReabrir" style="margin-left:8px">↺ Revisar decisión</button></div>
+      </div>
+    </div>`;
+  }
   if(R.winner){
     const w=R.winner;
     winnerBanner=`
@@ -728,10 +767,10 @@ function renderResultados(){
         <div class="wn">${esc(w.nombre||'(sin nombre)')}</div>
         <div class="ws">${S.tipo==='puntos'
           ? `Puntaje total <b>${fNum(w._total)} / ${fNum(puntosTotales())}</b> — Técnico ${fNum(w._tec)} + Económico ${fNum(w._eco)}`
-          : `Cumple todos los requisitos · <b>menor precio</b>`} · Precio <b>${fUSD(w.precio)}</b> (${esc(numeroALetras(w.precio))})</div>
+          : `Cumple todos los requisitos · <b>menor precio</b>`} · Precio <b>${fUSD(w.precio)}</b> (${esc(numeroALetras(w.precio))})${R.esUnica?' · <span style="color:var(--green)">propuesta única confirmada como conveniente</span>':''}</div>
       </div>
     </div>`;
-  } else if(conNombre.length){
+  } else if(conNombre.length && !unicaPanel){
     winnerBanner=`
     <div class="winner" style="background:var(--redbg);border-color:#E6BFBF">
       <div class="medal" style="background:var(--red)">!</div>
@@ -751,9 +790,14 @@ function renderResultados(){
       <div class="psub">${R.nPass} de ${R.nTot} oferente(s) ${S.tipo==='puntos'?`superan el umbral de ${fNum(num(S.umbralTecnico))} pts`:'cumplen todos los requisitos'}${R.presup?` y no superan el presupuesto (${fUSD(S.presupuesto)})`:''}. ${R.pmin?`Precio más bajo (válido): ${fUSD(R.pmin)}.`:''} La herramienta <b>recomienda</b> según la regla de las bases; la Comisión decide (puede rechazar con causa o declarar desierto en el acta).</div></div>
     </div>
     ${avisoPres}
+    ${unicaPanel}
     ${winnerBanner}
     ${conNombre.length? tablaResultados(R) : `<div class="empty">Completa la matriz para ver los resultados.</div>`}
   </div>`;
+  const usi=$("#unicaSi"), uno=$("#unicaNo"), ureab=$("#unicaReabrir");
+  if(usi) usi.onclick=()=>{ R.unico.unicaOk=true; render(); };
+  if(uno) uno.onclick=()=>{ R.unico.unicaOk=false; render(); };
+  if(ureab) ureab.onclick=()=>{ R.unico.unicaOk=null; render(); };
   renderActa(R);
 }
 function tablaResultados(R){
@@ -856,11 +900,12 @@ function renderActa(R){
 
   // CUARTO — adjudicación
   const w=R.winner;
+  const notaUnica = R.esUnica ? `<p style="font-size:12.5px"><i>Propuesta única presentada: se recibió una sola oferta. Conforme a las bases, la Comisión se pronuncia expresamente sobre su conveniencia a los intereses institucionales ${R.unico&&R.unico.unicaOk===true?'y la declara <b>conveniente</b>':R.unico&&R.unico.unicaOk===false?'y la declara <b>no conveniente</b>':'(pronunciamiento pendiente)'}.</i></p>` : '';
   const adj = w
-    ? `<p style="font-size:12.5px"><b>☑ Recomienda la adjudicación</b> a favor de <b>${esc(w.nombre||'')}</b> con RUC ${esc(w.ruc||'____________')}, por un valor total de <b>${fUSD(w.precio)}</b> (${esc(numeroALetras(w.precio))}), por ${S.tipo==='puntos'?`obtener el mayor puntaje total (${fNum(w._total)} de ${fNum(totMax)} puntos)`:'cumplir las condiciones solicitadas y ofertar el precio más bajo'}.</p>
+    ? `${notaUnica}<p style="font-size:12.5px"><b>☑ Recomienda la adjudicación</b> a favor de <b>${esc(w.nombre||'')}</b> con RUC ${esc(w.ruc||'____________')}, por un valor total de <b>${fUSD(w.precio)}</b> (${esc(numeroALetras(w.precio))}), por ${S.tipo==='puntos'?`obtener el mayor puntaje total (${fNum(w._total)} de ${fNum(totMax)} puntos)`:'cumplir las condiciones solicitadas y ofertar el precio más bajo'}.</p>
        <p style="font-size:12.5px">☐ Declara desierto el procedimiento.</p>`
-    : `<p style="font-size:12.5px">☐ Recomienda la adjudicación a favor de ____________________.</p>
-       <p style="font-size:12.5px"><b>☑ Declara desierto</b> el procedimiento debido a que ${ofs.length?'ninguna de las ofertas se ajusta a lo solicitado':'no se presentaron ofertas'}.</p>`;
+    : `${notaUnica}<p style="font-size:12.5px">☐ Recomienda la adjudicación a favor de ____________________.</p>
+       <p style="font-size:12.5px"><b>☑ Declara desierto</b> el procedimiento debido a que ${R.unicoRechazadaPorConveniencia?'la propuesta única presentada fue declarada no conveniente para los intereses institucionales':R.unicoPendiente?'la propuesta única presentada se encuentra pendiente de pronunciamiento':(ofs.length?'ninguna de las ofertas se ajusta a lo solicitado':'no se presentaron ofertas')}.</p>`;
 
   // FIRMAS
   const firmas = `<div style="margin-top:10px">${com.map(m=>`<span class="firma"><span class="line"></span>${esc(m.nombre||'Nombre y apellido')}<br><b>${esc(m.rol)}</b><br><span style="color:#6B7180">${esc(m.cargo)}</span></span>`).join('')}</div>`;
