@@ -251,7 +251,7 @@ function presetConsultoria(){
     entidad:'Fondo de Inversión Ambiental Sostenible (FIAS) — Programa Fondo de Áreas Protegidas (FAP)',
     tipoProceso:'Consultoría (persona natural o jurídica)',
     lugar:'Quito D.M.',
-    presupuesto:'',
+    presupuesto:'40000',
     umbralTecnico:75,
     actaNo:'001',
     area:'Sistema Nacional de Áreas Protegidas — SNAP',
@@ -261,9 +261,21 @@ function presetConsultoria(){
     fechaInvitacion:'', fechaLimiteOfertas:'', fechaSesion:'', horaSesion:'', lugarSesion:'sesión virtual',
     fechaInicio:'', memoNro:'', ivaPct:15,
     comision:[
-      {nombre:'', cargo:'Administrador/a del área protegida — MAE', rol:'Presidente/a de la Comisión'},
-      {nombre:'', cargo:'Miembro técnico invitado', rol:'Miembro'},
-      {nombre:'', cargo:'Administrador/a contador/a (AC)', rol:'Secretario/a'},
+      {id:'m1', nombre:'Fernanda Coello', cargo:'Coordinadora de AP FAP-FIAS', rol:'Presidente/a de la Comisión', voto:true},
+      {id:'m2', nombre:'Byron Amaya', cargo:'Técnico FAP-FIAS', rol:'Miembro Técnico de la Comisión', voto:true},
+      {id:'m3', nombre:'Jorge Duque', cargo:'Especialista en AP DAPOFC-MAE', rol:'Miembro Técnico de la Comisión', voto:true},
+      {id:'m4', nombre:'Mawrin Moscoso', cargo:'Técnico en AP DAPOFC-MAE', rol:'Miembro Técnico de la Comisión', voto:true},
+      {id:'m5', nombre:'Diego Rodríguez', cargo:'Analista Legal FAP-FIAS', rol:'Miembro Invitado', voto:false},
+      {id:'m6', nombre:'Catalina Tapia', cargo:'Asistente Técnica Administrativa FAP-FIAS', rol:'Secretario/a de la Comisión', voto:false},
+    ],
+    reqDocs:[
+      {id:'d1', nombre:'Formulario 1 — Carta de presentación'},
+      {id:'d2', nombre:'Formulario 2 — Identificación del oferente'},
+      {id:'d3', nombre:'Formulario 3 — Documentos legales y financieros'},
+      {id:'d4', nombre:'Formulario 4 — Experiencia'},
+      {id:'d5', nombre:'Formulario 5 — Cronograma del desarrollo de la consultoría'},
+      {id:'d6', nombre:'Formulario 6 — Oferta técnica'},
+      {id:'d7', nombre:'Formulario 7 — Oferta económica'},
     ],
     grupos:[
       {id:'g1', tipo:'tecnico', nombre:'Perfil profesional', criterios:[
@@ -278,9 +290,12 @@ function presetConsultoria(){
       {id:'ge', tipo:'economico', nombre:'Oferta económica', peso:20, formula:'inverso'},
     ],
     oferentes:[
-      {id:uid('of'), nombre:'Consultora Ambiental Andina S.A.', ruc:'1790000001001', precio:'18500', scores:{c1:15,c2:10,c3:9,c4:25,c5:19}, gates:{}, obs:''},
-      {id:uid('of'), nombre:'Ing. María Fernanda Terán (persona natural)', ruc:'1710000002001', precio:'16900', scores:{c1:13,c2:10,c3:10,c4:25,c5:18}, gates:{}, obs:''},
-      {id:uid('of'), nombre:'GeoAmbiente Consultores Cía. Ltda.', ruc:'1790000003001', precio:'15200', scores:{c1:12,c2:8,c3:8,c4:20,c5:15}, gates:{}, obs:''},
+      {id:uid('of'), nombre:'Gestión Tecnificada Cía. Ltda.', ruc:'1793002633001', precio:'37145', obs:'',
+        gates:{}, gatesDoc:{d1:true,d2:true,d3:true,d4:true,d5:true,d6:true,d7:true},
+        scores:{
+          c1:{m1:15,m2:15,m3:15,m4:15}, c2:{m1:9,m2:9,m3:9,m4:10}, c3:{m1:9,m2:9,m3:9,m4:9},
+          c4:{m1:23,m2:23,m3:23,m4:23}, c5:{m1:19,m2:19,m3:19,m4:19}
+        }},
     ],
   };
 }
@@ -303,9 +318,9 @@ function presetBienes(){
     fechaSesion:'03 de agosto de 2026', horaSesion:'10h00', lugarSesion:'sesión virtual',
     fechaInicio:'', memoNro:'', ivaPct:15,
     comision:[
-      {nombre:'', cargo:'Administrador/a del Parque Nacional Machalilla — MAE', rol:'Presidente/a de la Comisión'},
-      {nombre:'', cargo:'Delegado/a técnico/a FAP-FIAS', rol:'Miembro'},
-      {nombre:'', cargo:'Administrador/a contador/a (AC)', rol:'Secretario/a'},
+      {id:'m1', nombre:'', cargo:'Administrador/a del Parque Nacional Machalilla — MAE', rol:'Presidente/a de la Comisión', voto:true},
+      {id:'m2', nombre:'', cargo:'Delegado/a técnico/a FAP-FIAS', rol:'Miembro', voto:true},
+      {id:'m3', nombre:'', cargo:'Administrador/a contador/a (AC)', rol:'Secretario/a', voto:false},
     ],
     reqLegales:[
       {id:'l1', nombre:'Nombramiento / documento del representante legal'},
@@ -335,9 +350,9 @@ function blankState(tipo){
     partida:'', lineaCod:'', lineaNom:'', fechaInvitacion:'', fechaLimiteOfertas:'', fechaSesion:'', horaSesion:'', lugarSesion:'sesión virtual',
     fechaInicio:'', memoNro:'', ivaPct:15,
     comision:[
-      {nombre:'', cargo:'Administrador/a del área protegida — MAE', rol:'Presidente/a de la Comisión'},
-      {nombre:'', cargo:'Miembro técnico invitado', rol:'Miembro'},
-      {nombre:'', cargo:'Administrador/a contador/a (AC)', rol:'Secretario/a'},
+      {id:uid('m'), nombre:'', cargo:'Presidente/a de la Comisión', rol:'Presidente/a de la Comisión', voto:true},
+      {id:uid('m'), nombre:'', cargo:'Miembro técnico', rol:'Miembro', voto:true},
+      {id:uid('m'), nombre:'', cargo:'Secretario/a', rol:'Secretario/a', voto:false},
     ],
     oferentes:[],
   };
@@ -346,16 +361,26 @@ function blankState(tipo){
     base.reqTecnicos=[{id:uid('t'),nombre:'Cumplimiento de especificaciones técnicas'}];
     base.grupos=[{id:'ge',tipo:'economico',nombre:'Oferta económica',peso:100,formula:'menor'}];
   }else{
+    base.reqDocs=[
+      {id:uid('d'),nombre:'Formulario 1 — Carta de presentación'},
+      {id:uid('d'),nombre:'Formulario 2 — Identificación del oferente'},
+      {id:uid('d'),nombre:'Formulario 3 — Documentos legales y financieros'},
+      {id:uid('d'),nombre:'Formulario 4 — Experiencia'},
+      {id:uid('d'),nombre:'Formulario 5 — Oferta técnica'},
+      {id:uid('d'),nombre:'Formulario 6 — Oferta económica'},
+    ];
     base.grupos=[
       {id:uid('g'),tipo:'tecnico',nombre:'Perfil / hoja de vida',criterios:[{id:uid('c'),nombre:'Formación académica',max:20},{id:uid('c'),nombre:'Experiencia',max:20}]},
       {id:uid('g'),tipo:'tecnico',nombre:'Oferta técnica',criterios:[{id:uid('c'),nombre:'Metodología / pertinencia',max:40}]},
       {id:'ge',tipo:'economico',nombre:'Oferta económica',peso:20,formula:'inverso'},
     ];
   }
-  base.oferentes=[emptyOf(base),emptyOf(base)];
+  base.oferentes=[emptyOf(base)];
   return base;
 }
-function emptyOf(S){ return {id:uid('of'),nombre:'',ruc:'',precio:'',fechaEntrega:'',scores:{},gates:{},obs:''}; }
+function emptyOf(S){ return {id:uid('of'),nombre:'',ruc:'',precio:'',fechaEntrega:'',scores:{},gates:{},gatesDoc:{},obs:''}; }
+/* miembros con voz y voto (los que califican por puntaje) */
+const votantes = ()=> (S.comision||[]).filter(m=>m.voto);
 
 /* --------------------------------- state --------------------------------- */
 const LS='fap_calificador_v1';
@@ -382,6 +407,27 @@ function normalize(s){
     s.lineaCod = s.lineaCod!==undefined?s.lineaCod:(m?m[1]:'');
     s.lineaNom = s.lineaNom!==undefined?s.lineaNom:(m?m[2]:old);
   }
+  // miembros de comisión: asegurar id y bandera de voto (voz y voto)
+  (s.comision||[]).forEach(m=>{
+    if(!m.id) m.id=uid('m');
+    if(m.voto===undefined) m.voto = !/secretar|invitad|voz sin/i.test(m.rol||'');
+  });
+  // consultoría por puntos: garantizar la matriz de documentos (Cumple/No cumple)
+  if(s.tipo==='puntos' && !Array.isArray(s.reqDocs)) s.reqDocs = blankState('puntos').reqDocs;
+  // scores por criterio: migrar de nota única {crit:valor} a nota por miembro {crit:{miembro:valor}}
+  if(s.tipo==='puntos'){
+    const primerVotante = (s.comision||[]).find(m=>m.voto);
+    (s.oferentes||[]).forEach(o=>{
+      if(!o.gatesDoc) o.gatesDoc={};
+      o.scores = o.scores||{};
+      for(const cid in o.scores){
+        if(o.scores[cid]!==null && typeof o.scores[cid]!=='object'){
+          const v=o.scores[cid];
+          o.scores[cid] = primerVotante ? {[primerVotante.id]:v} : {};
+        }
+      }
+    });
+  }
   return s;
 }
 
@@ -390,8 +436,15 @@ const gruposTecnicos = ()=> (S.grupos||[]).filter(g=>g.tipo==='tecnico');
 const grupoEco = ()=> (S.grupos||[]).find(g=>g.tipo==='economico') || {peso:0,formula:S.tipo==='cumple'?'menor':'inverso',nombre:'Oferta económica'};
 const critList  = ()=> gruposTecnicos().flatMap(g=>g.criterios.map(c=>({...c,grupo:g.nombre,gid:g.id})));
 const gateList  = ()=> [...(S.reqLegales||[]).map(r=>({...r,fase:'legal'})), ...(S.reqTecnicos||[]).map(r=>({...r,fase:'tecnico'}))];
+const reqDocList = ()=> (S.reqDocs||[]);
 const tecMaxTotal = ()=> gruposTecnicos().reduce((a,g)=>a+g.criterios.reduce((x,c)=>x+num(c.max),0),0);
 const puntosTotales = ()=> tecMaxTotal() + num(grupoEco().peso);
+/* nota de un miembro en un criterio, acotada al máximo del criterio */
+function notaMiembro(o,c,mid){ const cell=o.scores&&o.scores[c.id]; const v=cell&&cell[mid]; return (v===''||v==null)?null:clamp(num(v),0,num(c.max)); }
+/* promedio de un criterio entre los miembros con voz y voto que sí calificaron */
+function promedioCriterio(o,c){ const vs=votantes().map(m=>notaMiembro(o,c,m.id)).filter(v=>v!=null); return vs.length? vs.reduce((a,b)=>a+b,0)/vs.length : 0; }
+/* total técnico de un miembro (suma de sus notas en todos los criterios) */
+function tecnicoMiembro(o,mid){ return critList().reduce((a,c)=>{ const v=notaMiembro(o,c,mid); return a+(v==null?0:v); },0); }
 
 /* --------------------------------- engine -------------------------------- */
 function compute(){
@@ -405,9 +458,12 @@ function compute(){
     // 1) evaluación técnica / requisitos
     let tecOk=true;
     if(S.tipo==='puntos'){
-      let t=0; critList().forEach(c=>{ t += clamp(num(o.scores[c.id]),0,num(c.max)); });
+      // gate de documentos (Cumple/No cumple): todos los formularios deben cumplir
+      o._docOk = reqDocList().every(r=>(o.gatesDoc||{})[r.id]===true);
+      // puntaje técnico = suma de los PROMEDIOS por criterio (entre miembros con voz y voto)
+      let t=0; critList().forEach(c=>{ t += promedioCriterio(o,c); });
       o._tec=r2(t);
-      tecOk = o._tec >= num(S.umbralTecnico);
+      tecOk = o._docOk && o._tec >= num(S.umbralTecnico);
     }else{
       o._legalOk = (S.reqLegales||[]).every(r=>o.gates[r.id]===true);
       o._tecOk   = (S.reqTecnicos||[]).every(r=>o.gates[r.id]===true);
@@ -418,7 +474,7 @@ function compute(){
     o._sobrepasa = presup>0 && p>0 && p>presup;
     // 3) causa por la que NO pasa (en orden de prelación de motivos)
     if(o.descal)            o._motivo = (o.descalMotivo||'').trim() || 'Rechazada por decisión de la Comisión';
-    else if(!tecOk)         o._motivo = S.tipo==='puntos' ? 'No alcanza el umbral técnico'
+    else if(!tecOk)         o._motivo = S.tipo==='puntos' ? (!o._docOk ? 'No cumple la entrega de documentos' : 'No alcanza el umbral técnico (75)')
                                         : (!o._legalOk ? 'No cumple requisitos legales' : 'No cumple requisitos técnicos');
     else if(o._sobrepasa)   o._motivo = 'Supera el presupuesto referencial';
     o._pasa = !o.descal && tecOk && !o._sobrepasa;
@@ -525,12 +581,13 @@ function viewProceso(){
           <div class="crit-row" data-ci="${i}">
             <input class="in cmNombre grow" data-ci="${i}" value="${esc(m.nombre)}" placeholder="Nombre y apellido">
             <input class="in cmCargo grow" data-ci="${i}" value="${esc(m.cargo)}" placeholder="Cargo institucional">
-            <input class="in cmRol" data-ci="${i}" value="${esc(m.rol)}" placeholder="Rol" style="width:190px;flex:0 0 auto">
+            <input class="in cmRol" data-ci="${i}" value="${esc(m.rol)}" placeholder="Rol" style="width:170px;flex:0 0 auto">
+            <label class="cmVotoLbl" title="Los miembros con voz y voto son los que califican por puntaje" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:${m.voto?'var(--green)':'var(--muted)'};white-space:nowrap;cursor:pointer"><input type="checkbox" class="cmVoto" data-ci="${i}" ${m.voto?'checked':''}> voz y voto</label>
             <button class="btn ghost xs cmDel" data-ci="${i}" title="Quitar miembro">✕</button>
           </div>`).join('')}
       </div>
       <button class="btn line xs" id="cmAdd" style="margin-top:9px">+ Miembro</button>
-      <div class="psub" style="margin-top:6px">El primer <b>Presidente/a</b> y el/la <b>Secretario/a</b> se usan para el acta (campos <code>{jefe}</code> y <code>{ac}</code> de la plantilla).</div>
+      <div class="psub" style="margin-top:6px">Marca <b>voz y voto</b> a quienes califican por puntaje (se promedian sus notas). El/la Secretario/a e Invitados van sin voto. El primer <b>Presidente/a</b> y el/la <b>Secretario/a</b> se usan para el acta (<code>{jefe}</code> y <code>{ac}</code>).</div>
     </div>
   </div>`;
 }
@@ -552,8 +609,9 @@ function bindProceso(){
   $$(".cmNombre").forEach(el=>el.oninput=()=>{ const m=cm(+el.dataset.ci); if(m){m.nombre=el.value; renderResultados(); save();} });
   $$(".cmCargo").forEach(el=>el.oninput=()=>{ const m=cm(+el.dataset.ci); if(m){m.cargo=el.value; renderResultados(); save();} });
   $$(".cmRol").forEach(el=>el.oninput=()=>{ const m=cm(+el.dataset.ci); if(m){m.rol=el.value; renderResultados(); save();} });
+  $$(".cmVoto").forEach(el=>el.onchange=()=>{ const m=cm(+el.dataset.ci); if(m){ m.voto=el.checked; render(); } });
   $$(".cmDel").forEach(el=>el.onclick=()=>{ S.comision.splice(+el.dataset.ci,1); render(); });
-  const ca=$("#cmAdd"); if(ca) ca.onclick=()=>{ S.comision.push({nombre:'',cargo:'',rol:'Miembro'}); render(); };
+  const ca=$("#cmAdd"); if(ca) ca.onclick=()=>{ S.comision.push({id:uid('m'),nombre:'',cargo:'',rol:'Miembro',voto:true}); render(); };
 }
 
 /* ---- panel 2: matriz de evaluación (config) ---- */
@@ -663,6 +721,14 @@ function bindConfig(){
 /* ---- panel 3: oferentes (matriz de calificación) ---- */
 function viewOferentes(){
   const ofs=S.oferentes||[];
+  const nVot=votantes().length;
+  const sobre1 = S.tipo==='puntos'
+    ? (nVot?'':`<div class="hint" style="margin-bottom:14px;background:var(--amberbg);border-color:#E9D2A0;color:#8A5210">Marca al menos un miembro de la Comisión como <b>voz y voto</b> (panel 1) para poder registrar las calificaciones.</div>`)
+      + `<div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);margin:0 0 8px">a) Entrega de documentos · Cumple / No cumple</div>`
+      + (ofs.length?`<div class="tablewrap" style="margin-bottom:20px">${matrizDocs()}</div>`:'')
+      + `<div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);margin:0 0 8px">b) Evaluación técnica por puntaje · cada miembro con voz y voto</div>`
+      + (ofs.length? ofs.map(o=>puntajeOferente(o)).join('') : '')
+    : (ofs.length?`<div class="tablewrap">${matrizCumple()}</div>`:'');
   return `
   <div class="panel no-print">
     <div class="phead">
@@ -670,12 +736,12 @@ function viewOferentes(){
       <div class="grow">
         <div class="ptitle">Sobre 1 · Información / oferta técnica</div>
         <div class="psub">${S.tipo==='puntos'
-          ? 'Ingresa el puntaje consolidado de la Comisión por cada criterio (0 al máximo). Sin precios: la oferta económica se evalúa aparte.'
+          ? 'Primero Cumple/No cumple de la entrega de documentos; luego cada miembro con voz y voto pone su nota por criterio y la herramienta saca el promedio. Sin precios.'
           : 'Marca Cumple / No cumple por cada requisito. Sin precios: la oferta económica se evalúa aparte.'}</div>
       </div>
       <button class="btn sm" id="addOf">+ Oferente</button>
     </div>
-    ${ofs.length? `<div class="tablewrap">${S.tipo==='puntos'?matrizPuntos():matrizCumple()}</div>` : `<div class="empty">Aún no hay oferentes. Pulsa <b>+ Oferente</b> para empezar.</div>`}
+    ${ofs.length? sobre1 : `<div class="empty">Aún no hay oferentes. Pulsa <b>+ Oferente</b> para empezar.</div>`}
   </div>
   <div class="panel no-print">
     <div class="phead">
@@ -690,24 +756,53 @@ function viewOferentes(){
     <div id="sobre2wrap">${ofs.length? `<div class="tablewrap">${matrizEconomica()}</div>` : `<div class="empty">Agrega oferentes en el Sobre 1 para registrar aquí sus precios.</div>`}</div>
   </div>`;
 }
-function matrizPuntos(){
-  const grupos=gruposTecnicos();
-  let h='<table class="mx"><thead><tr><th rowspan="2" style="text-align:left">Oferente</th>';
-  grupos.forEach(g=>{ h+=`<th class="grp" colspan="${g.criterios.length}">${esc(g.nombre)}</th>`; });
-  h+=`<th rowspan="2">Técnico</th><th rowspan="2"></th></tr><tr>`;
-  grupos.forEach(g=>g.criterios.forEach(c=>{ h+=`<th class="cn">${esc(c.nombre.length>46?c.nombre.slice(0,44)+'…':c.nombre)}<small>/ ${fNum(num(c.max))}</small></th>`; }));
-  h+='</tr></thead><tbody>';
+/* Sobre 1 · consultoría — matriz Cumple/No cumple de entrega de documentos (formularios) */
+function matrizDocs(){
+  const D=reqDocList();
+  let h='<table class="mx"><thead><tr><th style="text-align:left">Oferente</th>';
+  D.forEach(r=>{ h+=`<th class="cn">${esc(r.nombre.length>40?r.nombre.slice(0,38)+'…':r.nombre)}</th>`; });
+  h+='<th>Documentos</th><th></th></tr></thead><tbody>';
   S.oferentes.forEach(o=>{
     h+=`<tr class="${o.descal?'rechRow':''}">${ofNameCell(o)}`;
-    grupos.forEach(g=>g.criterios.forEach(c=>{
-      const v=o.scores[c.id]; const over=num(v)>num(c.max);
-      h+=`<td class="cell"><input class="scoreIn ${over?'over':''}" data-of="${o.id}" data-c="${c.id}" value="${v==null?'':esc(v)}" inputmode="decimal" title="máx ${fNum(num(c.max))}"></td>`;
-    }));
-    h+=`<td class="num" id="est1-${o.id}" style="text-align:center;white-space:nowrap">${estadoSobre1Inner(o)}</td>`;
+    D.forEach(r=>{ const v=(o.gatesDoc||{})[r.id]; const cls=v===true?'si':v===false?'no':'';
+      h+=`<td><select class="cn-sel docIn ${cls}" data-of="${o.id}" data-r="${r.id}"><option value="">—</option><option value="1" ${v===true?'selected':''}>Cumple</option><option value="0" ${v===false?'selected':''}>No</option></select></td>`;
+    });
+    h+=`<td id="doc1-${o.id}" style="text-align:center;white-space:nowrap">${o._docOk?'<span class="badge b-g">Cumple</span>':(o.nombre?'<span class="badge b-r">Incompleto</span>':'<span class="badge b-d">—</span>')}</td>`;
     h+=ofActions(o)+'</tr>';
   });
   h+='</tbody></table>';
   return h;
+}
+/* Sobre 1 · consultoría — puntaje por miembro con voz y voto + promedio (por oferente) */
+function puntajeOferente(o){
+  const V=votantes(), crit=critList();
+  let h=`<div class="grp-box" style="padding:0;overflow:hidden;margin-bottom:14px;${o.descal?'opacity:.55':''}">
+    <div class="grp-head" style="padding:11px 14px;margin:0;background:#FCFDFF;border-bottom:1px solid var(--line2)">
+      <div class="gt" style="flex:1">${esc(o.nombre||'(oferente sin nombre)')}${o.ruc?` <span style="color:var(--muted);font-weight:600">· ${esc(o.ruc)}</span>`:''}</div>
+      <span id="est1-${o.id}">${estadoSobre1Inner(o)}</span>
+      <span style="margin-left:8px">${ofActionsInline(o)}</span>
+    </div>
+    <div class="tablewrap" style="border:0;border-radius:0">
+    <table class="mx"><thead><tr><th style="text-align:left;min-width:220px">Criterio</th><th>Puntaje TDR</th>`;
+  V.forEach(m=>{ h+=`<th class="cn">${esc((m.nombre||'Miembro').split(' ').slice(0,2).join(' '))}</th>`; });
+  h+='<th>Promedio</th></tr></thead><tbody>';
+  crit.forEach(c=>{
+    h+=`<tr><td style="text-align:left">${esc(c.nombre.length>70?c.nombre.slice(0,68)+'…':c.nombre)}</td><td class="num" style="text-align:center">${fNum(num(c.max))}</td>`;
+    V.forEach(m=>{ const v=(o.scores[c.id]||{})[m.id]; const over=num(v)>num(c.max);
+      h+=`<td class="cell"><input class="scoreIn ${over?'over':''}" data-of="${o.id}" data-c="${c.id}" data-m="${m.id}" value="${v==null||v===''?'':esc(v)}" inputmode="decimal" title="máx ${fNum(num(c.max))}" style="width:52px"></td>`;
+    });
+    h+=`<td class="num" id="prom-${o.id}-${c.id}" style="text-align:center;font-weight:700;color:var(--navy)">${fNum(promedioCriterio(o,c))}</td></tr>`;
+  });
+  // fila total
+  h+=`<tr style="background:#FAFBFE"><th style="text-align:left">Total técnico</th><th class="num" style="text-align:center">${fNum(tecMaxTotal())}</th>`;
+  V.forEach(m=>{ h+=`<th class="num" id="mtot-${o.id}-${m.id}" style="text-align:center">${fNum(tecnicoMiembro(o,m.id))}</th>`; });
+  h+=`<th class="num" id="tectot-${o.id}" style="text-align:center;color:var(--navy)">${fNum(o._tec||0)}</th></tr>`;
+  h+='</tbody></table></div></div>';
+  return h;
+}
+/* acciones (rechazar/eliminar) en versión compacta para el encabezado del bloque de puntaje */
+function ofActionsInline(o){
+  return `<button class="btn ghost xs rechOf" data-of="${o.id}" title="${o.descal?'Habilitar':'Rechazar / descalificar'}" style="color:${o.descal?'var(--green)':'var(--red)'};font-size:14px">${o.descal?'↺':'⊘'}</button><button class="btn ghost xs delOf" data-of="${o.id}" title="Eliminar oferente">✕</button>`;
 }
 /* Celdas compartidas por las dos matrices */
 function overPresup(o){ const p=num(o.precio), pr=num(S.presupuesto); return pr>0 && p>0 && p>pr; }
@@ -731,8 +826,11 @@ function ofActions(o){
 function estadoSobre1Inner(o){
   const tiene = o.nombre||o.precio;
   if(o.descal) return '<span class="badge b-r">Rechazada</span>';
-  if(S.tipo==='puntos')
-    return `${fNum(o._tec||0)} / ${fNum(tecMaxTotal())}${o._tecPass?' <span class="badge b-g">Pasa</span>':(tiene?' <span class="badge b-r">No pasa</span>':'')}`;
+  if(S.tipo==='puntos'){
+    const detalle = o._tecPass ? ' <span class="badge b-g">Pasa (≥75)</span>'
+      : (tiene ? ` <span class="badge b-r">No pasa</span>${!o._docOk?' <span class="miniof" style="color:var(--red);font-weight:700">docs incompletos</span>':''}` : '');
+    return `Promedio <b>${fNum(o._tec||0)}</b> / ${fNum(tecMaxTotal())}${detalle}`;
+  }
   return o._tecPass?'<span class="badge b-g">Cumple todo</span>':(tiene?'<span class="badge b-r">No cumple</span>':'<span class="badge b-d">—</span>');
 }
 function matrizCumple(){
@@ -781,7 +879,15 @@ function matrizEconomica(){
    re-renderizar el Sobre 2 no pierde lo que se está escribiendo). */
 function refreshSobres(){
   compute();
-  (S.oferentes||[]).forEach(o=>{ const c=$("#est1-"+o.id); if(c) c.innerHTML=estadoSobre1Inner(o); });
+  (S.oferentes||[]).forEach(o=>{
+    const c=$("#est1-"+o.id); if(c) c.innerHTML=estadoSobre1Inner(o);
+    if(S.tipo==='puntos'){
+      const d=$("#doc1-"+o.id); if(d) d.innerHTML = o._docOk?'<span class="badge b-g">Cumple</span>':(o.nombre?'<span class="badge b-r">Incompleto</span>':'<span class="badge b-d">—</span>');
+      critList().forEach(cr=>{ const pc=$("#prom-"+o.id+"-"+cr.id); if(pc) pc.textContent=fNum(promedioCriterio(o,cr)); });
+      votantes().forEach(m=>{ const mc=$("#mtot-"+o.id+"-"+m.id); if(mc) mc.textContent=fNum(tecnicoMiembro(o,m.id)); });
+      const tt=$("#tectot-"+o.id); if(tt) tt.textContent=fNum(o._tec||0);
+    }
+  });
   const s2=$("#sobre2wrap");
   if(s2){
     s2.innerHTML = (S.oferentes||[]).length ? `<div class="tablewrap">${matrizEconomica()}</div>` : `<div class="empty">Agrega oferentes en el Sobre 1 para registrar aquí sus precios.</div>`;
@@ -798,9 +904,10 @@ function bindOferentes(){
   $$(".delOf").forEach(el=>el.onclick=()=>{ S.oferentes=S.oferentes.filter(o=>o.id!==el.dataset.of); render(); });
   const of=id=>S.oferentes.find(o=>o.id===id);
   $$(".ofn,.ofr,.off").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o[el.dataset.k]=el.value; refreshSobres(); save();} });
-  $$(".scoreIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){ o.scores[el.dataset.c]=el.value; const c=critList().find(x=>x.id===el.dataset.c); el.classList.toggle('over', c && num(el.value)>num(c.max)); refreshSobres(); save(); } });
+  $$(".scoreIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){ const cid=el.dataset.c, mid=el.dataset.m; if(!o.scores[cid]||typeof o.scores[cid]!=='object') o.scores[cid]={}; o.scores[cid][mid]=el.value; const c=critList().find(x=>x.id===cid); el.classList.toggle('over', c && num(el.value)>num(c.max)); refreshSobres(); save(); } });
   bindSobre2();
   $$(".gateIn").forEach(el=>el.onchange=()=>{ const o=of(el.dataset.of); if(o){ o.gates[el.dataset.r]= el.value===''?null:(el.value==='1'); el.className='cn-sel gateIn '+(el.value==='1'?'si':el.value==='0'?'no':''); refreshSobres(); save(); } });
+  $$(".docIn").forEach(el=>el.onchange=()=>{ const o=of(el.dataset.of); if(o){ if(!o.gatesDoc)o.gatesDoc={}; o.gatesDoc[el.dataset.r]= el.value===''?null:(el.value==='1'); el.className='cn-sel docIn '+(el.value==='1'?'si':el.value==='0'?'no':''); refreshSobres(); save(); } });
   $$(".rechOf").forEach(el=>el.onclick=()=>{ const o=of(el.dataset.of); if(!o) return;
     if(!o.descal){ const m=prompt('Motivo del rechazo / descalificación (opcional):', o.descalMotivo||''); o.descal=true; o.descalMotivo=(m||'').trim(); }
     else { o.descal=false; o.descalMotivo=''; }
@@ -918,6 +1025,34 @@ function tablaResultados(R){
   return h;
 }
 
+/* Tabla de evaluación técnica por puntaje del acta (formato FO-AD-ABC-009):
+   criterios × miembros con voz y voto + Promedio. Con incluirEco añade la fila de
+   oferta económica y la fila Total sobre 100. */
+function actaTecnicaTable(o, incluirEco){
+  const V=votantes(), crit=critList(), ecoV=fNum(o._eco||0);
+  let h=`<table><thead><tr><th>Criterios</th><th class="n">Puntaje TDR</th>${V.map(m=>`<th class="n">${esc(m.nombre||'Miembro')}</th>`).join('')}<th class="n">Promedio</th></tr></thead><tbody>`;
+  crit.forEach(c=>{
+    h+=`<tr><td>${esc(c.nombre)}</td><td class="n">${fNum(num(c.max))}</td>${V.map(m=>{const v=notaMiembro(o,c,m.id);return `<td class="n">${v==null?'—':fNum(v)}</td>`;}).join('')}<td class="n"><b>${fNum(promedioCriterio(o,c))}</b></td></tr>`;
+  });
+  if(incluirEco) h+=`<tr><td>Oferta económica</td><td class="n">${fNum(num(grupoEco().peso))}</td>${V.map(()=>`<td class="n">${ecoV}</td>`).join('')}<td class="n"><b>${ecoV}</b></td></tr>`;
+  const totMax=incluirEco?fNum(puntosTotales()):fNum(tecMaxTotal());
+  const totProm=incluirEco?fNum(o._total||0):fNum(o._tec||0);
+  h+=`<tr><th>Total</th><th class="n">${totMax}</th>${V.map(m=>{const t=tecnicoMiembro(o,m.id)+(incluirEco?num(o._eco):0);return `<th class="n">${fNum(t)}</th>`;}).join('')}<th class="n">${totProm}</th></tr>`;
+  h+='</tbody></table>';
+  return h;
+}
+/* Matriz Cumple/No cumple de entrega de documentos (formularios) para el acta */
+function actaDocMatrix(ofs){
+  const D=reqDocList(); if(!D.length) return '';
+  let h=`<table><thead><tr><th>Formularios</th><th>Detalle</th>${ofs.map(o=>`<th class="n">${esc((o.nombre||'Oferente').slice(0,22))}</th>`).join('')}<th>Observaciones</th></tr></thead><tbody>`;
+  D.forEach((r,i)=>{
+    const det=r.nombre.replace(/^Formulario\s*\d+\s*[—-]\s*/,'');
+    h+=`<tr><td>Formulario ${i+1}</td><td>${esc(det)}</td>${ofs.map(o=>`<td class="n">${(o.gatesDoc||{})[r.id]===true?'cumple':(o.gatesDoc||{})[r.id]===false?'no cumple':'—'}</td>`).join('')}<td></td></tr>`;
+  });
+  h+='</tbody></table>';
+  return h;
+}
+
 /* ---- acta / informe imprimible ---- */
 function renderActa(R){
   const box=$("#acta"); if(!box) return;
@@ -946,10 +1081,13 @@ function renderActa(R){
     kv('Plazo para presentación de ofertas', esc(S.fechaLimiteOfertas))
   }</table>`;
 
-  // QUÓRUM
-  const quorum=`<h3>Constatación de quórum</h3><table><thead><tr><th>Nombre</th><th>Cargo institucional</th><th>Rol en la Comisión</th><th>Asistencia</th></tr></thead><tbody>${
-    com.map(m=>`<tr><td>${esc(m.nombre||'(por designar)')}</td><td>${esc(m.cargo)}</td><td>${esc(m.rol)}</td><td>Presencial / Virtual</td></tr>`).join('')
-  }</tbody></table>`;
+  // QUÓRUM — separado en voz y voto / voz sin voto (formato FO-AD-ABC-009)
+  const votM=com.filter(m=>m.voto), sinVoto=com.filter(m=>!m.voto);
+  const quorumTabla = arr=>`<table><thead><tr><th>Nombre</th><th>Cargo institucional</th><th>Rol en la Comisión</th><th>Asistencia</th></tr></thead><tbody>${
+    arr.map(m=>`<tr><td>${esc(m.nombre||'(por designar)')}</td><td>${esc(m.cargo)}</td><td>${esc(m.rol)}</td><td>Presencial / Virtual</td></tr>`).join('')}</tbody></table>`;
+  const quorum=`<h3>Constatación de quórum</h3>
+    <p style="font-weight:700;font-size:12.5px;margin:6px 0 2px">Miembros con voz y voto</p>${quorumTabla(votM.length?votM:[{}])}
+    ${sinVoto.length?`<p style="font-weight:700;font-size:12.5px;margin:12px 0 2px">Miembros con voz (sin voto) y Secretaría</p>${quorumTabla(sinVoto)}`:''}`;
 
   // PRIMERO — proponentes recibidos
   const recibidos=`<table><thead><tr><th>Proponente</th><th>Fecha de entrega</th><th>Hora</th><th>Estado</th></tr></thead><tbody>${
@@ -963,24 +1101,29 @@ function renderActa(R){
       gateList().map(r=>`<tr><td>${esc(r.nombre)}</td>${ofs.map(o=>`<td class="n">${o.gates[r.id]===true?'Cumple':o.gates[r.id]===false?'No cumple':'—'}</td>`).join('')}</tr>`).join('')
     }<tr><th>Resultado de la evaluación técnica</th>${ofs.map(o=>`<td class="n"><b>${o._tecPass?(o.descal?'RECHAZADA':'CALIFICA'):'NO CALIFICA'}</b></td>`).join('')}</tr></tbody></table>`;
   }else{
-    tecnico=`<table><thead><tr><th>Criterio de evaluación</th><th class="n">Máx.</th>${ofs.map(o=>`<th class="n">${colH(o)}</th>`).join('')}</tr></thead><tbody>${
-      critList().map(c=>`<tr><td>${esc(c.nombre)}</td><td class="n">${fNum(num(c.max))}</td>${ofs.map(o=>`<td class="n">${o.scores[c.id]==null||o.scores[c.id]===''?'—':fNum(clamp(num(o.scores[c.id]),0,num(c.max)))}</td>`).join('')}</tr>`).join('')
-    }<tr><th>Subtotal técnico</th><td class="n">${fNum(tecMaxTotal())}</td>${ofs.map(o=>`<td class="n"><b>${fNum(o._tec)}</b></td>`).join('')}</tr>`+
-    `<tr><th>Umbral técnico (${fNum(num(S.umbralTecnico))})</th><td class="n">—</td>${ofs.map(o=>`<td class="n">${o._tecPass?'Pasa':'No pasa'}</td>`).join('')}</tr></tbody></table>`;
+    // consultoría por puntaje: matriz de documentos + tabla por miembro con voz y voto
+    tecnico=`<p style="font-weight:700;font-size:12.5px;margin:2px 0">Matriz Cumple o No cumple — entrega de documentos</p>
+      ${actaDocMatrix(ofs.length?ofs:[{nombre:''}])}
+      <p style="font-size:12.5px;margin-top:12px">La evaluación técnica por puntaje se toma a cada miembro con voz y voto y se promedia por criterio. Umbral mínimo: <b>${fNum(num(S.umbralTecnico))} de ${fNum(tecMaxTotal())}</b> puntos.</p>
+      ${(ofs.length?ofs:[]).map(o=>`<p style="font-weight:700;font-size:12.5px;margin:12px 0 2px">${esc(o.nombre||'Oferente')}</p>${actaTecnicaTable(o,false)}<p style="font-size:12px;color:#6B7180;margin:2px 0 0">${o._docOk?'Cumple la entrega de documentos. ':''}Promedio técnico ${fNum(o._tec||0)}/${fNum(tecMaxTotal())} — ${o._tecPass?'habilita a la evaluación económica.':'no alcanza el umbral / no cumple documentos.'}</p>`).join('')}`;
   }
 
-  // TERCERO — evaluación económica (solo calificados)
-  const econRows = (label, fn) => `<tr><th>${label}</th>${calificados.map(o=>`<td class="n">${fn(o)}</td>`).join('')}</tr>`;
-  const economico = calificados.length
-    ? `<table><thead><tr><th>Concepto</th>${calificados.map(o=>`<th class="n">${colH(o)}</th>`).join('')}</tr></thead><tbody>${
+  // TERCERO — evaluación económica
+  let economico;
+  if(!calificados.length){
+    economico=`<p style="font-size:12.5px"><i>Ningún proponente superó la evaluación técnica; no se abren ofertas económicas.</i></p>`;
+  }else if(S.tipo==='puntos'){
+    economico = calificados.map(o=>`<p style="font-weight:700;font-size:12.5px;margin:6px 0 2px">${esc(o.nombre||'Oferente')} — RUC ${esc(o.ruc||'—')}</p>${actaTecnicaTable(o,true)}
+      <p style="font-size:12px;margin:4px 0">Valor total ofertado: <b>${esc(numeroALetras(o.precio))}</b>${S.presupuesto?`; presupuesto referencial ${esc(numeroALetras(S.presupuesto))}${num(o.precio)<=num(S.presupuesto)?`, con un ahorro de ${esc(numeroALetras(num(S.presupuesto)-num(o.precio)))}`:' (supera el presupuesto)'}`:''}. Puntaje total: <b>${fNum(o._total||0)}/${fNum(puntosTotales())}</b>.</p>`).join('');
+  }else{
+    const econRows=(label,fn)=>`<tr><th>${label}</th>${calificados.map(o=>`<td class="n">${fn(o)}</td>`).join('')}</tr>`;
+    economico=`<table><thead><tr><th>Concepto</th>${calificados.map(o=>`<th class="n">${colH(o)}</th>`).join('')}</tr></thead><tbody>${
         econRows(`Valor sin IVA (USD)`, o=>fUSD(num(o.precio)/(1+ivaP/100)))+
         econRows(`IVA (${fNum(ivaP)}%) (USD)`, o=>fUSD(num(o.precio)-num(o.precio)/(1+ivaP/100)))+
         econRows(`Valor total ofertado (USD)`, o=>`<b>${fUSD(o.precio)}</b>`)+
-        (S.tipo==='puntos'? econRows(`Puntaje económico (${fNum(num(grupoEco().peso))})`, o=>fNum(o._eco)) : '')+
-        (S.presupuesto? econRows(`¿Se ajusta al presupuesto referencial?`, o=>num(o.precio)<=num(S.presupuesto)?'Sí':'No') : '')+
-        (S.tipo==='puntos'? econRows(`Puntaje total`, o=>`<b>${fNum(o._total)}</b> / ${fNum(totMax)}`) : '')
-      }</tbody></table>${S.presupuesto?`<p style="font-size:11.5px;color:#6B7180">Presupuesto referencial: ${fUSD(S.presupuesto)}.</p>`:''}`
-    : `<p style="font-size:12.5px"><i>Ningún proponente superó la evaluación técnica; no se abren ofertas económicas.</i></p>`;
+        (S.presupuesto? econRows(`¿Se ajusta al presupuesto referencial?`, o=>num(o.precio)<=num(S.presupuesto)?'Sí':'No') : '')
+      }</tbody></table>${S.presupuesto?`<p style="font-size:11.5px;color:#6B7180">Presupuesto referencial: ${esc(numeroALetras(S.presupuesto))}.</p>`:''}`;
+  }
 
   // CUARTO — adjudicación
   const w=R.winner;
@@ -991,15 +1134,19 @@ function renderActa(R){
     : `${notaUnica}<p style="font-size:12.5px">☐ Recomienda la adjudicación a favor de ____________________.</p>
        <p style="font-size:12.5px"><b>☑ Declara desierto</b> el procedimiento debido a que ${R.unicoRechazadaPorConveniencia?'la propuesta única presentada fue declarada no conveniente para los intereses institucionales':R.unicoPendiente?'la propuesta única presentada se encuentra pendiente de pronunciamiento':(ofs.length?'ninguna de las ofertas se ajusta a lo solicitado':'no se presentaron ofertas')}.</p>`;
 
-  // FIRMAS
-  const firmas = `<div style="margin-top:10px">${com.map(m=>`<span class="firma"><span class="line"></span>${esc(m.nombre||'Nombre y apellido')}<br><b>${esc(m.rol)}</b><br><span style="color:#6B7180">${esc(m.cargo)}</span></span>`).join('')}</div>`;
+  // FIRMAS — agrupadas por voz y voto / voz sin voto
+  const firmaBlock = arr=>`<div style="margin-top:8px">${arr.map(m=>`<span class="firma"><span class="line"></span>${esc(m.nombre||'Nombre y apellido')}<br><b>${esc(m.rol)}</b><br><span style="color:#6B7180">${esc(m.cargo)}</span></span>`).join('')}</div>`;
+  const firmas = `<p style="font-weight:700;font-size:12.5px;margin:4px 0 0">Miembros con voz y voto:</p>${firmaBlock(votM.length?votM:[{}])}${sinVoto.length?`<p style="font-weight:700;font-size:12.5px;margin:16px 0 0">Miembros con voz sin voto:</p>${firmaBlock(sinVoto)}`:''}`;
 
   box.innerHTML=`
   <div class="acta">
     <div class="acta-doc" id="actaDoc">
-      <div class="acta-lh"><div class="logo">FAP</div><div><div class="t1">FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE — FIAS</div><div class="t2">Programa Fondo de Áreas Protegidas (FAP) · Comisión de Calificación</div></div></div>
+      <table style="margin:0 0 14px"><tr>
+        <td style="width:96px;text-align:center;vertical-align:middle"><div class="logo" style="margin:0 auto">FAP</div></td>
+        <td style="text-align:center"><b>FONDO DE INVERSIÓN AMBIENTAL SOSTENIBLE</b><br><span style="color:#6B7180">Programa Fondo de Áreas Protegidas (FAP) — COMISIÓN DE CALIFICACIÓN DE OFERTAS</span><br><b>ACTA DE APERTURA DE SOBRES</b><br><i style="font-size:11.5px">“${esc(S.objeto||'')}”</i></td>
+        <td style="width:170px;font-size:11.5px">Código: FO-AD-ABC-009<br>Proceso: ${esc(S.codigo||'—')}<br>Versión: 01</td>
+      </tr></table>
       <h2 class="actitle">Acta N.º ${esc(S.actaNo||'001')}</h2>
-      <div class="acsub">Acta de calificación, selección y adjudicación — ${esc(S.objeto||'(objeto de la contratación)')}</div>
 
       <h3>Datos del proceso</h3>
       ${datos}
