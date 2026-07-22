@@ -225,9 +225,15 @@ function enteroALetras(n){
   if(resto) o+=sec(resto);
   return o.trim();
 }
+/* Devuelve "USD 10.000,00 (Diez mil con 00/100 dólares de los Estados Unidos de
+   América)" — cifra + letras en el mismo formato que usan las bases del FAP (mayúscula
+   solo en la primera palabra, no todo el texto en mayúsculas). */
 function numeroALetras(v){
   const n=num(v), ent=Math.floor(n), cts=Math.round((n-ent)*100);
-  return (enteroALetras(ent)+' con '+String(cts).padStart(2,'0')+'/100 dólares de los Estados Unidos de América').toUpperCase();
+  const letras=enteroALetras(ent)+' con '+String(cts).padStart(2,'0')+'/100 dólares de los Estados Unidos de América';
+  const sentence=letras.charAt(0).toUpperCase()+letras.slice(1);
+  const cifra=n.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return `USD ${cifra} (${sentence})`;
 }
 
 /* "Fuente de financiamiento / PAG": una sola fila del acta compuesta por la partida
@@ -349,7 +355,7 @@ function blankState(tipo){
   base.oferentes=[emptyOf(base),emptyOf(base)];
   return base;
 }
-function emptyOf(S){ return {id:uid('of'),nombre:'',ruc:'',precio:'',scores:{},gates:{},obs:''}; }
+function emptyOf(S){ return {id:uid('of'),nombre:'',ruc:'',precio:'',fechaEntrega:'',scores:{},gates:{},obs:''}; }
 
 /* --------------------------------- state --------------------------------- */
 const LS='fap_calificador_v1';
@@ -709,6 +715,7 @@ function ofNameCell(o){
   return `<td class="of">
     <input class="in ofn" data-of="${o.id}" data-k="nombre" value="${esc(o.nombre)}" placeholder="Razón social / nombre">
     <input class="in ofr" data-of="${o.id}" data-k="ruc" value="${esc(o.ruc)}" placeholder="RUC / cédula" style="font-size:12px">
+    <input class="in off" data-of="${o.id}" data-k="fechaEntrega" value="${esc(o.fechaEntrega)}" placeholder="Fecha de entrega de la oferta (opcional)" style="font-size:11.5px;color:var(--muted);margin-top:3px" title="Va en el acta, columna «Fecha de entrega» (tag {fof})">
     ${o.descal?`<div class="miniof" style="color:var(--red);font-weight:700">⊘ Rechazada por la Comisión</div>`:''}</td>`;
 }
 function priceCell(o){
@@ -764,7 +771,7 @@ function bindOferentes(){
   const add=$("#addOf"); if(add) add.onclick=()=>{ S.oferentes.push(emptyOf(S)); render(); };
   $$(".delOf").forEach(el=>el.onclick=()=>{ S.oferentes=S.oferentes.filter(o=>o.id!==el.dataset.of); render(); });
   const of=id=>S.oferentes.find(o=>o.id===id);
-  $$(".ofn,.ofr").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o[el.dataset.k]=el.value; renderResultados(); save();} });
+  $$(".ofn,.ofr,.off").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o[el.dataset.k]=el.value; renderResultados(); save();} });
   $$(".scoreIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){ o.scores[el.dataset.c]=el.value; const c=critList().find(x=>x.id===el.dataset.c); el.classList.toggle('over', c && num(el.value)>num(c.max)); renderResultados(); save(); } });
   $$(".priceIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o.precio=el.value; const pr=num(S.presupuesto); el.classList.toggle('over', pr>0 && num(el.value)>pr); renderResultados(); save();} });
   $$(".gateIn").forEach(el=>el.onchange=()=>{ const o=of(el.dataset.of); if(o){ o.gates[el.dataset.r]= el.value===''?null:(el.value==='1'); el.className='cn-sel gateIn '+(el.value==='1'?'si':el.value==='0'?'no':''); renderResultados(); save(); } });
@@ -818,7 +825,7 @@ function renderResultados(){
         <div class="wn">${esc(w.nombre||'(sin nombre)')}</div>
         <div class="ws">${S.tipo==='puntos'
           ? `Puntaje total <b>${fNum(w._total)} / ${fNum(puntosTotales())}</b> — Técnico ${fNum(w._tec)} + Económico ${fNum(w._eco)}`
-          : `Cumple todos los requisitos · <b>menor precio</b>`} · Precio <b>${fUSD(w.precio)}</b> (${esc(numeroALetras(w.precio))})${R.esUnica?' · <span style="color:var(--green)">propuesta única confirmada como conveniente</span>':''}</div>
+          : `Cumple todos los requisitos · <b>menor precio</b>`} · Precio <b>${esc(numeroALetras(w.precio))}</b>${R.esUnica?' · <span style="color:var(--green)">propuesta única confirmada como conveniente</span>':''}</div>
       </div>
     </div>`;
   } else if(conNombre.length && !unicaPanel){
@@ -907,7 +914,7 @@ function renderActa(R){
     kv('Objeto de la contratación', esc(S.objeto))+
     kv('Área protegida / instancia beneficiaria', esc(S.area))+
     kv('Modalidad de selección', esc(S.modalidad))+
-    kv('Presupuesto referencial (USD, IVA incluido)', S.presupuesto?`${fUSD(S.presupuesto)} (${esc(presLetras)})`:'—')+
+    kv('Presupuesto referencial (USD, IVA incluido)', S.presupuesto?esc(presLetras):'—')+
     kv('Fuente de financiamiento / PAG', esc(fuenteFinanciamientoTexto()))+
     kv('Fecha de invitación', esc(S.fechaInvitacion))+
     kv('Plazo para presentación de ofertas', esc(S.fechaLimiteOfertas))
@@ -920,7 +927,7 @@ function renderActa(R){
 
   // PRIMERO — proponentes recibidos
   const recibidos=`<table><thead><tr><th>Proponente</th><th>Fecha de entrega</th><th>Hora</th><th>Estado</th></tr></thead><tbody>${
-    (ofs.length?ofs:[{nombre:''}]).map(o=>`<tr><td>${esc(o.nombre||'—')}</td><td>____________</td><td>__:__</td><td>A tiempo ☐&nbsp;&nbsp;Extemporánea ☐</td></tr>`).join('')
+    (ofs.length?ofs:[{nombre:''}]).map(o=>`<tr><td>${esc(o.nombre||'—')}</td><td>${esc(o.fechaEntrega||'____________')}</td><td>__:__</td><td>A tiempo ☐&nbsp;&nbsp;Extemporánea ☐</td></tr>`).join('')
   }</tbody></table>`;
 
   // SEGUNDO — evaluación técnica
@@ -953,7 +960,7 @@ function renderActa(R){
   const w=R.winner;
   const notaUnica = R.esUnica ? `<p style="font-size:12.5px"><i>Propuesta única presentada: se recibió una sola oferta. Conforme a las bases, la Comisión se pronuncia expresamente sobre su conveniencia a los intereses institucionales ${R.unico&&R.unico.unicaOk===true?'y la declara <b>conveniente</b>':R.unico&&R.unico.unicaOk===false?'y la declara <b>no conveniente</b>':'(pronunciamiento pendiente)'}.</i></p>` : '';
   const adj = w
-    ? `${notaUnica}<p style="font-size:12.5px"><b>☑ Recomienda la adjudicación</b> a favor de <b>${esc(w.nombre||'')}</b> con RUC ${esc(w.ruc||'____________')}, por un valor total de <b>${fUSD(w.precio)}</b> (${esc(numeroALetras(w.precio))}), por ${S.tipo==='puntos'?`obtener el mayor puntaje total (${fNum(w._total)} de ${fNum(totMax)} puntos)`:'cumplir las condiciones solicitadas y ofertar el precio más bajo'}.</p>
+    ? `${notaUnica}<p style="font-size:12.5px"><b>☑ Recomienda la adjudicación</b> a favor de <b>${esc(w.nombre||'')}</b> con RUC ${esc(w.ruc||'____________')}, por un valor total de <b>${esc(numeroALetras(w.precio))}</b>, por ${S.tipo==='puntos'?`obtener el mayor puntaje total (${fNum(w._total)} de ${fNum(totMax)} puntos)`:'cumplir las condiciones solicitadas y ofertar el precio más bajo'}.</p>
        <p style="font-size:12.5px">☐ Declara desierto el procedimiento.</p>`
     : `${notaUnica}<p style="font-size:12.5px">☐ Recomienda la adjudicación a favor de ____________________.</p>
        <p style="font-size:12.5px"><b>☑ Declara desierto</b> el procedimiento debido a que ${R.unicoRechazadaPorConveniencia?'la propuesta única presentada fue declarada no conveniente para los intereses institucionales':R.unicoPendiente?'la propuesta única presentada se encuentra pendiente de pronunciamiento':(ofs.length?'ninguna de las ofertas se ajusta a lo solicitado':'no se presentaron ofertas')}.</p>`;
@@ -977,7 +984,7 @@ function renderActa(R){
       <p style="font-size:12.5px">Constatado el quórum reglamentario, la Presidencia declara instalada la sesión y dispone dar lectura al orden del día: (1) antecedentes del proceso; (2) revisión y evaluación de ofertas técnicas; (3) revisión y evaluación de ofertas económicas; (4) selección y adjudicación; (5) varios.</p>
 
       <h3>Primero — Antecedentes del proceso</h3>
-      <p style="font-size:12.5px">Mediante ${esc(S.memoNro?('memorando/resolución N.º '+S.memoNro):'memorando/resolución N.º ____________')}${S.fechaInicio?`, de fecha ${esc(S.fechaInicio)}`:''}, se solicitó el inicio del proceso de ${esc(S.modalidad||'selección')} para “${esc(S.objeto||'')}”. El presupuesto referencial corresponde a ${S.presupuesto?`${fUSD(S.presupuesto)} (${esc(presLetras)})`:'____________'}, previsto en el PAG aprobado. Se remitieron las invitaciones a proveedores calificados por el FIAS, recibiéndose las siguientes ofertas dentro del plazo previsto (hasta ${esc(S.fechaLimiteOfertas||'____________')}):</p>
+      <p style="font-size:12.5px">Mediante ${esc(S.memoNro?('memorando/resolución N.º '+S.memoNro):'memorando/resolución N.º ____________')}${S.fechaInicio?`, de fecha ${esc(S.fechaInicio)}`:''}, se solicitó el inicio del proceso de ${esc(S.modalidad||'selección')} para “${esc(S.objeto||'')}”. El presupuesto referencial corresponde a ${S.presupuesto?esc(presLetras):'____________'}, previsto en el PAG aprobado. Se remitieron las invitaciones a proveedores calificados por el FIAS, recibiéndose las siguientes ofertas dentro del plazo previsto (hasta ${esc(S.fechaLimiteOfertas||'____________')}):</p>
       ${recibidos}
 
       <h3>Segundo — Revisión y evaluación de la oferta técnica</h3>
@@ -1161,7 +1168,7 @@ async function generarActaWord(){
     jefe:pres.nombre||'', ac:secr.nombre||'',
     comision: com.map(m=>({nombre:m.nombre||'(por designar)', cargo:m.cargo||'', rol:m.rol||''})),
     items: medios.map(m=>({miembros:m.nombre||'(por designar)', cargo:m.cargo||'', rol:m.rol||''})),
-    provs: ofs.map(o=>({razon:o.nombre||'', fof:''})),
+    provs: ofs.map(o=>({razon:o.nombre||'', fof:o.fechaEntrega||''})),
     monto1: ofs[0]?fUSD(ofs[0].precio):'', monto2: ofs[1]?fUSD(ofs[1].precio):'', monto3: ofs[2]?fUSD(ofs[2].precio):'',
     tecnicos: S.tipo==='puntos'
       ? ofs.map(o=>({razon:o.nombre||'', tecnico:fNum(o._tec), umbralRes:o._tecPass?'Pasa':'No pasa'}))
