@@ -25,8 +25,8 @@ Datos simples: `{objeto}` `{area}` `{modalidad}` `{presupuesto}` `{presupuestoLe
 `{proveedor}` `{proveedorRuc}` `{montoLetras}`.
 
 Bucles: `{#items}{miembros}{cargo}{rol}{/items}` (miembros del quórum, sin Presidente/
-Secretario) · `{#comision}{nombre}{rol}{cargo}{/comision}` (firmas) · `{#provs}{razon}{fof}{/provs}`
-(ofertas recibidas) · `{#tecnicos}{razon}{resultado}{#reqs}{req}{res}{/reqs}{/tecnicos}`
+Secretario) · `{#comision}{nombre}{rol}{cargo}{/comision}` (firmas) · `{#provs}{razon}{fof}{hof}{/provs}`
+(ofertas recibidas — `{fof}` fecha de entrega, `{hof}` hora de entrega) · `{#tecnicos}{razon}{resultado}{#reqs}{req}{res}{/reqs}{/tecnicos}`
 (bloque técnico por oferente) · `{#economicos}{razon}{total}{difPresupuesto}{enPresupuesto}{/economicos}`
 · `{#prelacion}{orden}{razon}{tec}{eco}{totalPts}{/prelacion}`.
 
@@ -45,7 +45,7 @@ Bucles:
 
 - **Quórum / firmas** — `{#votM}{nombre}{cargo}{rol}{/votM}` (voz y voto) y
   `{#sinVoto}{nombre}{cargo}{rol}{/sinVoto}` (voz sin voto y Secretaría).
-- **Ofertas recibidas** — `{#provs}{razon}{fof}{/provs}`.
+- **Ofertas recibidas** — `{#provs}{razon}{fof}{hof}{/provs}` (`{fof}` fecha, `{hof}` hora).
 - **Matriz de documentos** — `{#docs}{formulario}{detalle}{res}{/docs}`.
 - **Evaluación técnica por oferente** (bloque) — `{#tecOfs}` … `{razon}`, tabla con
   `{#rows}{criterio}{max}{n1}{n2}{n3}{n4}{promedio}{/rows}`, fila total `{t1}{t2}{t3}{t4}`

@@ -378,7 +378,7 @@ function blankState(tipo){
   base.oferentes=[emptyOf(base)];
   return base;
 }
-function emptyOf(S){ return {id:uid('of'),nombre:'',ruc:'',precio:'',fechaEntrega:'',scores:{},gates:{},gatesDoc:{},obs:''}; }
+function emptyOf(S){ return {id:uid('of'),nombre:'',ruc:'',precio:'',fechaEntrega:'',horaEntrega:'',scores:{},gates:{},gatesDoc:{},obs:''}; }
 /* miembros con voz y voto (los que califican por puntaje) */
 const votantes = ()=> (S.comision||[]).filter(m=>m.voto);
 
@@ -814,7 +814,10 @@ function ofNameCell(o){
   return `<td class="of">
     <input class="in ofn" data-of="${o.id}" data-k="nombre" value="${esc(o.nombre)}" placeholder="Razón social / nombre">
     <input class="in ofr" data-of="${o.id}" data-k="ruc" value="${esc(o.ruc)}" placeholder="RUC / cédula" style="font-size:12px">
-    <input class="in off" data-of="${o.id}" data-k="fechaEntrega" value="${esc(o.fechaEntrega)}" placeholder="Fecha de entrega de la oferta (opcional)" style="font-size:11.5px;color:var(--muted);margin-top:3px" title="Va en el acta, columna «Fecha de entrega» (tag {fof})">
+    <div style="display:flex;gap:4px;margin-top:3px">
+      <input class="in off" data-of="${o.id}" data-k="fechaEntrega" value="${esc(o.fechaEntrega)}" placeholder="Fecha de entrega (opcional)" style="font-size:11.5px;color:var(--muted)" title="Va en el acta, columna «Fecha de entrega» (tag {fof})">
+      <input class="in ofh" data-of="${o.id}" data-k="horaEntrega" value="${esc(o.horaEntrega)}" placeholder="Hora" style="font-size:11.5px;color:var(--muted);max-width:70px" title="Va en el acta, columna «Hora» (tag {hof})">
+    </div>
     ${o.descal?`<div class="miniof" style="color:var(--red);font-weight:700">⊘ Rechazada por la Comisión</div>`:''}</td>`;
 }
 function priceCell(o){
@@ -908,7 +911,7 @@ function bindOferentes(){
   const add=$("#addOf"); if(add) add.onclick=()=>{ S.oferentes.push(emptyOf(S)); render(); };
   $$(".delOf").forEach(el=>el.onclick=()=>{ S.oferentes=S.oferentes.filter(o=>o.id!==el.dataset.of); render(); });
   const of=id=>S.oferentes.find(o=>o.id===id);
-  $$(".ofn,.ofr,.off").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o[el.dataset.k]=el.value; refreshSobres(); save();} });
+  $$(".ofn,.ofr,.off,.ofh").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){o[el.dataset.k]=el.value; refreshSobres(); save();} });
   $$(".scoreIn").forEach(el=>el.oninput=()=>{ const o=of(el.dataset.of); if(o){ const cid=el.dataset.c, mid=el.dataset.m; if(!o.scores[cid]||typeof o.scores[cid]!=='object') o.scores[cid]={}; o.scores[cid][mid]=el.value; const c=critList().find(x=>x.id===cid); el.classList.toggle('over', c && num(el.value)>num(c.max)); refreshSobres(); save(); } });
   bindSobre2();
   $$(".gateIn").forEach(el=>el.onchange=()=>{ const o=of(el.dataset.of); if(o){ o.gates[el.dataset.r]= el.value===''?null:(el.value==='1'); el.className='cn-sel gateIn '+(el.value==='1'?'si':el.value==='0'?'no':''); refreshSobres(); save(); } });
@@ -1096,7 +1099,7 @@ function renderActa(R){
 
   // PRIMERO — proponentes recibidos
   const recibidos=`<table><thead><tr><th>Proponente</th><th>Fecha de entrega</th><th>Hora</th><th>Estado</th></tr></thead><tbody>${
-    (ofs.length?ofs:[{nombre:''}]).map(o=>`<tr><td>${esc(o.nombre||'—')}</td><td>${esc(o.fechaEntrega||'____________')}</td><td>__:__</td><td>A tiempo ☐&nbsp;&nbsp;Extemporánea ☐</td></tr>`).join('')
+    (ofs.length?ofs:[{nombre:''}]).map(o=>`<tr><td>${esc(o.nombre||'—')}</td><td>${esc(o.fechaEntrega||'____________')}</td><td>${esc(o.horaEntrega||'__:__')}</td><td>A tiempo ☐&nbsp;&nbsp;Extemporánea ☐</td></tr>`).join('')
   }</tbody></table>`;
 
   // SEGUNDO — evaluación técnica
@@ -1351,7 +1354,7 @@ async function generarActaWord(){
       umbral:fNum(num(S.umbralTecnico)), tecMax:fNum(tecMaxTotal()), puntosTotal:fNum(puntosTotales()),
       m1nom:mName(0), m2nom:mName(1), m3nom:mName(2), m4nom:mName(3),
       votM:votM.map(miembroDatos), sinVoto:sinVoto.map(miembroDatos),
-      provs: ofs.map(o=>({razon:o.nombre||'', fof:o.fechaEntrega||''})),
+      provs: ofs.map(o=>({razon:o.nombre||'', fof:o.fechaEntrega||'', hof:o.horaEntrega||''})),
       docs: reqDocList().map((r,i)=>({formulario:'Formulario '+(i+1), detalle:r.nombre.replace(/^Formulario\s*\d+\s*[—-]\s*/,''), res:(docsOf.gatesDoc||{})[r.id]===true?'cumple':(docsOf.gatesDoc||{})[r.id]===false?'no cumple':'—'})),
       tecOfs: ofs.map(o=>({razon:o.nombre||'', rows:filas(o), t1:memTot(o,0),t2:memTot(o,1),t3:memTot(o,2),t4:memTot(o,3),
         tecMax:fNum(tecMaxTotal()), tecProm:fNum(o._tec||0),
@@ -1376,7 +1379,7 @@ async function generarActaWord(){
       jefe:pres.nombre||'', ac:secr.nombre||'',
       comision: com.map(m=>({nombre:m.nombre||'(por designar)', cargo:m.cargo||'', rol:m.rol||''})),
       items: medios.map(m=>({miembros:m.nombre||'(por designar)', cargo:m.cargo||'', rol:m.rol||''})),
-      provs: ofs.map(o=>({razon:o.nombre||'', fof:o.fechaEntrega||''})),
+      provs: ofs.map(o=>({razon:o.nombre||'', fof:o.fechaEntrega||'', hof:o.horaEntrega||''})),
       monto1: ofs[0]?fUSD(ofs[0].precio):'', monto2: ofs[1]?fUSD(ofs[1].precio):'', monto3: ofs[2]?fUSD(ofs[2].precio):'',
       tecnicos: ofs.map(o=>({razon:o.nombre||'', resultado:o._tecPass?(o.descal?'RECHAZADA':'CALIFICA'):'NO CALIFICA',
           reqs:gateList().map(r=>({req:r.nombre, res:o.gates[r.id]===true?'Cumple':o.gates[r.id]===false?'No cumple':'—'}))})),
