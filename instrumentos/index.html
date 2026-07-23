@@ -14825,6 +14825,139 @@ const cacheEstructura = {};
 function varsDe(p){
   return p.tipo === 'docx' ? estructuraDocx(p).escalares : extraerVariables(p.cuerpo);
 }
+
+/* ============ Importar plantilla Word como composición editable ============
+   Extrae el cuerpo del .docx a HTML (párrafos, encabezados de cláusula, listas,
+   tablas, negrita/cursiva, y {tag}→{{tag}}). Sirve para partir la plantilla en
+   bloques (Fase 1) e indexar sus cláusulas en el repositorio (Fase 2), de modo
+   que editar una cláusula se propague a todas las plantillas que la usan.
+   No toca la plantilla .docx original ni el generador docxtemplater. */
+const desescaparXml = s => String(s).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#\d+;/g, m => String.fromCharCode(+m.slice(2,-1)));
+function runsDocxAHtml(pXml){
+  let out = '';
+  pXml.replace(/<w:r\b[^>]*>([\s\S]*?)<\/w:r>/g, (m, r) => {
+    const rpr = (r.match(/<w:rPr>[\s\S]*?<\/w:rPr>/) || [''])[0];
+    let t = ''; r.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g, (mm, tt) => { t += tt; return ''; });
+    if(/<w:tab\b/.test(r)) t += '\t';
+    if(!t) return '';
+    t = esc(desescaparXml(t));
+    if(/<w:b\/>/.test(rpr)) t = '<b>' + t + '</b>';
+    if(/<w:i\/>/.test(rpr)) t = '<i>' + t + '</i>';
+    if(/<w:u\b/.test(rpr)) t = '<u>' + t + '</u>';
+    out += t; return '';
+  });
+  // Limpia formato/espacios DENTRO de cada {…} (un tag puede tener la 1.ª letra en
+  // otra fuente y quedar partido, p. ej. {<b>N</b>ombre} o { N ombre}).
+  out = out.replace(/\{[^{}]*\}/g, m => '{' + m.slice(1, -1).replace(/<[^>]+>/g,'').replace(/\s+/g,'') + '}');
+  // {tag} de docxtemplater → {{tag}} de las plantillas HTML (no toca {#..}{/..})
+  out = out.replace(/\{([#\/^]?)([\wáéíóúñÁÉÍÓÚÑ]+)\}/g, (m, mark, name) => mark ? m : '{{' + name + '}}');
+  return out;
+}
+function tablaDocxAHtml(tbl){
+  let html = '<table>';
+  tbl.replace(/<w:tr\b[^>]*>([\s\S]*?)<\/w:tr>/g, (m, tr) => {
+    html += '<tr>';
+    tr.replace(/<w:tc\b[^>]*>([\s\S]*?)<\/w:tc>/g, (mm, tc) => {
+      let celda = ''; tc.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, pp => { celda += runsDocxAHtml(pp) + ' '; return ''; });
+      html += '<td>' + celda.trim() + '</td>'; return '';
+    });
+    html += '</tr>'; return '';
+  });
+  return html + '</table>';
+}
+function docxABodyHtml(p){
+  const b64 = archivoDocxDe(p); if(!b64) return '';
+  let xml;
+  try{ xml = new PizZip(b64ABytes(b64)).file('word/document.xml').asText(); }catch(e){ return ''; }
+  xml = aceptarRevisionesXml(xml);
+  const body = (xml.match(/<w:body>([\s\S]*)<\/w:body>/) || [])[1] || '';
+  // bloques de nivel superior (w:p y w:tbl) en orden, saltando los w:p dentro de tablas
+  const bloques = []; const re = /<w:(p|tbl)\b/g; let m, saltarHasta = 0;
+  while((m = re.exec(body)) !== null){
+    if(m.index < saltarHasta) continue;
+    const tag = m[1], cierre = '</w:' + tag + '>';
+    const end = body.indexOf(cierre, m.index) + cierre.length;
+    bloques.push({ tag, xml: body.slice(m.index, end) });
+    if(tag === 'tbl') saltarHasta = end;
+  }
+  let html = '', listaAbierta = false;
+  const cerrarLista = () => { if(listaAbierta){ html += '</ol>'; listaAbierta = false; } };
+  bloques.forEach(b => {
+    if(b.tag === 'tbl'){ cerrarLista(); html += tablaDocxAHtml(b.xml); return; }
+    const numPr = /<w:numPr>/.test(b.xml);
+    const txt = runsDocxAHtml(b.xml);
+    const plano = txt.replace(/<[^>]+>/g,'').trim();
+    if(numPr){
+      if(!listaAbierta){ html += '<ol>'; listaAbierta = true; }
+      html += '<li>' + (txt || '') + '</li>';
+      return;
+    }
+    if(!plano){ return; }   // párrafo vacío: no rompe la lista ni añade ruido
+    cerrarLista();
+    if(/^\s*(CL[ÁA]USULA|Cl[áa]usula)\b/.test(plano)) html += '<h2>' + plano + '</h2>';
+    else html += '<p>' + txt + '</p>';
+  });
+  cerrarLista();
+  return html;
+}
+/* Huella normalizada de una cláusula para reconocer «la misma» entre plantillas:
+   ignora formato, tags concretos, acentos, mayúsculas y espacios. */
+function huellaClausula(html){
+  return String(html)
+    .replace(/<[^>]+>/g,' ')
+    .replace(/\{\{[^}]+\}\}/g,' ¤ ')      // los tags no cuentan (pueden variar de nombre)
+    .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9¤]+/g,'');
+}
+/* Busca en el repositorio una cláusula/variante con la misma huella; si no
+   existe, la crea. Así la primera plantilla que trae una cláusula la registra y
+   las siguientes que la comparten se enlazan a la misma (quedan conectadas). */
+function indexarClausulaEnRepo(titulo, html){
+  const fp = huellaClausula(html);
+  if(fp.replace(/¤/g,'').length < 12) return null;   // demasiado corta para indexar
+  for(const cl of clausulas){
+    for(const v of cl.variantes){
+      if(huellaClausula(v.cuerpo) === fp) return { clId: cl.id, varId: v.id, nuevo: false };
+    }
+  }
+  const v = { id: uid(), nombre: 'Original', cuerpo: html };
+  const cl = { id: uid(), categoria: 'Importadas de Word', nombre: (titulo || 'Cláusula').trim(), variantes: [v] };
+  clausulas.unshift(cl);
+  return { clId: cl.id, varId: v.id, nuevo: true };
+}
+/* Convierte un .docx subido en una composición de bloques con sus cláusulas
+   indexadas y vinculadas al repositorio. Crea una plantilla HTML nueva; la
+   .docx original y el generador docxtemplater quedan intactos. */
+function importarDocxAComposicion(p){
+  if(!p || p.tipo !== 'docx') return;
+  const body = docxABodyHtml(p);
+  if(!body || !body.replace(/<[^>]+>/g,'').trim()){ alert('No pude extraer texto del documento. ¿Es un .docx válido?'); return; }
+  const bloques = migrarABloques({ cuerpo: body });
+  let nCl = 0, vinc = 0, nuevas = 0;
+  bloques.forEach(b => {
+    if(b.tipo !== 'clausula') return;
+    nCl++;
+    const r = indexarClausulaEnRepo(b.titulo, b.cuerpo);
+    if(!r) return;
+    const rv = buscarVariante(r.clId, r.varId);
+    b.refCl = r.clId; b.refVar = r.varId; b.personalizado = false;
+    if(rv){ b.cuerpo = rv.v.cuerpo; b.titulo = rv.cl.nombre; b.refHash = hashHTML(rv.v.cuerpo); }
+    if(r.nuevo) nuevas++; else vinc++;
+  });
+  const nueva = {
+    id: uid(),
+    nombre: (p.nombre || 'Plantilla').replace(/\s*\((Word|docx)\)\s*$/i,'').trim() + ' (composición)',
+    categoria: p.categoria || 'Contratos',
+    descripcion: 'Importada del Word e indexada al repositorio de cláusulas.',
+    tipo: 'html', bloques, actualizado: hoy()
+  };
+  nueva.cuerpo = ensamblarCuerpo(nueva);
+  plantillas.unshift(nueva);
+  guardar();
+  seleccion = nueva.id; datosForm = {}; condForm = {}; listasForm = {}; bloqueEditando = null; tabActual = 'editar';
+  renderCats(); renderLista(); renderTabs(); renderContenido();
+  alert(`✓ «${nueva.nombre}» creada como composición editable.\n\n${nCl} cláusulas detectadas:\n• ${nuevas} nuevas, registradas en el repositorio\n• ${vinc} vinculadas a cláusulas que ya existían (quedan conectadas)\n\nEdita cualquier cláusula aquí: los cambios se propagan a todas las plantillas que la comparten. La plantilla Word original y el generador siguen intactos.`);
+}
 /* Acepta las marcas de revisión (control de cambios) del XML de Word: descarta
    el texto borrado (<w:del>, <w:moveFrom>) y conserva el insertado (<w:ins>,
    <w:moveTo>). Sin esto, el texto viejo tachado y el nuevo aparecen pegados y
@@ -15719,7 +15852,11 @@ function cerrarModal(){
    al guardar se reensambla p.cuerpo (con la numeración ya escrita), así toda la
    generación, vista previa y exportación siguen leyendo p.cuerpo sin cambios. */
 function tituloClausulaLimpio(txt){
-  return String(txt||'').replace(/^\s*CL[ÁA]USULA\s+[\wÁÉÍÓÚÑáéíóúñ]+(\s+[\wÁÉÍÓÚÑáéíóúñ]+)?\s*[:.\-–]+\s*/i,'').trim();
+  return String(txt||'')
+    .replace(/<[^>]+>/g,'')                                             // sin formato
+    .replace(/^\s*CL[ÁA]USULA\s+[\wÁÉÍÓÚÑáéíóúñ]+(\s+[\wÁÉÍÓÚÑáéíóúñ]+)?/i,'')  // «CLÁUSULA ORDINAL»
+    .replace(/^[\s.:\-–—]+/,'')                                          // separadores sobrantes (. - – :)
+    .trim();
 }
 /* Divide el HTML de una plantilla en bloques cortando por los encabezados de
    cláusula (<h2>CLÁUSULA …</h2>). Lo previo a la primera cláusula = encabezado. */
@@ -16728,6 +16865,12 @@ function renderEditarDocx(c, p){
         <input type="file" id="docx-upd" accept=".docx" style="display:none" onchange="subirVersionDocx(event)">
       </div>
       <div class="nota" style="margin-top:8px">Flujo: descarga → edita en Word (agrega o mueve {tags} donde quieras) → sube la versión nueva. Los datos capturados no se pierden.</div>
+    </div>
+    <div class="card" style="margin-top:12px;border:1px solid var(--verde-mark, #9BC53D)">
+      <h3>🔗 Convertir en composición editable (indexar cláusulas)</h3>
+      <p style="font-size:13px;line-height:1.6;margin-bottom:10px">Extrae el texto de este Word, lo parte en <b>cláusulas</b> y las <b>conecta al repositorio</b>. Si otra plantilla comparte una cláusula, quedan enlazadas: <b>editas la cláusula una vez y se actualiza en todas</b>. Se crea una plantilla nueva (composición); esta plantilla Word y el generador no se tocan.</p>
+      <button class="btn" onclick="importarDocxAComposicion(plActual())">🔗 Importar como composición e indexar cláusulas</button>
+      <div class="nota" style="margin-top:8px">Al generar, la composición usa el formato institucional (Titillium, papel membretado). Las cláusulas que edites cambian a ese formato; el texto y la estructura se conservan.</div>
     </div>
     <div class="card" style="margin-top:12px">
       <h3>Tags detectados en el Word</h3>
