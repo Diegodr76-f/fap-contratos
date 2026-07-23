@@ -773,12 +773,16 @@ function matrizDocs(){
   h+='</tbody></table>';
   return h;
 }
+/* Encabezado (nombre · RUC) del bloque de puntaje; se refresca en vivo en refreshSobres */
+function ofHdrInner(o){
+  return `${esc(o.nombre||'(oferente sin nombre)')}${o.ruc?` <span style="color:var(--muted);font-weight:600">· ${esc(o.ruc)}</span>`:''}`;
+}
 /* Sobre 1 · consultoría — puntaje por miembro con voz y voto + promedio (por oferente) */
 function puntajeOferente(o){
   const V=votantes(), crit=critList();
   let h=`<div class="grp-box" style="padding:0;overflow:hidden;margin-bottom:14px;${o.descal?'opacity:.55':''}">
     <div class="grp-head" style="padding:11px 14px;margin:0;background:#FCFDFF;border-bottom:1px solid var(--line2)">
-      <div class="gt" style="flex:1">${esc(o.nombre||'(oferente sin nombre)')}${o.ruc?` <span style="color:var(--muted);font-weight:600">· ${esc(o.ruc)}</span>`:''}</div>
+      <div class="gt" style="flex:1" id="ofhdr-${o.id}">${ofHdrInner(o)}</div>
       <span id="est1-${o.id}">${estadoSobre1Inner(o)}</span>
       <span style="margin-left:8px">${ofActionsInline(o)}</span>
     </div>
@@ -882,6 +886,7 @@ function refreshSobres(){
   (S.oferentes||[]).forEach(o=>{
     const c=$("#est1-"+o.id); if(c) c.innerHTML=estadoSobre1Inner(o);
     if(S.tipo==='puntos'){
+      const hd=$("#ofhdr-"+o.id); if(hd) hd.innerHTML=ofHdrInner(o);
       const d=$("#doc1-"+o.id); if(d) d.innerHTML = o._docOk?'<span class="badge b-g">Cumple</span>':(o.nombre?'<span class="badge b-r">Incompleto</span>':'<span class="badge b-d">—</span>');
       critList().forEach(cr=>{ const pc=$("#prom-"+o.id+"-"+cr.id); if(pc) pc.textContent=fNum(promedioCriterio(o,cr)); });
       votantes().forEach(m=>{ const mc=$("#mtot-"+o.id+"-"+m.id); if(mc) mc.textContent=fNum(tecnicoMiembro(o,m.id)); });
