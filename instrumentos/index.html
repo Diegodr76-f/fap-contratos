@@ -14284,6 +14284,7 @@ function renderCats(){
 function renderLista(){
   const q = (document.getElementById('busqueda').value || '').toLowerCase();
   const cont = document.getElementById('lista-plantillas');
+  const top = cont.scrollTop;   // la lista lateral no debe saltar al re-dibujarse
   const filtradas = plantillas.filter(p =>
     (catFiltro==='Todas' || p.categoria===catFiltro) &&
     (p.nombre.toLowerCase().includes(q) || (p.descripcion||'').toLowerCase().includes(q))
@@ -14294,24 +14295,112 @@ function renderLista(){
       <div class="nom">${esc(p.nombre)}</div>
       <div class="meta"><span class="badge">${esc(p.categoria)}</span>${p.tipo==='docx' ? '<span class="badge badge-word">WORD</span>' : ''}<span>act. ${p.actualizado}</span></div>
     </div>`).join('');
+  cont.scrollTop = top;
 }
 function seleccionar(id){
-  seleccion = id; datosForm = {}; condForm = {}; listasForm = {}; editandoDoc = false; docEditado = '';
+  const tabsSinPlantilla = ['historial','contrapartes','repositorio','variables'];
+  if(id === seleccion){
+    // Ya está seleccionada: no se rehace el formulario (perderías lo escrito).
+    // Solo se vuelve a la vista del documento si estabas en una pestaña general.
+    if(tabsSinPlantilla.includes(tabActual)){ tabActual = 'generar'; pedirResetScroll(); renderTabs(); renderContenido(); }
+    return;
+  }
+  asegurarBloqueGuardado();
+  seleccion = id; datosForm = {}; condForm = {}; listasForm = {}; editandoDoc = false; docEditado = ''; bloqueEditando = null;
   const p = plActual();
   if(p) aplicarFijos(varsDe(p), datosForm);
-  if(['historial','contrapartes','repositorio','variables'].includes(tabActual)) tabActual = 'generar';
+  if(tabsSinPlantilla.includes(tabActual)) tabActual = 'generar';
+  pedirResetScroll();               // documento nuevo: se empieza desde arriba
   renderLista(); renderTabs(); renderContenido();
 }
 function plActual(){ return plantillas.find(p => p.id === seleccion) || null; }
 
 /* ============ Tabs ============ */
-function cambiarTab(t){ tabActual = t; if(t !== 'generar'){ editandoDoc = false; docEditado = ''; } renderTabs(); renderContenido(); }
+/* Si hay un bloque abierto en el editor, vuelca su texto al modelo y lo guarda.
+   Antes, cambiar de pestaña o de plantilla mientras editabas perdía lo escrito. */
+function asegurarBloqueGuardado(){
+  if(!bloqueEditando) return;
+  const p = plActual();
+  if(p && p.tipo !== 'docx' && document.getElementById('editor')){
+    commitBloqueAbierto(p); p.actualizado = hoy(); guardar();
+  }
+}
+function cambiarTab(t){
+  if(t === tabActual) return;
+  asegurarBloqueGuardado();
+  tabActual = t; if(t !== 'generar'){ editandoDoc = false; docEditado = ''; }
+  pedirResetScroll();               // otra pestaña: se empieza desde arriba
+  renderTabs(); renderContenido();
+}
 function renderTabs(){
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('activo', b.dataset.tab === tabActual));
 }
 
 /* ============ Render: contenido ============ */
+/* ============ Render sin saltos ============
+   Cada acción vuelve a dibujar el panel entero, y al reemplazar el HTML el
+   navegador pierde la posición del scroll y el foco: la vista «se iba arriba».
+   Aquí se captura la vista antes de dibujar y se restaura después, para que
+   al seleccionar, editar o eliminar te quedes exactamente donde estabas.
+   Los cambios de pestaña o de plantilla sí empiezan arriba (pedirResetScroll). */
+let resetScrollProximo = false;
+function pedirResetScroll(){ resetScrollProximo = true; }
+function claveScroll(raiz, el){
+  if(el.id) return '#' + el.id;
+  const cls = (el.getAttribute('class') || el.tagName).trim().split(/\s+/)[0];
+  const iguales = Array.from(raiz.querySelectorAll(cls === el.tagName ? cls : '.' + CSS.escape(cls)));
+  return cls + '@' + Math.max(0, iguales.indexOf(el));
+}
+/* Solo los contenedores que pueden tener scroll propio (no todo el DOM: dentro
+   del editor hay miles de nodos y recorrerlos en cada dibujo sería lento). */
+const SEL_SCROLLABLES = '[id], .card, .tabla-scroll, .reg-lista, .eb-lista, .conc-lista, .lote-tabla, [style*="overflow"]';
+function capturarVista(raiz){
+  if(!raiz) return null;
+  const scrolls = [];
+  raiz.querySelectorAll(SEL_SCROLLABLES).forEach(el => {
+    if(el.scrollTop > 0 || el.scrollLeft > 0){
+      try{ scrolls.push({ k: claveScroll(raiz, el), t: el.scrollTop, l: el.scrollLeft }); }catch(e){}
+    }
+  });
+  let foco = null;
+  const a = document.activeElement;
+  if(a && a.id && raiz.contains(a)){
+    foco = { id: a.id };
+    try{ if(typeof a.selectionStart === 'number'){ foco.ss = a.selectionStart; foco.se = a.selectionEnd; } }catch(e){}
+  }
+  return { top: raiz.scrollTop, left: raiz.scrollLeft, scrolls, foco };
+}
+function restaurarVista(raiz, vista){
+  if(!raiz || !vista) return;
+  raiz.scrollTop = vista.top; raiz.scrollLeft = vista.left;
+  vista.scrolls.forEach(s => {
+    let el = null;
+    try{
+      if(s.k[0] === '#') el = raiz.querySelector('#' + CSS.escape(s.k.slice(1))) || document.getElementById(s.k.slice(1));
+      else {
+        const [cls, i] = s.k.split('@');
+        el = Array.from(raiz.querySelectorAll('.' + CSS.escape(cls)))[+i];
+      }
+    }catch(e){}
+    if(el){ el.scrollTop = s.t; el.scrollLeft = s.l; }
+  });
+  if(vista.foco){
+    const el = document.getElementById(vista.foco.id);
+    if(el && typeof el.focus === 'function'){
+      el.focus({ preventScroll: true });
+      try{ if(vista.foco.ss != null && typeof el.setSelectionRange === 'function') el.setSelectionRange(vista.foco.ss, vista.foco.se); }catch(e){}
+    }
+  }
+}
 function renderContenido(){
+  const c = document.getElementById('contenido');
+  const vista = resetScrollProximo ? null : capturarVista(c);
+  resetScrollProximo = false;
+  renderContenidoInterno();
+  if(vista) restaurarVista(c, vista);
+  else if(c) c.scrollTop = 0;
+}
+function renderContenidoInterno(){
   const c = document.getElementById('contenido');
   if(tabActual === 'historial'){ renderHistorial(c); return; }
   if(tabActual === 'contrapartes'){ renderContrapartes(c); return; }
@@ -14571,7 +14660,7 @@ function renderContrapartes(c){
     </div>
     ${contrapartes.length ? `
       <div class="campo" style="margin:4px 0 12px">
-        <input type="search" id="busq-cp" value="${esc(busqCp)}" placeholder="Buscar por nombre, RUC/cédula, representante o correo…" oninput="busqCp=this.value;renderContenido();const e=document.getElementById('busq-cp');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}">
+        <input type="search" id="busq-cp" value="${esc(busqCp)}" placeholder="Buscar por nombre, RUC/cédula, representante o correo…" oninput="busqCp=this.value;renderContenido()">
       </div>
       ${vis.length ? `<div class="tabla-scroll"><table><thead><tr><th>Nombre</th><th>Cédula / RUC</th><th>Correo</th><th>Dirección</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
         <div class="nota" style="margin-top:8px">${vis.length} de ${contrapartes.length} contrapartes${q?` que coinciden con «${esc(busqCp)}»`:''}.</div>`
@@ -14635,7 +14724,9 @@ function aplicarContraparte(x){
 function usarContraparte(i){
   if(!plActual()){ alert('Primero elige una plantilla en la lista de la izquierda.'); return; }
   aplicarContraparte(contrapartes[i]);
-  tabActual = 'generar'; renderTabs(); renderContenido();
+  tabActual = 'generar';
+  pedirResetScroll();   // cambias de pestaña al formulario: empieza arriba
+  renderTabs(); renderContenido();
 }
 function abrirPickerContraparte(){
   if(!contrapartes.length){
@@ -15837,8 +15928,16 @@ async function aplicarMembrete(blob, datos){
 
 /* ============ Modal genérico ============ */
 function abrirModal(html){
-  document.getElementById('modal').innerHTML = html;
-  document.getElementById('modal-fondo').classList.add('abierto');
+  const m = document.getElementById('modal');
+  const fondo = document.getElementById('modal-fondo');
+  // Si el modal ya estaba abierto, es un re-dibujo (p. ej. tras guardar un
+  // grupo): se conserva el scroll de su cuerpo para no saltar al inicio.
+  const yaAbierto = fondo.classList.contains('abierto');
+  const cuerpoPrev = yaAbierto ? m.querySelector('.m-cuerpo') : null;
+  const top = cuerpoPrev ? cuerpoPrev.scrollTop : 0;
+  m.innerHTML = html;
+  fondo.classList.add('abierto');
+  if(top){ const nuevo = m.querySelector('.m-cuerpo'); if(nuevo) nuevo.scrollTop = top; }
 }
 function cerrarModal(){
   document.getElementById('modal-fondo').classList.remove('abierto');
@@ -15995,7 +16094,9 @@ function renderEditar(c, p){
       return `<div class="eb abierto">${cabecera}${aviso}${buildToolbar('editor', true, false)}<div id="editor" contenteditable="true">${b.cuerpo||''}</div></div>`;
     }
     const prev = (b.cuerpo||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,150);
-    return `<div class="eb${vinculado?' vinc':''}${b.personalizado?' pers':''}" ondblclick="editarBloque('${b.id}')">${cabecera}<div class="eb-prev">${esc(prev)||'<vacío>'}</div></div>`;
+    // El doble clic abre el editor solo desde el texto de vista previa: antes
+    // estaba en toda la tarjeta y se disparaba al seleccionar una palabra del título.
+    return `<div class="eb${vinculado?' vinc':''}${b.personalizado?' pers':''}">${cabecera}<div class="eb-prev" title="Doble clic para editar" ondblclick="editarBloque('${b.id}')">${esc(prev)||'<vacío>'}</div></div>`;
   }).join('');
   c.innerHTML = `
     <div class="ed-meta">
@@ -16020,16 +16121,34 @@ function renderEditar(c, p){
       <span class="estado" id="ed-estado"></span>
     </div>`;
 }
+let tGuardaTitulo = null;
 function fijarTituloBloque(id, val){
   const p = plActual(); if(!p) return;
-  const b = (p.bloques||[]).find(x => x.id === id); if(b) b.titulo = val;
-  // refresca solo la insignia de numeración sin re-render (para no perder foco del input)
+  const b = (p.bloques||[]).find(x => x.id === id); if(!b) return;
+  b.titulo = val;
+  // No se re-dibuja (para no perder el foco), pero sí se persiste: antes el
+  // título se perdía al recargar si no pulsabas «Guardar cambios».
+  clearTimeout(tGuardaTitulo);
+  tGuardaTitulo = setTimeout(() => { p.cuerpo = ensamblarCuerpo(p); p.actualizado = hoy(); guardar(); }, 600);
+}
+/* Si el bloque abierto quedó fuera de pantalla se acerca con suavidad; si ya se
+   ve completo no se toca la vista (nada de sacudidas). */
+function acercarBloqueAbierto(){
+  const abierto = document.querySelector('.eb.abierto');
+  const cont = document.getElementById('contenido');
+  if(!abierto || !cont) return;
+  const r = abierto.getBoundingClientRect(), rc = cont.getBoundingClientRect();
+  if(r.top < rc.top + 8 || r.top > rc.bottom - 90){
+    const suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    cont.scrollTo({ top: cont.scrollTop + (r.top - rc.top) - 12, behavior: suave ? 'smooth' : 'auto' });
+  }
 }
 function editarBloque(id){
   const p = plActual(); if(!p) return;
   commitBloqueAbierto(p);
   bloqueEditando = id;
   renderContenido();
+  acercarBloqueAbierto();
 }
 function cerrarBloque(){
   const p = plActual(); if(!p) return;
@@ -16049,6 +16168,7 @@ function eliminarBloque(id){
   const p = plActual(); if(!p) return;
   const b = p.bloques.find(x => x.id === id);
   if(b && (b.cuerpo||'').replace(/<[^>]+>/g,'').trim() && !confirm('¿Quitar este bloque de la plantilla?')) return;
+  if(bloqueEditando && bloqueEditando !== id) commitBloqueAbierto(p);   // no perder lo escrito en otro bloque
   if(bloqueEditando === id) bloqueEditando = null;
   p.bloques = p.bloques.filter(x => x.id !== id);
   p.cuerpo = ensamblarCuerpo(p); guardar(); renderContenido();
@@ -16062,6 +16182,7 @@ function agregarBloque(tipo){
   p.bloques.push(b);
   bloqueEditando = b.id;
   p.cuerpo = ensamblarCuerpo(p); guardar(); renderContenido();
+  acercarBloqueAbierto();   // el bloque nuevo va al final: se trae a la vista
 }
 function alternarTipoBloque(id){
   const p = plActual(); if(!p) return;
@@ -16088,15 +16209,28 @@ function elegirClausula(clId, varId){
   const m = modoClausula || { tipo:'insertar' };
   if(m.tipo === 'insertar'){ insertarClausulaEnDoc(clId, varId); return; }
   const p = plActual();
+  let idNuevo = null;
   if(p && m.tipo === 'bloqueNuevo'){
     const b = bloqueDesdeVariante(clId, varId);
-    if(b){ p.bloques.push(b); bloqueEditando = null; p.cuerpo = ensamblarCuerpo(p); guardar(); }
+    if(b){ p.bloques.push(b); bloqueEditando = null; idNuevo = b.id; p.cuerpo = ensamblarCuerpo(p); guardar(); }
   } else if(p && m.tipo === 'bloqueVincular'){
     const b = p.bloques.find(x => x.id === m.id), r = buscarVariante(clId, varId);
     if(b && r){ b.tipo='clausula'; b.refCl=clId; b.refVar=r.v.id; b.personalizado=false; b.titulo=r.cl.nombre; b.cuerpo=r.v.cuerpo; b.refHash=hashHTML(r.v.cuerpo); p.cuerpo=ensamblarCuerpo(p); guardar(); }
   }
   modoClausula = null;
   cerrarModal(); renderContenido();
+  // La cláusula recién añadida va al final: se acerca para que la veas.
+  if(idNuevo){
+    const el = document.querySelector(`.eb-prev[ondblclick*="${idNuevo}"]`);
+    const cont = document.getElementById('contenido');
+    if(el && cont){
+      const r = el.getBoundingClientRect(), rc = cont.getBoundingClientRect();
+      if(r.bottom > rc.bottom - 8 || r.top < rc.top + 8){
+        const suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        cont.scrollTo({ top: cont.scrollTop + (r.top - rc.top) - 40, behavior: suave ? 'smooth' : 'auto' });
+      }
+    }
+  }
 }
 function bloqueDesdeVariante(clId, varId){
   const r = buscarVariante(clId, varId); if(!r) return null;
@@ -16122,6 +16256,7 @@ function revertirBloque(id){
   const p = plActual(); if(!p) return;
   const b = p.bloques.find(x => x.id === id); if(!b || !b.refCl) return;
   if(!confirm('¿Descartar tus cambios en este bloque y volver a la versión del repositorio?')) return;
+  if(bloqueEditando && bloqueEditando !== id) commitBloqueAbierto(p);   // no perder lo escrito en otro bloque
   b.personalizado = false;
   if(bloqueEditando === id) bloqueEditando = null;
   p.cuerpo = ensamblarCuerpo(p); guardar(); renderContenido();
@@ -16306,10 +16441,10 @@ function renderVariables(c){
   c.innerHTML = `
     <div class="banner-edicion" style="margin-bottom:12px">Este es el diccionario único de variables del ecosistema FAP: el mismo catálogo de tags que usan las plantillas Word (docxtemplater), La Mágica y el CRM. Las plantillas y cláusulas de esta herramienta deben usar estos nombres para que todo el sistema hable el mismo idioma.</div>
     ${avisoHuerfanas}
-    <div class="campo" style="margin-bottom:8px"><input type="search" id="busq-var-tab" value="${esc(busqVarTab)}" placeholder="Buscar variable por nombre, descripción o ejemplo…" oninput="busqVarTab=this.value;renderContenido();const e=document.getElementById('busq-var-tab');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}"></div>
+    <div class="campo" style="margin-bottom:8px"><input type="search" id="busq-var-tab" value="${esc(busqVarTab)}" placeholder="Buscar variable por nombre, descripción o ejemplo…" oninput="busqVarTab=this.value;renderContenido()"></div>
     <div class="cats" style="padding:0 0 10px">${gruposVar().map(g => `<button class="chip ${g===grupoVarFiltro?'activo':''}" onclick="grupoVarFiltro='${g.replace(/'/g,"\\'")}';renderContenido()">${esc(g)}</button>`).join('')}</div>
     <div class="gen-grid" style="grid-template-columns:1fr 360px">
-      <div class="card" style="max-height:62vh;overflow-y:auto">
+      <div class="card" id="var-lista-scroll" style="max-height:62vh;overflow-y:auto">
         <h3>Variables (${filtradas.length})</h3>
         ${filtradas.length ? '' : `<p style="font-size:13px;color:var(--gris)">Ninguna variable coincide${q?` con «${esc(busqVarTab)}»`:''}${grupoVarFiltro!=='Todos'?` en el grupo «${esc(grupoVarFiltro)}»`:''}.</p>`}
         ${Object.keys(grupos).map(g => `
@@ -16687,7 +16822,7 @@ function renderRepositorio(c){
   c.innerHTML = `
     <div class="gen-grid" style="grid-template-columns:330px 1fr">
       <div>
-        <div class="card" style="max-height:66vh;overflow-y:auto">
+        <div class="card" id="rep-lista-scroll" style="max-height:66vh;overflow-y:auto">
           <h3>Cláusulas por categoría</h3>
           <div class="campo" style="margin-bottom:10px"><input type="search" id="rep-busq" placeholder="Buscar cláusula…" value="${esc(repoFiltro)}" oninput="repoFiltro=this.value;document.getElementById('lista-clausulas').innerHTML=listaClausulasHtml()"></div>
           <div id="lista-clausulas">${listaClausulasHtml()}</div>
@@ -16942,7 +17077,8 @@ function reusar(i){
     else if(typeof v === 'boolean') condForm[k] = v;
     else datosForm[k] = v;
   });
-  tabActual = 'generar';
+  tabActual = 'generar'; bloqueEditando = null;
+  pedirResetScroll();   // vienes del historial a un documento distinto: empieza arriba
   renderLista(); renderTabs(); renderContenido();
 }
 function exportarHistorial(){ descargarJSON({ tipo:'historial_fap', version:1, historial }, `historial-instrumentos-${hoy()}.json`); }
@@ -17023,6 +17159,9 @@ function toggleAside(){
   const oculto = document.body.classList.toggle('aside-oculto');
   store.set('fap_gen_aside_oculto', oculto ? '1' : '0');
 }
+
+/* Red de seguridad: si cierras o recargas con un bloque abierto, se guarda. */
+window.addEventListener('beforeunload', () => { try{ asegurarBloqueGuardado(); }catch(e){} });
 
 /* Tab dentro de un editor = sangría (como Word), no saltar al final del documento.
    Shift+Tab la reduce. En listas anida/desanida el ítem. */
