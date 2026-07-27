@@ -13330,6 +13330,7 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .campo label .tag-auto{font-size:10px;font-weight:700;color:var(--ok);background:#E7F6EE;border-radius:4px;padding:0 5px;margin-left:5px;text-transform:none}
 .campo input,.campo textarea,.campo select{width:100%;padding:7px 9px;border:1px solid var(--borde);border-radius:6px;font-family:inherit;font-size:13px}
 .campo input[readonly]{background:var(--azul-claro);color:var(--azul);font-weight:600}
+.campo textarea[readonly]{background:var(--azul-claro);color:var(--azul);font-weight:600;resize:none;overflow:hidden;line-height:1.4;min-height:34px}
 .campo .nota{font-size:11px;color:var(--gris);margin-top:2px}
 .campo .warn-txt{font-size:11px;color:var(--warn);font-weight:600;margin-top:2px}
 /* El documento en pantalla replica el formato institucional del Word final
@@ -13671,17 +13672,26 @@ function numeroALetras(num){
   const U = ['','UNO','DOS','TRES','CUATRO','CINCO','SEIS','SIETE','OCHO','NUEVE','DIEZ','ONCE','DOCE','TRECE','CATORCE','QUINCE','DIECISÉIS','DIECISIETE','DIECIOCHO','DIECINUEVE','VEINTE'];
   const D = ['','','VEINTI','TREINTA','CUARENTA','CINCUENTA','SESENTA','SETENTA','OCHENTA','NOVENTA'];
   const C = ['','CIENTO','DOSCIENTOS','TRESCIENTOS','CUATROCIENTOS','QUINIENTOS','SEISCIENTOS','SETECIENTOS','OCHOCIENTOS','NOVECIENTOS'];
-  function tramo(n){
+  function tramo(n, apocopar){
     if(n===0) return '';
     if(n===100) return 'CIEN';
     let s = '';
     const c = Math.floor(n/100), r = n%100;
     if(c) s += C[c] + ' ';
-    if(r <= 20) s += U[r];
-    else {
+    if(r <= 20){
+      s += (apocopar && r===1) ? 'UN' : U[r];
+    } else {
       const d = Math.floor(r/10), u = r%10;
-      if(d===2) s += u ? 'VEINTI' + U[u] : 'VEINTE';
-      else s += D[d] + (u ? ' Y ' + U[u] : '');
+      if(d===2){
+        if(u===0) s += 'VEINTE';
+        else if(u===1) s += apocopar ? 'VEINTIÚN' : 'VEINTIUNO';
+        else if(u===2) s += 'VEINTIDÓS';
+        else if(u===3) s += 'VEINTITRÉS';
+        else if(u===6) s += 'VEINTISÉIS';
+        else s += 'VEINTI' + U[u];
+      } else {
+        s += D[d] + (u ? ' Y ' + ((apocopar && u===1) ? 'UN' : U[u]) : '');
+      }
     }
     return s.trim();
   }
@@ -13689,13 +13699,19 @@ function numeroALetras(num){
     if(n===0) return 'CERO';
     let s = '';
     const mill = Math.floor(n/1000000), miles = Math.floor((n%1000000)/1000), resto = n%1000;
-    if(mill) s += (mill===1 ? 'UN MILLÓN' : tramo(mill) + ' MILLONES') + ' ';
-    if(miles) s += (miles===1 ? 'MIL' : tramo(miles) + ' MIL') + ' ';
-    if(resto) s += tramo(resto);
-    return s.trim().replace('UNO MIL','UN MIL');
+    if(mill) s += (mill===1 ? 'UN MILLÓN' : tramo(mill, true) + ' MILLONES') + ' ';
+    if(miles) s += (miles===1 ? 'MIL' : tramo(miles, true) + ' MIL') + ' ';
+    if(resto) s += tramo(resto, false);
+    return s.trim();
   }
   const frase = `${grande(ent).toLowerCase()} con ${String(cent).padStart(2,'0')}/100 dólares de los Estados Unidos de América`;
   return frase.charAt(0).toUpperCase() + frase.slice(1);
+}
+/* Crece el textarea de «monto en letras» según su contenido, en vez de recortarlo */
+function ajustarAlturaLetras(el){
+  if(!el) return;
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight + 2) + 'px';
 }
 
 /* ============ Validación de cédula / RUC (Ecuador) ============ */
@@ -14467,7 +14483,7 @@ function renderGenerar(c, p){
     const reg = buscarVar(v);
     if(esLetras(v)){
       const val = datosForm[v] || '';
-      return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span></label><input readonly id="f_${v}" value="${esc(val)}"><div class="nota">Se calcula solo desde «${esc(baseLetras(v))}»</div></div>`;
+      return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span></label><textarea readonly rows="1" id="f_${v}" oninput="return false">${esc(val)}</textarea><div class="nota">Se calcula solo desde «${esc(baseLetras(v))}»</div></div>`;
     }
     const tipo = esFecha(v) ? 'date' : (esMonto(v) ? 'number' : 'text');
     const extra = esMonto(v) ? ' step="0.01" min="0"' : '';
@@ -14510,6 +14526,7 @@ function renderGenerar(c, p){
         </div>
       </div>
     </div>`;
+  c.querySelectorAll('.campo textarea[readonly]').forEach(ajustarAlturaLetras);
   if(esDocx) actualizarPreviewDocx();
 }
 function actualizarCampo(v, val){
@@ -14520,7 +14537,7 @@ function actualizarCampo(v, val){
     if(esLetras(x) && baseLetras(x).toLowerCase() === v.toLowerCase()){
       datosForm[x] = val ? numeroALetras(val) : '';
       const inp = document.getElementById('f_' + x);
-      if(inp) inp.value = datosForm[x];
+      if(inp){ inp.value = datosForm[x]; ajustarAlturaLetras(inp); }
     }
   });
   if(esIdVar(v)){
