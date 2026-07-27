@@ -14,6 +14,10 @@ Mágica. Un tag que agregues sin que la herramienta lo envíe queda en blanco (n
 3. **Word no repite columnas dinámicamente.** Por eso la tabla de puntaje por miembro usa
    **4 columnas fijas** (m1..m4 = los 4 primeros miembros con voz y voto). Si hay menos de 4,
    las columnas sobrantes quedan vacías; si hay más de 4, usa la versión **Imprimir → PDF**.
+   Por la misma razón, las **firmas** ahora van en una tabla de 4 columnas fijas por grupo
+   (`v1..v4` con voz y voto, `s1..s4` sin voto) en vez de una lista apilada — así salen en
+   fila, igual que en la vista previa. Cada columna es `{v1nom}` `{v1rol}` `{v1cargo}` (y
+   `v2`, `v3`, `v4` / `s1..s4` igual). Si hay más de 4 en un grupo, usa **Imprimir → PDF**.
 
 ---
 
