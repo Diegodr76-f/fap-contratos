@@ -21,14 +21,21 @@ Mágica. Un tag que agregues sin que la herramienta lo envíe queda en blanco (n
 
 Datos simples: `{objeto}` `{area}` `{modalidad}` `{presupuesto}` `{presupuestoLetras}`
 `{partida}` `{lineaNombre}` (= `{lineaCod}`+`{lineaNom}`) `{fechaInvitacion}` `{fechaLimite}`
-`{fechaAdj}` `{memoNro}` `{fechaInicio}` `{jefe}` (Presidente) `{ac}` (Secretario)
-`{proveedor}` `{proveedorRuc}` `{montoLetras}`.
+`{fechaAdj}` `{horaSesion}` (hora de inicio) `{horaCierre}` (hora de cierre) `{lugarSesion}`
+`{memoNro}` `{fechaInicio}` `{jefe}` (Presidente) `{ac}` (Secretario) `{proveedor}` `{proveedorRuc}`
+`{montoLetras}`.
 
 Bucles: `{#items}{miembros}{cargo}{rol}{/items}` (miembros del quórum, sin Presidente/
-Secretario) · `{#comision}{nombre}{rol}{cargo}{/comision}` (firmas) · `{#provs}{razon}{fof}{hof}{/provs}`
+Secretario — variante antigua) · `{#votM}{nombre}{cargo}{rol}{/votM}` (quórum: voz y voto) ·
+`{#sinVoto}{nombre}{cargo}{rol}{/sinVoto}` (quórum: voz sin voto y Secretaría) ·
+`{#comision}{nombre}{rol}{cargo}{/comision}` (firmas) · `{#provs}{razon}{fof}{hof}{/provs}`
 (ofertas recibidas — `{fof}` fecha de entrega, `{hof}` hora de entrega) · `{#tecnicos}{razon}{resultado}{#reqs}{req}{res}{/reqs}{/tecnicos}`
 (bloque técnico por oferente) · `{#economicos}{razon}{total}{difPresupuesto}{enPresupuesto}{/economicos}`
 · `{#prelacion}{orden}{razon}{tec}{eco}{totalPts}{/prelacion}`.
+
+Nota: la plantilla admite el quórum en formato antiguo (`{#items}`, una sola lista) o en el
+formato FO-AD-ABC-009 (`{#votM}`/`{#sinVoto}`, separado por si tiene voto). La herramienta
+envía datos para los dos a la vez, así que puedes usar cualquiera de las dos formas en Word.
 
 ---
 
@@ -36,7 +43,7 @@ Secretario) · `{#comision}{nombre}{rol}{cargo}{/comision}` (firmas) · `{#provs
 
 Cada miembro con voz y voto califica y se promedia. Datos simples: `{codigoProc}` `{actaNo}`
 `{objeto}` `{area}` `{modalidad}` `{presupuestoLetras}` `{fuente}` `{fechaInvitacion}`
-`{fechaLimite}` `{fechaAdj}` `{horaSesion}` `{lugarSesion}` `{memoNro}` `{fechaInicio}`
+`{fechaLimite}` `{fechaAdj}` `{horaSesion}` `{horaCierre}` `{lugarSesion}` `{memoNro}` `{fechaInicio}`
 `{umbral}` `{tecMax}` `{puntosTotal}` · nombres de columnas de miembros `{m1nom}` `{m2nom}`
 `{m3nom}` `{m4nom}` · adjudicación `{decisionUnica}` `{proveedor}` `{proveedorRuc}`
 `{montoAdjLetras}` `{totalAdj}`.
