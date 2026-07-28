@@ -38,6 +38,11 @@ autónoma (sin backend ni librerías externas) y cubre los **dos esquemas** que 
   para pegarlo en la sección de criterios de calificación de las bases — así las *bases* y la
   *herramienta* siempre dicen lo mismo.
 
+- **Antecedentes del proveedor**: lee el **banco de proveedores del CLM** y, junto a cada oferente,
+  muestra su calificación histórica (FO-AD-ABC-017). Si un oferente quedó **no elegible** (<70/100),
+  lo advierte en los resultados; y si la oferta recomendada es suya, pide que la Comisión se pronuncie
+  expresamente antes de adjudicar.
+
 Trae dos ejemplos precargados con casos reales: **Consultoría de Delitos Ambientales** (por puntos,
 35/45/20, umbral 75) y **Adquisición de motor fuera de borda PN Machalilla** (Cumple/No cumple, menor
 precio). Está integrada dentro del CLM (menú *Herramientas integradas → Calificador de ofertas*).
@@ -67,9 +72,10 @@ plantillas Word reales (`crm/plantillas/`).
 |--------|----------|
 | **Panel** | KPIs en vivo, estado del portafolio, vencimientos a 12 meses, valor por categoría, alertas urgentes y actividad reciente |
 | **Pipeline** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado |
-| **Contratos** | Repositorio central con búsqueda global, filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases y línea de tiempo |
+| **Contratos** | Repositorio central con búsqueda global, filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases, línea de tiempo e **historial del proveedor** |
+| **Proveedores** | **Banco de proveedores**: historial acumulado de calificaciones por proveedor, promedio, semáforo, elegibilidad, ficha con desglose por criterio y exportación del «Registro de Calificaciones» |
 | **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa |
-| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar |
+| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar y **proveedores no elegibles con contratos activos** |
 | **Reportes** | Analítica por categoría/área/AC + exportación CSV del portafolio |
 | **Bitácora** | Registro de auditoría de cada acción (autor, fecha, contrato) |
 | **La Mágica / CRM clásico** | Las herramientas originales embebidas, completas y funcionales |
@@ -77,13 +83,45 @@ plantillas Word reales (`crm/plantillas/`).
 **Acciones del ciclo de vida** (desde el detalle del contrato, con las plantillas
 oficiales): modificación con reglas 25 % (adenda) / 50 % (bloqueo) e informe
 FAP-2026-11; terminación con causal y acta FAP-2026-12; calificación de proveedor
-FO-AD-ABC-017 (13 criterios, 40/30/5/25) con CSV para el banco de calificaciones;
+FO-AD-ABC-017 (13 criterios, 40/30/5/25) que **entra al banco de proveedores** y descarga
+la fila CSV para el registro compartido;
 y envío a la Unidad Operativa por el mismo flujo de Power Automate
 (`FLOW_DOCS_URL`) que usan La Mágica y el CRM.
 
 **Roles de ingreso:** Administradora (AC), Área protegida o Unidad Operativa
 (portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
 calificaciones, bitácora) se guarda en el navegador (`localStorage`).
+
+### Banco de proveedores — la calificación cierra el ciclo
+
+Calificar a un proveedor ya no termina en un CSV suelto: la evaluación **FO-AD-ABC-017**
+entra al **banco de proveedores** del CLM (`CLM.calificaciones` en `localStorage`) y desde
+ahí alimenta el resto de la plataforma.
+
+- **Un proveedor, un historial.** Los nombres se normalizan (`CIA. LTDA.`, `S.A.`, puntos,
+  mayúsculas) para que el mismo proveedor no se parta en varias fichas. Cada contrato tiene
+  una calificación; recalificar **actualiza** esa fila (la norma exige actualizarla de
+  inmediato ante una reincidencia) y el historial acumulado da el **promedio** y el
+  **semáforo** (Preferente ≥90 · Satisfactorio ≥80 · Observado ≥70 · Deficiente ≥60 ·
+  No recomendado <60; mínimo aprobatorio **70/100**).
+- **Módulo Proveedores.** Buscador, filtros (preferentes, elegibles, no elegibles, con
+  evaluación pendiente, sin calificar) y ficha por proveedor: promedio, elegibilidad,
+  historial con el desglose 40/30/5/25 de cada evaluación y todos sus contratos, con el
+  botón para calificar los que estén terminados y sin evaluar.
+- **Dónde reaparece la calificación:** sello junto al proveedor en el repositorio y el
+  pipeline, panel *Historial del proveedor* en el detalle de cada contrato, alerta cuando un
+  proveedor **no elegible** sigue con contratos en ejecución, tabla de desempeño en Reportes
+  y bloque del banco en el Panel.
+- **Calificador de ofertas.** Al escribir el nombre de un oferente, la herramienta lee el
+  banco y muestra su calificación histórica; si es **no elegible** avisa en los resultados y
+  advierte expresamente cuando la oferta recomendada corresponde a ese proveedor, para que
+  la Comisión se pronuncie y lo deje constando en el acta.
+- **CRM clásico.** La calificación hecha allí también entra al banco (comparten
+  `localStorage`), así que no se pierde al recargar.
+- **Compartir el banco.** Sigue existiendo el CSV por contrato, y además se puede exportar el
+  **Registro de Calificaciones completo (CSV)** para el Excel compartido y el **banco en JSON**
+  para importarlo en el navegador de otra AC (se fusiona por contrato, gana la evaluación más
+  reciente). El banco es local a cada navegador: el JSON es la vía para sincronizarlo.
 
 ## Estructura
 

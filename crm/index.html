@@ -1125,6 +1125,34 @@ function modalTerminar(c){
 }
 
 /* --- Calificar --- */
+/* La calificación no puede quedarse en el CSV: se registra también en el banco de
+   proveedores del CLM (localStorage «fap_clm_v1»), que es donde vive el historial por
+   proveedor, la elegibilidad y los avisos del Calificador de ofertas. Ambas apps son del
+   mismo sitio, así que comparten ese almacenamiento. */
+const CLM_LS="fap_clm_v1";
+function provKeyCLM(nombre){
+  const s=String(nombre==null?"":nombre).trim().toLowerCase();
+  const k=s.replace(/[.,;:"'()]/g," ").replace(/\b(cia|ltda|limitada|s\s?a|sas|srl|cl|compania|compañia)\b/g," ").replace(/\s+/g," ").trim();
+  return k||s;
+}
+function registrarEnBancoCLM(c,x){
+  try{
+    const raw=localStorage.getItem(CLM_LS);
+    const clm=raw?JSON.parse(raw):{};
+    clm.overlay=clm.overlay||{};clm.solicitudes=clm.solicitudes||[];clm.log=clm.log||[];clm.calificaciones=clm.calificaciones||[];
+    const entry={id:"q"+Date.now(),nro:c.nro,prov:c.proveedor||"—",key:provKeyCLM(c.proveedor||"—"),ruc:"",
+      area:c.area||"",cat:c.cat||"",ac:c.ac||"",fecha:todayISO(),score:x.score,sem:x.t.sem,elegible:x.t.elegible,
+      aportes:x.aportes.map(a=>({nombre:a.nombre,aporte:Math.round(a.aporte*100)/100})),
+      vals:x.vals.map(r=>r.slice()),obs:"",user:(typeof AC!=="undefined"&&AC)?AC:"CRM clásico",migrada:false};
+    const i=clm.calificaciones.findIndex(q=>q.nro===entry.nro);
+    if(i<0)clm.calificaciones.unshift(entry);else clm.calificaciones[i]=entry;
+    const O=clm.overlay[c.nro]||(clm.overlay[c.nro]={});
+    O.evaluado=true;O.score=Number(x.score).toFixed(2);O.sem=x.t.sem;O.fcal=entry.fecha;
+    clm.log.unshift({ts:new Date().toISOString(),user:entry.user,icon:"⭐",txt:`Proveedor calificado desde el CRM: ${entry.prov} · ${Number(x.score).toFixed(2)}/100 · ${x.t.sem}`,ref:c.nro});
+    localStorage.setItem(CLM_LS,JSON.stringify(clm));
+    return true;
+  }catch(e){ return false; }
+}
 function modalCalificar(c){
   /* Metodología oficial FAP/FIAS — hoja "Evaluación Proveedor" (FO-AD-ABC-017), 13 criterios en 4 indicadores.
      Ponderación vigente (Instructivo, disposición Daniela 2026): Calidad 40% · Plazo 30% · Atención 5% · Contractual 25%.
@@ -1230,12 +1258,14 @@ function modalCalificar(c){
     a.href=URL.createObjectURL(blob); a.download=`Calificacion_${cleanNro(c.nro)}.csv`;
     a.click(); URL.revokeObjectURL(a.href);
     downloadDoc(`BORRADOR_Calificacion_proveedor_${cleanNro(c.nro)}`,"Informe de calificación de proveedor", calificacionDoc(c,{grupos:GRUPOS,vals,aportes:o._aportes,score:o._score,t:o._t}));
+    const enBanco=registrarEnBancoCLM(c,{score:o._score,t:o._t,aportes:o._aportes,vals});
     o.querySelector(".modal").innerHTML=`
       <h2>✅ Calificación registrada</h2>
       <p class="sub">${esc(c.proveedor||"—")} · ${o._score.toFixed(2)}/100 · ${esc(o._t.sem)}</p>
       <div class="steps">
         <h3>Próximos pasos</h3>
         <ol>
+          ${enBanco?`<li>La evaluación entró al <b>banco de proveedores del CLM</b>: queda en el historial del proveedor, define su elegibilidad y avisa al <b>Calificador de ofertas</b> si vuelve a presentarse.</li>`:""}
           <li>Se descargaron <b>dos archivos</b>: el informe en Word (borrador, para el expediente con firma) y un <b>CSV</b> con la fila de calificación.</li>
           <li>Pega la fila del CSV en <b>"Registro de Calificaciones"</b> (banco acumulativo 2026) y en la <b>Base de proveedores FAP</b> compartida.</li>
           <li>Imprime y archiva el informe firmado en el <b>expediente administrativo</b> del contrato.</li>

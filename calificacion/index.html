@@ -210,6 +210,61 @@ const fUSD = n => '$'+(num(n)).toLocaleString('es-EC',{minimumFractionDigits:2,m
 const fNum = n => (Math.round(n*100)/100).toLocaleString('es-EC',{maximumFractionDigits:2});
 const todayEC = ()=> new Date().toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
 
+/* ============ Banco de proveedores del CLM (calificación FO-AD-ABC-017) ============
+   El CLM guarda en localStorage («fap_clm_v1») el historial de calificación de cada
+   proveedor al terminar sus contratos. El Calificador vive en el mismo sitio, así que
+   lee ese banco (solo lectura) y avisa cuando un oferente ya viene mal calificado:
+   así la evaluación del desempeño pasado entra en la decisión de adjudicación. */
+const CLM_LS='fap_clm_v1';
+let _clmBanco=null;
+function clmBanco(){
+  if(_clmBanco)return _clmBanco;
+  _clmBanco={};
+  let cals=[];
+  try{ const r=localStorage.getItem(CLM_LS); if(r) cals=(JSON.parse(r)||{}).calificaciones||[]; }catch(e){ cals=[]; }
+  cals.forEach(q=>{
+    if(!q||q.score==null)return;
+    const k=q.key||provKeyCal(q.prov||'');
+    if(!k)return;
+    if(!_clmBanco[k])_clmBanco[k]={nombre:q.prov||'',cals:[]};
+    _clmBanco[k].cals.push(q);
+    if(String(q.prov||'').length>String(_clmBanco[k].nombre||'').length)_clmBanco[k].nombre=q.prov;
+  });
+  Object.values(_clmBanco).forEach(p=>{
+    p.cals.sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+    p.n=p.cals.length;
+    p.prom=r2(p.cals.reduce((a,q)=>a+Number(q.score||0),0)/p.n);
+    p.t=tierCLM(p.prom);
+    p.ultima=p.cals[0];
+  });
+  return _clmBanco;
+}
+/* misma normalización de nombres que usa el CLM, para que «CIA. LTDA.» y «S.A.» no partan al proveedor */
+function provKeyCal(nombre){
+  const s=String(nombre==null?'':nombre).trim().toLowerCase();
+  const k=s.replace(/[.,;:"'()]/g,' ').replace(/\b(cia|ltda|limitada|s\s?a|sas|srl|cl|compania|compañia)\b/g,' ').replace(/\s+/g,' ').trim();
+  return k||s;
+}
+function tierCLM(s){
+  if(s>=90)return {sem:'Confiable (Preferente)',bg:'var(--greenbg)',fg:'var(--green)',elegible:true};
+  if(s>=80)return {sem:'Satisfactorio',bg:'var(--greenbg)',fg:'var(--green)',elegible:true};
+  if(s>=70)return {sem:'Aceptable – Observado',bg:'var(--amberbg)',fg:'var(--amber)',elegible:true};
+  if(s>=60)return {sem:'Deficiente – Inaceptable',bg:'var(--redbg)',fg:'var(--red)',elegible:false};
+  return {sem:'No recomendado',bg:'var(--redbg)',fg:'var(--red)',elegible:false};
+}
+function histProv(o){ const k=provKeyCal(o&&o.nombre); return k?(clmBanco()[k]||null):null; }
+/* Si el CLM registra una calificación mientras esta herramienta está abierta (va embebida
+   en un iframe del CLM), el evento «storage» llega aquí: se relee el banco y se repinta. */
+window.addEventListener('storage',e=>{ if(e.key===CLM_LS){ _clmBanco=null; if(typeof render==='function') render(); } });
+/* Sello compacto del banco para las matrices del Sobre 1 */
+function selloProv(o){
+  const p=histProv(o);
+  if(!p)return '';
+  return `<div class="miniof" style="margin-top:3px">
+    <span class="badge" style="background:${p.t.bg};color:${p.t.fg}">${p.t.elegible?'⭐':'⛔'} ${fNum(p.prom)}/100</span>
+    <span style="color:var(--muted)"> ${esc(p.t.sem)} · ${p.n} calif. en el CLM</span></div>`;
+}
+
 /* Número a letras (dólares) para el acta: "CUARENTA MIL CON 00/100 DÓLARES…" */
 function enteroALetras(n){
   const U=['','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve'];
@@ -788,7 +843,9 @@ function matrizDocs(){
 }
 /* Encabezado (nombre · RUC) del bloque de puntaje; se refresca en vivo en refreshSobres */
 function ofHdrInner(o){
-  return `${esc(o.nombre||'(oferente sin nombre)')}${o.ruc?` <span style="color:var(--muted);font-weight:600">· ${esc(o.ruc)}</span>`:''}`;
+  const p=histProv(o);
+  return `${esc(o.nombre||'(oferente sin nombre)')}${o.ruc?` <span style="color:var(--muted);font-weight:600">· ${esc(o.ruc)}</span>`:''}`
+    +(p?` <span class="badge" style="background:${p.t.bg};color:${p.t.fg}" title="Banco de proveedores del CLM: ${esc(p.t.sem)} (${p.n} calificación/es)">${p.t.elegible?'⭐':'⛔'} ${fNum(p.prom)}/100</span>`:'');
 }
 /* Sobre 1 · consultoría — puntaje por miembro con voz y voto + promedio (por oferente) */
 function puntajeOferente(o){
@@ -831,7 +888,8 @@ function ofNameCell(o){
       <input class="in off" data-of="${o.id}" data-k="fechaEntrega" value="${esc(o.fechaEntrega)}" placeholder="Fecha de entrega (opcional)" style="font-size:11.5px;color:var(--muted)" title="Va en el acta, columna «Fecha de entrega» (tag {fof})">
       <input class="in ofh" data-of="${o.id}" data-k="horaEntrega" value="${esc(o.horaEntrega)}" placeholder="Hora" style="font-size:11.5px;color:var(--muted);max-width:70px" title="Va en el acta, columna «Hora» (tag {hof})">
     </div>
-    ${o.descal?`<div class="miniof" style="color:var(--red);font-weight:700">⊘ Rechazada por la Comisión</div>`:''}</td>`;
+    ${o.descal?`<div class="miniof" style="color:var(--red);font-weight:700">⊘ Rechazada por la Comisión</div>`:''}
+    <div id="ofcal-${o.id}">${selloProv(o)}</div></td>`;
 }
 function priceCell(o){
   return `<td class="pricec"><input class="priceIn ${overPresup(o)?'over':''}" data-of="${o.id}" value="${esc(o.precio)}" inputmode="decimal" placeholder="0.00" title="${overPresup(o)?'Supera el presupuesto referencial ('+fUSD(S.presupuesto)+')':''}">${overPresup(o)?'<div class="miniof" style="color:var(--red);font-weight:700;text-align:right">↑ sobre presupuesto</div>':''}</td>`;
@@ -901,6 +959,7 @@ function refreshSobres(){
   compute();
   (S.oferentes||[]).forEach(o=>{
     const c=$("#est1-"+o.id); if(c) c.innerHTML=estadoSobre1Inner(o);
+    const sc=$("#ofcal-"+o.id); if(sc) sc.innerHTML=selloProv(o);
     if(S.tipo==='puntos'){
       const hd=$("#ofhdr-"+o.id); if(hd) hd.innerHTML=ofHdrInner(o);
       const d=$("#doc1-"+o.id); if(d) d.innerHTML = o._docOk?'<span class="badge b-g">Cumple</span>':(o.nombre?'<span class="badge b-r">Incompleto</span>':'<span class="badge b-d">—</span>');
@@ -994,6 +1053,16 @@ function renderResultados(){
   }
   const avisoPres = nSobre ? `<div class="hint" style="margin-top:0;margin-bottom:14px;background:var(--redbg);border-color:#E6BFBF;color:#8A2A2A">
       <b>${nSobre} oferta(s) superan el presupuesto referencial</b> de ${fUSD(S.presupuesto)} y por eso <b>no se recomiendan para adjudicación</b>. Si el valor es correcto y el presupuesto no, corrígelo arriba; si un oferente debe rechazarse por otra causa, usa el botón <b>⊘ Rechazar</b>.</div>` : '';
+  /* Antecedentes del banco de proveedores del CLM: el desempeño pasado no descalifica solo,
+     pero la Comisión debe verlo antes de adjudicar (y dejarlo dicho en el acta si aplica). */
+  const conHist=conNombre.map(o=>({o,p:histProv(o)})).filter(x=>x.p);
+  const malos=conHist.filter(x=>!x.p.t.elegible);
+  const winMalo=R.winner?malos.find(x=>x.o.id===R.winner.id):null;
+  const avisoBanco = conHist.length ? `<div class="hint" style="margin-top:0;margin-bottom:14px;${malos.length?'background:var(--redbg);border-color:#E6BFBF;color:#8A2A2A':''}">
+      <b>Antecedentes en el CLM (calificación de proveedores FO-AD-ABC-017):</b>
+      <ul style="margin:6px 0 0;padding-left:18px">${conHist.map(x=>`<li>${esc(x.o.nombre||'(sin nombre)')} — <b>${fNum(x.p.prom)}/100</b> · ${esc(x.p.t.sem)} (${x.p.n} contrato/s calificado/s${x.p.ultima?`, último ${esc(x.p.ultima.nro||'')}`:''})${x.p.t.elegible?'':' · <b>NO ELEGIBLE para nuevos procesos</b>'}</li>`).join('')}</ul>
+      ${winMalo?`<div style="margin-top:7px"><b>La oferta recomendada corresponde a un proveedor no elegible.</b> Antes de adjudicar, la Comisión debe pronunciarse expresamente sobre este antecedente y dejarlo constando en el acta.</div>`
+        :malos.length?`<div style="margin-top:7px">Los proveedores no elegibles no deberían recibir nuevas adjudicaciones; si participan, la decisión debe motivarse en el acta.</div>`:''}</div>` : '';
   box.innerHTML=`
   <div class="panel no-print">
     <div class="phead">
@@ -1002,6 +1071,7 @@ function renderResultados(){
       <div class="psub">${R.nPass} de ${R.nTot} oferente(s) ${S.tipo==='puntos'?`superan el umbral de ${fNum(num(S.umbralTecnico))} pts`:'cumplen todos los requisitos'}${R.presup?` y no superan el presupuesto (${fUSD(S.presupuesto)})`:''}. ${R.pmin?`Precio más bajo (válido): ${fUSD(R.pmin)}.`:''} La herramienta <b>recomienda</b> según la regla de las bases; la Comisión decide (puede rechazar con causa o declarar desierto en el acta).</div></div>
     </div>
     ${avisoPres}
+    ${avisoBanco}
     ${unicaPanel}
     ${winnerBanner}
     ${conNombre.length? tablaResultados(R) : `<div class="empty">Completa la matriz para ver los resultados.</div>`}
@@ -1027,7 +1097,7 @@ function tablaResultados(R){
     const win = R.winner && o.id===R.winner.id;
     const cls = win?'win':(!o._pasa?'out':'');
     h+=`<tr class="${cls}"><td>${o._rank?`<span class="rankpill ${o._rank===1?'one':''}">${o._rank}</span>`:'—'}</td>`;
-    h+=`<td><b>${esc(o.nombre||'(sin nombre)')}</b>${o.ruc?`<div class="miniof">RUC/CI: ${esc(o.ruc)}</div>`:''}</td>`;
+    h+=`<td><b>${esc(o.nombre||'(sin nombre)')}</b>${o.ruc?`<div class="miniof">RUC/CI: ${esc(o.ruc)}</div>`:''}${selloProv(o)}</td>`;
     const motivoTag = o._pasa ? '' : `<div class="miniof" style="color:var(--red)">${esc(o._motivo||'No pasa')}</div>`;
     if(S.tipo==='puntos'){
       const pct = totMax? clamp(o._total/totMax*100,0,100):0;

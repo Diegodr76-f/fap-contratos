@@ -392,12 +392,113 @@ function catChip(cat,extra){const col=catColor(cat);return `<span class="catchip
 /* ================= DATA + PERSISTENCIA ================= */
 let CONTRACTS=[];               // base viva (crm/contratos_export.json)
 let dataSource={label:"Cargando…",live:false};
-let CLM={overlay:{},solicitudes:[],log:[]};   // estado propio del CLM (localStorage)
+let CLM={overlay:{},solicitudes:[],log:[],calificaciones:[]};   // estado propio del CLM (localStorage)
 
 function saveCLM(){try{localStorage.setItem("fap_clm_v1",JSON.stringify(CLM));}catch(e){}}
-function loadCLM(){try{const r=localStorage.getItem("fap_clm_v1");if(r){const o=JSON.parse(r);CLM={overlay:o.overlay||{},solicitudes:o.solicitudes||[],log:o.log||[]};}}catch(e){}}
+function loadCLM(){try{const r=localStorage.getItem("fap_clm_v1");if(r){const o=JSON.parse(r);CLM={overlay:o.overlay||{},solicitudes:o.solicitudes||[],log:o.log||[],calificaciones:o.calificaciones||[]};}}catch(e){}}
 function ov(c){return CLM.overlay[c.nro]||(CLM.overlay[c.nro]={});}
+/* El CRM clásico y La Mágica corren embebidos en un iframe de esta misma página: si desde
+   allí se califica a un proveedor, el evento «storage» avisa aquí para releer el estado
+   (si no, el próximo saveCLM del CLM pisaría esa calificación con la copia en memoria). */
+window.addEventListener("storage",e=>{
+  if(e.key!=="fap_clm_v1")return;
+  loadCLM();invalidarBanco();
+  if(SES)render();
+});
 function logAdd(icon,txt,ref){CLM.log.unshift({ts:new Date().toISOString(),user:SES?SES.user:"—",icon,txt,ref:ref||null});if(CLM.log.length>400)CLM.log.length=400;saveCLM();}
+
+/* ================= BANCO DE PROVEEDORES =================
+   La calificación FO-AD-ABC-017 no muere en el CSV: cada evaluación entra al banco
+   (CLM.calificaciones) y desde ahí alimenta la ficha del proveedor, las alertas, el
+   detalle del contrato, los reportes y el Calificador de ofertas (que lee este mismo
+   banco desde localStorage para avisar si un oferente ya fue mal calificado). */
+const GRUPOS_CAL=[
+  {nombre:"Calidad del producto / servicio",w:0.40,items:[
+    "Conformidad con las especificaciones técnicas del contrato o solicitud de cotización",
+    "Ausencia de defectos, fallas o incumplimientos durante la ejecución",
+    "Calidad uniforme a lo largo de toda la vigencia contractual",
+    "Conducta del proveedor en las instalaciones del área protegida (si no aplica, asignar 3)"]},
+  {nombre:"Cumplimiento de plazo",w:0.30,items:[
+    "Cumplimiento de las fechas de entrega o prestación del bien/servicio",
+    "Continuidad en la entrega o prestación sin interrupciones no justificadas",
+    "Cumplimiento del plazo total del contrato sin extensiones atribuibles al proveedor"]},
+  {nombre:"Atención y soporte",w:0.05,items:[
+    "Respuesta ante requerimientos, consultas o incidencias del administrador/a",
+    "Comunicación proactiva ante inconvenientes o cambios que afecten la entrega",
+    "Atención y resolución de observaciones formuladas por el administrador/a"]},
+  {nombre:"Cumplimiento contractual",w:0.25,items:[
+    "Entrega oportuna y completa de documentación de respaldo (facturas, informes, actas, etc.)",
+    "Vigencia de garantías técnicas, pólizas u obligaciones formales (si no aplica, asignar 3)",
+    "Cumplimiento de obligaciones formales asociadas al contrato (tributos, IESS, permisos, etc.)"]}
+];
+/* Clave del proveedor: el mismo proveedor aparece escrito de mil formas en el Excel maestro
+   («CIA. LTDA.», «S.A.», mayúsculas, puntos), y sin normalizar el banco se parte en pedazos. */
+function provKey(nombre){
+  const k=norm(nombre).replace(/[.,;:"'()]/g," ")
+    .replace(/\b(cia|ltda|limitada|s\s?a|sas|srl|cl|compania|compañia)\b/g," ")
+    .replace(/\s+/g," ").trim();
+  return k||norm(nombre);
+}
+function tierProv(s){
+  if(s>=90)return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,rank:0,cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
+  if(s>=80)return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,rank:1,cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
+  if(s>=70)return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber)",elegible:true,rank:2,cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, actualizar la calificación de inmediato."};
+  if(s>=60)return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,rank:3,cons:"No se considerará en próximos procesos de contratación."};
+  return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,rank:4,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
+}
+function semChip(t,extra){return `<span class="semaforo" style="background:${t.bg};color:${t.fg};${extra||""}">${esc(t.sem)}</span>`;}
+/* Banco vivo: proveedores del Excel maestro + calificaciones registradas en el CLM. */
+function bancoProveedores(){
+  const m={};
+  const nodo=nombre=>{const k=provKey(nombre);if(!k)return null;
+    if(!m[k])m[k]={key:k,nombre:nombre,ruc:"",contratos:[],cals:[],monto:0};
+    if(String(nombre||"").length>String(m[k].nombre||"").length)m[k].nombre=nombre;
+    return m[k];};
+  CONTRACTS.forEach((c,i)=>{const p=nodo(c.proveedor);if(!p)return;p.contratos.push({c,i});p.monto+=montoDe(c);});
+  CLM.calificaciones.forEach(q=>{const p=m[q.key]||nodo(q.prov);if(!p)return;p.cals.push(q);if(q.ruc&&!p.ruc)p.ruc=q.ruc;});
+  return Object.values(m).map(p=>{
+    p.cals.sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+    p.n=p.cals.length;
+    p.prom=p.n?Math.round(p.cals.reduce((a,q)=>a+Number(q.score||0),0)/p.n*100)/100:null;
+    p.ultima=p.n?p.cals[0]:null;
+    p.t=p.prom==null?null:tierProv(p.prom);
+    p.activos=p.contratos.filter(({c})=>{const k=statusLive(c).key;return k==="vigente"||k==="aviso"||k==="vencido";}).length;
+    p.pendientes=p.contratos.filter(({c})=>{const o=ov(c);return (o.terminado||c.cerrado)&&!o.evaluado;}).length;
+    return p;
+  }).sort((a,b)=>(b.prom==null?-1:b.prom)-(a.prom==null?-1:a.prom)||b.monto-a.monto);
+}
+let _bancoIdx=null;
+function bancoIndex(){ // caché por render: alertas, tablas y detalle consultan lo mismo
+  if(!_bancoIdx){_bancoIdx={};bancoProveedores().forEach(p=>_bancoIdx[p.key]=p);}
+  return _bancoIdx;
+}
+function invalidarBanco(){_bancoIdx=null;}
+function provDe(c){return c&&c.proveedor?(bancoIndex()[provKey(c.proveedor)]||null):null;}
+/* Una calificación por contrato: recalificar actualiza la fila (la norma pide actualizarla
+   «de inmediato» ante una reincidencia), y el historial queda por proveedor. */
+function upsertCalificacion(entry){
+  const i=CLM.calificaciones.findIndex(q=>q.nro===entry.nro);
+  const nueva=i<0;
+  if(nueva)CLM.calificaciones.unshift(entry);
+  else CLM.calificaciones[i]=Object.assign({},CLM.calificaciones[i],entry);
+  saveCLM();invalidarBanco();
+  return nueva;
+}
+/* Calificaciones hechas antes de que existiera el banco (solo quedaba el overlay del contrato). */
+function migrarCalificaciones(){
+  let n=0;
+  CONTRACTS.forEach(c=>{
+    const o=CLM.overlay[c.nro];
+    if(!o||!o.evaluado)return;
+    if(CLM.calificaciones.some(q=>q.nro===c.nro))return;
+    const score=Number(o.score)||0,t=tierProv(score);
+    CLM.calificaciones.push({id:"q"+c.nro,nro:c.nro,prov:c.proveedor||"—",key:provKey(c.proveedor||"—"),ruc:"",
+      area:c.area||"",cat:c.cat||"",ac:c.ac||"",fecha:o.fcal||todayISO(),score:score,sem:o.sem||t.sem,
+      elegible:t.elegible,aportes:null,vals:null,user:"—",migrada:true});
+    n++;
+  });
+  if(n){saveCLM();invalidarBanco();}
+}
 
 /* estado vivo del contrato (con overlay del CLM) */
 function statusLive(c){
@@ -440,8 +541,9 @@ function mySolicitudes(){
 }
 
 /* ================= ROUTER ================= */
-let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",viewMode:"table",repQ:""};
-const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
+let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",viewMode:"table",repQ:"",prov:null,provQ:"",provFilter:"all"};
+const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",proveedores:"Banco de proveedores",proveedor:"Ficha del proveedor",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
+function goProv(key){ST.prov=key;go("proveedor");}
 function go(view,cur){ST.view=view;if(cur!==undefined)ST.cur=cur;location.hash="#/"+view+(view==="detalle"&&ST.cur!=null?"/"+ST.cur:"");render();window.scrollTo(0,0);}
 window.addEventListener("hashchange",()=>{
   const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
@@ -451,8 +553,9 @@ window.addEventListener("hashchange",()=>{
 /* ================= APP RENDER ================= */
 function render(){
   if(!SES){renderLogin();return;}
+  invalidarBanco();
   const app=$("#app");
-  const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${badge}</span>`:""}</button>`;
+  const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')||(id==='proveedores'&&ST.view==='proveedor')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${badge}</span>`:""}</button>`;
   const nAlerts=alertList().length;
   const I={
     panel:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
@@ -464,8 +567,10 @@ function render(){
     clock:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
     magic:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 21 9-9"/><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M12.2 6.2 11 5"/></svg>',
     grid:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>',
-    scale:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 21h10M6 7h12l-3 5a3 3 0 0 1-6 0zM6 7 3 12a3 3 0 0 0 6 0zM18 7l3 5a3 3 0 0 1-6 0z"/></svg>'
+    scale:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 21h10M6 7h12l-3 5a3 3 0 0 1-6 0zM6 7 3 12a3 3 0 0 0 6 0zM18 7l3 5a3 3 0 0 1-6 0z"/></svg>',
+    star:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.6 5.9 6.4.6-4.8 4.3 1.4 6.2L12 16.8 6.4 20l1.4-6.2L3 9.5l6.4-.6Z"/></svg>'
   };
+  const nProvMalos=bancoProveedores().filter(p=>p.t&&!p.t.elegible&&p.activos>0).length;
   app.innerHTML=`
   <div class="shell">
     <aside class="side">
@@ -474,6 +579,7 @@ function render(){
       ${nav("panel","Panel",I.panel)}
       ${nav("pipeline","Pipeline",I.pipe)}
       ${nav("contratos","Contratos",I.repo)}
+      ${nav("proveedores","Proveedores",I.star,nProvMalos||"")}
       ${nav("solicitudes","Solicitudes",I.sol)}
       ${nav("alertas","Alertas",I.bell,nAlerts||"")}
       <div class="navgrp">Análisis</div>
@@ -505,7 +611,7 @@ function render(){
   app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
   $("#logout").onclick=()=>{setSes(null);location.hash="";render();};
   bindGlobalSearch();
-  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,actividad:vActividad,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>vFrame("../generador/index.html","La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa)."),crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
+  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,proveedores:vProveedores,proveedor:vProveedor,alertas:vAlertas,reportes:vReportes,actividad:vActividad,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>vFrame("../generador/index.html","La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa)."),crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
   (V[ST.view]||vPanel)();
 }
 
@@ -514,11 +620,14 @@ function bindGlobalSearch(){
   inp.oninput=()=>{
     const q=norm(inp.value);
     if(q.length<2){box.style.display="none";return;}
-    const hits=CONTRACTS.map((c,i)=>({c,i})).filter(({c})=>norm(c.nro+" "+c.detalle+" "+c.proveedor+" "+c.area+" "+c.ac).includes(q)).slice(0,8);
-    if(!hits.length){box.innerHTML=`<div class="gres"><span class="b">Sin resultados…</span></div>`;box.style.display="";return;}
-    box.innerHTML=hits.map(({c,i})=>`<div class="gres" data-i="${i}"><div class="a">${esc(c.nro)} — ${esc(trunc(c.detalle,70))}</div><div class="b">${esc(c.area||"")} · ${esc(c.proveedor||"")}</div></div>`).join("");
+    const hits=CONTRACTS.map((c,i)=>({c,i})).filter(({c})=>norm(c.nro+" "+c.detalle+" "+c.proveedor+" "+c.area+" "+c.ac).includes(q)).slice(0,6);
+    const provs=bancoProveedores().filter(p=>norm(p.nombre).includes(q)).slice(0,3);
+    if(!hits.length&&!provs.length){box.innerHTML=`<div class="gres"><span class="b">Sin resultados…</span></div>`;box.style.display="";return;}
+    box.innerHTML=provs.map(p=>`<div class="gres" data-p="${esc(p.key)}"><div class="a">⭐ ${esc(p.nombre)}</div><div class="b">Ficha del proveedor · ${p.contratos.length} contrato(s)${p.prom!=null?` · ${p.prom.toFixed(2)}/100 · ${esc(p.t.sem)}`:" · sin calificar"}</div></div>`).join("")
+      +hits.map(({c,i})=>`<div class="gres" data-i="${i}"><div class="a">${esc(c.nro)} — ${esc(trunc(c.detalle,70))}</div><div class="b">${esc(c.area||"")} · ${esc(c.proveedor||"")}</div></div>`).join("");
     box.style.display="";
     box.querySelectorAll("[data-i]").forEach(el=>el.onclick=()=>{box.style.display="none";inp.value="";go("detalle",+el.dataset.i);});
+    box.querySelectorAll("[data-p]").forEach(el=>el.onclick=()=>{box.style.display="none";inp.value="";goProv(el.dataset.p);});
   };
   inp.onblur=()=>setTimeout(()=>{box.style.display="none";},200);
 }
@@ -615,6 +724,7 @@ function stackEstado(segs){ /* status: colores reservados + etiqueta visible + l
 /* ================= ALERTAS (motor de reglas) ================= */
 function alertList(){
   const out=[];
+  const vistos={};
   myContracts().forEach((c,idx)=>{
     const i=CONTRACTS.indexOf(c);
     const o=ov(c),s=statusLive(c),d=diasRestantes(c);
@@ -622,7 +732,15 @@ function alertList(){
     else if(s.key==="aviso"&&d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · decide renovación o terminación ya`,i,act:"Abrir",fn:"open"});
     else if(s.key==="aviso")out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ventana de renovación abierta`,i,act:"Abrir",fn:"open"});
     if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
-    if((o.terminado||c.cerrado)&&!o.evaluado)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
+    if((o.terminado||c.cerrado)&&!o.evaluado)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta el banco de proveedores`,i,act:"Calificar",fn:"cal"});
+    /* La calificación vuelve al ciclo: un proveedor no elegible que sigue ejecutando contratos
+       es una decisión que alguien tiene que tomar, no un dato dormido en el banco. */
+    const p=provDe(c);
+    if(p&&p.t&&!p.t.elegible&&["vigente","aviso","vencido"].includes(s.key)&&!vistos[p.key]){
+      vistos[p.key]=true;
+      out.push({sev:1,icon:"🚩",col:"var(--red)",bg:"var(--redbg)",t:`Proveedor no elegible con contrato activo — ${p.nombre}`,
+        d:`${p.prom.toFixed(2)}/100 · ${p.t.sem} · ${p.activos} contrato(s) en curso · no debe recibir nuevas adjudicaciones`,i,act:"Ver ficha",fn:"prov",prov:p.key});
+    }
   });
   mySolicitudes().forEach(s=>{
     if(s.estado==="borrador")out.push({sev:2,icon:"📝",col:"var(--navy)",bg:"var(--tint)",t:`Solicitud sin iniciar — ${s.objeto.slice(0,48)}`,d:`Vía sugerida: ${s.via==="contrato"?"contrato (Unidad Operativa)":"orden de compra/servicio"}`,i:null,act:"Ver",fn:"sol"});
@@ -648,6 +766,11 @@ function vPanel(){
   const porCat={};mine.forEach(c=>{const k=c.cat||"—";porCat[k]=(porCat[k]||0)+montoDe(c);});
   const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]).slice(0,7).map(([label,value])=>({label,value,tip:`<b>${esc(label)}</b><br>${money(value)} · ${mine.filter(c=>(c.cat||"—")===label).length} contrato(s)`}));
   const alerts=alertList().slice(0,6);
+  /* banco de proveedores: el cierre del ciclo (fase 5) visto desde el panel */
+  const banco=bancoProveedores(),bCal=banco.filter(p=>p.n>0);
+  const bProm=bCal.length?Math.round(bCal.reduce((a,p)=>a+p.prom,0)/bCal.length*100)/100:null;
+  const bMalos=bCal.filter(p=>!p.t.elegible),bPend=banco.reduce((a,p)=>a+p.pendientes,0);
+  const bTop=bCal.slice(0,5);
   $("#view").innerHTML=`
   <div class="up">
     <div class="kpis">
@@ -692,7 +815,22 @@ function vPanel(){
         :`<div class="empty" style="padding:26px 10px">Aún no hay actividad registrada.<br>Cada acción del equipo queda aquí.</div>`}
       </div>
     </div>
+    <div class="panel" style="margin-top:14px">
+      <p class="ptitle">Banco de proveedores</p>
+      <p class="psub">Lo que deja la fase 5 del ciclo: cada calificación FO-AD-ABC-017 se acumula por proveedor y decide quién puede volver a ser contratado · <a href="#/proveedores" data-go3="proveedores">abrir el banco</a></p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:14px">
+        <div class="kpi" data-go2="proveedores"><div class="kpi-n">${banco.length}</div><div class="kpi-l">Proveedores en la base</div></div>
+        <div class="kpi" data-go2="proveedores"><div class="kpi-n" style="color:var(--navy)">${bProm==null?"—":bProm.toFixed(1)}</div><div class="kpi-l">Calificación promedio (${bCal.length} calificados)</div></div>
+        <div class="kpi" data-go2="proveedores"><div class="kpi-n" style="color:var(--red)">${bMalos.length}</div><div class="kpi-l">No elegibles (&lt;70)</div></div>
+        <div class="kpi" data-go2="alertas"><div class="kpi-n" style="color:var(--teal)">${bPend}</div><div class="kpi-l">Contratos por calificar</div></div>
+      </div>
+      ${bTop.length?`<div class="tablewrap"><table class="list" style="min-width:0">
+        <thead><tr><th>Proveedor</th><th style="text-align:right">Promedio</th><th>Resultado</th><th style="text-align:right">Calificaciones</th><th style="text-align:right">Contratos</th></tr></thead>
+        <tbody>${bTop.map(p=>`<tr data-prov="${esc(p.key)}"><td style="font-weight:600">${esc(trunc(p.nombre,52))}</td><td style="text-align:right;font-weight:700;color:var(--navy)">${p.prom.toFixed(2)}</td><td>${semChip(p.t)}</td><td style="text-align:right">${p.n}</td><td style="text-align:right">${p.contratos.length}</td></tr>`).join("")}</tbody></table></div>`
+      :`<div class="note">Todavía no hay proveedores calificados. Al terminar un contrato, la acción <b>Calificar proveedor</b> del detalle registra la evaluación aquí y en el historial del proveedor.</div>`}
+    </div>
   </div>`;
+  $("#view").querySelectorAll("[data-prov]").forEach(r=>r.onclick=()=>goProv(r.dataset.prov));
   $("#view").querySelectorAll("[data-go2]").forEach(k=>k.onclick=()=>go(k.dataset.go2));
   $("#view").querySelectorAll("[data-go3]").forEach(a=>a.onclick=e=>{e.preventDefault();go(a.dataset.go3);});
   $("#view").querySelectorAll("[data-f]").forEach(k=>k.onclick=()=>{ST.filter=k.dataset.f;go("contratos");});
@@ -702,13 +840,14 @@ function alertRowHTML(a){
   return `<div class="alert-row">
     <div class="aic" style="background:${a.bg}">${a.icon}</div>
     <div style="min-width:0"><div class="at">${esc(a.t)}</div><div class="ad">${esc(a.d)}</div></div>
-    <button class="btn sm ${a.sev===0?"danger":"line"} go" data-i="${a.i==null?"":a.i}" data-fn="${a.fn}">${esc(a.act)}</button>
+    <button class="btn sm ${a.sev===0?"danger":"line"} go" data-i="${a.i==null?"":a.i}" data-fn="${a.fn}" data-prov="${esc(a.prov||"")}">${esc(a.act)}</button>
   </div>`;
 }
 function bindAlertRows(){
   $("#view").querySelectorAll(".alert-row .go").forEach(b=>b.onclick=()=>{
     const fn=b.dataset.fn;
     if(fn==="sol"){go("solicitudes");return;}
+    if(fn==="prov"){goProv(b.dataset.prov);return;}
     const i=+b.dataset.i;const c=CONTRACTS[i];
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
     else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
@@ -746,7 +885,7 @@ function vPipeline(){
           ${col.key==="solicitud"
             ? (items.length?items.map(s=>`<div class="kcard" data-sol="1"><div class="a">${s.via==="contrato"?"VÍA CONTRATO":"ORDEN DE COMPRA/SERVICIO"}</div><div class="b">${esc(s.objeto)}</div><div class="c">${esc(s.area)} · ${money0(s.monto)} · ${esc(estadoSolLabel(s.estado))}</div></div>`).join("")
               :`<div class="kcard" data-new="1" style="text-align:center;color:var(--muted)">+ Nueva solicitud</div>`)
-            : items.map(({c,i})=>`<div class="kcard" data-i="${i}"><div class="a">${esc(c.nro)}</div><div class="b">${esc(trunc(c.detalle,80))}</div><div class="c">${esc(c.area||"")} · ${money0(montoDe(c))}${col.key==="aviso"?` · ${diasRestantes(c)}d`:""}</div></div>`).join("")||`<div class="kcard" style="text-align:center;color:var(--muted2);cursor:default">vacío</div>`}
+            : items.map(({c,i})=>`<div class="kcard" data-i="${i}"><div class="a">${esc(c.nro)}</div><div class="b">${esc(trunc(c.detalle,80))}</div><div class="c">${esc(c.area||"")} · ${money0(montoDe(c))}${col.key==="aviso"?` · ${diasRestantes(c)}d`:""}${col.key==="cerrado"?(ov(c).evaluado?` · ⭐ ${esc(ov(c).score)}`:` · <span style="color:var(--teal);font-weight:700">sin calificar</span>`):""}</div></div>`).join("")||`<div class="kcard" style="text-align:center;color:var(--muted2);cursor:default">vacío</div>`}
         </div>`;
       }).join("")}
     </div>
@@ -802,6 +941,13 @@ function vContratos(){
   bindRows();
 }
 function bindRows(){$("#view").querySelectorAll("[data-open]").forEach(el=>el.onclick=ev=>{if(ev.target.closest("a"))return;go("detalle",+el.dataset.open);});}
+/* Sello del banco de proveedores junto al nombre: la calificación viaja con el proveedor
+   por todo el CLM, no se queda en el contrato donde se hizo. */
+function provBadge(c){
+  const p=provDe(c);
+  if(!p||p.prom==null)return "";
+  return ` <span class="badge" style="background:${p.t.bg};color:${p.t.fg}" data-tip="<b>${esc(p.nombre)}</b><br>${p.prom.toFixed(2)}/100 · ${esc(p.t.sem)}<br>${p.n} calificación(es) registradas${p.t.elegible?"":"<br><b>No elegible para nuevos procesos</b>"}">${p.t.elegible?"":"🚩 "}${p.prom.toFixed(0)}</span>`;
+}
 function emptyHTML(){return `<div class="empty"><div style="font-weight:700;color:var(--ink)">Sin resultados</div><div style="font-size:13px">Ajusta el filtro o la búsqueda.</div></div>`;}
 function cardsHTML(list){
   if(!list.length)return emptyHTML();
@@ -811,7 +957,7 @@ function cardsHTML(list){
       <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${esc(c.nro)}</span><span class="badge ${s.b}">${esc(s.label)}</span></div>
       <div class="cc-title">${esc(c.detalle)}</div>
       <div class="cc-area">${esc(c.area||"")}</div>
-      <div class="cc-meta"><span>Proveedor · <b>${esc(c.proveedor||"—")}</b></span></div>
+      <div class="cc-meta"><span>Proveedor · <b>${esc(c.proveedor||"—")}</b>${provBadge(c)}</span></div>
       <div class="cc-meta" style="margin-top:5px"><span>Monto · <b>${money(montoDe(c))}</b></span><span>·</span><span><b>${esc(vigenciaText(c))}</b></span></div>
       <div style="margin-top:9px">${catChip(c.cat)}</div>
     </div>`;
@@ -827,7 +973,7 @@ function tableHTML(list){
         <td class="td-obj">${esc(c.detalle)}</td>
         <td>${catChip(c.cat)}</td>
         <td>${esc(c.area||"—")}</td>
-        <td>${esc(c.proveedor||"—")}</td>
+        <td>${esc(c.proveedor||"—")}${provBadge(c)}</td>
         <td style="white-space:nowrap">${money(montoDe(c))}</td>
         <td style="white-space:nowrap">${fdate(c.fin)}</td>
         <td style="white-space:nowrap"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(vigenciaText(c))}</td>
@@ -898,9 +1044,9 @@ function vDetalle(){
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
               <span><span class="at">Terminar contrato</span><span class="ad">Acta de terminación FAP-2026-12 · escoger causal</span></span>
             </button>
-            <button class="actbtn" id="a-cal" ${(!done||o.evaluado)?"disabled":""}>
+            <button class="actbtn" id="a-cal" ${!done?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7Z"/></svg></span>
-              <span><span class="at">Calificar proveedor</span><span class="ad">${done?(o.evaluado?"Calificación registrada ✓":"FO-AD-ABC-017 · 13 criterios"):"Disponible al terminar"}</span></span>
+              <span><span class="at">${o.evaluado?"Actualizar calificación":"Calificar proveedor"}</span><span class="ad">${done?(o.evaluado?`Registrada: ${esc(o.score)}/100 · rectifícala si hubo reincidencia`:"FO-AD-ABC-017 · 13 criterios · entra al banco de proveedores"):"Disponible al terminar"}</span></span>
             </button>
             <button class="actbtn" id="a-env" ${!o.pendienteEnvio?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg></span>
@@ -911,16 +1057,39 @@ function vDetalle(){
               <span><span class="at">Añadir nota</span><span class="ad">Observación interna en la bitácora del contrato</span></span>
             </button>
           </div>
-          ${o.evaluado?`<div class="note" style="margin-top:12px">Calificación: <b>${esc(o.score)}/100</b> · ${esc(o.sem)}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. Queda pendiente la <b>calificación del proveedor</b>.</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
+          ${o.evaluado?`<div class="note" style="margin-top:12px">Calificación de este contrato: <b>${esc(o.score)}/100</b> · ${esc(o.sem)}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. Queda pendiente la <b>calificación del proveedor</b>.</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
         </div>
+        ${provPanelHTML(c)}
       </div>
     </div>
   </div>`;
   $("#back").onclick=()=>go("contratos");
   if(!done){$("#a-mod").onclick=()=>modalModificar(c);$("#a-ter").onclick=()=>modalTerminar(c);}
-  if(done&&!o.evaluado)$("#a-cal").onclick=()=>modalCalificar(c);
+  if(done)$("#a-cal").onclick=()=>modalCalificar(c);
+  const pf=$("#verficha");if(pf)pf.onclick=()=>goProv(provKey(c.proveedor));
   if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
   $("#a-nota").onclick=()=>modalNota(c);
+}
+/* Ficha resumida del proveedor dentro del contrato: al abrir cualquier contrato se ve
+   cómo se ha portado ese proveedor en TODO el portafolio, no solo aquí. */
+function provPanelHTML(c){
+  const p=provDe(c);
+  if(!p)return "";
+  const otros=p.contratos.filter(x=>x.c.nro!==c.nro);
+  return `<div class="panel" style="margin-top:14px">
+    <p class="ptitle">Historial del proveedor</p>
+    <p class="psub">${esc(p.nombre)} · banco de proveedores del CLM</p>
+    ${p.prom!=null?`
+      <div class="scorebox" style="margin-top:0">
+        <div><div class="lab">Promedio acumulado</div><div class="big" style="color:${p.t.fg}">${p.prom.toFixed(2)}</div></div>
+        <div style="text-align:right">${semChip(p.t)}<div style="font-size:11.5px;color:var(--muted);margin-top:6px">${p.n} calificación(es)</div></div>
+      </div>
+      <div class="note" style="margin-top:11px">${p.t.elegible?"":"<b>No elegible para nuevos procesos.</b> "}${esc(p.t.cons)}</div>
+      <ul class="tl" style="margin-top:12px">${p.cals.slice(0,4).map(q=>`<li><div class="t">${Number(q.score).toFixed(2)}/100 · ${esc(q.sem)}${q.nro===c.nro?" <span style=\"color:var(--navy)\">(este contrato)</span>":""}</div><div class="s">${esc(q.nro)} · ${fdate(q.fecha)}${q.area?" · "+esc(q.area):""}</div></li>`).join("")}</ul>`
+    :`<div class="note">Este proveedor <b>todavía no tiene calificaciones</b> en el banco. ${p.pendientes?`Hay ${p.pendientes} contrato(s) terminado(s) suyo(s) esperando evaluación.`:"Se califica al terminar el contrato."}</div>`}
+    <div class="note" style="margin-top:11px">${p.contratos.length} contrato(s) en el portafolio · ${money(p.monto)} adjudicados${otros.length?` · ${otros.length} además de este`:""}</div>
+    <div style="margin-top:12px"><button class="btn line sm" id="verficha">Ver ficha completa del proveedor →</button></div>
+  </div>`;
 }
 function contractTimeline(c){
   const o=ov(c),ev=[];
@@ -1164,48 +1333,36 @@ function modalTerminar(c){
 }
 
 /* --- Calificar proveedor (FO-AD-ABC-017) --- */
+/* La calificación es la fase 5 del ciclo: además del CSV para el Excel compartido, la
+   evaluación entra al banco de proveedores del CLM (historial, elegibilidad y avisos). */
 function modalCalificar(c){
-  const GRUPOS=[
-    {nombre:"Calidad del producto / servicio",w:0.40,items:[
-      "Conformidad con las especificaciones técnicas del contrato o solicitud de cotización",
-      "Ausencia de defectos, fallas o incumplimientos durante la ejecución",
-      "Calidad uniforme a lo largo de toda la vigencia contractual",
-      "Conducta del proveedor en las instalaciones del área protegida (si no aplica, asignar 3)"]},
-    {nombre:"Cumplimiento de plazo",w:0.30,items:[
-      "Cumplimiento de las fechas de entrega o prestación del bien/servicio",
-      "Continuidad en la entrega o prestación sin interrupciones no justificadas",
-      "Cumplimiento del plazo total del contrato sin extensiones atribuibles al proveedor"]},
-    {nombre:"Atención y soporte",w:0.05,items:[
-      "Respuesta ante requerimientos, consultas o incidencias del administrador/a",
-      "Comunicación proactiva ante inconvenientes o cambios que afecten la entrega",
-      "Atención y resolución de observaciones formuladas por el administrador/a"]},
-    {nombre:"Cumplimiento contractual",w:0.25,items:[
-      "Entrega oportuna y completa de documentación de respaldo (facturas, informes, actas, etc.)",
-      "Vigencia de garantías técnicas, pólizas u obligaciones formales (si no aplica, asignar 3)",
-      "Cumplimiento de obligaciones formales asociadas al contrato (tributos, IESS, permisos, etc.)"]}
-  ];
-  const vals=GRUPOS.map(g=>g.items.map(()=>3));
+  const GRUPOS=GRUPOS_CAL;
+  const prev=CLM.calificaciones.find(q=>q.nro===c.nro)||null;
+  const p=provDe(c);
+  const previas=p?p.cals.filter(q=>q.nro!==c.nro):[];
+  const vals=GRUPOS.map((g,gi)=>g.items.map((_,ii)=>{
+    const v=prev&&prev.vals&&prev.vals[gi]?prev.vals[gi][ii]:null;
+    return (v==null||isNaN(v))?3:Number(v);
+  }));
   const o=openModal(`
-    <h2>Calificación del proveedor</h2>
+    <h2>${prev?"Actualizar la calificación del proveedor":"Calificación del proveedor"}</h2>
     <p class="sub">${esc(c.proveedor||"—")} · ${esc(c.nro)} · FO-AD-ABC-017 · escala 0–3</p>
+    ${previas.length?`<div class="routebox route-acta" style="margin:0 0 10px">
+      <b>Historial en el banco:</b> ${p.prom.toFixed(2)}/100 de promedio en ${previas.length} contrato(s) anterior(es) — última: ${Number(previas[0].score).toFixed(2)}/100 (${esc(previas[0].nro)}, ${fdate(previas[0].fecha)}).
+      ${p.t&&!p.t.elegible?" <b>Hoy figura como no elegible.</b>":""}</div>`:""}
+    ${prev?`<div class="routebox route-adenda" style="margin:0 0 10px"><b>Ya calificado el ${fdate(prev.fecha)}</b> con ${Number(prev.score).toFixed(2)}/100 · ${esc(prev.sem)}. Al guardar se <b>reemplaza</b> esa fila (la norma pide actualizar la calificación de inmediato ante una reincidencia).</div>`:""}
     <div class="note" style="margin:6px 0 4px">0 = no cumple · 1 = cumple parcialmente · 2 = cumple · 3 = cumple plenamente</div>
     ${GRUPOS.map((g,gi)=>`<div style="margin-top:13px">
       <div style="font-weight:700;color:var(--navy);font-size:13px;border-bottom:1px solid var(--line2);padding-bottom:5px;margin-bottom:8px">${esc(g.nombre)} — ${(g.w*100)}%</div>
       ${g.items.map((txt,ii)=>`<div class="crit">
         <div style="font-size:12px;line-height:1.45;margin-bottom:5px">${esc(txt)}</div>
-        <div style="display:flex;gap:6px">${[0,1,2,3].map(v=>`<button class="chip scorebtn ${v===3?"on":""}" data-g="${gi}" data-i="${ii}" data-v="${v}" style="flex:1;text-align:center;padding:5px 4px;font-size:12px">${v}</button>`).join("")}</div>
+        <div style="display:flex;gap:6px">${[0,1,2,3].map(v=>`<button class="chip scorebtn ${v===vals[gi][ii]?"on":""}" data-g="${gi}" data-i="${ii}" data-v="${v}" style="flex:1;text-align:center;padding:5px 4px;font-size:12px">${v}</button>`).join("")}</div>
       </div>`).join("")}
     </div>`).join("")}
+    <div class="frow" style="margin-top:14px"><label>Observaciones (van al banco y al CSV)</label><input id="calObs" value="${esc(prev?prev.obs||"":"")}" placeholder="Opcional: hecho concreto que sustenta la nota"></div>
     <div class="scorebox"><div><div class="lab">Calificación final</div><div class="big" id="score" style="color:var(--navy)">—</div></div><div id="semwrap"></div></div>
     <div id="conseq" style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:11px"></div>
-    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="gen">Registrar y exportar</button></div>`);
-  function tier(s){
-    if(s>=90)return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
-    if(s>=80)return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
-    if(s>=70)return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber)",elegible:true,cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, actualizar la calificación de inmediato."};
-    if(s>=60)return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"No se considerará en próximos procesos de contratación."};
-    return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
-  }
+    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="gen">${prev?"Actualizar en el banco":"Registrar en el banco"}</button></div>`);
   function calc(){
     let total=0;
     const aportes=GRUPOS.map((g,gi)=>{
@@ -1214,9 +1371,9 @@ function modalCalificar(c){
       return {nombre:g.nombre,aporte};
     });
     total=Math.round(total*100)/100;
-    const t=tier(total);
+    const t=tierProv(total);
     $("#score",o).textContent=total.toFixed(2);
-    $("#semwrap",o).innerHTML=`<span class="semaforo" style="background:${t.bg};color:${t.fg}">${esc(t.sem)}</span>`;
+    $("#semwrap",o).innerHTML=semChip(t);
     $("#conseq",o).innerHTML=`<b>Consecuencia:</b> ${esc(t.cons)}${total<70?" · <b>No elegible</b> (mínimo aprobatorio: 70/100).":""}`;
     o._score=total;o._t=t;o._aportes=aportes;
   }
@@ -1228,29 +1385,45 @@ function modalCalificar(c){
   calc();
   $("#cancel",o).onclick=()=>closeModal(o);
   $("#gen",o).onclick=()=>{
-    const O=ov(c);O.evaluado=true;O.score=o._score.toFixed(2);O.sem=o._t.sem;saveCLM();
-    const BOM="\uFEFF",ap=o._aportes;
+    const obs=$("#calObs",o).value.trim(),ap=o._aportes;
+    const entry={id:prev?prev.id:"q"+Date.now(),nro:c.nro,prov:c.proveedor||"—",key:provKey(c.proveedor||"—"),
+      ruc:prev?prev.ruc||"":"",area:c.area||"",cat:c.cat||"",ac:c.ac||"",fecha:todayISO(),
+      score:o._score,sem:o._t.sem,elegible:o._t.elegible,
+      aportes:ap.map(a=>({nombre:a.nombre,aporte:Math.round(a.aporte*100)/100})),
+      vals:vals.map(r=>r.slice()),obs,user:SES?SES.user:"—",migrada:false};
+    const nueva=upsertCalificacion(entry);
+    const O=ov(c);O.evaluado=true;O.score=o._score.toFixed(2);O.sem=o._t.sem;O.fcal=entry.fecha;saveCLM();
+    const BOM="\uFEFF";
     const csv=BOM+[
       ["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones"].join(";"),
-      [c.nro,c.proveedor||"",c.area||"",c.cat||"",c.ac||"",todayISO(),
-       ...ap.map(a=>String(a.aporte.toFixed(2)).replace(".",",")),
-       String(o._score.toFixed(2)).replace(".",","),o._t.sem,o._t.elegible?"Sí":"No",""].join(";")
+      calCsvRow(entry)
     ].join("\r\n");
     const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`Calificacion_${cleanNro(c.nro)}.csv`;a.click();URL.revokeObjectURL(a.href);
-    logAdd("⭐",`Proveedor calificado: ${o._score.toFixed(2)}/100 · ${o._t.sem}`,c.nro);
+    logAdd("⭐",`Proveedor ${nueva?"calificado":"recalificado"}: ${esc(c.proveedor||"—")} · ${o._score.toFixed(2)}/100 · ${o._t.sem}`,c.nro);
+    const pb=bancoIndex()[entry.key];
     o.querySelector(".modal").innerHTML=`
-      <h2>✅ Calificación registrada</h2>
+      <h2>✅ Calificación ${nueva?"registrada":"actualizada"}</h2>
       <p class="sub">${esc(c.proveedor||"—")} · ${o._score.toFixed(2)}/100 · ${esc(o._t.sem)}</p>
-      <div class="steps"><h3>Próximos pasos</h3><ol>
-        <li>Se descargó el <b>CSV</b> con la fila de calificación.</li>
-        <li>Pégala en <b>"Registro de Calificaciones"</b> (banco acumulativo) y en la <b>Base de proveedores FAP</b>.</li>
-        ${!o._t.elegible?"<li><b>Proveedor no elegible</b> — repórtalo también a la Unidad Operativa.</li>":""}
+      <div class="steps"><h3>Qué acaba de pasar</h3><ol>
+        <li>La evaluación entró al <b>banco de proveedores del CLM</b>${pb&&pb.n>1?`: ${pb.n} calificaciones, promedio <b>${pb.prom.toFixed(2)}/100</b> (${esc(pb.t.sem)})`:""}.</li>
+        <li>El sello de calificación acompaña ahora al proveedor en el repositorio, en el detalle de sus contratos y en el <b>Calificador de ofertas</b> cuando se presente a un nuevo proceso.</li>
+        <li>Se descargó el <b>CSV</b> de esta fila para el «Registro de Calificaciones». También puedes bajar el banco completo desde <b>Proveedores</b>.</li>
+        ${!o._t.elegible?"<li><b>Proveedor no elegible</b> — queda marcado en Alertas y debe reportarse a la Unidad Operativa.</li>":""}
       </ol></div>
-      <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
+      <div class="modal-foot"><button class="btn line" id="okpasos">Entendido</button><button class="btn" id="verprov">Ver ficha del proveedor</button></div>`;
     $("#okpasos",o).onclick=()=>{closeModal(o);render();};
-    toast(`Proveedor calificado · ${o._score.toFixed(2)}/100`);
+    $("#verprov",o).onclick=()=>{closeModal(o);goProv(entry.key);};
+    toast(`Proveedor ${nueva?"calificado":"recalificado"} · ${o._score.toFixed(2)}/100`);
   };
+}
+/* Fila del «Registro de Calificaciones» (banco acumulativo del Excel compartido) */
+function calCsvRow(q){
+  const dec=n=>String(Number(n||0).toFixed(2)).replace(".",",");
+  const ap=q.aportes||[];
+  const col=i=>ap[i]?dec(ap[i].aporte):"";
+  return [q.nro,q.prov,q.area||"",q.cat||"",q.ac||"",q.fecha,col(0),col(1),col(2),col(3),
+    dec(q.score),q.sem,q.elegible?"Sí":"No",q.obs||""].map(v=>String(v==null?"":v).replace(/;/g,",")).join(";");
 }
 
 /* --- Envío a la Unidad Operativa --- */
@@ -1396,6 +1569,191 @@ function modalNuevaSolicitud(){
   };
 }
 
+/* ================= VISTA: PROVEEDORES (banco de calificaciones) ================= */
+function provFiltrados(){
+  const q=norm(ST.provQ);
+  return bancoProveedores().filter(p=>{
+    if(q&&!norm(p.nombre).includes(q))return false;
+    const f=ST.provFilter;
+    if(f==="all")return true;
+    if(f==="sin")return p.n===0;
+    if(f==="pref")return p.t&&p.t.rank===0;
+    if(f==="ok")return p.t&&p.t.elegible;
+    if(f==="no")return p.t&&!p.t.elegible;
+    if(f==="pend")return p.pendientes>0;
+    return true;
+  });
+}
+function vProveedores(){
+  const banco=bancoProveedores(),list=provFiltrados();
+  const cal=banco.filter(p=>p.n>0);
+  const prom=cal.length?cal.reduce((a,p)=>a+p.prom,0)/cal.length:null;
+  const noEleg=cal.filter(p=>!p.t.elegible).length,pend=banco.reduce((a,p)=>a+p.pendientes,0);
+  const cnt=f=>{const s=ST.provFilter;ST.provFilter=f;const n=provFiltrados().length;ST.provFilter=s;return n;};
+  $("#view").innerHTML=`<div class="up">
+    <div class="toolbar">
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="pq" placeholder="Buscar proveedor…" value="${esc(ST.provQ)}">
+      </div>
+      <button class="btn line sm" id="expBanco">⬇ Registro de calificaciones (CSV)</button>
+      <button class="btn line sm" id="expJson">⬇ Banco (JSON)</button>
+      <button class="btn line sm" id="impJson">⬆ Importar banco</button>
+      <input type="file" id="fileJson" accept=".json,application/json" style="display:none">
+    </div>
+    <p class="psub" style="margin:-8px 0 14px">Un proveedor, un historial: las calificaciones FO-AD-ABC-017 de todos sus contratos se acumulan aquí y definen si es <b>elegible</b> para nuevos procesos. El banco vive en este navegador — exporta el JSON para compartirlo con el equipo o el CSV para el Excel «Registro de Calificaciones».</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:16px">
+      <div class="kpi" style="cursor:default"><div class="kpi-n">${banco.length}</div><div class="kpi-l">Proveedores</div></div>
+      <div class="kpi" style="cursor:default"><div class="kpi-n" style="color:var(--navy)">${cal.length}</div><div class="kpi-l">Con calificación</div></div>
+      <div class="kpi" style="cursor:default"><div class="kpi-n" style="color:${prom==null?"var(--muted2)":prom>=70?"var(--green)":"var(--red)"}">${prom==null?"—":prom.toFixed(1)}</div><div class="kpi-l">Promedio del banco</div></div>
+      <div class="kpi" style="cursor:default"><div class="kpi-n" style="color:var(--red)">${noEleg}</div><div class="kpi-l">No elegibles (&lt;70)</div></div>
+      <div class="kpi" style="cursor:default"><div class="kpi-n" style="color:var(--teal)">${pend}</div><div class="kpi-l">Contratos por calificar</div></div>
+    </div>
+    <div class="chips" style="margin-bottom:14px">
+      ${[["all","Todos"],["pref","Preferentes (≥90)"],["ok","Elegibles (≥70)"],["no","No elegibles"],["pend","Con evaluación pendiente"],["sin","Sin calificar"]]
+        .map(([k,l])=>`<button class="chip ${ST.provFilter===k?"on":""}" data-pf="${k}">${l} · ${cnt(k)}</button>`).join("")}
+    </div>
+    ${list.length?`<div class="tablewrap"><table class="list">
+      <thead><tr><th>Proveedor</th><th style="text-align:right">Promedio</th><th>Resultado</th><th style="text-align:right">Calif.</th><th style="text-align:right">Contratos</th><th style="text-align:right">Monto adjudicado</th><th>Última evaluación</th></tr></thead>
+      <tbody>${list.map(p=>`<tr data-prov="${esc(p.key)}">
+        <td style="font-weight:600">${esc(p.nombre)}${p.pendientes?` <span class="badge b-n" data-tip="${p.pendientes} contrato(s) terminado(s) sin calificar">${p.pendientes} por calificar</span>`:""}</td>
+        <td style="text-align:right;font-weight:700;color:${p.prom==null?"var(--muted2)":p.t.fg}">${p.prom==null?"—":p.prom.toFixed(2)}</td>
+        <td>${p.t?semChip(p.t):`<span class="badge b-d">Sin calificar</span>`}</td>
+        <td style="text-align:right">${p.n||"—"}</td>
+        <td style="text-align:right">${p.contratos.length}${p.activos?` <span style="color:var(--green)" data-tip="${p.activos} en ejecución">●</span>`:""}</td>
+        <td style="text-align:right;white-space:nowrap">${money(p.monto)}</td>
+        <td style="white-space:nowrap">${p.ultima?`${fdate(p.ultima.fecha)} · ${esc(p.ultima.nro)}`:"—"}</td>
+      </tr>`).join("")}</tbody></table></div>`
+    :`<div class="empty"><div style="font-weight:700;color:var(--ink)">Sin proveedores en este filtro</div><div style="font-size:13px">Ajusta la búsqueda o el filtro.</div></div>`}
+  </div>`;
+  $("#pq").oninput=e=>{ST.provQ=e.target.value;vProveedores();};
+  $("#view").querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>{ST.provFilter=b.dataset.pf;vProveedores();});
+  $("#view").querySelectorAll("[data-prov]").forEach(r=>r.onclick=()=>goProv(r.dataset.prov));
+  $("#expBanco").onclick=exportarRegistroCal;
+  $("#expJson").onclick=exportarBancoJSON;
+  $("#impJson").onclick=()=>$("#fileJson").click();
+  $("#fileJson").onchange=e=>{const f=e.target.files[0];if(f)importarBancoJSON(f);};
+}
+function exportarRegistroCal(){
+  if(!CLM.calificaciones.length){toast("Todavía no hay calificaciones registradas");return;}
+  const BOM="\uFEFF";
+  const head=["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones"].join(";");
+  const rows=CLM.calificaciones.slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))).map(calCsvRow);
+  const blob=new Blob([BOM+[head].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Registro_Calificaciones_FAP_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
+  logAdd("⬇️",`Exportación del registro de calificaciones (${rows.length} filas)`);
+  toast(`${rows.length} calificación(es) exportadas`);
+}
+function exportarBancoJSON(){
+  const data={tipo:"fap-clm-banco-proveedores",version:1,fecha:todayISO(),calificaciones:CLM.calificaciones};
+  const blob=new Blob([JSON.stringify(data,null,1)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Banco_proveedores_FAP_"+todayISO()+".json";a.click();URL.revokeObjectURL(a.href);
+  toast("Banco exportado — compártelo con el equipo");
+}
+/* El banco vive en localStorage: para que varias ACs compartan historial, se importa el
+   JSON de otra y se fusiona por contrato (gana la calificación más reciente). */
+function importarBancoJSON(file){
+  const fr=new FileReader();
+  fr.onload=()=>{
+    let d;try{d=JSON.parse(String(fr.result));}catch(e){alert("El archivo no es un JSON válido.");return;}
+    const inc=Array.isArray(d)?d:(d&&d.calificaciones);
+    if(!Array.isArray(inc)){alert("Ese archivo no es un banco de proveedores exportado desde el CLM.");return;}
+    let add=0,upd=0;
+    inc.forEach(q=>{
+      if(!q||!q.nro)return;
+      q.key=q.key||provKey(q.prov||"");
+      const i=CLM.calificaciones.findIndex(x=>x.nro===q.nro);
+      if(i<0){CLM.calificaciones.push(q);add++;}
+      else if(String(q.fecha||"")>String(CLM.calificaciones[i].fecha||"")){CLM.calificaciones[i]=q;upd++;}
+    });
+    saveCLM();invalidarBanco();
+    /* el overlay de cada contrato refleja el banco importado (fase 5 del stepper) */
+    CONTRACTS.forEach(c=>{const q=CLM.calificaciones.find(x=>x.nro===c.nro);
+      if(q){const O=ov(c);O.evaluado=true;O.score=Number(q.score).toFixed(2);O.sem=q.sem;O.fcal=q.fecha;}});
+    saveCLM();invalidarBanco();
+    logAdd("⬆️",`Banco de proveedores importado: ${add} nueva(s), ${upd} actualizada(s)`);
+    toast(`Banco importado · ${add} nueva(s), ${upd} actualizada(s)`);
+    vProveedores();
+  };
+  fr.readAsText(file);
+}
+
+/* ================= VISTA: FICHA DEL PROVEEDOR ================= */
+function vProveedor(){
+  const p=bancoIndex()[ST.prov];
+  if(!p){go("proveedores");return;}
+  const barras=g=>{ /* desglose por grupo de la última calificación */
+    const max={"Calidad del producto / servicio":40,"Cumplimiento de plazo":30,"Atención y soporte":5,"Cumplimiento contractual":25};
+    return (g||[]).map(a=>{const m=max[a.nombre]||100,pct=Math.max(2,a.aporte/m*100);
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div style="flex:0 0 150px;font-size:11.5px;color:var(--muted);font-weight:600;text-align:right">${esc(a.nombre)}</div>
+        <div style="flex:1;background:var(--bg);border-radius:6px;height:14px"><div style="width:${pct}%;height:100%;background:${pct>=70?"var(--green)":pct>=50?"var(--amber)":"var(--red)"};border-radius:6px"></div></div>
+        <div style="flex:0 0 62px;font-size:11.5px;font-weight:700">${a.aporte.toFixed(2)}/${m}</div>
+      </div>`;}).join("");
+  };
+  $("#view").innerHTML=`<div class="up">
+    <button class="back" id="back">← Volver al banco de proveedores</button>
+    <div class="detail">
+      <div>
+        <div class="panel">
+          <div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between">
+            <div><div class="cc-nro" style="margin-bottom:3px">PROVEEDOR</div>
+              <div class="h-title">${esc(p.nombre)}</div>
+              <div class="cc-area">${p.ruc?esc(p.ruc)+" · ":""}${p.contratos.length} contrato(s) · ${money(p.monto)} adjudicados</div></div>
+            ${p.t?semChip(p.t):`<span class="badge b-d">Sin calificar</span>`}
+          </div>
+          ${p.prom!=null?`
+          <div class="scorebox">
+            <div><div class="lab">Promedio acumulado (${p.n} calificación${p.n===1?"":"es"})</div><div class="big" style="color:${p.t.fg}">${p.prom.toFixed(2)}<span style="font-size:15px;color:var(--muted)">/100</span></div></div>
+            <div style="text-align:right;max-width:320px">
+              <div style="font-size:12.5px;font-weight:700;color:${p.t.elegible?"var(--green)":"var(--red)"}">${p.t.elegible?"✔ Elegible para nuevos procesos":"⛔ No elegible para nuevos procesos"}</div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.45">${esc(p.t.cons)}</div>
+            </div>
+          </div>`:`<div class="note" style="margin-top:14px">Sin calificaciones registradas. La evaluación FO-AD-ABC-017 se hace al <b>terminar</b> cada contrato, desde el detalle del contrato.</div>`}
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <p class="ptitle">Historial de calificaciones</p>
+          <p class="psub">Una evaluación por contrato · norma FO-AD-ABC-017 (40 / 30 / 5 / 25)</p>
+          ${p.cals.length?p.cals.map(q=>{const t=tierProv(Number(q.score)||0);const idx=CONTRACTS.findIndex(c=>c.nro===q.nro);
+            return `<div class="alert-row" style="align-items:flex-start;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:12px;width:100%">
+                <div class="aic" style="background:${t.bg};color:${t.fg};font-weight:700;font-size:13px">${Number(q.score).toFixed(0)}</div>
+                <div style="min-width:0;flex:1">
+                  <div class="at">${Number(q.score).toFixed(2)}/100 · ${esc(q.sem)}</div>
+                  <div class="ad">${esc(q.nro)} · ${fdate(q.fecha)} · ${esc(q.area||"—")} · evaluó ${esc(q.user||"—")}${q.migrada?" · registro previo al banco":""}</div>
+                </div>
+                ${idx>=0?`<button class="btn sm line" data-open2="${idx}">Ver contrato</button>`:""}
+              </div>
+              ${q.aportes?`<div style="width:100%">${barras(q.aportes)}</div>`:""}
+              ${q.obs?`<div class="note" style="width:100%">${esc(q.obs)}</div>`:""}
+            </div>`;}).join("")
+          :`<div class="empty" style="padding:26px 10px">Todavía no hay evaluaciones de este proveedor.</div>`}
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <p class="ptitle">Contratos del proveedor</p>
+          <p class="psub">${p.activos} en ejecución · ${p.pendientes} pendiente(s) de calificar</p>
+          ${p.contratos.map(({c,i})=>{const s=statusLive(c),o=ov(c),done=o.terminado||c.cerrado;
+            return `<div class="alert-row" style="margin-bottom:8px">
+              <div style="min-width:0;flex:1">
+                <div class="at">${esc(c.nro)} <span class="badge ${s.b}">${esc(s.label)}</span></div>
+                <div class="ad">${esc(trunc(c.detalle,64))} · ${money(montoDe(c))}${o.evaluado?` · calificado ${esc(o.score)}/100`:done?" · <b>sin calificar</b>":""}</div>
+              </div>
+              <div style="display:flex;gap:6px;flex:0 0 auto">
+                ${done&&!o.evaluado?`<button class="btn sm" data-cal="${i}">Calificar</button>`:""}
+                <button class="btn sm line" data-open2="${i}">Abrir</button>
+              </div>
+            </div>`;}).join("")||`<div class="empty" style="padding:20px 10px">Sin contratos en la base viva.</div>`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  $("#back").onclick=()=>go("proveedores");
+  $("#view").querySelectorAll("[data-open2]").forEach(b=>b.onclick=()=>go("detalle",+b.dataset.open2));
+  $("#view").querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>modalCalificar(CONTRACTS[+b.dataset.cal]));
+}
+
 /* ================= VISTA: ALERTAS ================= */
 function vAlertas(){
   const list=alertList();
@@ -1419,6 +1777,9 @@ function vReportes(){
   }
   const total=mine.reduce((a,c)=>a+montoDe(c),0);
   const porCat=agg(c=>c.cat),porArea=agg(c=>c.area),porAC=agg(c=>c.ac);
+  /* proveedores del portafolio visible, ordenados por monto adjudicado */
+  const visibles={};mine.forEach(c=>{if(c.proveedor)visibles[provKey(c.proveedor)]=true;});
+  const provRep=bancoProveedores().filter(p=>visibles[p.key]).sort((a,b)=>b.monto-a.monto);
   const tbl=(rows,label)=>`<div class="tablewrap"><table class="list" style="min-width:0">
     <thead><tr><th>${label}</th><th style="text-align:right">Contratos</th><th style="text-align:right">Monto</th><th style="text-align:right">% del total</th></tr></thead>
     <tbody>${rows.map(([k,v])=>`<tr style="cursor:default"><td style="font-weight:600">${esc(k)}</td><td style="text-align:right">${v.n}</td><td style="text-align:right;white-space:nowrap">${money(v.monto)}</td><td style="text-align:right">${total?(v.monto/total*100).toFixed(1):0}%</td></tr>`).join("")}</tbody></table></div>`;
@@ -1437,7 +1798,23 @@ function vReportes(){
       <div><p class="ptitle" style="margin:6px 0 8px">Resumen por categoría</p>${tbl(porCat,"Categoría")}</div>
       <div><p class="ptitle" style="margin:6px 0 8px">Resumen por AC</p>${tbl(porAC.slice(0,15),"Administradora")}</div>
     </div>
+    <div class="panel" style="margin-top:16px">
+      <p class="ptitle">Desempeño de proveedores</p>
+      <p class="psub">Cruce de lo adjudicado con lo calificado · ${provRep.filter(p=>p.n>0).length} de ${provRep.length} proveedores evaluados · <a href="#/proveedores" data-go3="proveedores">abrir el banco</a></p>
+      <div class="tablewrap"><table class="list">
+        <thead><tr><th>Proveedor</th><th style="text-align:right">Contratos</th><th style="text-align:right">Monto</th><th style="text-align:right">Calificación</th><th>Resultado</th><th style="text-align:right">Por calificar</th></tr></thead>
+        <tbody>${provRep.slice(0,20).map(p=>`<tr data-prov="${esc(p.key)}">
+          <td style="font-weight:600">${esc(trunc(p.nombre,54))}</td>
+          <td style="text-align:right">${p.contratos.length}</td>
+          <td style="text-align:right;white-space:nowrap">${money(p.monto)}</td>
+          <td style="text-align:right;font-weight:700;color:${p.prom==null?"var(--muted2)":p.t.fg}">${p.prom==null?"—":p.prom.toFixed(2)}</td>
+          <td>${p.t?semChip(p.t):`<span class="badge b-d">Sin calificar</span>`}</td>
+          <td style="text-align:right">${p.pendientes||""}</td>
+        </tr>`).join("")}</tbody></table></div>
+    </div>
   </div>`;
+  $("#view").querySelectorAll("[data-prov]").forEach(r=>r.onclick=()=>goProv(r.dataset.prov));
+  $("#view").querySelectorAll("[data-go3]").forEach(a=>a.onclick=e=>{e.preventDefault();go(a.dataset.go3);});
   $("#expCsv").onclick=()=>{
     const BOM="\uFEFF";
     const head=["Nro","Objeto","Area","Categoria","Proveedor","AC","Monto original","Monto vigente","Inicio","Firma","Fin","Estado","Adenda","Calificacion"];
@@ -1529,6 +1906,7 @@ async function boot(){
     }catch(e2){}
   }
   if(!CONTRACTS.length)dataSource={label:"Sin datos disponibles",live:false};
+  migrarCalificaciones();
   const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
   if(m&&VIEWS[m[1]]){ST.view=m[1];if(m[2]!=null)ST.cur=+m[2];}
   render();
