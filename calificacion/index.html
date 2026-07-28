@@ -216,10 +216,24 @@ const todayEC = ()=> new Date().toLocaleDateString('es-EC',{day:'2-digit',month:
    lee ese banco (solo lectura) y avisa cuando un oferente ya viene mal calificado:
    así la evaluación del desempeño pasado entra en la decisión de adjudicación. */
 const CLM_LS='fap_clm_v1';
+const BANCO_LS='fap_banco_prov_v1';   // resumen que publica el CLM (propio + repositorio compartido)
 let _clmBanco=null;
 function clmBanco(){
   if(_clmBanco)return _clmBanco;
   _clmBanco={};
+  /* 1) Resumen del CLM: incluye las calificaciones que otras ACs subieron al repositorio
+        compartido (Power Automate → Excel → publicación diaria cifrada). */
+  try{
+    const r=localStorage.getItem(BANCO_LS);
+    const prov=r?(JSON.parse(r)||{}).proveedores:null;
+    if(Array.isArray(prov)&&prov.length){
+      prov.forEach(p=>{ if(!p||!p.key||p.prom==null)return;
+        _clmBanco[p.key]={nombre:p.nombre||'',n:p.n||1,prom:r2(Number(p.prom)),
+          t:tierCLM(Number(p.prom)),ultima:p.ultima||null,cals:[]}; });
+      return _clmBanco;
+    }
+  }catch(e){}
+  /* 2) Respaldo: calcularlo de las calificaciones guardadas por el CLM en este navegador. */
   let cals=[];
   try{ const r=localStorage.getItem(CLM_LS); if(r) cals=(JSON.parse(r)||{}).calificaciones||[]; }catch(e){ cals=[]; }
   cals.forEach(q=>{
@@ -255,7 +269,7 @@ function tierCLM(s){
 function histProv(o){ const k=provKeyCal(o&&o.nombre); return k?(clmBanco()[k]||null):null; }
 /* Si el CLM registra una calificación mientras esta herramienta está abierta (va embebida
    en un iframe del CLM), el evento «storage» llega aquí: se relee el banco y se repinta. */
-window.addEventListener('storage',e=>{ if(e.key===CLM_LS){ _clmBanco=null; if(typeof render==='function') render(); } });
+window.addEventListener('storage',e=>{ if(e.key===CLM_LS||e.key===BANCO_LS){ _clmBanco=null; if(typeof render==='function') render(); } });
 /* Sello compacto del banco para las matrices del Sobre 1 */
 function selloProv(o){
   const p=histProv(o);

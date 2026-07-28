@@ -121,7 +121,66 @@ ahí alimenta el resto de la plataforma.
 - **Compartir el banco.** Sigue existiendo el CSV por contrato, y además se puede exportar el
   **Registro de Calificaciones completo (CSV)** para el Excel compartido y el **banco en JSON**
   para importarlo en el navegador de otra AC (se fusiona por contrato, gana la evaluación más
-  reciente). El banco es local a cada navegador: el JSON es la vía para sincronizarlo.
+  reciente).
+
+### Repositorio compartido de proveedores (Power Automate)
+
+Para que el banco sea **institucional** y no de cada navegador, la calificación viaja por el
+mismo camino que ya usa el resto de la plataforma: **Power Automate → Excel maestro → robot
+diario → sitio publicado**.
+
+```
+AC califica en el CLM/CRM
+        │  POST JSON (FLOW_CALIF_URL)
+        ▼
+Flujo de Power Automate ──► fila en la hoja «Registro de Calificaciones» del Excel maestro
+        │
+        ▼
+Robot diario (scripts/actualizar_datos.py) ──► crm/calificaciones_export.json (cifrado)
+        │
+        ▼
+Todas las ACs ven el mismo historial en el CLM y en el Calificador de ofertas
+```
+
+**1 · Crear el flujo** (Power Automate, cuenta institucional):
+
+1. Disparador **«Cuando se recibe una solicitud HTTP»**. En *Esquema JSON de la solicitud*,
+   pega un ejemplo del cuerpo que envía el CLM y usa *Generar a partir de una muestra*:
+
+   ```json
+   {
+     "origen": "CLM", "idCalificacion": "FIAS-001-2026|2026-07-28",
+     "contratoNro": "FIAS-001-2026", "proveedor": "CONSTRUCTORA ANDINA CIA. LTDA.",
+     "ruc": "", "area": "PN Machalilla", "categoria": "Mantenimiento",
+     "ac": "Ana Pérez", "evaluador": "Ana Pérez", "fechaEvaluacion": "2026-07-28",
+     "calidad": 36, "plazo": 27.5, "atencion": 5, "contractual": 23,
+     "puntajeTotal": 91.5, "resultado": "Confiable (Preferente)", "elegible": "Sí",
+     "observaciones": "", "criterios": [], "fecha": "2026-07-28T15:04:00.000Z"
+   }
+   ```
+
+2. Acción **Excel Online (Empresa) → Agregar una fila a una tabla**, apuntando al Excel maestro
+   y a una **tabla** creada sobre la hoja *Registro de Calificaciones* con estas columnas
+   (mismas del CSV, en este orden): `Nro. Contrato`, `Nombre Proveedor`, `Área Protegida`,
+   `Categoría`, `Administrador/a AC`, `Fecha Evaluación`, `Calidad (40%)`, `Plazo (30%)`,
+   `Atención (5%)`, `Cump. Contractual (25%)`, `PUNTAJE TOTAL`, `RESULTADO`,
+   `Elegible Futuros Proc.`, `Observaciones`. Mapea cada campo del JSON a su columna.
+3. *(Opcional)* Notificación por correo a la Unidad Operativa cuando `elegible` sea `No`.
+4. Guarda y **copia la URL HTTP POST** del disparador.
+
+**2 · Configurar las herramientas:** pega esa URL en la constante `FLOW_CALIF_URL`, en
+`clm/index.html` y en `crm/index.html` (junto a `FLOW_DOCS_URL`, misma idea).
+
+**3 · La vuelta:** el robot diario ya lee la hoja de calificaciones (busca la hoja cuyo nombre
+contenga «calificac», detecta la fila de encabezados y tolera columnas movidas), deduplica por
+contrato quedándose con la evaluación más reciente y publica `crm/calificaciones_export.json`
+**cifrado con la misma `DATA_KEY`**. Si la hoja no existe todavía, el robot avisa y no toca nada.
+
+**Qué pasa si el envío falla** (sin URL configurada, sin red, flujo caído): la calificación se
+guarda igual en el navegador y queda **pendiente de subir** — aparece en Alertas y en el módulo
+Proveedores con el botón **«Reenviar al repositorio»**. Ninguna evaluación se pierde. En la ficha
+del proveedor cada calificación muestra su origen: *repositorio compartido*, *enviada al
+repositorio* o *pendiente de subir*.
 
 ## Estructura
 
@@ -155,6 +214,10 @@ El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el rob
 (`scripts/actualizar_datos.py`) todas las mañanas a partir de la hoja "Export" del Excel maestro. Si el
 flujo falla, la AC puede seguir usando el botón "Actualizar base desde Excel" dentro de la app como
 respaldo manual.
+
+El mismo robot publica `crm/calificaciones_export.json` con el **banco de proveedores**, leído de la
+hoja "Registro de Calificaciones" del Excel (la que alimenta el flujo de Power Automate de las
+calificaciones). Ambos archivos se cifran con `DATA_KEY` y se publican en el mismo commit diario.
 
 ## Seguridad de los datos (frase de acceso)
 

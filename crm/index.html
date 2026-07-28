@@ -1130,6 +1130,10 @@ function modalTerminar(c){
    proveedor, la elegibilidad y los avisos del Calificador de ofertas. Ambas apps son del
    mismo sitio, así que comparten ese almacenamiento. */
 const CLM_LS="fap_clm_v1";
+// Flujo de Power Automate del banco de proveedores (el mismo que usa el CLM):
+// escribe la calificación en la hoja «Registro de Calificaciones» del Excel maestro.
+// Pega aquí la URL del trigger HTTP; vacío = la calificación queda solo local.
+var FLOW_CALIF_URL = '';
 function provKeyCLM(nombre){
   const s=String(nombre==null?"":nombre).trim().toLowerCase();
   const k=s.replace(/[.,;:"'()]/g," ").replace(/\b(cia|ltda|limitada|s\s?a|sas|srl|cl|compania|compañia)\b/g," ").replace(/\s+/g," ").trim();
@@ -1150,8 +1154,32 @@ function registrarEnBancoCLM(c,x){
     O.evaluado=true;O.score=Number(x.score).toFixed(2);O.sem=x.t.sem;O.fcal=entry.fecha;
     clm.log.unshift({ts:new Date().toISOString(),user:entry.user,icon:"⭐",txt:`Proveedor calificado desde el CRM: ${entry.prov} · ${Number(x.score).toFixed(2)}/100 · ${x.t.sem}`,ref:c.nro});
     localStorage.setItem(CLM_LS,JSON.stringify(clm));
+    enviarCalificacionFlujo(entry);
     return true;
   }catch(e){ return false; }
+}
+/* Sube la calificación al repositorio compartido. Si no hay URL o falla la red, queda
+   marcada como pendiente y el CLM la reintenta desde su módulo Proveedores. */
+function enviarCalificacionFlujo(entry){
+  const marcar=(estado,err)=>{
+    try{
+      const clm=JSON.parse(localStorage.getItem(CLM_LS)||"{}");
+      const q=(clm.calificaciones||[]).find(x=>x.nro===entry.nro);
+      if(q){q.sync=estado;if(err)q.syncErr=err;else q.syncTs=new Date().toISOString();
+        localStorage.setItem(CLM_LS,JSON.stringify(clm));}
+    }catch(e){}
+  };
+  if(!FLOW_CALIF_URL){marcar("sin-flujo");return;}
+  const ap=i=>{const a=(entry.aportes||[])[i];return a?a.aporte:"";};
+  const payload={origen:"CRM",idCalificacion:entry.nro+"|"+entry.fecha,
+    contratoNro:entry.nro,proveedor:entry.prov,ruc:entry.ruc||"",area:entry.area||"",
+    categoria:entry.cat||"",ac:entry.ac||"",evaluador:entry.user||"",fechaEvaluacion:entry.fecha,
+    calidad:ap(0),plazo:ap(1),atencion:ap(2),contractual:ap(3),
+    puntajeTotal:entry.score,resultado:entry.sem,elegible:entry.elegible?"Sí":"No",
+    observaciones:entry.obs||"",fecha:new Date().toISOString()};
+  fetch(FLOW_CALIF_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+    .then(r=>{ marcar(r.ok?"enviado":"pendiente", r.ok?"":"HTTP "+r.status); })
+    .catch(e=>marcar("pendiente",(e&&e.message)||"error de red"));
 }
 function modalCalificar(c){
   /* Metodología oficial FAP/FIAS — hoja "Evaluación Proveedor" (FO-AD-ABC-017), 13 criterios en 4 indicadores.
@@ -1265,7 +1293,7 @@ function modalCalificar(c){
       <div class="steps">
         <h3>Próximos pasos</h3>
         <ol>
-          ${enBanco?`<li>La evaluación entró al <b>banco de proveedores del CLM</b>: queda en el historial del proveedor, define su elegibilidad y avisa al <b>Calificador de ofertas</b> si vuelve a presentarse.</li>`:""}
+          ${enBanco?`<li>La evaluación entró al <b>banco de proveedores del CLM</b>: queda en el historial del proveedor, define su elegibilidad y avisa al <b>Calificador de ofertas</b> si vuelve a presentarse. Además se envía al <b>repositorio compartido</b>; si el envío falla queda pendiente y se reintenta desde el CLM (módulo <b>Proveedores</b>).</li>`:""}
           <li>Se descargaron <b>dos archivos</b>: el informe en Word (borrador, para el expediente con firma) y un <b>CSV</b> con la fila de calificación.</li>
           <li>Pega la fila del CSV en <b>"Registro de Calificaciones"</b> (banco acumulativo 2026) y en la <b>Base de proveedores FAP</b> compartida.</li>
           <li>Imprime y archiva el informe firmado en el <b>expediente administrativo</b> del contrato.</li>

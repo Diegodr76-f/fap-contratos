@@ -279,6 +279,15 @@
 var FLOW_DOCS_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/08/workflows/d9ab249ef28a41c69d9bb7a5ee32a00e/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fhmL_aMEe5PETXXKDZuiYMg47xFWoa0RygIxFWFzCwI';
 var DATA_URL = '../crm/contratos_export.json';
 var TPL_PATH = '../crm/plantillas/';
+// Flujo de Power Automate del BANCO DE PROVEEDORES: recibe cada calificación
+// FO-AD-ABC-017 y la escribe como fila en la hoja «Registro de Calificaciones»
+// del Excel maestro. De ahí el robot diario la devuelve a todas las ACs en
+// calificaciones_export.json. Pega aquí la URL del trigger «Cuando se recibe una
+// solicitud HTTP» (ver README → «Flujo de calificaciones»). Sin URL, la
+// calificación se guarda igual en este navegador y queda marcada como pendiente
+// de envío, para reintentarla desde el módulo Proveedores.
+var FLOW_CALIF_URL = '';
+var CALIF_URL = '../crm/calificaciones_export.json';
 
 /* ================= CIFRADO DE DATOS (WebCrypto) =================
    Los datos (JSON diario y copia embebida) se publican cifrados con
@@ -447,6 +456,83 @@ function tierProv(s){
   return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,rank:4,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
 }
 function semChip(t,extra){return `<span class="semaforo" style="background:${t.bg};color:${t.fg};${extra||""}">${esc(t.sem)}</span>`;}
+/* ---- Repositorio compartido de calificaciones (Power Automate + robot diario) ----
+   Subida: cada calificación se envía al flujo (FLOW_CALIF_URL), que la escribe como fila
+   en la hoja «Registro de Calificaciones» del Excel maestro.
+   Bajada: el robot diario publica esa hoja cifrada en calificaciones_export.json, así que
+   todas las ACs ven el mismo banco. Lo local manda sobre lo remoto cuando es más reciente,
+   y lo que no se pudo enviar queda marcado como pendiente para reintentarlo. */
+let REMOTAS=[];
+let CALIF_SRC={label:"Solo este navegador",live:false};
+function normalizarCalificacion(q){
+  if(!q||!q.nro)return null;
+  const score=Number(q.score);
+  if(!isFinite(score))return null;
+  const t=tierProv(score);
+  return {id:q.id||("r"+q.nro),nro:String(q.nro),prov:q.prov||"—",key:q.key||provKey(q.prov||"—"),
+    ruc:q.ruc||"",area:q.area||"",cat:q.cat||"",ac:q.ac||"",fecha:q.fecha||"",score:score,
+    sem:q.sem||t.sem,elegible:q.elegible==null?t.elegible:!!q.elegible,
+    aportes:Array.isArray(q.aportes)&&q.aportes.length?q.aportes:null,vals:q.vals||null,
+    obs:q.obs||"",user:q.user||"—",migrada:!!q.migrada};
+}
+async function cargarCalificacionesRemotas(){
+  try{
+    const r=await fetch(CALIF_URL,{cache:"no-store"});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const data=await fapMaybe(await r.json());
+    const lista=Array.isArray(data)?data:(data&&data.calificaciones);
+    if(!Array.isArray(lista))throw new Error("formato");
+    REMOTAS=lista.map(normalizarCalificacion).filter(Boolean);
+    CALIF_SRC={label:`Repositorio compartido · ${REMOTAS.length} calificaciones`,live:true};
+  }catch(e){ REMOTAS=[];CALIF_SRC={label:"Banco local (repositorio compartido no disponible)",live:false}; }
+  invalidarBanco();
+}
+/* Una fila por contrato: la del repositorio, salvo que la de este navegador sea más nueva. */
+function calificacionesVigentes(){
+  const m={};
+  REMOTAS.forEach(q=>{m[q.nro]=Object.assign({},q,{origen:"repo"});});
+  CLM.calificaciones.forEach(q=>{
+    const r=m[q.nro];
+    if(!r||String(q.fecha||"")>=String(r.fecha||""))m[q.nro]=Object.assign({},q,{origen:"local"});
+  });
+  return Object.values(m);
+}
+function pendientesEnvio(){return CLM.calificaciones.filter(q=>q.sync==="pendiente"||q.sync==="sin-flujo");}
+function payloadCalificacion(q){
+  const ap=i=>{const a=(q.aportes||[])[i];return a?Math.round(a.aporte*100)/100:"";};
+  return {origen:"CLM",idCalificacion:q.nro+"|"+q.fecha,
+    contratoNro:q.nro,proveedor:q.prov,ruc:q.ruc||"",area:q.area||"",categoria:q.cat||"",
+    ac:q.ac||"",evaluador:q.user||"",fechaEvaluacion:q.fecha,
+    calidad:ap(0),plazo:ap(1),atencion:ap(2),contractual:ap(3),
+    puntajeTotal:Math.round(Number(q.score)*100)/100,resultado:q.sem,
+    elegible:q.elegible?"Sí":"No",observaciones:q.obs||"",
+    criterios:(q.vals||[]).map((fila,gi)=>({indicador:(GRUPOS_CAL[gi]||{}).nombre||"",notas:fila})),
+    fecha:new Date().toISOString()};
+}
+async function enviarCalificacion(q){
+  if(!FLOW_CALIF_URL){q.sync="sin-flujo";saveCLM();return {ok:false,motivo:"sin-flujo"};}
+  try{
+    const r=await fetch(FLOW_CALIF_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payloadCalificacion(q))});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    q.sync="enviado";q.syncTs=new Date().toISOString();q.syncErr="";saveCLM();
+    return {ok:true};
+  }catch(e){
+    q.sync="pendiente";q.syncErr=(e&&e.message)||"error de red";saveCLM();
+    return {ok:false,motivo:q.syncErr};
+  }
+}
+async function reenviarPendientes(){
+  const pend=pendientesEnvio();
+  if(!pend.length){toast("No hay calificaciones pendientes de envío");return;}
+  if(!FLOW_CALIF_URL){toast("Falta configurar la URL del flujo (FLOW_CALIF_URL)");return;}
+  let ok=0;
+  for(const q of pend){const r=await enviarCalificacion(q);if(r.ok)ok++;}
+  invalidarBanco();
+  logAdd("📤",`Reenvío al repositorio de proveedores: ${ok} de ${pend.length} calificación(es)`);
+  toast(ok===pend.length?`${ok} calificación(es) enviadas al repositorio`:`${ok} de ${pend.length} enviadas — el resto sigue pendiente`);
+  if(ST.view==="proveedores")vProveedores();else render();
+}
+
 /* Banco vivo: proveedores del Excel maestro + calificaciones registradas en el CLM. */
 function bancoProveedores(){
   const m={};
@@ -455,7 +541,7 @@ function bancoProveedores(){
     if(String(nombre||"").length>String(m[k].nombre||"").length)m[k].nombre=nombre;
     return m[k];};
   CONTRACTS.forEach((c,i)=>{const p=nodo(c.proveedor);if(!p)return;p.contratos.push({c,i});p.monto+=montoDe(c);});
-  CLM.calificaciones.forEach(q=>{const p=m[q.key]||nodo(q.prov);if(!p)return;p.cals.push(q);if(q.ruc&&!p.ruc)p.ruc=q.ruc;});
+  calificacionesVigentes().forEach(q=>{const p=m[q.key]||nodo(q.prov);if(!p)return;p.cals.push(q);if(q.ruc&&!p.ruc)p.ruc=q.ruc;});
   return Object.values(m).map(p=>{
     p.cals.sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
     p.n=p.cals.length;
@@ -469,10 +555,20 @@ function bancoProveedores(){
 }
 let _bancoIdx=null;
 function bancoIndex(){ // caché por render: alertas, tablas y detalle consultan lo mismo
-  if(!_bancoIdx){_bancoIdx={};bancoProveedores().forEach(p=>_bancoIdx[p.key]=p);}
+  if(!_bancoIdx){_bancoIdx={};bancoProveedores().forEach(p=>_bancoIdx[p.key]=p);publicarBancoLocal();}
   return _bancoIdx;
 }
 function invalidarBanco(){_bancoIdx=null;}
+/* Resumen del banco (propio + repositorio compartido) para las herramientas vecinas:
+   el Calificador de ofertas lo lee de aquí, sin tener que descifrar el JSON publicado. */
+function publicarBancoLocal(){
+  try{
+    const prov=Object.values(_bancoIdx).filter(p=>p.n>0).map(p=>({
+      key:p.key,nombre:p.nombre,prom:p.prom,n:p.n,sem:p.t.sem,elegible:p.t.elegible,
+      ultima:p.ultima?{nro:p.ultima.nro,fecha:p.ultima.fecha,score:p.ultima.score}:null}));
+    localStorage.setItem("fap_banco_prov_v1",JSON.stringify({fecha:new Date().toISOString(),proveedores:prov}));
+  }catch(e){}
+}
 function provDe(c){return c&&c.proveedor?(bancoIndex()[provKey(c.proveedor)]||null):null;}
 /* Una calificación por contrato: recalificar actualiza la fila (la norma pide actualizarla
    «de inmediato» ante una reincidencia), y el historial queda por proveedor. */
@@ -490,7 +586,7 @@ function migrarCalificaciones(){
   CONTRACTS.forEach(c=>{
     const o=CLM.overlay[c.nro];
     if(!o||!o.evaluado)return;
-    if(CLM.calificaciones.some(q=>q.nro===c.nro))return;
+    if(calificacionesVigentes().some(q=>q.nro===c.nro))return;
     const score=Number(o.score)||0,t=tierProv(score);
     CLM.calificaciones.push({id:"q"+c.nro,nro:c.nro,prov:c.proveedor||"—",key:provKey(c.proveedor||"—"),ruc:"",
       area:c.area||"",cat:c.cat||"",ac:c.ac||"",fecha:o.fcal||todayISO(),score:score,sem:o.sem||t.sem,
@@ -742,6 +838,11 @@ function alertList(){
         d:`${p.prom.toFixed(2)}/100 · ${p.t.sem} · ${p.activos} contrato(s) en curso · no debe recibir nuevas adjudicaciones`,i,act:"Ver ficha",fn:"prov",prov:p.key});
     }
   });
+  const pendSync=pendientesEnvio();
+  if(pendSync.length)out.push({sev:1,icon:"📤",col:"var(--amber)",bg:"var(--amberbg)",
+    t:`${pendSync.length} calificación(es) sin subir al repositorio de proveedores`,
+    d:`${pendSync.slice(0,3).map(q=>q.prov).join(" · ")}${pendSync.length>3?" · …":""} — están guardadas aquí, falta enviarlas al flujo`,
+    i:null,act:"Reenviar",fn:"sync"});
   mySolicitudes().forEach(s=>{
     if(s.estado==="borrador")out.push({sev:2,icon:"📝",col:"var(--navy)",bg:"var(--tint)",t:`Solicitud sin iniciar — ${s.objeto.slice(0,48)}`,d:`Vía sugerida: ${s.via==="contrato"?"contrato (Unidad Operativa)":"orden de compra/servicio"}`,i:null,act:"Ver",fn:"sol"});
   });
@@ -848,6 +949,7 @@ function bindAlertRows(){
     const fn=b.dataset.fn;
     if(fn==="sol"){go("solicitudes");return;}
     if(fn==="prov"){goProv(b.dataset.prov);return;}
+    if(fn==="sync"){reenviarPendientes();return;}
     const i=+b.dataset.i;const c=CONTRACTS[i];
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
     else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
@@ -1069,6 +1171,14 @@ function vDetalle(){
   const pf=$("#verficha");if(pf)pf.onclick=()=>goProv(provKey(c.proveedor));
   if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
   $("#a-nota").onclick=()=>modalNota(c);
+}
+/* De dónde viene cada calificación: del repositorio compartido (la vieron todas las ACs)
+   o de este navegador, y en ese caso si ya subió al flujo o sigue pendiente. */
+function origenChip(q){
+  if(q.origen==="repo")return `<span class="badge b-g">repositorio compartido</span>`;
+  if(q.sync==="enviado")return `<span class="badge b-n">enviada al repositorio</span>`;
+  if(q.sync==="pendiente"||q.sync==="sin-flujo")return `<span class="badge b-a">pendiente de subir</span>`;
+  return `<span class="badge b-d">solo en este navegador</span>`;
 }
 /* Ficha resumida del proveedor dentro del contrato: al abrir cualquier contrato se ve
    cómo se ha portado ese proveedor en TODO el portafolio, no solo aquí. */
@@ -1337,7 +1447,7 @@ function modalTerminar(c){
    evaluación entra al banco de proveedores del CLM (historial, elegibilidad y avisos). */
 function modalCalificar(c){
   const GRUPOS=GRUPOS_CAL;
-  const prev=CLM.calificaciones.find(q=>q.nro===c.nro)||null;
+  const prev=calificacionesVigentes().find(q=>q.nro===c.nro)||null;
   const p=provDe(c);
   const previas=p?p.cals.filter(q=>q.nro!==c.nro):[];
   const vals=GRUPOS.map((g,gi)=>g.items.map((_,ii)=>{
@@ -1408,12 +1518,26 @@ function modalCalificar(c){
       <div class="steps"><h3>Qué acaba de pasar</h3><ol>
         <li>La evaluación entró al <b>banco de proveedores del CLM</b>${pb&&pb.n>1?`: ${pb.n} calificaciones, promedio <b>${pb.prom.toFixed(2)}/100</b> (${esc(pb.t.sem)})`:""}.</li>
         <li>El sello de calificación acompaña ahora al proveedor en el repositorio, en el detalle de sus contratos y en el <b>Calificador de ofertas</b> cuando se presente a un nuevo proceso.</li>
-        <li>Se descargó el <b>CSV</b> de esta fila para el «Registro de Calificaciones». También puedes bajar el banco completo desde <b>Proveedores</b>.</li>
+        <li id="pasoFlujo">Enviando la calificación al <b>repositorio compartido de proveedores</b>…</li>
+        <li>Se descargó el <b>CSV</b> de esta fila para el «Registro de Calificaciones».</li>
         ${!o._t.elegible?"<li><b>Proveedor no elegible</b> — queda marcado en Alertas y debe reportarse a la Unidad Operativa.</li>":""}
       </ol></div>
       <div class="modal-foot"><button class="btn line" id="okpasos">Entendido</button><button class="btn" id="verprov">Ver ficha del proveedor</button></div>`;
     $("#okpasos",o).onclick=()=>{closeModal(o);render();};
     $("#verprov",o).onclick=()=>{closeModal(o);goProv(entry.key);};
+    /* Sube la calificación al flujo de Power Automate: de ahí va a la hoja «Registro de
+       Calificaciones» del Excel y vuelve publicada para todas las ACs. Si falla, queda
+       pendiente y se reintenta desde el módulo Proveedores — la nota nunca se pierde. */
+    enviarCalificacion(entry).then(res=>{
+      const li=$("#pasoFlujo",o);
+      if(res.ok)logAdd("📤",`Calificación enviada al repositorio de proveedores: ${esc(c.proveedor||"—")}`,c.nro);
+      if(!li)return;
+      li.innerHTML=res.ok
+        ?`Se envió al <b>repositorio compartido</b> (flujo de Power Automate → hoja «Registro de Calificaciones»). Mañana la verán todas las ACs.`
+        :res.motivo==="sin-flujo"
+          ?`<b>Falta configurar el flujo</b> del repositorio (<code>FLOW_CALIF_URL</code>): la calificación quedó guardada y <b>pendiente de envío</b>. Reintenta desde <b>Proveedores</b> cuando esté configurado.`
+          :`No se pudo enviar al repositorio (${esc(res.motivo)}): quedó <b>pendiente</b>. Reintenta desde <b>Proveedores → Reenviar al repositorio</b>.`;
+    });
     toast(`Proveedor ${nueva?"calificado":"recalificado"} · ${o._score.toFixed(2)}/100`);
   };
 }
@@ -1589,6 +1713,7 @@ function vProveedores(){
   const cal=banco.filter(p=>p.n>0);
   const prom=cal.length?cal.reduce((a,p)=>a+p.prom,0)/cal.length:null;
   const noEleg=cal.filter(p=>!p.t.elegible).length,pend=banco.reduce((a,p)=>a+p.pendientes,0);
+  const pendSync=pendientesEnvio();
   const cnt=f=>{const s=ST.provFilter;ST.provFilter=f;const n=provFiltrados().length;ST.provFilter=s;return n;};
   $("#view").innerHTML=`<div class="up">
     <div class="toolbar">
@@ -1596,12 +1721,19 @@ function vProveedores(){
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <input id="pq" placeholder="Buscar proveedor…" value="${esc(ST.provQ)}">
       </div>
+      ${pendSync.length?`<button class="btn sm" id="reenviar">📤 Reenviar al repositorio · ${pendSync.length}</button>`:""}
       <button class="btn line sm" id="expBanco">⬇ Registro de calificaciones (CSV)</button>
       <button class="btn line sm" id="expJson">⬇ Banco (JSON)</button>
       <button class="btn line sm" id="impJson">⬆ Importar banco</button>
       <input type="file" id="fileJson" accept=".json,application/json" style="display:none">
     </div>
-    <p class="psub" style="margin:-8px 0 14px">Un proveedor, un historial: las calificaciones FO-AD-ABC-017 de todos sus contratos se acumulan aquí y definen si es <b>elegible</b> para nuevos procesos. El banco vive en este navegador — exporta el JSON para compartirlo con el equipo o el CSV para el Excel «Registro de Calificaciones».</p>
+    <p class="psub" style="margin:-8px 0 10px">Un proveedor, un historial: las calificaciones FO-AD-ABC-017 de todos sus contratos se acumulan aquí y definen si es <b>elegible</b> para nuevos procesos.</p>
+    <div class="note" style="margin-bottom:14px">
+      <b>Repositorio compartido:</b> <span class="srcpill"><span class="srcdot ${CALIF_SRC.live?"":"off"}"></span>${esc(CALIF_SRC.label)}</span>
+      · cada calificación se envía al flujo de Power Automate, que la escribe en la hoja «Registro de Calificaciones» del Excel maestro; el robot diario la republica cifrada para todas las ACs.
+      ${pendSync.length?`<br><b style="color:var(--amber)">${pendSync.length} calificación(es) sin subir</b> — quedaron guardadas aquí; usa <b>Reenviar al repositorio</b>.`:""}
+      ${!FLOW_CALIF_URL?`<br><b style="color:var(--amber)">Falta configurar <code>FLOW_CALIF_URL</code></b> en <code>clm/index.html</code> con la URL del flujo (ver README). Mientras tanto, comparte el banco con el JSON.`:""}
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:16px">
       <div class="kpi" style="cursor:default"><div class="kpi-n">${banco.length}</div><div class="kpi-l">Proveedores</div></div>
       <div class="kpi" style="cursor:default"><div class="kpi-n" style="color:var(--navy)">${cal.length}</div><div class="kpi-l">Con calificación</div></div>
@@ -1629,23 +1761,25 @@ function vProveedores(){
   $("#pq").oninput=e=>{ST.provQ=e.target.value;vProveedores();};
   $("#view").querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>{ST.provFilter=b.dataset.pf;vProveedores();});
   $("#view").querySelectorAll("[data-prov]").forEach(r=>r.onclick=()=>goProv(r.dataset.prov));
+  const rb=$("#reenviar");if(rb)rb.onclick=reenviarPendientes;
   $("#expBanco").onclick=exportarRegistroCal;
   $("#expJson").onclick=exportarBancoJSON;
   $("#impJson").onclick=()=>$("#fileJson").click();
   $("#fileJson").onchange=e=>{const f=e.target.files[0];if(f)importarBancoJSON(f);};
 }
 function exportarRegistroCal(){
-  if(!CLM.calificaciones.length){toast("Todavía no hay calificaciones registradas");return;}
+  const todas=calificacionesVigentes();
+  if(!todas.length){toast("Todavía no hay calificaciones registradas");return;}
   const BOM="\uFEFF";
   const head=["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones"].join(";");
-  const rows=CLM.calificaciones.slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))).map(calCsvRow);
+  const rows=todas.sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))).map(calCsvRow);
   const blob=new Blob([BOM+[head].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Registro_Calificaciones_FAP_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
   logAdd("⬇️",`Exportación del registro de calificaciones (${rows.length} filas)`);
   toast(`${rows.length} calificación(es) exportadas`);
 }
 function exportarBancoJSON(){
-  const data={tipo:"fap-clm-banco-proveedores",version:1,fecha:todayISO(),calificaciones:CLM.calificaciones};
+  const data={tipo:"fap-clm-banco-proveedores",version:1,fecha:todayISO(),calificaciones:calificacionesVigentes()};
   const blob=new Blob([JSON.stringify(data,null,1)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Banco_proveedores_FAP_"+todayISO()+".json";a.click();URL.revokeObjectURL(a.href);
   toast("Banco exportado — compártelo con el equipo");
@@ -1720,7 +1854,7 @@ function vProveedor(){
                 <div class="aic" style="background:${t.bg};color:${t.fg};font-weight:700;font-size:13px">${Number(q.score).toFixed(0)}</div>
                 <div style="min-width:0;flex:1">
                   <div class="at">${Number(q.score).toFixed(2)}/100 · ${esc(q.sem)}</div>
-                  <div class="ad">${esc(q.nro)} · ${fdate(q.fecha)} · ${esc(q.area||"—")} · evaluó ${esc(q.user||"—")}${q.migrada?" · registro previo al banco":""}</div>
+                  <div class="ad">${esc(q.nro)} · ${fdate(q.fecha)} · ${esc(q.area||"—")} · evaluó ${esc(q.user||"—")}${q.migrada?" · registro previo al banco":""} · ${origenChip(q)}</div>
                 </div>
                 ${idx>=0?`<button class="btn sm line" data-open2="${idx}">Ver contrato</button>`:""}
               </div>
@@ -1906,6 +2040,7 @@ async function boot(){
     }catch(e2){}
   }
   if(!CONTRACTS.length)dataSource={label:"Sin datos disponibles",live:false};
+  await cargarCalificacionesRemotas();
   migrarCalificaciones();
   const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
   if(m&&VIEWS[m[1]]){ST.view=m[1];if(m[2]!=null)ST.cur=+m[2];}

@@ -144,3 +144,125 @@ with open("crm/contratos_export.json", "w", encoding="utf-8") as f:
 print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['link'])} con link, "
       f"{sum(1 for c in out if c['cerrado'])} cerrados.")
+
+# ---------------------------------------------------------------------------
+# BANCO DE PROVEEDORES
+# Las ACs califican en el CLM/CRM y el flujo de Power Automate escribe cada
+# calificación como una fila de la hoja "Registro de Calificaciones" del Excel.
+# Aquí esa hoja se devuelve publicada (cifrada) para que todas las ACs vean el
+# mismo historial: crm/calificaciones_export.json.
+# ---------------------------------------------------------------------------
+
+INDICADORES = ["Calidad del producto / servicio", "Cumplimiento de plazo",
+               "Atención y soporte", "Cumplimiento contractual"]
+
+def prov_key(nombre):
+    """Misma normalización que el CLM (clm/index.html → provKey), para que
+    'CIA. LTDA.' y 'S.A.' no partan al mismo proveedor en varias fichas."""
+    s = str(nombre or "").strip().lower()
+    k = re.sub(r"[.,;:\"'()]", " ", s)
+    k = re.sub(r"\b(cia|ltda|limitada|s\s?a|sas|srl|cl|compania|compañia)\b", " ", k)
+    k = re.sub(r"\s+", " ", k).strip()
+    return k or s
+
+def semaforo(score):
+    if score >= 90: return "Confiable (Preferente)", True
+    if score >= 80: return "Satisfactorio", True
+    if score >= 70: return "Aceptable – Observado", True
+    if score >= 60: return "Deficiente – Inaceptable", False
+    return "No recomendado", False
+
+def numero(v):
+    """Acepta 82,5 (formato es-EC del CSV/Excel) y 82.5."""
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = str(v or "").strip().replace(" ", "")
+    if not s:
+        return None
+    if "," in s and "." in s:
+        s = s.replace(".", "").replace(",", ".")
+    else:
+        s = s.replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+hoja_cal = next((n for n in wb.sheetnames if "calificac" in n.lower()), None)
+cals = []
+if hoja_cal:
+    wsc = wb[hoja_cal]
+    filas = list(wsc.iter_rows(values_only=True))
+    # La cabecera puede no estar en la primera fila (títulos, logos, notas)
+    hi = next((i for i, f in enumerate(filas[:6])
+               if f and any("puntaje" in str(c or "").lower() for c in f)), 0)
+    head = [str(c or "").strip().lower() for c in filas[hi]]
+
+    def ccol(*aliases):
+        for a in aliases:
+            for j, h in enumerate(head):
+                if h.startswith(a):
+                    return j
+        return None
+
+    K = dict(
+        nro=ccol("nro. contrato", "nro contrato", "nro. de contrato", "contrato"),
+        prov=ccol("nombre proveedor", "proveedor"),
+        area=ccol("área protegida", "area protegida", "área", "area"),
+        cat=ccol("categoría", "categoria"),
+        ac=ccol("administrador"), fecha=ccol("fecha evaluación", "fecha evaluacion", "fecha"),
+        c1=ccol("calidad"), c2=ccol("plazo"), c3=ccol("atención", "atencion"),
+        c4=ccol("cump. contractual", "cumplimiento contractual", "contractual"),
+        total=ccol("puntaje total", "puntaje"), res=ccol("resultado"),
+        eleg=ccol("elegible"), obs=ccol("observaciones"), ruc=ccol("ruc"),
+    )
+    vistos = {}
+    for row in filas[hi + 1:]:
+        if not row or K["nro"] is None or K["nro"] >= len(row):
+            continue
+        nro = str(row[K["nro"]] or "").strip()
+        score = numero(row[K["total"]]) if K["total"] is not None and K["total"] < len(row) else None
+        if not nro or score is None:
+            continue
+        val = lambda k: (str(row[K[k]]).strip()
+                         if K[k] is not None and K[k] < len(row) and row[K[k]] is not None else "")
+        sem, elegible = semaforo(score)
+        if K["res"] is not None and val("res"):
+            sem = val("res")
+        if K["eleg"] is not None and val("eleg"):
+            elegible = val("eleg").lower().startswith(("s", "y", "t"))  # Sí / Yes / True
+        aportes = []
+        for idx, k in enumerate(("c1", "c2", "c3", "c4")):
+            a = numero(row[K[k]]) if K[k] is not None and K[k] < len(row) else None
+            if a is not None:
+                aportes.append({"nombre": INDICADORES[idx], "aporte": round(a, 2)})
+        prov = val("prov")
+        fecha = iso(row[K["fecha"]]) if K["fecha"] is not None and K["fecha"] < len(row) else None
+        entrada = dict(
+            id="x" + nro, nro=nro, prov=prov, key=prov_key(prov), ruc=val("ruc"),
+            area=val("area"), cat=val("cat"), ac=val("ac"),
+            fecha=fecha or datetime.date.today().strftime("%Y-%m-%d"),
+            score=round(score, 2), sem=sem, elegible=bool(elegible),
+            aportes=aportes or None, vals=None, obs=val("obs"), user=val("ac"),
+        )
+        # Una calificación por contrato: si el flujo agregó varias filas (recalificación),
+        # gana la más reciente, que es como lo resuelve el CLM.
+        previa = vistos.get(nro)
+        if not previa or str(entrada["fecha"]) >= str(previa["fecha"]):
+            vistos[nro] = entrada
+    cals = list(vistos.values())
+
+if cals:
+    sobre_cal = cifrar(json.dumps(cals, ensure_ascii=False, default=str).encode("utf-8"), DATA_KEY)
+    with open("crm/calificaciones_export.json", "w", encoding="utf-8") as f:
+        json.dump(sobre_cal, f, ensure_ascii=False)
+    proveedores = len({c["key"] for c in cals})
+    no_elegibles = sum(1 for c in cals if not c["elegible"])
+    print(f"OK: {len(cals)} calificaciones publicadas (cifradas) desde la hoja "
+          f"'{hoja_cal}' · {proveedores} proveedores · {no_elegibles} no elegibles.")
+elif hoja_cal:
+    print(f"AVISO: la hoja '{hoja_cal}' no tiene filas legibles; "
+          "se conserva el calificaciones_export.json anterior.")
+else:
+    print("AVISO: el Excel no tiene hoja de calificaciones ('Registro de Calificaciones'); "
+          "el banco de proveedores queda solo con lo local de cada navegador.")
