@@ -15174,14 +15174,42 @@ function estructuraDocx(p){
       .forEach(n => { texto += aceptarRevisionesXml(zip.files[n].asText()).replace(/<[^>]*>/g,'') + '\n'; });
   }catch(e){ return vacia; }
   texto = texto.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+  const re = /\{([#\/^]?)([\wáéíóúñÁÉÍÓÚÑ]+)\}/g;
+  const tokens = [];
+  let m;
+  while((m = re.exec(texto)) !== null) tokens.push({ marca: m[1], nombre: m[2] });
+
+  // Primer barrido: para cada {#x}/{^x} reúne sus campos hijos DIRECTOS (sin bajar
+  // a bloques anidados). Una tabla repetible (fila con {#x} en la primera celda y
+  // {/x} en la última) siempre trae varias columnas distintas; una condición típica
+  // envuelve texto opcional con a lo sumo una variable. Esto permite reconocer una
+  // lista aunque su tag todavía no se haya registrado como «repetible» en el catálogo
+  // (si ya está registrado, ese registro manda igual).
+  const hijosDirectos = {};
+  {
+    const pila = [];
+    tokens.forEach(({ marca, nombre }) => {
+      if(marca === '#' || marca === '^'){
+        if(!hijosDirectos[nombre]) hijosDirectos[nombre] = new Set();
+        pila.push(nombre);
+      } else if(marca === '/'){
+        pila.pop();
+      } else if(pila.length){
+        hijosDirectos[pila[pila.length - 1]].add(nombre);
+      }
+    });
+  }
+  function decidirLista(nombre){
+    const reg = buscarVar(nombre);
+    if(reg) return reg.tipo === 'repetible';
+    return (hijosDirectos[nombre] ? hijosDirectos[nombre].size : 0) >= 2;
+  }
+
   const est = { escalares:[], condiciones:[], listas:[] };
   const pila = [];
-  const re = /\{([#\/^]?)([\wáéíóúñÁÉÍÓÚÑ]+)\}/g;
-  let m;
-  while((m = re.exec(texto)) !== null){
-    const marca = m[1], nombre = m[2];
+  tokens.forEach(({ marca, nombre }) => {
     if(marca === '#' || marca === '^'){
-      const esLista = (buscarVar(nombre) || {}).tipo === 'repetible';
+      const esLista = decidirLista(nombre);
       let bloque = (esLista ? est.listas : est.condiciones).find(b => b.nombre === nombre);
       if(!bloque){ bloque = { nombre, campos: [] }; (esLista ? est.listas : est.condiciones).push(bloque); }
       pila.push({ bloque, esLista });
@@ -15195,7 +15223,7 @@ function estructuraDocx(p){
         est.escalares.push(nombre);
       }
     }
-  }
+  });
   cacheEstructura[p.id] = est;
   return est;
 }
