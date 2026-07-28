@@ -14271,14 +14271,23 @@ function tipoDe(v){
 const esFecha = v => tipoDe(v) === 'fecha';
 const esMonto = v => tipoDe(v) === 'numero';
 const esLetras = v => tipoDe(v) === 'letras';
-const baseLetras = v => v.replace(/_en_letras$/i,'').replace(/Letras$/,'');
+const baseLetras = v => v.replace(/_en_letras(\d*)$/i,'$1').replace(/Letras(\d*)$/,'$1');
+/* Variable numérica de la que se calcula un campo "letras": si la variable
+   tiene un origen elegido a mano (útil cuando el nombre no sigue ningún
+   patrón previsible, p. ej. «garantiaenletras1» ← «montogarantia1») ese
+   origen manda; si no, se adivina quitando el sufijo de letras del nombre. */
+function origenDe(v){
+  const reg = buscarVar(v);
+  if(reg && reg.origen) return reg.origen;
+  return baseLetras(v);
+}
 const etiqueta = v => v.replace(/_/g,' ').replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g,'$1 $2').toLowerCase().replace(/^\w/, c => c.toUpperCase());
 
 /* Completa montos en letras dentro de un objeto de datos */
 function completarLetras(vars, datos){
   vars.forEach(v => {
     if(esLetras(v)){
-      const b = datos[baseLetras(v)];
+      const b = datos[origenDe(v)];
       datos[v] = b ? numeroALetras(b) : '';
     }
   });
@@ -14483,7 +14492,7 @@ function renderGenerar(c, p){
     const reg = buscarVar(v);
     if(esLetras(v)){
       const val = datosForm[v] || '';
-      return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span></label><textarea readonly rows="1" id="f_${v}" oninput="return false">${esc(val)}</textarea><div class="nota">Se calcula solo desde «${esc(baseLetras(v))}»</div></div>`;
+      return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span></label><textarea readonly rows="1" id="f_${v}" oninput="return false">${esc(val)}</textarea><div class="nota">Se calcula solo desde «${esc(origenDe(v))}»</div></div>`;
     }
     const tipo = esFecha(v) ? 'date' : (esMonto(v) ? 'number' : 'text');
     const extra = esMonto(v) ? ' step="0.01" min="0"' : '';
@@ -14534,7 +14543,7 @@ function actualizarCampo(v, val){
   const p = plActual(); if(!p) return;
   const vars = varsDe(p);
   vars.forEach(x => {
-    if(esLetras(x) && baseLetras(x).toLowerCase() === v.toLowerCase()){
+    if(esLetras(x) && origenDe(x).toLowerCase() === v.toLowerCase()){
       datosForm[x] = val ? numeroALetras(val) : '';
       const inp = document.getElementById('f_' + x);
       if(inp){ inp.value = datosForm[x]; ajustarAlturaLetras(inp); }
@@ -15233,7 +15242,7 @@ function datosDocx(p, base, enLote){
   const datos = {};
   est.escalares.forEach(t => {
     let val = base[t] !== undefined && base[t] !== null ? String(base[t]) : '';
-    if(!val && esLetras(t) && base[baseLetras(t)]) val = numeroALetras(base[baseLetras(t)]);
+    if(!val && esLetras(t) && base[origenDe(t)]) val = numeroALetras(base[origenDe(t)]);
     if(esFecha(t) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
     if(val && esDinero(t)) val = fmtMonto(val);
     datos[t] = val;
@@ -15712,7 +15721,7 @@ async function descargarWord(){
         '\n\nCorrígelos en Word y vuelve a subir la plantilla.');
       return;
     }
-    const pendientes = vars.filter(v => !valorDe(datosForm, v) && !(esLetras(v) && datosForm[baseLetras(v)]));
+    const pendientes = vars.filter(v => !valorDe(datosForm, v) && !(esLetras(v) && datosForm[origenDe(v)]));
     if(pendientes.length && !confirm('Campos sin completar: ' + pendientes.map(etiqueta).join(', ') + '.\n\n¿Generar de todas formas? (aparecerán como líneas en blanco)')) return;
     try{
       const datos = datosDocx(p, datosForm);
@@ -16509,7 +16518,13 @@ function renderVariables(c){
           <div class="campo"><label>Grupo</label><input id="var-ed-grupo" list="grupos-dl" value="${esc(sel.grupo)}"><datalist id="grupos-dl">${gruposVar().filter(x=>x!=='Todos').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
           <div class="campo"><label>Descripción</label><textarea id="var-ed-desc" rows="3">${esc(sel.descripcion||'')}</textarea></div>
           <div class="campo"><label>Ejemplo (se muestra como guía en el formulario)</label><input id="var-ed-ejemplo" value="${esc(sel.ejemplo||'')}"></div>
-          <div class="campo"><label>Tipo</label><select id="var-ed-tipo">${['texto','numero','fecha','letras','repetible'].map(t=>`<option ${sel.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div>
+          <div class="campo"><label>Tipo</label><select id="var-ed-tipo" onchange="document.getElementById('var-ed-origen-wrap').style.display = this.value==='letras' ? '' : 'none'">${['texto','numero','fecha','letras','repetible'].map(t=>`<option ${sel.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div>
+          <div class="campo" id="var-ed-origen-wrap" style="${sel.tipo==='letras'?'':'display:none'}">
+            <label>Variable de origen (el monto en números)</label>
+            <input id="var-ed-origen" list="vars-origen-dl" value="${esc(sel.origen||'')}" placeholder="${esc(baseLetras(sel.nombre)||'monto…')}">
+            <datalist id="vars-origen-dl">${variablesRepo.filter(x=>x.id!==sel.id && x.tipo!=='letras' && x.tipo!=='repetible').map(x=>`<option value="${esc(x.nombre)}">`).join('')}</datalist>
+            <div class="nota">Vacío = se adivina quitando el sufijo («montoLetras» → «monto»). Si el nombre no sigue ese patrón (como aquí), indica el tag exacto.</div>
+          </div>
           <div class="ed-acciones" style="margin-top:6px">
             <button class="btn" onclick="guardarVariableEd()">💾 Guardar</button>
             <button class="btn peligro" onclick="eliminarVariableEd()">Eliminar</button>
@@ -16674,6 +16689,8 @@ function guardarVariableEd(){
   v.descripcion = document.getElementById('var-ed-desc').value.trim();
   v.ejemplo = document.getElementById('var-ed-ejemplo').value.trim();
   v.tipo = document.getElementById('var-ed-tipo').value;
+  const origenEl = document.getElementById('var-ed-origen');
+  v.origen = origenEl ? origenEl.value.trim().replace(/[{}]/g,'') : '';
   guardar(); renderContenido();
 }
 function eliminarVariableEd(){
@@ -16770,7 +16787,7 @@ function insertarClausulaEnDoc(clId, varId){
     cuerpo = cuerpo.replace(/\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g, (m, x) => {
       let val = datos[x] || '';
       if(esFecha(x) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
-      if(!val && esLetras(x) && datos[baseLetras(x)]) val = numeroALetras(datos[baseLetras(x)]);
+      if(!val && esLetras(x) && datos[origenDe(x)]) val = numeroALetras(datos[origenDe(x)]);
       if(val && esDinero(x)) val = fmtMonto(val);
       return val ? esc(val) : m;
     });
