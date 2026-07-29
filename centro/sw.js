@@ -1,10 +1,10 @@
-/* Horizonte · service worker
+/* Centro de mando diario · service worker
    Objetivo: que la app abra igual sin internet (el celular no siempre tiene).
    - La página: red primero, caché de respaldo → los cambios se ven al toque.
    - Iconos y manifiesto: caché primero → arranque instantáneo.
    - Todo lo que no sea GET del mismo origen (por ejemplo el POST al flujo de
      Power Automate) pasa de largo: nunca se guarda ni se intercepta. */
-const CACHE = "horizonte-v1";
+const CACHE = "centro-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {

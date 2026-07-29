@@ -3,362 +3,371 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Horizonte · Centro de operaciones</title>
-<meta name="description" content="Centro de operaciones personal: un solo horizonte para lo que tienes que hacer, alimentado automáticamente por Microsoft To Do, Planner, los correos marcados de Outlook y el calendario.">
-<meta name="theme-color" content="#0F0E17">
+<title>Centro de mando diario</title>
+<meta name="description" content="Centro de operaciones personal: un solo lugar para lo que tienes que hacer, alimentado automáticamente por Microsoft To Do, Planner, los correos marcados de Outlook y el calendario.">
+<meta name="theme-color" content="#F6F6F4">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Horizonte">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Centro">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png" sizes="512x512" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --ink:      #0F0E17;
-    --surf:     #1A1826;
-    --surf2:    #232030;
-    --line:     #2E2A3D;
-    --text:     #EDEAF5;
-    --muted:    #8B85A3;
-    --faint:    #5A5470;
+    --bg:      #F6F6F4;
+    --card:    #FFFFFF;
+    --ink:     #1C1C1E;
+    --ink2:    #3A3A3C;
+    --gris:    #6E6E73;
+    --gris2:   #8A8A8E;
+    --gris3:   #A1A1A6;
+    --gris4:   #C7C7CC;
+    --linea:   rgba(0,0,0,.05);
+    --linea2:  rgba(0,0,0,.09);
+    --suave:   #F7F7F5;
 
-    /* perspectiva atmosférica: cerca = cálido, lejos = frío */
-    --h-hoy:     #FFAE3B;
-    --h-corto:   #7C9EFF;
-    --h-mediano: #4FBFA8;
-    --h-largo:   #6C7391;
-    --vencido:   #FF6B5B;
-    --ok:        #4FBFA8;
+    --acento:  #0A84FF;
+    --rojo:    #D1453B;
+    --verde:   #30A46C;
+    --violeta: #A459D1;
 
-    --display: 'Bricolage Grotesque', system-ui, sans-serif;
-    --body:    'Instrument Sans', system-ui, sans-serif;
-    --mono:    'JetBrains Mono', ui-monospace, monospace;
-
+    --ease: cubic-bezier(.32,.72,0,1);
+    --sombra: 0 1px 2px rgba(0,0,0,.035), 0 18px 40px -30px rgba(0,0,0,.3);
+    --sombra-alta: 0 1px 2px rgba(0,0,0,.04), 0 10px 30px -18px rgba(0,0,0,.28);
     --safe-b: env(safe-area-inset-bottom, 0px);
   }
 
-  html, body { background: var(--ink); }
-  body { -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body { font-family: Figtree, system-ui, -apple-system, sans-serif; color: var(--ink);
+         -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+  button, input, textarea { font-family: inherit; }
+  textarea::placeholder, input::placeholder { color: #B0B0B6; }
+  a { color: var(--acento); text-decoration: none; }
+  a:hover { color: #0060DF; }
 
-  #app {
-    background: radial-gradient(120% 90% at 15% -10%, #1D1A2E 0%, var(--ink) 55%);
-    color: var(--text);
-    font-family: var(--body);
-    min-height: 100vh;
-    padding: 26px 26px calc(40px + var(--safe-b));
-    max-width: 1180px;
-    margin: 0 auto;
-  }
-  @media (max-width: 700px) {
-    #app { padding: 18px 15px calc(96px + var(--safe-b)); }
-  }
+  @keyframes hz-pop { 0% { transform: scale(1); } 40% { transform: scale(.82); } 100% { transform: scale(1); } }
+  @keyframes hz-ring { 0% { transform: scale(.7); opacity: .55; } 100% { transform: scale(2.1); opacity: 0; } }
+  @keyframes hz-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes hz-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 
-  button, input, textarea, select { font-family: inherit; color: inherit; }
+  #app { min-height: 100vh; background: var(--bg); padding-bottom: calc(72px + var(--safe-b)); }
 
   /* ---------- cabecera ---------- */
-  .top { display: flex; justify-content: space-between; align-items: flex-start;
-         gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
-  .fecha { font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
-           text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-  .titulo { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 7vw, 56px);
-            line-height: .92; letter-spacing: -.03em; }
-  .titulo em { font-style: normal; color: var(--h-hoy); }
+  header.top { position: sticky; top: 0; z-index: 20;
+    backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px);
+    background: rgba(246,246,244,.78); border-bottom: 1px solid rgba(0,0,0,.06); }
+  .top-in { max-width: 1120px; margin: 0 auto; padding: 26px 28px 22px; display: flex;
+            flex-wrap: wrap; gap: 24px 32px; align-items: flex-end; justify-content: space-between; }
+  .fecha { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--gris2); }
+  h1.saludo { margin: 8px 0 0; font-size: clamp(34px, 5.4vw, 52px); font-weight: 700;
+              letter-spacing: -.028em; line-height: 1.02; }
 
-  .presion { text-align: right; border-left: 2px solid var(--line); padding-left: 16px;
-             min-width: 150px; }
-  .presion .n { font-family: var(--display); font-size: 40px; font-weight: 800;
-                line-height: 1; letter-spacing: -.03em; }
-  .presion .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
-  .presion.alerta .n { color: var(--vencido); }
-  .presion.calma .n  { color: var(--ok); }
+  .presion { display: flex; align-items: center; gap: 16px; padding: 12px 20px 12px 16px;
+             border-radius: 18px; background: var(--card); border: 1px solid var(--linea);
+             box-shadow: var(--sombra-alta); }
+  .presion .num { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px;
+                  font-size: 21px; font-weight: 700; letter-spacing: -.02em;
+                  font-variant-numeric: tabular-nums; flex: none; }
+  .presion .num.alerta { animation: hz-breathe 2.6s ease-in-out infinite; }
+  .presion .p-t { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .presion .p-d { font-size: 13px; font-weight: 500; color: var(--gris2); margin-top: 2px; line-height: 1.35; }
+  .presion .p-w { max-width: 230px; }
 
-  /* ---------- navegación ---------- */
-  .nav { display: flex; gap: 4px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
-  .nav button { background: 0; border: 0; cursor: pointer; color: var(--muted);
-                font-size: 13px; font-weight: 500; padding: 9px 13px; border-radius: 8px 8px 0 0;
-                border-bottom: 2px solid transparent; margin-bottom: -1px;
+  /* ---------- barra de secciones ---------- */
+  .barra { max-width: 1120px; margin: 0 auto; padding: 18px 28px 0; display: flex;
+           align-items: center; gap: 14px; flex-wrap: wrap; }
+  .seg { display: flex; gap: 3px; padding: 3px; border-radius: 13px; background: rgba(0,0,0,.045);
+         overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .seg::-webkit-scrollbar { display: none; }
+  .seg button { border: 0; background: transparent; cursor: pointer; white-space: nowrap;
+                font-size: 13.5px; font-weight: 600; letter-spacing: -.006em; color: var(--gris);
+                padding: 7px 14px; border-radius: 10px; transition: all .22s var(--ease);
                 display: flex; align-items: center; gap: 7px; }
-  .nav button:hover { color: var(--text); background: var(--surf); }
-  .nav button.on { color: var(--text); border-bottom-color: var(--h-hoy); }
-  .nav .pip { font-family: var(--mono); font-size: 9.5px; background: var(--vencido);
-              color: var(--ink); border-radius: 20px; padding: 1px 6px; font-weight: 500; }
-  .nav .sync { margin-left: auto; font-family: var(--mono); font-size: 10px;
-               letter-spacing: .06em; color: var(--faint); padding: 9px 4px 9px 13px;
-               display: flex; align-items: center; gap: 7px; border: 0; background: 0;
-               cursor: pointer; }
-  .nav .sync:hover { color: var(--muted); background: 0; }
-  .punto { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
-  .punto.viva { background: var(--ok); }
-  .punto.mala { background: var(--vencido); }
-  .punto.trab { background: var(--h-hoy); }
+  .seg button:hover { color: var(--ink); }
+  .seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .seg .pip { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 5px;
+              border-radius: 9px; background: var(--rojo); color: #fff; font-size: 11px; font-weight: 700; }
 
-  @media (max-width: 560px) {
-    .top { gap: 12px; margin-bottom: 16px; }
-    .presion { border-left: 0; border-top: 1px solid var(--line); padding: 10px 0 0;
-               text-align: left; min-width: 0; width: 100%;
-               display: flex; align-items: baseline; gap: 10px; }
-    .presion .n { font-size: 30px; }
-    .presion .lbl { margin-top: 0; }
-  }
-  @media (max-width: 700px) {
-    .nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; margin: 0;
-           background: rgba(20,18,32,.94); backdrop-filter: blur(14px);
-           border-top: 1px solid var(--line); border-bottom: 0;
-           padding: 6px 4px calc(6px + var(--safe-b)); justify-content: space-around; }
-    .nav button { flex-direction: column; gap: 3px; font-size: 10.5px; padding: 7px 6px;
-                  border-radius: 10px; border-bottom: 0; margin: 0; flex: 1; }
-    .nav button.on { background: var(--surf2); color: var(--h-hoy); }
-    .nav .sync { display: none; }
-    .nav svg { width: 19px; height: 19px; }
-  }
-  .nav svg { width: 15px; height: 15px; flex: none; }
+  .sincro { margin-left: auto; display: flex; align-items: center; gap: 8px; border: 0;
+            background: transparent; cursor: pointer; font-size: 12.5px; font-weight: 600;
+            color: var(--gris3); padding: 6px 4px; border-radius: 9px; transition: color .22s var(--ease); }
+  .sincro:hover { color: var(--ink); }
+  .punto { width: 7px; height: 7px; border-radius: 50%; background: var(--gris4); flex: none; }
+  .punto.viva { background: var(--verde); }
+  .punto.mala { background: var(--rojo); }
+  .punto.trab { background: var(--acento); animation: hz-breathe 1.4s ease-in-out infinite; }
 
-  /* ---------- banda de horizonte ---------- */
-  .banda { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;
-           margin-bottom: 22px; border-radius: 10px; overflow: hidden; }
-  .zona { background: var(--surf); border: 0; border-top: 3px solid var(--z);
-          padding: 13px 12px 15px; text-align: left; cursor: pointer;
-          color: var(--muted); transition: background .18s ease, color .18s ease; }
-  .zona:hover { background: var(--surf2); }
-  .zona:focus-visible { outline: 2px solid var(--h-hoy); outline-offset: -2px; }
-  .zona.on { background: var(--surf2); color: var(--text); }
-  .zona .z-n { font-family: var(--mono); font-size: 21px; color: var(--z); line-height: 1; }
-  .zona .z-t { font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; margin-top: 7px; }
-  .zona .z-s { font-size: 10px; color: var(--faint); margin-top: 2px; }
-  @media (max-width: 480px) {
-    .zona { padding: 10px 9px 12px; }
-    .zona .z-n { font-size: 18px; }
-    .zona .z-t { font-size: 9.5px; letter-spacing: .08em; }
-    .zona .z-s { display: none; }
+  main.wrap { max-width: 1120px; margin: 0 auto; padding: 30px 28px 0; }
+  @media (max-width: 620px) {
+    .top-in { padding: 20px 18px 16px; gap: 16px; }
+    .barra { padding: 14px 18px 0; }
+    main.wrap { padding: 22px 18px 0; }
+    .presion { padding: 10px 16px 10px 12px; gap: 12px; }
+    .presion .num { width: 40px; height: 40px; font-size: 19px; }
   }
+
+  /* ---------- horizontes ---------- */
+  nav.horizontes { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+                   gap: 10px; margin-bottom: 30px; }
+  .hz { text-align: left; cursor: pointer; padding: 14px 16px 15px; border-radius: 16px;
+        transition: all .28s var(--ease); background: rgba(255,255,255,.45);
+        border: 1px solid rgba(0,0,0,.04); color: var(--gris); }
+  .hz:hover { background: var(--card); color: var(--ink); }
+  .hz.on { background: var(--card); border-color: rgba(0,0,0,.06); color: var(--ink);
+           box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 26px -20px rgba(0,0,0,.45); }
+  .hz-t { display: flex; align-items: center; gap: 8px; }
+  .hz-t span.lbl { font-size: 13.5px; font-weight: 600; letter-spacing: -.005em; }
+  .hz-p { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--gris4); }
+  .hz-n { display: flex; align-items: baseline; gap: 7px; margin-top: 14px; }
+  .hz-n b { font-size: 25px; font-weight: 700; letter-spacing: -.03em;
+            font-variant-numeric: tabular-nums; line-height: 1; color: var(--gris); }
+  .hz.on .hz-n b { color: var(--ink); }
+  .hz-n b.alerta { color: var(--rojo); }
+  .hz-n small { font-size: 12.5px; font-weight: 500; color: var(--gris3); }
 
   /* ---------- rejilla ---------- */
-  .rejilla { display: grid; grid-template-columns: 1.5fr 1fr; gap: 26px; align-items: start; }
-  @media (max-width: 860px) { .rejilla { grid-template-columns: 1fr; gap: 22px; } }
+  .rejilla { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+  .col-a { flex: 1 1 440px; min-width: 0; }
+  .col-b { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 22px; }
 
-  .rotulo { font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
-            text-transform: uppercase; color: var(--faint);
-            border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px;
-            display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-  .rotulo b { color: var(--muted); font-weight: 500; }
+  .tarjeta { background: var(--card); border: 1px solid var(--linea); border-radius: 22px;
+             box-shadow: var(--sombra); }
+  .lista-card { padding: 8px 8px 12px; }
+  .lista-h { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+             padding: 18px 18px 14px; }
+  .lista-h h2 { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.022em; }
+  .lista-h .sub { font-size: 13.5px; font-weight: 500; color: var(--gris2); margin-top: 3px; }
+  .lista-h .cuenta { font-size: 13px; font-weight: 600; color: var(--gris3);
+                     font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-  /* ---------- tareas ---------- */
-  .tarea { display: flex; align-items: flex-start; gap: 12px; padding: 11px 12px;
-           border-radius: 9px; margin-bottom: 3px; transition: background .15s ease; }
-  .tarea:hover { background: var(--surf); }
-  .tarea:hover .acc { opacity: 1; }
-  .tarea.vence { background: color-mix(in srgb, var(--vencido) 7%, transparent); }
+  /* ---------- tarea ---------- */
+  .tarea { display: flex; align-items: flex-start; gap: 13px; padding: 13px 12px 13px 14px;
+           border-radius: 14px; transition: background .22s var(--ease); animation: hz-in .3s var(--ease); }
+  .tarea:hover { background: var(--suave); }
+  .tarea:hover .borrar { opacity: 1; }
+  .tarea.hecha { opacity: .62; }
 
-  .caja { flex: none; width: 19px; height: 19px; margin-top: 1px; border-radius: 6px;
-          border: 1.5px solid var(--c); background: transparent; cursor: pointer;
-          display: grid; place-items: center; transition: all .16s ease; padding: 0; }
-  .caja:hover { background: color-mix(in srgb, var(--c) 22%, transparent); }
-  .caja:focus-visible { outline: 2px solid var(--h-hoy); outline-offset: 2px; }
-  .caja svg { width: 11px; height: 11px; opacity: 0; transform: scale(.4);
-              transition: all .2s cubic-bezier(.3,1.6,.5,1); }
-  .hecha .caja { background: var(--c); border-color: var(--c); }
-  .hecha .caja svg { opacity: 1; transform: scale(1); }
+  .caja { position: relative; flex: none; width: 21px; height: 21px; margin-top: 1px;
+          border-radius: 7px; cursor: pointer; display: grid; place-items: center; padding: 0;
+          border: 1.7px solid var(--gris4); background: transparent;
+          transition: background .25s var(--ease), border-color .25s var(--ease); }
+  .caja.pop { animation: hz-pop .45s var(--ease); }
+  .caja .aro { position: absolute; inset: -3px; border-radius: 10px; border: 2px solid currentColor;
+               animation: hz-ring .6s var(--ease) forwards; pointer-events: none; }
+  .caja svg { width: 13px; height: 13px; opacity: 0; transform: scale(.5);
+              transition: opacity .2s var(--ease), transform .3s cubic-bezier(.2,1.5,.4,1); }
+  .tarea.hecha .caja svg { opacity: 1; transform: scale(1); }
+  .caja:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
 
-  .cuerpo { flex: 1; min-width: 0; }
-  .txt { font-size: 14.5px; line-height: 1.4; word-break: break-word; cursor: text; }
-  .hecha .txt { color: var(--faint); text-decoration: line-through; text-decoration-color: var(--line); }
-  .txt input { width: 100%; background: var(--surf2); border: 1px solid var(--line);
-               border-radius: 7px; padding: 6px 8px; font-size: 14.5px; outline: 0; }
-  .meta { display: flex; gap: 8px; align-items: center; margin-top: 5px; flex-wrap: wrap; }
-  .etq { font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em;
-         text-transform: uppercase; color: var(--muted);
-         border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px;
-         display: inline-flex; align-items: center; gap: 5px; text-decoration: none; }
-  a.etq:hover { border-color: var(--muted); color: var(--text); }
-  .etq .pt { width: 5px; height: 5px; border-radius: 50%; background: var(--f); }
-  .cuando { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
-  .cuando.tarde { color: var(--vencido); }
-  .rep { font-family: var(--mono); font-size: 10px; color: var(--faint); }
+  .t-cuerpo { flex: 1; min-width: 0; }
+  .t-txt { font-size: 15.5px; font-weight: 500; letter-spacing: -.011em; line-height: 1.4;
+           word-break: break-word; color: var(--ink); cursor: text; }
+  .tarea.hecha .t-txt { color: var(--gris3); text-decoration: line-through;
+                        text-decoration-color: rgba(0,0,0,.2); }
+  .t-txt input { width: 100%; background: var(--suave); border: 1px solid var(--linea2);
+                 border-radius: 9px; padding: 6px 9px; font-size: 15.5px; font-weight: 500;
+                 outline: 0; color: var(--ink); }
+  .t-meta { display: flex; align-items: center; gap: 10px; margin-top: 5px; flex-wrap: wrap; }
+  .t-origen { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+              font-weight: 500; color: var(--gris2); text-decoration: none; }
+  a.t-origen:hover { color: var(--ink); }
+  .t-origen .pt { width: 6px; height: 6px; border-radius: 50%; opacity: .85; }
+  .tarea.hecha .t-origen .pt { opacity: .4; }
+  .t-fecha { font-size: 12.5px; font-weight: 600; letter-spacing: -.005em; padding: 2px 8px;
+             border-radius: 8px; color: var(--gris2); background: rgba(0,0,0,.04); }
+  .t-fecha.tarde { color: var(--rojo); background: rgba(209,69,59,.08); }
+  .t-fecha.hoy { color: var(--acento); background: rgba(10,132,255,.08); }
+  .t-marca { font-size: 12.5px; font-weight: 600; color: var(--gris3); }
 
-  .acc { flex: none; display: flex; gap: 2px; opacity: 0; transition: opacity .15s ease; }
-  @media (hover: none) { .acc { opacity: .55; } }
-  .acc button { background: 0; border: 0; color: var(--faint); cursor: pointer;
-                font-size: 15px; line-height: 1; padding: 4px 5px; border-radius: 6px; }
-  .acc button:hover { color: var(--text); background: var(--surf2); }
-  .acc button.del:hover { color: var(--vencido); }
-  .acc button:focus-visible { opacity: 1; outline: 1px solid var(--muted); }
+  .borrar { flex: none; width: 30px; height: 30px; border: 0; border-radius: 10px;
+            background: transparent; color: var(--gris4); cursor: pointer; display: grid;
+            place-items: center; opacity: 0;
+            transition: color .2s var(--ease), background .2s var(--ease), opacity .2s var(--ease); }
+  .borrar:hover { color: var(--rojo); background: rgba(209,69,59,.08); }
+  .borrar:focus-visible { opacity: 1; outline: 1px solid var(--gris4); }
+  @media (hover: none) { .borrar { opacity: .55; } }
 
-  .vacio { color: var(--faint); font-size: 13.5px; padding: 18px 12px; line-height: 1.55; }
+  .vacio-b { padding: 34px 20px 40px; text-align: center; }
+  .vacio-b .ico { width: 42px; height: 42px; margin: 0 auto 14px; border-radius: 14px;
+                  background: #F2F2F0; border: 1px solid rgba(0,0,0,.04); }
+  .vacio-b .t { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+  .vacio-b .s { font-size: 13.5px; font-weight: 500; color: var(--gris2); margin-top: 5px;
+                line-height: 1.5; max-width: 300px; margin-left: auto; margin-right: auto; }
 
-  /* ---------- agregar ---------- */
-  .agregar { margin-top: 14px; background: var(--surf); border: 1px solid var(--line);
-             border-radius: 11px; padding: 12px; }
-  .agregar.foco { border-color: var(--h-hoy); }
-  .agregar input[type=text] { width: 100%; background: 0; border: 0; color: var(--text);
-             font-size: 15px; padding: 4px 2px 8px; }
-  .agregar input::placeholder { color: var(--faint); }
-  .agregar input:focus { outline: 0; }
-  .lectura { font-family: var(--mono); font-size: 10.5px; color: var(--h-hoy);
-             padding: 0 2px 8px; min-height: 0; }
-  .fila { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  /* ---------- añadir ---------- */
+  .agregar { margin: 14px 8px 4px; padding: 12px 12px 12px 14px; border-radius: 16px;
+             background: var(--suave); border: 1px solid rgba(0,0,0,.045);
+             transition: border-color .22s var(--ease); }
+  .agregar.foco { border-color: rgba(10,132,255,.35); }
+  .ag-fila { display: flex; align-items: center; gap: 10px; }
+  .ag-marca { flex: none; width: 19px; height: 19px; border-radius: 7px; border: 1.6px dashed var(--gris4); }
+  .agregar input.texto { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0;
+                         font-size: 15.5px; font-weight: 500; letter-spacing: -.01em;
+                         color: var(--ink); padding: 4px 0; }
+  .ag-crear { flex: none; border: 0; border-radius: 11px; padding: 7px 15px; font-size: 13.5px;
+              font-weight: 600; letter-spacing: -.006em; color: #fff; background: var(--acento);
+              cursor: pointer; transition: all .22s var(--ease);
+              box-shadow: 0 6px 16px -8px var(--acento); }
+  .ag-crear:disabled { opacity: .32; cursor: default; box-shadow: none; }
+  .lectura { font-size: 12.5px; font-weight: 600; color: var(--acento); padding: 8px 0 0 29px;
+             letter-spacing: -.005em; }
+  .ag-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; align-items: center; }
+  .chip { border: 1px solid var(--linea2); background: var(--card); color: var(--gris);
+          font-size: 12.5px; font-weight: 600; letter-spacing: -.005em; padding: 6px 12px;
+          border-radius: 11px; cursor: pointer; transition: all .22s var(--ease); }
+  .chip:hover { color: var(--ink); }
+  .chip.on { border-color: transparent; color: #fff; }
+  .divisor { width: 1px; height: 18px; background: var(--linea2); margin: 0 4px; }
+  input[type=date], input[type=time] { background: var(--card); border: 1px solid rgba(0,0,0,.08);
+    border-radius: 11px; padding: 5px 10px; font-size: 12.5px; font-weight: 500;
+    color: var(--gris); outline: 0; }
+  .ag-fecha { margin-left: auto; }
 
-  .chip { font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
-          text-transform: uppercase; background: 0; color: var(--muted);
-          border: 1px solid var(--line); border-radius: 20px; padding: 5px 11px;
-          cursor: pointer; transition: all .15s ease; }
-  .chip:hover { border-color: var(--muted); color: var(--text); }
-  .chip.on { background: var(--c); border-color: var(--c); color: var(--ink); font-weight: 500; }
-  .chip:focus-visible { outline: 2px solid var(--h-hoy); outline-offset: 1px; }
+  .completadas { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+                 padding: 12px 18px 6px; }
+  .completadas span { font-size: 12.5px; font-weight: 500; color: var(--gris3); }
+  .completadas button { border: 0; background: transparent; font-size: 12.5px; font-weight: 600;
+                        color: var(--gris2); cursor: pointer; padding: 4px 6px; border-radius: 8px;
+                        transition: color .2s var(--ease); }
+  .completadas button:hover { color: var(--ink); }
 
-  .enviar { margin-left: auto; background: var(--text); color: var(--ink); border: 0;
-            border-radius: 20px; padding: 7px 18px; font-size: 12.5px; font-weight: 600;
-            cursor: pointer; }
-  .enviar:disabled { opacity: .28; cursor: default; }
+  /* ---------- aside ---------- */
+  .panel { padding: 20px 20px 16px; }
+  .panel-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+             margin-bottom: 12px; }
+  .panel-h h2 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.018em; }
+  .guardado { font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--gris3);
+              transition: opacity .3s var(--ease); opacity: 0; }
+  .guardado.ver { opacity: 1; }
+  .notas { width: 100%; min-height: 190px; resize: vertical; border: 0; outline: 0;
+           background: transparent; font-size: 14.5px; font-weight: 450; line-height: 1.65;
+           color: var(--ink2); letter-spacing: -.005em; padding: 0; }
 
-  input[type=date], input[type=time] { background: 0; border: 1px solid var(--line);
-    border-radius: 20px; color: var(--muted); font-family: var(--mono); font-size: 10.5px;
-    padding: 5px 9px; }
-
-  /* ---------- avisos ---------- */
-  .aviso { display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-           background: color-mix(in srgb, var(--vencido) 11%, var(--surf));
-           border: 1px solid color-mix(in srgb, var(--vencido) 34%, transparent);
-           border-radius: 11px; padding: 12px 14px; margin-bottom: 18px; }
-  .aviso.suave { background: var(--surf); border-color: var(--line); }
-  .aviso .a-t { font-size: 13.5px; flex: 1; min-width: 180px; line-height: 1.4; }
-  .aviso b { color: var(--vencido); }
-  .aviso.suave b { color: var(--h-corto); }
-  .btn { background: var(--text); color: var(--ink); border: 0; border-radius: 20px;
-         padding: 7px 15px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
-  .btn:hover { filter: brightness(1.08); }
-  .btn.linea { background: 0; border: 1px solid var(--line); color: var(--muted); }
-  .btn.linea:hover { color: var(--text); border-color: var(--muted); filter: none; }
-  .btn:disabled { opacity: .4; cursor: default; }
+  .metodo { padding: 18px 20px; border-radius: 20px; background: rgba(255,255,255,.55);
+            border: 1px solid var(--linea); backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px); }
+  .metodo .k { font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+               color: var(--gris3); }
+  .metodo p { margin: 10px 0 0; font-size: 14px; font-weight: 500; line-height: 1.6;
+              color: var(--gris); text-wrap: pretty; }
+  .metodo strong { color: var(--ink); font-weight: 600; }
 
   /* ---------- agenda ---------- */
   .dia { margin-bottom: 26px; }
-  .dia-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
-  .dia-h .d { font-family: var(--display); font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
-  .dia-h .s { font-family: var(--mono); font-size: 10.5px; color: var(--faint);
-              text-transform: uppercase; letter-spacing: .12em; }
-  .ev { display: flex; gap: 14px; padding: 10px 12px; border-radius: 9px;
-        border-left: 2px solid var(--c); background: var(--surf); margin-bottom: 3px; }
-  .ev .h { font-family: var(--mono); font-size: 11.5px; color: var(--muted); flex: none;
-           width: 52px; line-height: 1.5; }
-  .ev .t { font-size: 14px; line-height: 1.4; }
-  .ev .l { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
-  .ahora { height: 1px; background: var(--h-hoy); position: relative; margin: 6px 0; }
-  .ahora::after { content: "ahora"; position: absolute; right: 0; top: -14px;
-                  font-family: var(--mono); font-size: 9px; color: var(--h-hoy);
-                  letter-spacing: .1em; text-transform: uppercase; }
+  .dia-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .dia-h .d { font-size: 21px; font-weight: 700; letter-spacing: -.022em; }
+  .dia-h .s { font-size: 13px; font-weight: 500; color: var(--gris2); }
+  .ev { display: flex; gap: 14px; padding: 13px 16px; border-radius: 14px; background: var(--card);
+        border: 1px solid var(--linea); margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .ev .h { font-size: 13px; font-weight: 600; color: var(--gris2); flex: none; width: 50px;
+           font-variant-numeric: tabular-nums; line-height: 1.45; }
+  .ev .t { font-size: 15px; font-weight: 500; letter-spacing: -.01em; line-height: 1.35; }
+  .ev .l { font-size: 12.5px; font-weight: 500; color: var(--gris3); margin-top: 3px; }
+  .ev .barr { width: 3px; border-radius: 3px; flex: none; }
 
   /* ---------- revisión ---------- */
-  .rev { background: var(--surf); border: 1px solid var(--line); border-radius: 13px;
-         padding: 16px 16px 14px; margin-bottom: 10px; }
-  .rev .q { font-size: 15px; line-height: 1.4; margin-bottom: 4px; }
-  .rev .m { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-bottom: 12px; }
-  .rev .opts { display: flex; gap: 6px; flex-wrap: wrap; }
-  .rev .opts button { background: 0; border: 1px solid var(--line); color: var(--muted);
-                      border-radius: 20px; padding: 7px 13px; font-size: 12px; cursor: pointer; }
-  .rev .opts button:hover { border-color: var(--c, var(--muted)); color: var(--text);
-                            background: var(--surf2); }
-  .paso { font-family: var(--mono); font-size: 10px; color: var(--faint);
-          letter-spacing: .14em; text-transform: uppercase; margin-bottom: 12px; }
-  .fin { text-align: center; padding: 46px 20px; }
-  .fin .g { font-family: var(--display); font-size: 30px; font-weight: 800;
-            letter-spacing: -.03em; margin-bottom: 8px; }
-  .fin .p { color: var(--muted); font-size: 14px; line-height: 1.55; max-width: 380px;
-            margin: 0 auto; }
+  .rev { padding: 20px 20px 18px; margin-bottom: 12px; }
+  .rev .q { font-size: 18px; font-weight: 600; letter-spacing: -.015em; line-height: 1.35; }
+  .rev .m { font-size: 13px; font-weight: 500; color: var(--gris2); margin-top: 6px; margin-bottom: 16px; }
+  .rev .opts { display: flex; gap: 7px; flex-wrap: wrap; }
+  .rev .opts button { border: 1px solid var(--linea2); background: var(--card); color: var(--gris);
+                      border-radius: 11px; padding: 8px 14px; font-size: 13px; font-weight: 600;
+                      cursor: pointer; transition: all .22s var(--ease); }
+  .rev .opts button:hover { color: var(--ink); background: var(--suave); }
+  .rev .opts button.si { border-color: transparent; background: var(--verde); color: #fff; }
+  .rev .opts button.no { color: var(--rojo); }
+  .paso { font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+          color: var(--gris3); margin-bottom: 14px; }
+  .fin { text-align: center; padding: 54px 24px; }
+  .fin .ico { width: 54px; height: 54px; margin: 0 auto 18px; border-radius: 18px;
+              background: rgba(48,164,108,.1); border: 1px solid rgba(48,164,108,.2);
+              display: grid; place-items: center; }
+  .fin .g { font-size: 24px; font-weight: 700; letter-spacing: -.022em; margin-bottom: 8px; }
+  .fin .p { color: var(--gris2); font-size: 14.5px; font-weight: 500; line-height: 1.55;
+            max-width: 360px; margin: 0 auto 20px; }
 
-  /* ---------- notas / ajustes ---------- */
-  .notas { width: 100%; min-height: 130px; background: var(--surf);
-           border: 1px solid var(--line); border-radius: 11px; padding: 14px;
-           color: var(--text); font-size: 13.5px; line-height: 1.62; resize: vertical; }
-  .notas:focus { outline: 0; border-color: var(--h-corto); }
-  .notas::placeholder { color: var(--faint); }
-  .guardado { font-family: var(--mono); font-size: 9.5px; color: var(--faint);
-              text-transform: uppercase; letter-spacing: .1em; }
-  .bloque { margin-top: 28px; }
-
-  .campo { margin-bottom: 16px; }
-  .campo label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
-  .campo input[type=text], .campo input[type=url], .campo textarea {
-    width: 100%; background: var(--surf); border: 1px solid var(--line); border-radius: 9px;
-    padding: 10px 12px; font-size: 13px; font-family: var(--mono); }
-  .campo input:focus, .campo textarea:focus { outline: 0; border-color: var(--h-corto); }
-  .campo .ayuda { font-size: 11.5px; color: var(--faint); margin-top: 6px; line-height: 1.5; }
-  .switch { display: flex; align-items: flex-start; gap: 11px; padding: 11px 0;
-            border-bottom: 1px solid var(--line); cursor: pointer; }
-  .switch:last-child { border-bottom: 0; }
-  .switch input { margin-top: 3px; accent-color: var(--h-hoy); width: 16px; height: 16px; flex: none; }
-  .switch .s-t { font-size: 13.5px; }
-  .switch .s-d { font-size: 11.5px; color: var(--faint); margin-top: 2px; line-height: 1.5; }
-  .caja-info { background: var(--surf); border: 1px solid var(--line); border-radius: 11px;
-               padding: 14px 16px; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
-  .caja-info code { font-family: var(--mono); font-size: 11.5px; color: var(--h-corto);
-                    background: var(--ink); padding: 1px 5px; border-radius: 4px; }
-  .caja-info b { color: var(--text); font-weight: 600; }
-  .prosa { font-size: 13px; color: var(--muted); line-height: 1.65; }
-  .prosa b { color: var(--text); font-weight: 600; }
+  /* ---------- ajustes ---------- */
+  .campo { margin-bottom: 18px; }
+  .campo label { display: block; font-size: 13.5px; font-weight: 600; margin-bottom: 7px; }
+  .campo input[type=text], .campo input[type=url] { width: 100%; background: var(--suave);
+    border: 1px solid var(--linea2); border-radius: 12px; padding: 11px 13px; font-size: 13px;
+    outline: 0; color: var(--ink); font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .campo input:focus { border-color: var(--acento); background: var(--card); }
+  .ayuda { font-size: 12.5px; font-weight: 500; color: var(--gris2); margin-top: 7px; line-height: 1.55; }
+  .switch { display: flex; align-items: flex-start; gap: 12px; padding: 13px 0;
+            border-bottom: 1px solid var(--linea); cursor: pointer; }
+  .switch:last-of-type { border-bottom: 0; }
+  .switch input { margin-top: 2px; accent-color: var(--acento); width: 17px; height: 17px; flex: none; }
+  .switch .s-t { font-size: 14px; font-weight: 600; letter-spacing: -.008em; }
+  .switch .s-d { font-size: 12.5px; font-weight: 500; color: var(--gris2); margin-top: 3px; line-height: 1.5; }
+  .btn { border: 0; border-radius: 12px; padding: 10px 17px; font-size: 13.5px; font-weight: 600;
+         letter-spacing: -.006em; color: #fff; background: var(--acento); cursor: pointer;
+         transition: all .22s var(--ease); box-shadow: 0 6px 16px -8px var(--acento); }
+  .btn:hover { filter: brightness(1.05); }
+  .btn.linea { background: var(--card); border: 1px solid var(--linea2); color: var(--ink); box-shadow: none; }
+  .btn.linea:hover { background: var(--suave); filter: none; }
+  .btn:disabled { opacity: .4; cursor: default; box-shadow: none; }
+  .fila-btn { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
+  .info { font-size: 13px; font-weight: 500; color: var(--gris); line-height: 1.6; }
+  .info b { color: var(--ink); font-weight: 600; }
+  .info code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
+               background: rgba(0,0,0,.045); padding: 2px 6px; border-radius: 6px; color: var(--ink2); }
 
   .toast { position: fixed; left: 50%; transform: translateX(-50%);
-           bottom: calc(24px + var(--safe-b)); background: var(--surf2);
-           border: 1px solid var(--line); color: var(--text); font-size: 13px;
-           padding: 11px 18px; border-radius: 26px; z-index: 90; opacity: 0;
-           transition: opacity .2s ease, transform .2s ease; pointer-events: none;
-           box-shadow: 0 10px 40px rgba(0,0,0,.5); max-width: 90vw; text-align: center; }
+           bottom: calc(28px + var(--safe-b)); background: var(--ink); color: #fff;
+           font-size: 13.5px; font-weight: 500; padding: 12px 20px; border-radius: 14px;
+           z-index: 90; opacity: 0; transition: opacity .25s var(--ease), transform .25s var(--ease);
+           pointer-events: none; box-shadow: 0 12px 40px -12px rgba(0,0,0,.5); max-width: 90vw;
+           text-align: center; }
   .toast.ver { opacity: 1; transform: translateX(-50%) translateY(-6px); }
-  @media (max-width: 700px) { .toast { bottom: calc(84px + var(--safe-b)); } }
 
-  .cargando { color: var(--faint); font-family: var(--mono); font-size: 12px; padding: 60px 0;
-              text-align: center; letter-spacing: .1em; }
+  .cargando { color: var(--gris3); font-size: 13.5px; font-weight: 500; padding: 80px 0;
+              text-align: center; }
 
-  /* ---------- pantalla de acceso ---------- */
+  /* ---------- acceso ---------- */
   .candado { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center;
-             justify-content: center; padding: 24px; color: var(--text); font-family: var(--body);
-             background: radial-gradient(120% 90% at 15% -10%, #1D1A2E 0%, var(--ink) 55%); }
-  .candado .tarjeta { background: var(--surf); border: 1px solid var(--line); border-radius: 16px;
-                   padding: 30px 28px 26px; max-width: 380px; width: 100%;
-                   box-shadow: 0 24px 70px rgba(0,0,0,.55); }
-  .candado .ico { width: 44px; height: 44px; border-radius: 12px; background: var(--h-hoy);
-                  color: var(--ink); display: flex; align-items: center; justify-content: center;
-                  font-size: 19px; margin-bottom: 14px; }
-  .candado h1 { font-family: var(--display); font-weight: 800; font-size: 21px;
-                letter-spacing: -.02em; margin-bottom: 7px; }
-  .candado p { color: var(--muted); font-size: 13px; line-height: 1.55; margin-bottom: 16px; }
-  .candado input[type=password] { width: 100%; box-sizing: border-box; background: var(--ink);
-        border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 13px;
-        color: var(--text); font-size: 15px; outline: 0; }
-  .candado input[type=password]:focus { border-color: var(--h-hoy); }
+             justify-content: center; padding: 24px; background: var(--bg);
+             color: var(--ink); font-family: Figtree, system-ui, sans-serif; }
+  .candado .tarjeta { max-width: 380px; width: 100%; padding: 30px 28px 26px; border-radius: 24px;
+                      box-shadow: var(--sombra); }
+  .candado .ico { width: 46px; height: 46px; border-radius: 15px; background: rgba(10,132,255,.1);
+                  border: 1px solid rgba(10,132,255,.2); display: grid; place-items: center;
+                  margin-bottom: 16px; }
+  .candado h1 { font-size: 23px; font-weight: 700; letter-spacing: -.024em; margin-bottom: 8px; }
+  .candado p { color: var(--gris2); font-size: 14px; font-weight: 500; line-height: 1.55;
+               margin-bottom: 18px; }
+  .candado input[type=password] { width: 100%; background: var(--suave); border: 1px solid var(--linea2);
+        border-radius: 12px; padding: 12px 14px; color: var(--ink); font-size: 15px;
+        font-weight: 500; outline: 0; transition: border-color .22s var(--ease); }
+  .candado input[type=password]:focus { border-color: var(--acento); background: var(--card); }
   .candado input + input { margin-top: 9px; }
-  .candado .err { background: color-mix(in srgb, var(--vencido) 16%, var(--surf));
-                  color: var(--vencido); border-radius: 9px; padding: 8px 11px;
-                  font-size: 12.5px; margin-bottom: 12px; line-height: 1.4; }
-  .candado button.entrar { all: unset; box-sizing: border-box; cursor: pointer; display: block;
-        text-align: center; width: 100%; margin-top: 14px; padding: 12px;
-        background: var(--text); color: var(--ink); border-radius: 10px;
-        font-weight: 600; font-size: 14.5px; }
-  .candado .olvide { display: block; text-align: center; margin: 14px auto 0; background: 0;
-                     border: 0; color: var(--faint); font-size: 11.5px; text-decoration: underline;
+  .candado .err { background: rgba(209,69,59,.08); color: var(--rojo); border-radius: 11px;
+                  padding: 10px 13px; font-size: 13px; font-weight: 500; margin-bottom: 14px;
+                  line-height: 1.4; }
+  .candado button.entrar { display: block; width: 100%; margin-top: 14px; padding: 13px;
+        background: var(--acento); color: #fff; border: 0; border-radius: 12px; font-weight: 600;
+        font-size: 15px; cursor: pointer; box-shadow: 0 8px 20px -10px var(--acento); }
+  .candado .olvide { display: block; text-align: center; margin: 16px auto 0; background: 0;
+                     border: 0; color: var(--gris3); font-size: 12.5px; font-weight: 500;
                      cursor: pointer; padding: 4px; }
-  .candado .olvide:hover { color: var(--muted); }
-
-  @keyframes pulso { 0%,100% { opacity: 1; } 50% { opacity: .42; } }
-  .pulsa { animation: pulso 2.4s ease-in-out infinite; }
-  @keyframes gira { to { transform: rotate(360deg); } }
-  .gira { animation: gira 1s linear infinite; }
-  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  .candado .olvide:hover { color: var(--gris); }
 </style>
 </head>
 <body>
-<div id="app"><div class="cargando">cargando…</div></div>
+<div id="app"><div class="cargando">Cargando…</div></div>
 <div class="toast" id="toast"></div>
 
 <script>
 /* =====================================================================
-   HORIZONTE · Centro de operaciones personal
+   CENTRO DE MANDO DIARIO
    ---------------------------------------------------------------------
    Una sola página, sin servidor propio y sin librerías externas.
    - Lo que escribes vive en este navegador (localStorage).
@@ -375,36 +384,51 @@
   var LS      = "centro:estado:v1";
   var VERSION = 1;
 
-  var HORIZONTES = {
-    hoy:     { t: "Hoy",     s: "ahora mismo", c: "var(--h-hoy)",     max: 0 },
-    corto:   { t: "Corto",   s: "esta semana", c: "var(--h-corto)",   max: 7 },
-    mediano: { t: "Mediano", s: "este mes",    c: "var(--h-mediano)", max: 31 },
-    largo:   { t: "Largo",   s: "algún día",   c: "var(--h-largo)",   max: Infinity }
-  };
+  var HZ = [
+    { k: "hoy",     titulo: "Hoy",           sub: "ahora",       vacioT: "Nada para hoy",
+      vacioS: "Disfrútalo. Si aparece algo urgente, añádelo aquí abajo." },
+    { k: "corto",   titulo: "Corto plazo",   sub: "esta semana", vacioT: "Esta semana está libre",
+      vacioS: "Guarda aquí lo que tiene que pasar en los próximos días." },
+    { k: "mediano", titulo: "Mediano plazo", sub: "este mes",    vacioT: "Nada este mes",
+      vacioS: "Lo que no es de esta semana pero sí de este mes va aquí." },
+    { k: "largo",   titulo: "Largo plazo",   sub: "algún día",   vacioT: "Sin ideas guardadas",
+      vacioS: "Un lugar para lo que quieres hacer algún día, sin fecha." }
+  ];
   var ORDEN_H = ["hoy", "corto", "mediano", "largo"];
+  function hzDe(k) { return HZ.find(function (h) { return h.k === k; }) || HZ[0]; }
 
-  /* Fuentes: las tres primeras las escribes tú; las otras llegan solas. */
+  /* Las tres primeras las escribes tú; las otras llegan solas del trabajo. */
   var FUENTES = {
-    personal: { t: "personal", c: "#B79CFF", mia: true },
-    trabajo:  { t: "trabajo",  c: "#FFAE3B", mia: true },
-    curso:    { t: "curso",    c: "#4FBFA8", mia: true },
-    todo:     { t: "to do",    c: "#7C9EFF" },
-    planner:  { t: "planner",  c: "#4FBFA8" },
-    correo:   { t: "correo",   c: "#FF8FA3" },
-    agenda:   { t: "agenda",   c: "#C0A0FF" }
+    trabajo:  { label: "Trabajo",  color: "#0A84FF", mia: true },
+    personal: { label: "Personal", color: "#30A46C", mia: true },
+    curso:    { label: "Curso",    color: "#A459D1", mia: true },
+    todo:     { label: "To Do",    color: "#5E5CE6" },
+    planner:  { label: "Planner",  color: "#0E9AA7" },
+    correo:   { label: "Correo",   color: "#FF7A5C" },
+    agenda:   { label: "Agenda",   color: "#8A8A8E" }
   };
+  function fuenteDe(k) { return FUENTES[k] || { label: k || "—", color: "#8A8A8E" }; }
 
-  var E = null;          // estado
-  var vista = "horizonte";
+  var ACENTO = "#0A84FF", ROJO = "#D1453B", VERDE = "#30A46C";
+
+  var E = null;
+  var vista = "hoy";       // hoy | agenda | revision | ajustes
   var filtro = "hoy";
-  var nuevo = { h: "hoy", f: "personal", fecha: "", hora: "" };
-  var editando = null;   // id de la tarea en edición
-  var revIdx = 0;        // paso de la revisión
-  var sync = { estado: "idle", msg: "", ts: null };
-  var tNotas = null, tToast = null, tSync = null;
+  var nuevo = { h: "hoy", f: "trabajo", fecha: "", hora: "" };
+  var editando = null;
+  var celebrando = null;
+  var revIdx = 0;
+  var sync = { estado: "idle", msg: "" };
+  var tNotas = null, tToast = null, tSync = null, tCel = null;
 
   var app = document.getElementById("app");
   var elToast = document.getElementById("toast");
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (m) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m];
+    });
+  }
 
   /* ============ pantalla de acceso ============
      El repositorio es público (GitHub Pages gratis no permite sitios
@@ -419,7 +443,6 @@
     var buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
     return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
   }
-
   function candado(modo, mensaje) {
     return new Promise(function (resolve) {
       var primera = modo === "crear";
@@ -427,10 +450,12 @@
       wrap.className = "candado";
       wrap.innerHTML =
         '<div class="tarjeta">' +
-          '<div class="ico">🔒</div>' +
+          '<div class="ico"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#0A84FF" ' +
+            'stroke-width="1.8" stroke-linecap="round"><rect x="4" y="8.5" width="12" height="8" rx="2.5"/>' +
+            '<path d="M6.8 8.5V6.2a3.2 3.2 0 0 1 6.4 0v2.3"/></svg></div>' +
           '<h1>' + (primera ? "Crea tu frase de acceso" : "Acceso protegido") + '</h1>' +
           '<p>' + (primera
-            ? "Esta app es tuya. Elige una frase que puedas recordar: te la pedirá cada vez que entres desde un dispositivo nuevo."
+            ? "Este centro es tuyo. Elige una frase que puedas recordar: te la pedirá cada vez que entres desde un dispositivo nuevo."
             : "Ingresa tu frase de acceso para entrar.") + '</p>' +
           (mensaje ? '<div class="err">' + esc(mensaje) + '</div>' : "") +
           '<form>' +
@@ -441,10 +466,9 @@
           (!primera ? '<button class="olvide" id="olvide" type="button">¿Olvidaste tu frase de este dispositivo?</button>' : "") +
         '</div>';
       document.body.appendChild(wrap);
-      var form = wrap.querySelector("form");
       var f1 = wrap.querySelector("#frase");
       f1.focus();
-      form.addEventListener("submit", async function (e) {
+      wrap.querySelector("form").addEventListener("submit", async function (e) {
         e.preventDefault();
         var v = f1.value;
         if (!v.trim()) return;
@@ -454,13 +478,11 @@
           localStorage.setItem(LS_LLAVE, await sha256(v));
           localStorage.setItem(LS_ABIERTO, "1");
           wrap.remove(); resolve(true);
+        } else if (await sha256(v) === localStorage.getItem(LS_LLAVE)) {
+          localStorage.setItem(LS_ABIERTO, "1");
+          wrap.remove(); resolve(true);
         } else {
-          if (await sha256(v) === localStorage.getItem(LS_LLAVE)) {
-            localStorage.setItem(LS_ABIERTO, "1");
-            wrap.remove(); resolve(true);
-          } else {
-            wrap.remove(); resolve(await candado("entrar", "Frase incorrecta. Inténtalo de nuevo."));
-          }
+          wrap.remove(); resolve(await candado("entrar", "Frase incorrecta. Inténtalo de nuevo."));
         }
       });
       var olv = wrap.querySelector("#olvide");
@@ -472,18 +494,12 @@
       });
     });
   }
-
   function candadoRevisar() {
     if (localStorage.getItem(LS_ABIERTO) === "1" && localStorage.getItem(LS_LLAVE)) return Promise.resolve(true);
     return candado(localStorage.getItem(LS_LLAVE) ? "entrar" : "crear");
   }
 
   /* ============ utilidades ============ */
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (m) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m];
-    });
-  }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function pad(n) { return String(n).padStart(2, "0"); }
   function isoDe(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
@@ -497,29 +513,22 @@
     elToast.textContent = msg;
     elToast.classList.add("ver");
     clearTimeout(tToast);
-    tToast = setTimeout(function () { elToast.classList.remove("ver"); }, 2600);
+    tToast = setTimeout(function () { elToast.classList.remove("ver"); }, 2800);
   }
-  var MESES_L = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-  var MESES_C = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  var DIAS_L  = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  var DIAS_L = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
   function fechaTexto(iso, hora) {
     if (!iso) return null;
     var d = dias(iso), txt;
-    if (d < 0)       txt = d === -1 ? "ayer" : "hace " + (-d) + " días";
-    else if (d === 0) txt = "hoy";
-    else if (d === 1) txt = "mañana";
-    else if (d < 7)   txt = DIAS_L[new Date(iso + "T00:00:00").getDay()];
-    else if (d < 32)  txt = "en " + d + " días";
-    else {
-      var f = new Date(iso + "T00:00:00");
-      txt = f.getDate() + " " + MESES_C[f.getMonth()];
-    }
-    return { txt: txt + (hora ? " · " + hora : ""), tarde: d < 0 };
+    if (d < 0)        txt = d === -1 ? "Venció ayer" : "Venció hace " + (-d) + " días";
+    else if (d === 0) txt = "Hoy";
+    else if (d === 1) txt = "Mañana";
+    else if (d < 8)   txt = "En " + d + " días";
+    else txt = new Date(iso + "T00:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+    return { txt: txt + (hora ? " · " + hora : ""), tarde: d < 0, hoy: d === 0 };
   }
   function diaLargo(iso) {
-    var f = new Date(iso + "T00:00:00");
-    return DIAS_L[f.getDay()] + " " + f.getDate() + " de " + MESES_L[f.getMonth()];
+    return new Date(iso + "T00:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
   }
 
   /* El horizonte que le toca a una fecha. Es la regla que hace que nada
@@ -647,15 +656,12 @@
     if (r.fecha) p.push(fechaTexto(r.fecha, r.hora).txt);
     else if (r.hora) p.push(r.hora);
     if (r.repetir) p.push("cada " + { dia: "día", semana: "semana", mes: "mes", anio: "año" }[r.repetir]);
-    if (r.fuente) p.push("#" + r.fuente);
+    if (r.fuente) p.push(fuenteDe(r.fuente).label);
     if (r.importante) p.push("importante");
-    return p.length ? "→ " + p.join(" · ") : "";
+    return p.length ? p.join(" · ") : "";
   }
 
   /* ============ el motor: nada se queda escondido ============ */
-  /* Cada vez que abres la app (y al cambiar de día) las tareas con fecha
-     se mueven al horizonte que les toca. Una tarea con fecha de hoy no
-     puede seguir durmiendo en "algún día". */
   function reubicar() {
     var cambios = 0;
     E.tareas.forEach(function (t) {
@@ -676,30 +682,22 @@
     return vencidas().length > 0 || (E.cfg.revisionHecha !== hoyISO() && pendientes("hoy").length > 0);
   }
 
-  /* ============ acciones sobre tareas ============ */
+  /* ============ acciones ============ */
   function crear(entrada) {
     var r = leer(entrada);
     var fecha = nuevo.fecha || r.fecha;
     var t = {
-      id: uid(),
-      texto: r.texto,
-      fuente: r.fuente || nuevo.f,
+      id: uid(), texto: r.texto, fuente: r.fuente || nuevo.f,
       horizonte: fecha ? (horizonteDe(fecha) || nuevo.h) : nuevo.h,
-      fecha: fecha || null,
-      hora: nuevo.hora || r.hora || null,
-      repetir: r.repetir || null,
-      importante: r.importante,
-      hecha: false,
-      creada: new Date().toISOString(),
-      ext: null,
-      pend: null
+      fecha: fecha || null, hora: nuevo.hora || r.hora || null,
+      repetir: r.repetir || null, importante: r.importante,
+      hecha: false, creada: new Date().toISOString(), ext: null, pend: null
     };
-    if (E.cfg.devolver && E.cfg.flow) t.pend = "crear";   // se enviará a To Do
+    if (E.cfg.devolver && E.cfg.flow) t.pend = "crear";
     E.tareas.unshift(t);
     nuevo.fecha = ""; nuevo.hora = "";
-    filtro = t.horizonte;
-    guardar();
-    pintar();
+    filtro = t.horizonte;   // te lleva a donde aterrizó, pero el chip se queda donde lo pusiste
+    guardar(); pintar();
     var i = document.getElementById("txt"); if (i) i.focus();
     if (t.pend) empujar();
   }
@@ -708,6 +706,11 @@
     if (!t) return;
     t.hecha = !t.hecha;
     t.hechaEn = t.hecha ? new Date().toISOString() : null;
+    if (t.hecha) {
+      celebrando = id;
+      clearTimeout(tCel);
+      tCel = setTimeout(function () { celebrando = null; pintar(); }, 620);
+    } else celebrando = null;
     if (t.hecha && t.repetir) reprogramar(t);
     if (t.ext || E.cfg.devolver) t.pend = t.pend === "crear" ? "crear" : "estado";
     guardar(); pintar();
@@ -744,25 +747,21 @@
     var t = buscar(id);
     E.tareas = E.tareas.filter(function (x) { return x.id !== id; });
     guardar(); pintar();
-    if (t && t.ext) toast("Borrada de aquí. En " + (FUENTES[t.fuente] || {}).t + " sigue existiendo.");
+    if (t && t.ext) toast("Borrada de aquí. En " + fuenteDe(t.fuente).label + " sigue existiendo.");
+  }
+  function limpiarCompletadas() {
+    E.tareas = E.tareas.filter(function (t) { return !(t.hecha && t.horizonte === filtro); });
+    guardar(); pintar();
   }
   function buscar(id) { return E.tareas.find(function (t) { return t.id === id; }); }
 
   /* ============ puente con Microsoft (Power Automate) ============ */
-  /* Un solo flujo con disparador "Cuando se recibe una solicitud HTTP".
-     Lee To Do + Planner + correos marcados + calendario y, de paso,
-     aplica lo que hiciste aquí. El contrato está en CONECTAR.md. */
   function cambiosPendientes() {
     return E.tareas.filter(function (t) { return t.pend; }).map(function (t) {
       return {
         accion: t.pend === "crear" ? "crear" : t.pend === "fecha" ? "mover" : "completar",
-        local: t.id,
-        sys: t.ext ? t.ext.sys : null,
-        id: t.ext ? t.ext.id : null,
-        texto: t.texto,
-        fecha: t.fecha,
-        hora: t.hora,
-        hecha: !!t.hecha,
+        local: t.id, sys: t.ext ? t.ext.sys : null, id: t.ext ? t.ext.id : null,
+        texto: t.texto, fecha: t.fecha, hora: t.hora, hecha: !!t.hecha,
         lista: E.cfg.lista || null
       };
     });
@@ -777,24 +776,18 @@
     if (sync.estado === "sync") return Promise.resolve(false);
     sync.estado = "sync"; pintarSync();
     var cuerpo = {
-      op: "sync",
-      cliente: "horizonte",
-      version: VERSION,
-      hoy: hoyISO(),
-      agendaDesde: hoyISO(),
-      agendaHasta: mas(hoyISO(), 8),
+      op: "sync", cliente: "centro", version: VERSION, hoy: hoyISO(),
+      agendaDesde: hoyISO(), agendaHasta: mas(hoyISO(), 8),
       cambios: cambiosPendientes()
     };
     return fetch(E.cfg.flow, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cuerpo)
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo)
     }).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     }).then(function (d) {
       fusionar(d);
-      sync.estado = "ok"; sync.ts = Date.now(); sync.msg = "";
+      sync.estado = "ok"; sync.msg = "";
       E.meta.ultimaSync = new Date().toISOString();
       guardar(); pintar();
       if (manual) toast("Al día con Microsoft.");
@@ -819,7 +812,6 @@
     (d.aplicados || []).forEach(function (id) {
       var t = buscar(id); if (t) t.pend = null;
     });
-    /* si el flujo no devuelve "aplicados", damos por buenos los cambios enviados */
     if (!d.aplicados) E.tareas.forEach(function (t) { if (t.pend && t.pend !== "crear") t.pend = null; });
 
     /* 2. tareas que llegan de Microsoft */
@@ -893,215 +885,258 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 400);
   }
   function ics() {
-    /* para llevarte los pendientes con fecha a Recordatorios o al calendario */
-    var L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Horizonte//Centro de operaciones//ES", "CALSCALE:GREGORIAN"];
+    var L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Centro de mando//ES", "CALSCALE:GREGORIAN"];
     var sello = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
     pendientes().filter(function (t) { return t.fecha; }).forEach(function (t) {
       var f = t.fecha.replace(/-/g, "");
-      L.push("BEGIN:VTODO", "UID:" + t.id + "@horizonte", "DTSTAMP:" + sello,
+      L.push("BEGIN:VTODO", "UID:" + t.id + "@centro", "DTSTAMP:" + sello,
              "SUMMARY:" + String(t.texto).replace(/[\r\n,;]/g, " "),
              t.hora ? "DUE:" + f + "T" + t.hora.replace(":", "") + "00" : "DUE;VALUE=DATE:" + f,
-             "CATEGORIES:" + (FUENTES[t.fuente] || {}).t, "END:VTODO");
+             "CATEGORIES:" + fuenteDe(t.fuente).label, "END:VTODO");
     });
     L.push("END:VCALENDAR");
-    bajar("horizonte.ics", L.join("\r\n"), "text/calendar;charset=utf-8");
+    bajar("centro-de-mando.ics", L.join("\r\n"), "text/calendar;charset=utf-8");
   }
 
   /* ============ pintar ============ */
   function pintar() {
     reubicar();
-    var vs = vencidas().length;
-    var hoyN = pendientes("hoy").length;
-    var foco = vs + hoyN;
-    var clase = vs > 0 ? "alerta" : (foco === 0 ? "calma" : "");
-    var etiqueta = vs > 0
-      ? vs + (vs === 1 ? " vencida" : " vencidas") + " · " + hoyN + " para hoy"
-      : (foco === 0 ? "nada pendiente hoy" : (foco === 1 ? "cosa para hoy" : "cosas para hoy"));
+    var vs = vencidas();
+    var deHoy = pendientes("hoy");
+    var focoIds = {};
+    vs.concat(deHoy).forEach(function (t) { focoIds[t.id] = 1; });
+    var foco = Object.keys(focoIds).length;
+
+    var estado = vs.length ? "alerta" : (foco === 0 ? "calma" : "activo");
+    var color = estado === "alerta" ? ROJO : estado === "calma" ? VERDE : ACENTO;
+    var pTitulo = estado === "alerta" ? "Hay algo vencido"
+                : estado === "calma" ? "Estás al día"
+                : (foco === 1 ? "1 cosa para hoy" : foco + " cosas para hoy");
+    var pDetalle = estado === "alerta"
+      ? (vs.length === 1 ? "1 tarea pasó de fecha" : vs.length + " tareas pasaron de fecha") +
+        (deHoy.length ? " · " + deHoy.length + " para hoy" : "")
+      : estado === "calma" ? "Nada urgente en Hoy. Lo demás puede esperar."
+      : "Solo esto. El resto está guardado.";
+
+    var saludo = vista === "agenda" ? "Agenda"
+               : vista === "revision" ? "Revisión"
+               : vista === "ajustes" ? "Ajustes"
+               : hzDe(filtro).titulo;
 
     app.innerHTML =
-      '<div class="top">' +
+      '<header class="top"><div class="top-in">' +
         '<div>' +
           '<div class="fecha">' + esc(diaLargo(hoyISO())) + '</div>' +
-          '<h1 class="titulo">Tu <em>horizonte</em></h1>' +
+          '<h1 class="saludo">' + esc(saludo) + '</h1>' +
         '</div>' +
-        '<div class="presion ' + clase + '">' +
-          '<div class="n ' + (vs > 0 ? "pulsa" : "") + '">' + foco + '</div>' +
-          '<div class="lbl">' + etiqueta + '</div>' +
+        '<div class="presion">' +
+          '<div class="num ' + (estado === "alerta" ? "alerta" : "") + '" style="color:' + color +
+            ';background:' + color + '14;border:1px solid ' + color + '26">' + foco + '</div>' +
+          '<div class="p-w"><div class="p-t">' + esc(pTitulo) + '</div>' +
+          '<div class="p-d">' + esc(pDetalle) + '</div></div>' +
         '</div>' +
-      '</div>' +
-      navHTML(vs) +
-      (vista === "horizonte" ? vHorizonte() :
-       vista === "agenda"    ? vAgenda() :
-       vista === "revision"  ? vRevision() : vAjustes());
+      '</div></header>' +
+      barraHTML() +
+      '<main class="wrap">' +
+        (vista === "agenda"   ? vAgenda() :
+         vista === "revision" ? vRevision() :
+         vista === "ajustes"  ? vAjustes() : vTareas()) +
+      '</main>';
 
     conectar();
   }
 
-  var ICONOS = {
-    horizonte: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2 13h16"/><path d="M5 13a5 5 0 0 1 10 0"/><path d="M10 3v2M4 6l1 1M16 6l-1 1"/></svg>',
-    agenda:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M3 8h14M7 2.5v3M13 2.5v3"/></svg>',
-    revision:  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 7 14l10-9.5"/></svg>',
-    ajustes:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.4v2M10 15.6v2M17.6 10h-2M4.4 10h-2M15.4 4.6l-1.4 1.4M6 14l-1.4 1.4M15.4 15.4 14 14M6 6 4.6 4.6"/></svg>'
-  };
-  function navHTML(vs) {
-    var tabs = [["horizonte", "Horizonte"], ["agenda", "Agenda"], ["revision", "Revisión"], ["ajustes", "Ajustes"]];
-    return '<nav class="nav">' + tabs.map(function (x) {
+  function barraHTML() {
+    var tabs = [["hoy", "Tareas"], ["agenda", "Agenda"], ["revision", "Revisión"], ["ajustes", "Ajustes"]];
+    var vs = vencidas().length;
+    return '<div class="barra"><div class="seg">' + tabs.map(function (x) {
       var pip = (x[0] === "revision" && necesitaRevision()) ? '<span class="pip">' + (vs || "!") + '</span>' : "";
       return '<button data-tab="' + x[0] + '" class="' + (vista === x[0] ? "on" : "") + '">' +
-             ICONOS[x[0]] + '<span>' + x[1] + '</span>' + pip + '</button>';
-    }).join("") +
-    '<button class="sync" id="sync-btn">' + syncHTML() + '</button></nav>';
+             esc(x[1]) + pip + '</button>';
+    }).join("") + '</div>' +
+    '<button class="sincro" id="sync-btn">' + syncHTML() + '</button></div>';
   }
   function syncHTML() {
-    var cfg = E.cfg.flow;
-    var cls = !cfg ? "" : sync.estado === "error" ? "mala" : sync.estado === "sync" ? "trab" : "viva";
-    var txt = !cfg ? "sin conectar"
-            : sync.estado === "sync" ? "sincronizando…"
-            : sync.estado === "error" ? "sin conexión"
-            : E.meta.ultimaSync ? "al día · " + new Date(E.meta.ultimaSync).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
-            : "conectado";
+    var cls = !E.cfg.flow ? "" : sync.estado === "error" ? "mala" : sync.estado === "sync" ? "trab" : "viva";
+    var txt = !E.cfg.flow ? "Sin conectar"
+            : sync.estado === "sync" ? "Sincronizando…"
+            : sync.estado === "error" ? "Sin conexión"
+            : E.meta.ultimaSync ? "Al día · " + new Date(E.meta.ultimaSync).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
+            : "Conectado";
     var n = E.tareas.filter(function (t) { return t.pend; }).length;
-    return '<span class="punto ' + cls + (sync.estado === "sync" ? " pulsa" : "") + '"></span>' +
-           esc(txt) + (n ? " · " + n + " por enviar" : "");
+    return '<span class="punto ' + cls + '"></span>' + esc(txt) + (n ? " · " + n + " por enviar" : "");
   }
   function pintarSync() {
     var b = document.getElementById("sync-btn");
     if (b) b.innerHTML = syncHTML();
   }
 
-  /* ---------- vista: horizonte ---------- */
-  function vHorizonte() {
-    var vs = vencidas();
-    var lista = E.tareas.filter(function (t) { return t.horizonte === filtro; })
-      .sort(function (a, b) {
-        if (a.hecha !== b.hecha) return a.hecha ? 1 : -1;
-        if (!!a.importante !== !!b.importante) return a.importante ? -1 : 1;
-        return (a.fecha || "9999") > (b.fecha || "9999") ? 1 : -1;
-      });
+  /* ---------- vista: tareas ---------- */
+  function vTareas() {
+    var hoy = hoyISO();
+    var pend = pendientes();
+    var cuenta = function (k) { return pend.filter(function (t) { return t.horizonte === k; }).length; };
+    var vencePorH = function (k) {
+      return pend.filter(function (t) { return t.horizonte === k && t.fecha && t.fecha < hoy; }).length;
+    };
+
+    var nav = '<nav class="horizontes">' + HZ.map(function (h) {
+      var on = filtro === h.k, alerta = vencePorH(h.k) > 0;
+      var c = h.k === "hoy" ? ACENTO : alerta ? ROJO : "#D6D6D8";
+      return '<button class="hz ' + (on ? "on" : "") + '" data-zona="' + h.k + '">' +
+        '<div class="hz-t"><span class="hz-p" style="background:' + ((h.k === "hoy" || alerta) ? c : "#D6D6D8") + '"></span>' +
+        '<span class="lbl">' + h.titulo + '</span></div>' +
+        '<div class="hz-n"><b class="' + (alerta ? "alerta" : "") + '">' + cuenta(h.k) + '</b>' +
+        '<small>' + h.sub + '</small></div></button>';
+    }).join("") + '</nav>';
+
+    var hz = hzDe(filtro);
+    var enFiltro = E.tareas.filter(function (t) { return t.horizonte === filtro; });
+    var completadas = enFiltro.filter(function (t) { return t.hecha; }).length;
+    var lista = enFiltro.slice().sort(function (a, b) {
+      if (a.hecha !== b.hecha) return a.hecha ? 1 : -1;
+      if (!!a.importante !== !!b.importante) return a.importante ? -1 : 1;
+      return (a.fecha || "9999-99") > (b.fecha || "9999-99") ? 1 : -1;
+    });
+    var pendFiltro = enFiltro.filter(function (t) { return !t.hecha; }).length;
 
     var aviso = "";
-    if (vs.length) {
-      aviso = '<div class="aviso"><div class="a-t">Se te pasaron <b>' + vs.length + '</b> ' +
-              (vs.length === 1 ? "cosa" : "cosas") + '. Decide qué hacer con ' +
-              (vs.length === 1 ? "ella" : "ellas") + ' en un minuto.</div>' +
-              '<button class="btn" data-tab="revision">Revisar ahora</button></div>';
-    } else if (E.cfg.revisionHecha !== hoyISO() && pendientes("hoy").length) {
-      aviso = '<div class="aviso suave"><div class="a-t">Todavía no cierras el día. La <b>revisión</b> ' +
-              'te pregunta una por una qué hacer con lo que quedó.</div>' +
-              '<button class="btn linea" data-tab="revision">Hacer la revisión</button></div>';
+    if (vencidas().length) {
+      aviso = '<div class="tarjeta" style="padding:16px 18px;margin-bottom:18px;display:flex;gap:14px;' +
+        'align-items:center;flex-wrap:wrap;border-color:rgba(209,69,59,.2);background:rgba(209,69,59,.04)">' +
+        '<div style="flex:1;min-width:190px;font-size:14px;font-weight:500;line-height:1.45">Se te pasaron ' +
+        '<b style="font-weight:700;color:' + ROJO + '">' + vencidas().length + '</b> ' +
+        (vencidas().length === 1 ? "cosa" : "cosas") + '. Decide qué hacer en un minuto.</div>' +
+        '<button class="btn" data-tab="revision">Revisar ahora</button></div>';
     }
 
-    return aviso +
-      '<div class="banda">' + ORDEN_H.map(function (k) {
-        var h = HORIZONTES[k];
-        return '<button class="zona ' + (filtro === k ? "on" : "") + '" data-zona="' + k + '" style="--z:' + h.c + '">' +
-               '<div class="z-n">' + pendientes(k).length + '</div>' +
-               '<div class="z-t">' + h.t + '</div><div class="z-s">' + h.s + '</div></button>';
-      }).join("") + '</div>' +
+    return aviso + nav +
+      '<div class="rejilla"><div class="col-a">' +
+        '<section class="tarjeta lista-card">' +
+          '<div class="lista-h"><div><h2>' + hz.titulo + '</h2>' +
+            '<div class="sub">' + hz.sub + '</div></div>' +
+            '<div class="cuenta">' + (pendFiltro === 0 ? "Sin pendientes" : pendFiltro === 1 ? "1 pendiente" : pendFiltro + " pendientes") + '</div>' +
+          '</div>' +
 
-      '<div class="rejilla"><section>' +
-        '<div class="rotulo"><span>' + HORIZONTES[filtro].t + ' — ' + HORIZONTES[filtro].s + '</span>' +
-        '<b>' + lista.filter(function (t) { return !t.hecha; }).length + ' pendientes</b></div>' +
+          (lista.length
+            ? '<div>' + lista.map(tareaHTML).join("") + '</div>'
+            : '<div class="vacio-b"><div class="ico"></div>' +
+              '<div class="t">' + hz.vacioT + '</div>' +
+              '<div class="s">' + hz.vacioS + '</div></div>') +
 
-        (lista.length ? lista.map(tareaHTML).join("")
-          : '<div class="vacio">Nada en este horizonte.' +
-            (filtro === "hoy" ? ' Disfrútalo, o trae algo de <b style="color:var(--h-corto)">Corto</b>.' :
-             ' Escribe abajo lo primero que se te venga a la cabeza.') + '</div>') +
+          agregarHTML() +
 
-        agregarHTML() +
-      '</section>' +
+          (completadas ? '<div class="completadas"><span>' +
+            (completadas === 1 ? "1 completada" : completadas + " completadas") + " en " + hz.titulo.toLowerCase() +
+            '</span><button id="limpiar">Limpiar completadas</button></div>' : "") +
+        '</section>' +
+      '</div>' +
 
-      '<aside>' +
-        agendaCortaHTML() +
-        '<div class="bloque"><div class="rotulo"><span>Notas</span><span class="guardado" id="est"></span></div>' +
-        '<textarea class="notas" id="notas" placeholder="Ideas sueltas, pendientes sin forma, lo que sea…">' + esc(E.notas) + '</textarea></div>' +
-        '<div class="bloque"><div class="rotulo"><span>Cómo funciona</span></div>' +
-        '<div class="prosa">' +
-          'Escribe como hablas: <b>«pagar el arriendo el viernes 9am»</b> y la fecha se entiende sola.<br><br>' +
-          'Lo que tiene fecha <b>sube solo</b> de horizonte cuando se acerca: nada se queda escondido en «algún día».<br><br>' +
+      '<aside class="col-b">' +
+        (E.cfg.flow ? agendaLateralHTML() : "") +
+        '<section class="tarjeta panel">' +
+          '<div class="panel-h"><h2>Notas</h2><span class="guardado" id="est"></span></div>' +
+          '<textarea class="notas" id="notas" placeholder="Ideas sueltas, pendientes sin forma, lo que sea…">' + esc(E.notas) + '</textarea>' +
+        '</section>' +
+        '<section class="metodo">' +
+          '<div class="k">El método</div>' +
+          '<p>Mira solo <strong>Hoy</strong>. Lo demás está guardado a propósito: existe para que puedas olvidarlo hasta que toque.</p>' +
+          '<p>Lo que tiene fecha <strong>sube solo</strong> cuando se acerca. Nada se queda escondido en «algún día».</p>' +
           (E.cfg.flow
-            ? 'Planner, tus correos marcados y To Do entran solos. Lo que creas aquí vuelve a <b>To Do</b>, ' +
-              'para que la alarma suene en tu celular.'
-            : 'Conecta tu <b>Power Automate</b> en Ajustes y Planner, los correos marcados y el calendario ' +
-              'aparecerán aquí sin que los copies.') +
-        '</div></div>' +
+            ? '<p>Planner, tus correos marcados y To Do entran solos. Lo que creas aquí vuelve a <strong>To Do</strong>, para que la alarma suene en tu celular.</p>'
+            : '<p>Conecta tu <strong>Power Automate</strong> en Ajustes y Planner, los correos marcados y el calendario aparecerán aquí sin que los copies.</p>') +
+        '</section>' +
       '</aside></div>';
   }
 
   function tareaHTML(t) {
     var f = fechaTexto(t.fecha, t.hora);
-    var fu = FUENTES[t.fuente] || { t: t.fuente, c: "var(--muted)" };
+    var fu = fuenteDe(t.fuente);
+    var cCaja = t.hecha ? (f && f.tarde ? "#A1A1A6" : ACENTO) : "#C7C7CC";
+    var cel = celebrando === t.id;
     var editar = editando === t.id;
-    return '<div class="tarea ' + (t.hecha ? "hecha" : "") + (f && f.tarde && !t.hecha ? " vence" : "") +
-             '" style="--c:' + (HORIZONTES[t.horizonte] || HORIZONTES.hoy).c + '">' +
-      '<button class="caja" data-alt="' + t.id + '" aria-label="Completar">' +
-        '<svg viewBox="0 0 12 12" fill="none"><path d="M2 6.2 4.7 9 10 3.2" stroke="#0F0E17" ' +
+    return '<div class="tarea ' + (t.hecha ? "hecha" : "") + '">' +
+      '<button class="caja ' + (cel ? "pop" : "") + '" data-alt="' + t.id + '" aria-label="Marcar como completada" ' +
+        'style="border-color:' + cCaja + ';background:' + (t.hecha ? cCaja : "transparent") + ';color:' + cCaja + '">' +
+        (cel ? '<span class="aro"></span>' : "") +
+        '<svg viewBox="0 0 14 14" fill="none"><path d="M2.6 7.4 5.5 10.2 11.4 3.9" stroke="#fff" ' +
         'stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
-      '<div class="cuerpo">' +
-        '<div class="txt" data-edit="' + t.id + '">' +
+      '<div class="t-cuerpo">' +
+        '<div class="t-txt" data-edit="' + t.id + '">' +
           (editar ? '<input type="text" id="ed" value="' + esc(t.texto) + '">'
-                  : (t.importante ? '<span style="color:var(--h-hoy)">! </span>' : "") + esc(t.texto)) +
+                  : (t.importante ? '<span style="color:' + ACENTO + '">! </span>' : "") + esc(t.texto)) +
         '</div>' +
-        '<div class="meta">' +
+        '<div class="t-meta">' +
           (t.ext && t.ext.url
-            ? '<a class="etq" href="' + esc(t.ext.url) + '" target="_blank" rel="noopener" style="--f:' + fu.c + '">' +
-              '<span class="pt"></span>' + esc(fu.t) + (t.ext.lista ? " · " + esc(t.ext.lista) : "") + '</a>'
-            : '<span class="etq" style="--f:' + fu.c + '"><span class="pt"></span>' + esc(fu.t) + '</span>') +
-          (f ? '<span class="cuando ' + (f.tarde && !t.hecha ? "tarde" : "") + '">' + esc(f.txt) + '</span>' : "") +
-          (t.repetir ? '<span class="rep">↻</span>' : "") +
-          (t.pend ? '<span class="rep" title="Pendiente de enviar">↑</span>' : "") +
+            ? '<a class="t-origen" href="' + esc(t.ext.url) + '" target="_blank" rel="noopener">' +
+              '<span class="pt" style="background:' + fu.color + '"></span>' + esc(fu.label) +
+              (t.ext.lista ? " · " + esc(t.ext.lista) : "") + '</a>'
+            : '<span class="t-origen"><span class="pt" style="background:' + fu.color + '"></span>' + esc(fu.label) + '</span>') +
+          (f ? '<span class="t-fecha ' + (!t.hecha && f.tarde ? "tarde" : !t.hecha && f.hoy ? "hoy" : "") + '">' + esc(f.txt) + '</span>' : "") +
+          (t.repetir ? '<span class="t-marca" title="Se repite">↻</span>' : "") +
+          (t.pend ? '<span class="t-marca" title="Pendiente de enviar">↑</span>' : "") +
         '</div>' +
       '</div>' +
-      '<div class="acc">' +
-        (filtro !== "hoy" ? '<button data-mov="' + t.id + '|hoy" title="Traer a hoy">↑</button>' : "") +
-        '<button data-mov="' + t.id + '|manana" title="Mañana">→</button>' +
-        '<button class="del" data-del="' + t.id + '" title="Eliminar">×</button>' +
-      '</div></div>';
+      '<button class="borrar" data-del="' + t.id + '" aria-label="Eliminar tarea">' +
+        '<svg viewBox="0 0 14 14" fill="none" style="width:13px;height:13px"><path d="M3.4 3.4l7.2 7.2M10.6 3.4l-7.2 7.2" ' +
+        'stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>' +
+      '</div>';
   }
 
   function agregarHTML() {
     return '<div class="agregar" id="caja-agregar">' +
-      '<input type="text" id="txt" placeholder="¿Qué tienes que hacer?" autocomplete="off" enterkeyhint="done">' +
+      '<div class="ag-fila">' +
+        '<span class="ag-marca"></span>' +
+        '<input type="text" class="texto" id="txt" placeholder="Añadir una tarea…" autocomplete="off" enterkeyhint="done">' +
+        '<button class="ag-crear" id="add" disabled>Añadir</button>' +
+      '</div>' +
       '<div class="lectura" id="lectura"></div>' +
-      '<div class="fila">' +
-        ORDEN_H.map(function (k) {
-          return '<button class="chip ' + (nuevo.h === k ? "on" : "") + '" data-h="' + k + '" style="--c:' +
-                 HORIZONTES[k].c + '">' + HORIZONTES[k].t + '</button>';
+      '<div class="ag-chips">' +
+        HZ.map(function (h) {
+          var on = nuevo.h === h.k, c = h.k === "hoy" ? ACENTO : "#48484A";
+          return '<button class="chip ' + (on ? "on" : "") + '" data-h="' + h.k + '"' +
+                 (on ? ' style="background:' + c + ';box-shadow:0 4px 12px -6px ' + c + '"' : "") + '>' + h.titulo + '</button>';
         }).join("") +
-        '<span style="width:1px;height:18px;background:var(--line)"></span>' +
+        '<span class="divisor"></span>' +
         Object.keys(FUENTES).filter(function (k) { return FUENTES[k].mia; }).map(function (k) {
-          return '<button class="chip ' + (nuevo.f === k ? "on" : "") + '" data-f="' + k + '" style="--c:' +
-                 FUENTES[k].c + '">' + FUENTES[k].t + '</button>';
+          var on = nuevo.f === k, c = FUENTES[k].color;
+          return '<button class="chip ' + (on ? "on" : "") + '" data-f="' + k + '"' +
+                 (on ? ' style="background:' + c + ';box-shadow:0 4px 12px -6px ' + c + '"' : "") + '>' + FUENTES[k].label + '</button>';
         }).join("") +
-        '<input type="date" id="fch" value="' + nuevo.fecha + '" aria-label="Fecha">' +
-        '<button class="enviar" id="add" disabled>Agregar</button>' +
+        '<input type="date" class="ag-fecha" id="fch" value="' + nuevo.fecha + '" aria-label="Fecha de cumplimiento">' +
       '</div></div>';
   }
 
-  function agendaCortaHTML() {
-    var hoy = eventosDe(hoyISO());
-    if (!E.cfg.flow) return "";
-    return '<div class="rotulo"><span>Hoy en la agenda</span><b>' + hoy.length + '</b></div>' +
-      (hoy.length ? hoy.slice(0, 5).map(function (ev) { return evHTML(ev, true); }).join("")
-                  : '<div class="vacio" style="padding:10px 2px">Sin reuniones. El día es tuyo.</div>');
-  }
   function eventosDe(iso) {
     return E.eventos.filter(function (ev) { return String(ev.inicio).slice(0, 10) === iso; });
   }
   function horaDe(s) { return s && s.length > 11 ? s.slice(11, 16) : "—"; }
-  function evHTML(ev, corto) {
-    return '<div class="ev" style="--c:var(--h-largo)">' +
-      '<div class="h">' + (ev.todoElDia ? "todo<br>el día" : esc(horaDe(ev.inicio)) + (corto ? "" : "<br>" + esc(horaDe(ev.fin)))) + '</div>' +
-      '<div><div class="t">' + (ev.url ? '<a href="' + esc(ev.url) + '" target="_blank" rel="noopener" style="color:inherit">' + esc(ev.titulo) + '</a>' : esc(ev.titulo)) + '</div>' +
-      (ev.lugar ? '<div class="l">' + esc(ev.lugar) + '</div>' : "") + '</div></div>';
+  function agendaLateralHTML() {
+    var hoy = eventosDe(hoyISO());
+    return '<section class="tarjeta panel">' +
+      '<div class="panel-h"><h2>Hoy en la agenda</h2>' +
+      '<span style="font-size:13px;font-weight:600;color:var(--gris3)">' + hoy.length + '</span></div>' +
+      (hoy.length
+        ? hoy.slice(0, 5).map(function (ev) {
+            return '<div style="display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--linea)">' +
+              '<div style="font-size:13px;font-weight:600;color:var(--gris2);flex:none;width:44px;' +
+              'font-variant-numeric:tabular-nums">' + (ev.todoElDia ? "Todo" : esc(horaDe(ev.inicio))) + '</div>' +
+              '<div style="min-width:0"><div style="font-size:14.5px;font-weight:500;letter-spacing:-.008em;line-height:1.35">' +
+              (ev.url ? '<a href="' + esc(ev.url) + '" target="_blank" rel="noopener" style="color:inherit">' + esc(ev.titulo) + '</a>' : esc(ev.titulo)) +
+              '</div>' + (ev.lugar ? '<div style="font-size:12.5px;font-weight:500;color:var(--gris3);margin-top:2px">' + esc(ev.lugar) + '</div>' : "") +
+              '</div></div>';
+          }).join("")
+        : '<div style="font-size:13.5px;font-weight:500;color:var(--gris2);line-height:1.5">Sin reuniones. El día es tuyo.</div>') +
+      '</section>';
   }
 
   /* ---------- vista: agenda ---------- */
   function vAgenda() {
     if (!E.cfg.flow) {
-      return '<div class="vacio" style="max-width:520px">La agenda se llena con tu calendario de Outlook. ' +
-             'Conecta el flujo en <b style="color:var(--h-corto)">Ajustes</b> y verás aquí los próximos ocho días, ' +
-             'junto con lo que tienes que hacer cada día.</div>';
+      return '<div class="tarjeta panel" style="max-width:560px">' +
+        '<div class="info">La agenda se llena con tu calendario de Outlook. Conecta el flujo en ' +
+        '<b>Ajustes</b> y verás aquí los próximos ocho días, junto con lo que tienes que hacer cada día.</div>' +
+        '<div style="margin-top:16px"><button class="btn" data-tab="ajustes">Ir a Ajustes</button></div></div>';
     }
     var out = "";
     for (var i = 0; i < 8; i++) {
@@ -1114,19 +1149,25 @@
         '</div><div class="s">' + esc(diaLargo(iso)) + '</div></div>' +
         (evs.length || trs.length
           ? trs.map(function (t) {
-              return '<div class="ev" style="--c:' + HORIZONTES[t.horizonte].c + '">' +
+              var fu = fuenteDe(t.fuente);
+              return '<div class="ev"><div class="barr" style="background:' + fu.color + '"></div>' +
                 '<div class="h">' + (t.hora ? esc(t.hora) : "—") + '</div>' +
                 '<div><div class="t">' + esc(t.texto) + '</div>' +
-                '<div class="l">' + esc((FUENTES[t.fuente] || {}).t || "") + '</div></div></div>';
-            }).join("") + evs.map(function (ev) { return evHTML(ev); }).join("")
-          : '<div class="vacio" style="padding:8px 2px">Libre.</div>') +
+                '<div class="l">' + esc(fu.label) + '</div></div></div>';
+            }).join("") +
+            evs.map(function (ev) {
+              return '<div class="ev"><div class="barr" style="background:#C7C7CC"></div>' +
+                '<div class="h">' + (ev.todoElDia ? "Todo<br>el día" : esc(horaDe(ev.inicio)) + "<br>" + esc(horaDe(ev.fin))) + '</div>' +
+                '<div><div class="t">' + (ev.url ? '<a href="' + esc(ev.url) + '" target="_blank" rel="noopener" style="color:inherit">' + esc(ev.titulo) + '</a>' : esc(ev.titulo)) + '</div>' +
+                (ev.lugar ? '<div class="l">' + esc(ev.lugar) + '</div>' : "") + '</div></div>';
+            }).join("")
+          : '<div style="font-size:13.5px;font-weight:500;color:var(--gris3);padding:4px 2px">Libre.</div>') +
         '</div>';
     }
     return out;
   }
 
   /* ---------- vista: revisión ---------- */
-  /* El antídoto contra el olvido: una por una, decides qué pasa. */
   function colaRevision() {
     var v = vencidas();
     var hoyP = pendientes("hoy").filter(function (t) { return !t.fecha || dias(t.fecha) >= 0; });
@@ -1139,107 +1180,109 @@
     var cola = colaRevision();
     if (!cola.length) {
       E.cfg.revisionHecha = hoyISO(); guardar();
-      return '<div class="fin"><div class="g">Todo revisado.</div>' +
-        '<div class="p">No queda nada vencido ni sin decidir. Si algo aparece durante el día, ' +
-        'lo verás en <b>Hoy</b> con su color.</div>' +
-        '<div style="margin-top:22px"><button class="btn linea" data-tab="horizonte">Volver al horizonte</button></div></div>';
+      return '<div class="tarjeta fin" style="max-width:560px">' +
+        '<div class="ico"><svg width="26" height="26" viewBox="0 0 20 20" fill="none" stroke="' + VERDE + '" ' +
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 7.5 14.5 16.5 5"/></svg></div>' +
+        '<div class="g">Todo revisado</div>' +
+        '<div class="p">No queda nada vencido ni sin decidir. Si algo aparece durante el día, lo verás en <b>Hoy</b>.</div>' +
+        '<button class="btn linea" data-tab="hoy">Volver a las tareas</button></div>';
     }
     if (revIdx >= cola.length) revIdx = 0;
     var t = cola[revIdx];
     var f = fechaTexto(t.fecha, t.hora);
-    var fu = FUENTES[t.fuente] || {};
-    return '<div style="max-width:560px">' +
+    var fu = fuenteDe(t.fuente);
+    return '<div style="max-width:600px">' +
       '<div class="paso">Revisión del día · ' + (revIdx + 1) + ' de ' + cola.length + '</div>' +
-      '<div class="rev">' +
+      '<div class="tarjeta rev">' +
         '<div class="q">' + esc(t.texto) + '</div>' +
-        '<div class="m">' + esc((fu.t || "") + (f ? " · " + f.txt : " · sin fecha")) + '</div>' +
+        '<div class="m">' + esc(fu.label + (f ? " · " + f.txt : " · sin fecha")) + '</div>' +
         '<div class="opts">' +
-          '<button data-rev="hecha">✓ Ya está</button>' +
+          '<button class="si" data-rev="hecha">Ya está</button>' +
           '<button data-rev="hoy">Hoy</button>' +
           '<button data-rev="manana">Mañana</button>' +
           '<button data-rev="semana">Esta semana</button>' +
           '<button data-rev="mediano">Este mes</button>' +
           '<button data-rev="largo">Algún día</button>' +
-          '<button data-rev="borrar">Ya no aplica</button>' +
+          '<button class="no" data-rev="borrar">Ya no aplica</button>' +
           '<button data-rev="saltar">Dejar así</button>' +
         '</div>' +
       '</div>' +
-      '<div class="prosa" style="margin-top:16px">Esta es la parte que Recordatorios y To Do no hacen: ' +
-      'obligarte a <b>decidir</b> qué pasa con lo que se te pasó, en vez de dejarlo en rojo para siempre.</div>' +
-      '</div>';
+      '<div class="info" style="margin-top:16px">Esta es la parte que Recordatorios y To Do no hacen: obligarte a ' +
+      '<b>decidir</b> qué pasa con lo que se te pasó, en vez de dejarlo en rojo para siempre.</div></div>';
   }
 
   /* ---------- vista: ajustes ---------- */
   function vAjustes() {
     var n = E.tareas.filter(function (t) { return t.pend; }).length;
-    return '<div class="rejilla"><section>' +
-      '<div class="rotulo"><span>Conexión con tu trabajo</span></div>' +
-      '<div class="campo">' +
-        '<label>URL del flujo de Power Automate</label>' +
-        '<input type="url" id="cfg-flow" placeholder="https://…/triggers/manual/paths/invoke?…&amp;sig=…" value="' + esc(E.cfg.flow) + '">' +
-        '<div class="ayuda">Es la dirección que te da el disparador <b>«Cuando se recibe una solicitud HTTP»</b>. ' +
-        'Se guarda solo en este dispositivo: no viaja al repositorio ni la ve nadie más. ' +
-        'El paso a paso para armar el flujo está en <code>centro/CONECTAR.md</code>.</div>' +
-      '</div>' +
-      '<div class="campo">' +
-        '<label>Lista de To Do donde se crean tus tareas</label>' +
-        '<input type="text" id="cfg-lista" placeholder="Tareas" value="' + esc(E.cfg.lista || "") + '">' +
-        '<div class="ayuda">Déjalo vacío para usar la lista predeterminada.</div>' +
-      '</div>' +
-      '<label class="switch"><input type="checkbox" id="cfg-auto" ' + (E.cfg.auto ? "checked" : "") + '>' +
-        '<span><div class="s-t">Sincronizar sola</div><div class="s-d">Al abrir la app, al volver a ella y cada 10 minutos.</div></span></label>' +
-      '<label class="switch"><input type="checkbox" id="cfg-dev" ' + (E.cfg.devolver ? "checked" : "") + '>' +
-        '<span><div class="s-t">Devolver a Microsoft To Do</div>' +
-        '<div class="s-d">Lo que escribes aquí se crea también en To Do, y ahí sí te suena la alarma en el celular ' +
-        'y aparece en Outlook. Al completarlo aquí, se completa allá.</div></span></label>' +
-      '<div class="fila" style="margin-top:18px">' +
-        '<button class="btn" id="probar">Probar y sincronizar</button>' +
-        (n ? '<span class="guardado">' + n + ' cambio(s) por enviar</span>' : "") +
-      '</div>' +
-
-      '<div class="bloque"><div class="rotulo"><span>Tus datos</span></div>' +
-      '<div class="fila">' +
-        '<button class="btn linea" id="exp-ics">Exportar a Recordatorios (.ics)</button>' +
-        '<button class="btn linea" id="exp-json">Copia de seguridad</button>' +
-        '<button class="btn linea" id="imp-json">Restaurar</button>' +
-        '<input type="file" id="file" accept="application/json" style="display:none">' +
-      '</div>' +
-      '<div class="ayuda" style="font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.5">' +
-      'Lo que escribes vive en este navegador. La copia de seguridad es un archivo tuyo; ' +
-      'restaurar reemplaza todo lo que hay aquí.</div></div>' +
-
-      '<div class="bloque"><div class="rotulo"><span>Acceso</span></div>' +
-      '<div class="fila">' +
-        '<button class="btn linea" id="cambiar-frase">Cambiar frase de este dispositivo</button>' +
-        '<button class="btn linea" id="cerrar-sesion">Pedirla de nuevo la próxima vez</button>' +
-      '</div>' +
-      '<div class="ayuda" style="font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.5">' +
-      'Cada dispositivo tiene su propia frase — no hace falta que sea igual en el celular y en la compu.</div></div>' +
+    return '<div class="rejilla"><div class="col-a">' +
+      '<section class="tarjeta panel">' +
+        '<div class="panel-h"><h2>Conexión con tu trabajo</h2></div>' +
+        '<div class="campo">' +
+          '<label>URL del flujo de Power Automate</label>' +
+          '<input type="url" id="cfg-flow" placeholder="https://…/triggers/manual/paths/invoke?…&amp;sig=…" value="' + esc(E.cfg.flow) + '">' +
+          '<div class="ayuda">Es la dirección que te da el disparador <b>«Cuando se recibe una solicitud HTTP»</b>. ' +
+          'Se guarda solo en este dispositivo: no viaja al repositorio ni la ve nadie más. ' +
+          'El paso a paso está en <code>centro/CONECTAR.md</code>.</div>' +
+        '</div>' +
+        '<div class="campo">' +
+          '<label>Lista de To Do donde se crean tus tareas</label>' +
+          '<input type="text" id="cfg-lista" placeholder="Tareas" value="' + esc(E.cfg.lista || "") + '">' +
+          '<div class="ayuda">Déjalo vacío para usar la lista predeterminada.</div>' +
+        '</div>' +
+        '<label class="switch"><input type="checkbox" id="cfg-auto" ' + (E.cfg.auto ? "checked" : "") + '>' +
+          '<span><div class="s-t">Sincronizar sola</div><div class="s-d">Al abrir la app, al volver a ella y cada 10 minutos.</div></span></label>' +
+        '<label class="switch"><input type="checkbox" id="cfg-dev" ' + (E.cfg.devolver ? "checked" : "") + '>' +
+          '<span><div class="s-t">Devolver a Microsoft To Do</div>' +
+          '<div class="s-d">Lo que escribes aquí se crea también en To Do, y ahí sí te suena la alarma en el celular ' +
+          'y aparece en Outlook. Al completarlo aquí, se completa allá.</div></span></label>' +
+        '<div class="fila-btn" style="margin-top:18px">' +
+          '<button class="btn" id="probar">Probar y sincronizar</button>' +
+          (n ? '<span style="font-size:12.5px;font-weight:600;color:var(--gris3)">' + n + ' cambio(s) por enviar</span>' : "") +
+        '</div>' +
       '</section>' +
 
-      '<aside>' +
-        '<div class="rotulo"><span>Qué entra y qué no</span></div>' +
-        '<div class="caja-info">' +
-          '<b>Entran solas:</b> tus listas de <b>To Do</b>, las tareas de <b>Planner</b> asignadas a ti, ' +
-          'los <b>correos marcados</b> de Outlook y las reuniones del <b>calendario</b>.<br><br>' +
-          'Ojo: To Do te <i>muestra</i> Planner en «Asignadas a mí», pero no lo entrega por API — ' +
-          'por eso el flujo lee Planner aparte. El calendario nunca está en To Do.<br><br>' +
-          '<b>No entra nada de contratos.</b> Este centro es personal y no toca la base del CRM ni el CLM.' +
+      '<section class="tarjeta panel" style="margin-top:22px">' +
+        '<div class="panel-h"><h2>Tus datos</h2></div>' +
+        '<div class="fila-btn">' +
+          '<button class="btn linea" id="exp-ics">Exportar a Recordatorios (.ics)</button>' +
+          '<button class="btn linea" id="exp-json">Copia de seguridad</button>' +
+          '<button class="btn linea" id="imp-json">Restaurar</button>' +
+          '<input type="file" id="file" accept="application/json" style="display:none">' +
         '</div>' +
-        '<div class="bloque"><div class="rotulo"><span>Privacidad</span></div>' +
-        '<div class="caja-info">La página es pública, <b>tus tareas no</b>. Nunca se publican en GitHub: ' +
-        'viven en este navegador y viajan directo entre tu dispositivo y tu flujo de Power Automate.<br><br>' +
-        'Si usas una computadora compartida, borra los datos con «Restaurar» sobre una copia vacía.</div></div>' +
-        '<div class="bloque"><div class="rotulo"><span>Instalar</span></div>' +
-        '<div class="caja-info">En el celular: <b>Compartir → Añadir a pantalla de inicio</b>. ' +
-        'En el escritorio: el icono de instalar de la barra de direcciones. ' +
-        'Queda como una app y funciona sin internet (lo que no se pueda enviar, se envía después).</div></div>' +
+        '<div class="ayuda">Lo que escribes vive en este navegador. La copia de seguridad es un archivo tuyo; ' +
+        'restaurar reemplaza todo lo que hay aquí.</div>' +
+      '</section>' +
+
+      '<section class="tarjeta panel" style="margin-top:22px">' +
+        '<div class="panel-h"><h2>Acceso</h2></div>' +
+        '<div class="fila-btn">' +
+          '<button class="btn linea" id="cambiar-frase">Cambiar frase de este dispositivo</button>' +
+          '<button class="btn linea" id="cerrar-sesion">Pedirla de nuevo la próxima vez</button>' +
+        '</div>' +
+        '<div class="ayuda">Cada dispositivo tiene su propia frase — no hace falta que sea igual en el celular y en la compu.</div>' +
+      '</section>' +
+      '</div>' +
+
+      '<aside class="col-b">' +
+        '<section class="tarjeta panel"><div class="panel-h"><h2>Qué entra y qué no</h2></div>' +
+        '<div class="info"><b>Entran solas:</b> tus listas de <b>To Do</b>, las tareas de <b>Planner</b> asignadas a ti, ' +
+        'los <b>correos marcados</b> de Outlook y las reuniones del <b>calendario</b>.<br><br>' +
+        'Ojo: To Do te <i>muestra</i> Planner en «Asignadas a mí», pero no lo entrega por API — por eso el flujo lee ' +
+        'Planner aparte. El calendario nunca está en To Do.<br><br>' +
+        '<b>No entra nada de contratos.</b> Este centro es personal y no toca la base del CRM ni el CLM.</div></section>' +
+
+        '<section class="tarjeta panel"><div class="panel-h"><h2>Privacidad</h2></div>' +
+        '<div class="info">La página es pública, <b>tus tareas no</b>. Nunca se publican en GitHub: viven en este ' +
+        'navegador y viajan directo entre tu dispositivo y tu flujo de Power Automate.</div></section>' +
+
+        '<section class="tarjeta panel"><div class="panel-h"><h2>Instalar</h2></div>' +
+        '<div class="info">En el celular: <b>Compartir → Añadir a pantalla de inicio</b>. En el escritorio: el icono de ' +
+        'instalar de la barra de direcciones. Queda como una app y funciona sin internet.</div></section>' +
       '</aside></div>';
   }
 
   /* ============ eventos ============ */
   function conectar() {
-    /* navegación */
     app.querySelectorAll("[data-tab]").forEach(function (b) {
       b.addEventListener("click", function () {
         vista = b.dataset.tab; revIdx = 0; pintar();
@@ -1251,12 +1294,12 @@
       if (!E.cfg.flow) { vista = "ajustes"; pintar(); } else sincronizar(true);
     });
 
-    if (vista === "horizonte") conectarHorizonte();
+    if (vista === "hoy") conectarTareas();
     if (vista === "revision") conectarRevision();
     if (vista === "ajustes") conectarAjustes();
   }
 
-  function conectarHorizonte() {
+  function conectarTareas() {
     var txt = document.getElementById("txt");
     var fch = document.getElementById("fch");
     var add = document.getElementById("add");
@@ -1278,7 +1321,7 @@
     fch.addEventListener("change", function (e) { nuevo.fecha = e.target.value; });
 
     app.querySelectorAll("[data-zona]").forEach(function (b) {
-      b.addEventListener("click", function () { filtro = b.dataset.zona; pintar(); });
+      b.addEventListener("click", function () { filtro = b.dataset.zona; nuevo.h = b.dataset.zona; pintar(); });
     });
     app.querySelectorAll("[data-h]").forEach(function (b) {
       b.addEventListener("click", function () { nuevo.h = b.dataset.h; pintar(); document.getElementById("txt").focus(); });
@@ -1292,13 +1335,8 @@
     app.querySelectorAll("[data-del]").forEach(function (b) {
       b.addEventListener("click", function () { borrar(b.dataset.del); });
     });
-    app.querySelectorAll("[data-mov]").forEach(function (b) {
-      b.addEventListener("click", function () {
-        var p = b.dataset.mov.split("|");
-        mover(p[0], p[1]); pintar();
-        if (E.cfg.flow) empujar();
-      });
-    });
+    var lim = document.getElementById("limpiar");
+    if (lim) lim.addEventListener("click", limpiarCompletadas);
 
     /* edición en línea del texto */
     app.querySelectorAll("[data-edit]").forEach(function (d) {
@@ -1332,12 +1370,12 @@
     var est = document.getElementById("est");
     if (notas) notas.addEventListener("input", function () {
       E.notas = notas.value;
-      est.textContent = "escribiendo…";
+      est.textContent = "Escribiendo…"; est.classList.add("ver");
       clearTimeout(tNotas);
       tNotas = setTimeout(function () {
-        guardar(); est.textContent = "guardado";
-        setTimeout(function () { est.textContent = ""; }, 1600);
-      }, 700);
+        guardar(); est.textContent = "Guardado";
+        setTimeout(function () { est.classList.remove("ver"); }, 1800);
+      }, 600);
     });
   }
 
@@ -1354,8 +1392,7 @@
         else { mover(t.id, a === "semana" ? "semana" : a); if (E.cfg.flow) empujar(); }
         if (a === "saltar") { pintar(); return; }
         guardar();
-        var quedan = colaRevision();
-        if (!quedan.length) { E.cfg.revisionHecha = hoyISO(); guardar(); }
+        if (!colaRevision().length) { E.cfg.revisionHecha = hoyISO(); guardar(); }
         pintar();
       });
     });
@@ -1364,16 +1401,10 @@
   function conectarAjustes() {
     var flow = document.getElementById("cfg-flow");
     var lista = document.getElementById("cfg-lista");
-    flow.addEventListener("change", function () {
-      E.cfg.flow = flow.value.trim(); guardar(); pintarSync();
-    });
+    flow.addEventListener("change", function () { E.cfg.flow = flow.value.trim(); guardar(); pintarSync(); });
     lista.addEventListener("change", function () { E.cfg.lista = lista.value.trim(); guardar(); });
-    document.getElementById("cfg-auto").addEventListener("change", function (e) {
-      E.cfg.auto = e.target.checked; guardar();
-    });
-    document.getElementById("cfg-dev").addEventListener("change", function (e) {
-      E.cfg.devolver = e.target.checked; guardar();
-    });
+    document.getElementById("cfg-auto").addEventListener("change", function (e) { E.cfg.auto = e.target.checked; guardar(); });
+    document.getElementById("cfg-dev").addEventListener("change", function (e) { E.cfg.devolver = e.target.checked; guardar(); });
     document.getElementById("probar").addEventListener("click", function () {
       E.cfg.flow = flow.value.trim(); E.cfg.lista = lista.value.trim(); guardar();
       sincronizar(true);
@@ -1384,11 +1415,11 @@
     });
     document.getElementById("cerrar-sesion").addEventListener("click", function () {
       localStorage.removeItem(LS_ABIERTO);
-      toast("Lista. La próxima vez que abras la app aquí, te la pedirá.");
+      toast("Lista. La próxima vez que abras el centro aquí, te la pedirá.");
     });
     document.getElementById("exp-ics").addEventListener("click", ics);
     document.getElementById("exp-json").addEventListener("click", function () {
-      bajar("horizonte-" + hoyISO() + ".json", JSON.stringify(E, null, 2), "application/json");
+      bajar("centro-" + hoyISO() + ".json", JSON.stringify(E, null, 2), "application/json");
     });
     var file = document.getElementById("file");
     document.getElementById("imp-json").addEventListener("click", function () { file.click(); });
@@ -1400,14 +1431,14 @@
         try {
           var d = JSON.parse(lector.result);
           if (!d || !Array.isArray(d.tareas)) throw new Error("formato");
-          E = d; cargar_normalizar(); guardar(); pintar();
+          E = d; normalizar(); guardar(); pintar();
           toast("Restaurado: " + E.tareas.length + " tareas.");
         } catch (e) { toast("Ese archivo no es una copia válida."); }
       };
       lector.readAsText(f);
     });
   }
-  function cargar_normalizar() {
+  function normalizar() {
     var base = vacio();
     E.cfg = Object.assign(base.cfg, E.cfg || {});
     E.meta = Object.assign(base.meta, E.meta || {});
@@ -1419,11 +1450,12 @@
   document.addEventListener("keydown", function (e) {
     var enCampo = /^(INPUT|TEXTAREA)$/.test((e.target.tagName || "").toUpperCase());
     if (e.key === "/" && !enCampo) {
-      var i = document.getElementById("txt");
-      if (i) { e.preventDefault(); vista = "horizonte"; pintar(); document.getElementById("txt").focus(); }
+      e.preventDefault();
+      vista = "hoy"; pintar();
+      var i = document.getElementById("txt"); if (i) i.focus();
     }
-    if (!enCampo && ["1", "2", "3", "4"].indexOf(e.key) >= 0 && vista === "horizonte") {
-      filtro = ORDEN_H[+e.key - 1]; pintar();
+    if (!enCampo && ["1", "2", "3", "4"].indexOf(e.key) >= 0 && vista === "hoy") {
+      filtro = ORDEN_H[+e.key - 1]; nuevo.h = filtro; pintar();
     }
     if (!enCampo && e.key.toLowerCase() === "r") { vista = "revision"; revIdx = 0; pintar(); }
   });
@@ -1437,7 +1469,6 @@
     /* accesos directos del icono instalado: #revision, #agenda */
     var atajo = (location.hash || "").replace("#", "");
     if (["agenda", "revision", "ajustes"].indexOf(atajo) >= 0) vista = atajo;
-    else if (!E.cfg.flow && !E.tareas.length) vista = "horizonte";
     pintar();
 
     if (E.cfg.flow && E.cfg.auto) {
@@ -1447,7 +1478,7 @@
         if (document.visibilityState !== "visible" || !E.cfg.auto || !E.cfg.flow) return;
         var ultima = E.meta.ultimaSync ? Date.parse(E.meta.ultimaSync) : 0;
         if (Date.now() - ultima > 2 * 60 * 1000) sincronizar(false);
-        else if (E.meta.ultimoDia !== hoyISO()) pintar();   // cambió el día: recolocar horizontes
+        else if (E.meta.ultimoDia !== hoyISO()) pintar();   // cambió el día: recolocar
       });
     }
     window.addEventListener("online", function () {
