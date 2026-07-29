@@ -82,33 +82,79 @@ Primero lo que **sale** de la app, para que To Do quede al día antes de leerlo.
 1. **Inicializar variable** `creadas` (tipo *Matriz*, vacía).
 2. **Inicializar variable** `aplicados` (tipo *Matriz*, vacía).
 3. **Aplicar a cada uno** sobre `triggerBody()?['cambios']`, y dentro un **Conmutador (Switch)**
-   sobre `items('Aplicar_a_cada_uno')?['accion']`:
+   cuyo valor de comparación (arriba del todo, el campo **«en»**) es
+   `items('Aplicar_a_cada_uno')?['accion']`.
 
-   - **Caso `crear`** → To Do · **«Agregar una tarea pendiente (V3)»**
+   El centro solo manda **tres valores posibles** de `accion` — necesitas exactamente
+   **tres casos**, ni uno más: `crear`, `completar` y `mover`. (Editar el texto de una tarea
+   también viaja como `mover`: para Microsoft, cambiar el título o la fecha es lo mismo,
+   así que no hace falta un cuarto caso para eso.)
+
+   ### Caso `crear`
+
+   - **Igual a**: `crear`
+   - Acción: To Do · **«Agregar una tarea pendiente (V3)»**
      - Lista: la del campo `lista` (o tu lista predeterminada)
      - Título: `items('Aplicar_a_cada_uno')?['texto']`
      - Fecha de vencimiento: `items('Aplicar_a_cada_uno')?['fecha']`
-     - Después, **Anexar a la variable** `creadas` este objeto:
-       ```
-       {
-         "local": @{items('Aplicar_a_cada_uno')?['local']},
-         "sys": "todo",
-         "id": @{outputs('Agregar_una_tarea_pendiente')?['body/id']},
-         "url": "https://to-do.office.com/tasks/id/@{outputs('Agregar_una_tarea_pendiente')?['body/id']}/details"
-       }
-       ```
+   - Después, **Anexar a la variable de matriz** → Nombre: `creadas`.
 
-   - **Caso `completar`** → según `sys`:
-     - `todo` o `correo` → To Do · **«Actualizar una tarea pendiente (V3)»**, estado *completed*
-       (los correos marcados son tareas de To Do en la lista *Correo marcado*, se completan igual;
-       al completarla, el correo se desmarca en Outlook)
-     - `planner` → Planner · **«Actualizar tarea»** con *Porcentaje completado = 100*
+     **Aquí es donde se traban casi todos**: el campo «Valor» de esa acción es de texto,
+     y necesitamos meterle un objeto (`{local, sys, id, url}`), no un texto suelto. El truco
+     es escribirlo como **expresión** en vez de contenido dinámico:
 
-   - **Caso `mover`** y **caso `editar`** → To Do · **«Actualizar una tarea pendiente (V3)»**
-     con el título y/o la fecha nuevos.
+     1. Haz clic en el campo **Valor** de «Anexar a la variable de matriz».
+     2. Arriba del cuadro verás dos pestañas: **Contenido dinámico** y **Expresión**. Cambia
+        a **Expresión**.
+     3. Escribe esto tal cual, y donde dice `INSERTA AQUÍ...` borra ese texto y, sin salir del
+        cuadro de expresión, haz clic en el contenido dinámico correspondiente (verás que se
+        inserta solo, con el nombre exacto de tu acción — no lo escribas a mano):
 
-   Al final de cada caso: **Anexar a la variable** `aplicados` →
-   `items('Aplicar_a_cada_uno')?['local']`.
+        ```
+        json(concat('{"local":"', INSERTA AQUÍ EL "local" DE ESTE ELEMENTO, '","sys":"todo","id":"', INSERTA AQUÍ EL "Id" DE "Agregar una tarea pendiente", '","url":"https://to-do.office.com/tasks/id/', INSERTA AQUÍ EL "Id" DE "Agregar una tarea pendiente" OTRA VEZ, '/details"}'))
+        ```
+
+        Es decir: el texto fijo (`concat`, comillas, `json(...)`) lo escribes tú; los dos
+        huecos dinámicos (`local` del elemento actual, e `Id` de la tarea recién creada) los
+        insertas haciendo clic mientras el cursor está dentro del cuadro, en el punto exacto
+        donde deben ir. Al terminar, el resultado debe verse parecido a:
+
+        ```
+        json(concat('{"local":"', items('Aplicar_a_cada_uno')?['local'], '","sys":"todo","id":"', body('Agregar_una_tarea_pendiente_(V3)')?['id'], '","url":"https://to-do.office.com/tasks/id/', body('Agregar_una_tarea_pendiente_(V3)')?['id'], '/details"}'))
+        ```
+
+     4. **Aceptar**. Si Power Automate no se queja (no aparece el triángulo rojo), quedó bien.
+
+     Por qué el rodeo: si en vez de esto escribes el objeto a mano mezclando texto y
+     contenido dinámico directamente en el campo, Power Automate lo guarda como **un texto**,
+     no como un objeto — y el centro necesita `creadas[i].local`, `.sys`, `.id`, `.url` como
+     propiedades reales, no como un texto que las contiene. `concat(...)` arma el texto
+     completo; `json(...)` lo convierte en objeto de verdad.
+
+   ### Caso `completar`
+
+   - **Igual a**: `completar`
+   - Dentro, una **Condición** que compare `items('Aplicar_a_cada_uno')?['sys']`:
+     - Es igual a `planner` → Planner · **«Actualizar tarea»** con *Porcentaje completado = 100*.
+     - Si no (rama «Si no») → To Do · **«Actualizar una tarea pendiente (V3)»**, estado
+       *completed* (esta rama cubre `todo` y `correo`: los correos marcados son tareas de
+       To Do de verdad, se completan igual, y al completarla el correo se desmarca en Outlook).
+   - Después de cualquiera de las dos ramas: **Anexar a la variable de matriz** → Nombre:
+     `aplicados`, Valor: `items('Aplicar_a_cada_uno')?['local']` (aquí sí es un solo valor de
+     texto — sin `json(concat(...))`, se puede insertar directo desde «Contenido dinámico»).
+
+   ### Caso `mover`
+
+   - **Igual a**: `mover`
+   - Acción: To Do · **«Actualizar una tarea pendiente (V3)»**
+     - Título: `items('Aplicar_a_cada_uno')?['texto']`
+     - Fecha de vencimiento: `items('Aplicar_a_cada_uno')?['fecha']`
+   - Después: **Anexar a la variable de matriz** → `aplicados` →
+     `items('Aplicar_a_cada_uno')?['local']` (igual que en `completar`).
+
+   **Predeterminado** (lo que corre si `accion` no es ninguna de las tres): déjalo con
+   **0 acciones**. No debería ejecutarse nunca; si lo hace, no pasa nada, simplemente esa
+   tarea se queda pendiente de enviar y se reintenta después.
 
 > Si algo falla aquí, no pasa nada grave: el centro reintenta el envío en la siguiente
 > sincronización. Un cambio no confirmado se ve con una flecha `↑` en la tarea.
