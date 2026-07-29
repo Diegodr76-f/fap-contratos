@@ -118,6 +118,12 @@ guarda solo en tu navegador y nunca en el repositorio. Es una **PWA**: se instal
 (*Compartir → Añadir a pantalla de inicio*) y en el escritorio, y funciona sin internet — lo que no
 se pueda enviar se envía después.
 
+GitHub Pages gratuito no permite sitios privados, así que la primera vez que abres `/centro/` en
+cada dispositivo te pide **crear tu propia frase de acceso** (no se comparte con nadie ni sale de
+ese navegador); sin ella nadie que encuentre el link ve nada. No es cifrado real —es una cortina,
+no una caja fuerte—, pero cumple su función: nadie entra sin la frase, y como las tareas nunca se
+publican, tampoco hay nada que robar aunque alguien la esquivara.
+
 ## Estructura
 
 - **`/centro/`** — Horizonte, el centro de operaciones personal (independiente del resto).

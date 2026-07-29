@@ -315,6 +315,36 @@
   .cargando { color: var(--faint); font-family: var(--mono); font-size: 12px; padding: 60px 0;
               text-align: center; letter-spacing: .1em; }
 
+  /* ---------- pantalla de acceso ---------- */
+  .candado { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center;
+             justify-content: center; padding: 24px; color: var(--text); font-family: var(--body);
+             background: radial-gradient(120% 90% at 15% -10%, #1D1A2E 0%, var(--ink) 55%); }
+  .candado .tarjeta { background: var(--surf); border: 1px solid var(--line); border-radius: 16px;
+                   padding: 30px 28px 26px; max-width: 380px; width: 100%;
+                   box-shadow: 0 24px 70px rgba(0,0,0,.55); }
+  .candado .ico { width: 44px; height: 44px; border-radius: 12px; background: var(--h-hoy);
+                  color: var(--ink); display: flex; align-items: center; justify-content: center;
+                  font-size: 19px; margin-bottom: 14px; }
+  .candado h1 { font-family: var(--display); font-weight: 800; font-size: 21px;
+                letter-spacing: -.02em; margin-bottom: 7px; }
+  .candado p { color: var(--muted); font-size: 13px; line-height: 1.55; margin-bottom: 16px; }
+  .candado input[type=password] { width: 100%; box-sizing: border-box; background: var(--ink);
+        border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 13px;
+        color: var(--text); font-size: 15px; outline: 0; }
+  .candado input[type=password]:focus { border-color: var(--h-hoy); }
+  .candado input + input { margin-top: 9px; }
+  .candado .err { background: color-mix(in srgb, var(--vencido) 16%, var(--surf));
+                  color: var(--vencido); border-radius: 9px; padding: 8px 11px;
+                  font-size: 12.5px; margin-bottom: 12px; line-height: 1.4; }
+  .candado button.entrar { all: unset; box-sizing: border-box; cursor: pointer; display: block;
+        text-align: center; width: 100%; margin-top: 14px; padding: 12px;
+        background: var(--text); color: var(--ink); border-radius: 10px;
+        font-weight: 600; font-size: 14.5px; }
+  .candado .olvide { display: block; text-align: center; margin: 14px auto 0; background: 0;
+                     border: 0; color: var(--faint); font-size: 11.5px; text-decoration: underline;
+                     cursor: pointer; padding: 4px; }
+  .candado .olvide:hover { color: var(--muted); }
+
   @keyframes pulso { 0%,100% { opacity: 1; } 50% { opacity: .42; } }
   .pulsa { animation: pulso 2.4s ease-in-out infinite; }
   @keyframes gira { to { transform: rotate(360deg); } }
@@ -375,6 +405,78 @@
 
   var app = document.getElementById("app");
   var elToast = document.getElementById("toast");
+
+  /* ============ pantalla de acceso ============
+     El repositorio es público (GitHub Pages gratis no permite sitios
+     privados), pero tus tareas nunca viajan ahí: viven solo en este
+     localStorage. Esta pantalla es una cortina contra quien encuentre el
+     link por casualidad, no una caja fuerte — cada dispositivo elige su
+     propia frase la primera vez y la recuerda después. */
+  var LS_LLAVE = "centro:llave";
+  var LS_ABIERTO = "centro:desbloqueado";
+
+  async function sha256(texto) {
+    var buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
+    return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+  }
+
+  function candado(modo, mensaje) {
+    return new Promise(function (resolve) {
+      var primera = modo === "crear";
+      var wrap = document.createElement("div");
+      wrap.className = "candado";
+      wrap.innerHTML =
+        '<div class="tarjeta">' +
+          '<div class="ico">🔒</div>' +
+          '<h1>' + (primera ? "Crea tu frase de acceso" : "Acceso protegido") + '</h1>' +
+          '<p>' + (primera
+            ? "Esta app es tuya. Elige una frase que puedas recordar: te la pedirá cada vez que entres desde un dispositivo nuevo."
+            : "Ingresa tu frase de acceso para entrar.") + '</p>' +
+          (mensaje ? '<div class="err">' + esc(mensaje) + '</div>' : "") +
+          '<form>' +
+            '<input type="password" id="frase" autocomplete="current-password" placeholder="Frase de acceso">' +
+            (primera ? '<input type="password" id="frase2" autocomplete="new-password" placeholder="Repite la frase">' : "") +
+            '<button type="submit" class="entrar">Entrar</button>' +
+          '</form>' +
+          (!primera ? '<button class="olvide" id="olvide" type="button">¿Olvidaste tu frase de este dispositivo?</button>' : "") +
+        '</div>';
+      document.body.appendChild(wrap);
+      var form = wrap.querySelector("form");
+      var f1 = wrap.querySelector("#frase");
+      f1.focus();
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        var v = f1.value;
+        if (!v.trim()) return;
+        if (primera) {
+          var v2 = wrap.querySelector("#frase2").value;
+          if (v !== v2) { wrap.remove(); resolve(await candado("crear", "Las frases no coinciden. Intenta de nuevo.")); return; }
+          localStorage.setItem(LS_LLAVE, await sha256(v));
+          localStorage.setItem(LS_ABIERTO, "1");
+          wrap.remove(); resolve(true);
+        } else {
+          if (await sha256(v) === localStorage.getItem(LS_LLAVE)) {
+            localStorage.setItem(LS_ABIERTO, "1");
+            wrap.remove(); resolve(true);
+          } else {
+            wrap.remove(); resolve(await candado("entrar", "Frase incorrecta. Inténtalo de nuevo."));
+          }
+        }
+      });
+      var olv = wrap.querySelector("#olvide");
+      if (olv) olv.addEventListener("click", async function () {
+        if (confirm("Esto borra lo guardado en este dispositivo (tareas y notas) y te deja crear una frase nueva. ¿Continuar?")) {
+          localStorage.removeItem(LS); localStorage.removeItem(LS_LLAVE); localStorage.removeItem(LS_ABIERTO);
+          wrap.remove(); resolve(await candado("crear"));
+        }
+      });
+    });
+  }
+
+  function candadoRevisar() {
+    if (localStorage.getItem(LS_ABIERTO) === "1" && localStorage.getItem(LS_LLAVE)) return Promise.resolve(true);
+    return candado(localStorage.getItem(LS_LLAVE) ? "entrar" : "crear");
+  }
 
   /* ============ utilidades ============ */
   function esc(s) {
@@ -1105,6 +1207,14 @@
       '<div class="ayuda" style="font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.5">' +
       'Lo que escribes vive en este navegador. La copia de seguridad es un archivo tuyo; ' +
       'restaurar reemplaza todo lo que hay aquí.</div></div>' +
+
+      '<div class="bloque"><div class="rotulo"><span>Acceso</span></div>' +
+      '<div class="fila">' +
+        '<button class="btn linea" id="cambiar-frase">Cambiar frase de este dispositivo</button>' +
+        '<button class="btn linea" id="cerrar-sesion">Pedirla de nuevo la próxima vez</button>' +
+      '</div>' +
+      '<div class="ayuda" style="font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.5">' +
+      'Cada dispositivo tiene su propia frase — no hace falta que sea igual en el celular y en la compu.</div></div>' +
       '</section>' +
 
       '<aside>' +
@@ -1268,6 +1378,14 @@
       E.cfg.flow = flow.value.trim(); E.cfg.lista = lista.value.trim(); guardar();
       sincronizar(true);
     });
+    document.getElementById("cambiar-frase").addEventListener("click", async function () {
+      await candado("crear");
+      toast("Frase actualizada en este dispositivo.");
+    });
+    document.getElementById("cerrar-sesion").addEventListener("click", function () {
+      localStorage.removeItem(LS_ABIERTO);
+      toast("Lista. La próxima vez que abras la app aquí, te la pedirá.");
+    });
     document.getElementById("exp-ics").addEventListener("click", ics);
     document.getElementById("exp-json").addEventListener("click", function () {
       bajar("horizonte-" + hoyISO() + ".json", JSON.stringify(E, null, 2), "application/json");
@@ -1311,33 +1429,37 @@
   });
 
   /* ============ arranque ============ */
-  cargar();
-  reubicar();
-  /* accesos directos del icono instalado: #revision, #agenda */
-  var atajo = (location.hash || "").replace("#", "");
-  if (["agenda", "revision", "ajustes"].indexOf(atajo) >= 0) vista = atajo;
-  else if (!E.cfg.flow && !E.tareas.length) vista = "horizonte";
-  pintar();
+  (async function arrancar() {
+    await candadoRevisar();
 
-  if (E.cfg.flow && E.cfg.auto) {
-    sincronizar(false);
-    setInterval(function () { if (E.cfg.auto && E.cfg.flow) sincronizar(false); }, 10 * 60 * 1000);
-    document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState !== "visible" || !E.cfg.auto || !E.cfg.flow) return;
-      var ultima = E.meta.ultimaSync ? Date.parse(E.meta.ultimaSync) : 0;
-      if (Date.now() - ultima > 2 * 60 * 1000) sincronizar(false);
-      else if (E.meta.ultimoDia !== hoyISO()) pintar();   // cambió el día: recolocar horizontes
-    });
-  }
-  window.addEventListener("online", function () {
-    if (E.cfg.flow && E.tareas.some(function (t) { return t.pend; })) sincronizar(false);
-  });
+    cargar();
+    reubicar();
+    /* accesos directos del icono instalado: #revision, #agenda */
+    var atajo = (location.hash || "").replace("#", "");
+    if (["agenda", "revision", "ajustes"].indexOf(atajo) >= 0) vista = atajo;
+    else if (!E.cfg.flow && !E.tareas.length) vista = "horizonte";
+    pintar();
 
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", function () {
-      navigator.serviceWorker.register("sw.js").catch(function () { /* sin conexión: da igual */ });
+    if (E.cfg.flow && E.cfg.auto) {
+      sincronizar(false);
+      setInterval(function () { if (E.cfg.auto && E.cfg.flow) sincronizar(false); }, 10 * 60 * 1000);
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState !== "visible" || !E.cfg.auto || !E.cfg.flow) return;
+        var ultima = E.meta.ultimaSync ? Date.parse(E.meta.ultimaSync) : 0;
+        if (Date.now() - ultima > 2 * 60 * 1000) sincronizar(false);
+        else if (E.meta.ultimoDia !== hoyISO()) pintar();   // cambió el día: recolocar horizontes
+      });
+    }
+    window.addEventListener("online", function () {
+      if (E.cfg.flow && E.tareas.some(function (t) { return t.pend; })) sincronizar(false);
     });
-  }
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function () { /* sin conexión: da igual */ });
+      });
+    }
+  })();
 })();
 </script>
 </body>
