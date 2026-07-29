@@ -1,0 +1,22 @@
+{
+  "name": "Horizonte · Centro de operaciones",
+  "short_name": "Horizonte",
+  "description": "Un solo horizonte para lo que tienes que hacer: lo tuyo y lo del trabajo (To Do, Planner, correos marcados y calendario) en el mismo lugar.",
+  "lang": "es",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "id": "/fap-contratos/centro/",
+  "display": "standalone",
+  "background_color": "#0F0E17",
+  "theme_color": "#0F0E17",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Revisión del día", "short_name": "Revisión", "url": "./#revision" },
+    { "name": "Agenda", "short_name": "Agenda", "url": "./#agenda" }
+  ]
+}

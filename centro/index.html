@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Horizonte · Centro de operaciones</title>
+<meta name="description" content="Centro de operaciones personal: un solo horizonte para lo que tienes que hacer, alimentado automáticamente por Microsoft To Do, Planner, los correos marcados de Outlook y el calendario.">
+<meta name="theme-color" content="#0F0E17">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Horizonte">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-512.png" sizes="512x512" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:      #0F0E17;
+    --surf:     #1A1826;
+    --surf2:    #232030;
+    --line:     #2E2A3D;
+    --text:     #EDEAF5;
+    --muted:    #8B85A3;
+    --faint:    #5A5470;
+
+    /* perspectiva atmosférica: cerca = cálido, lejos = frío */
+    --h-hoy:     #FFAE3B;
+    --h-corto:   #7C9EFF;
+    --h-mediano: #4FBFA8;
+    --h-largo:   #6C7391;
+    --vencido:   #FF6B5B;
+    --ok:        #4FBFA8;
+
+    --display: 'Bricolage Grotesque', system-ui, sans-serif;
+    --body:    'Instrument Sans', system-ui, sans-serif;
+    --mono:    'JetBrains Mono', ui-monospace, monospace;
+
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+
+  html, body { background: var(--ink); }
+  body { -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+
+  #app {
+    background: radial-gradient(120% 90% at 15% -10%, #1D1A2E 0%, var(--ink) 55%);
+    color: var(--text);
+    font-family: var(--body);
+    min-height: 100vh;
+    padding: 26px 26px calc(40px + var(--safe-b));
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  @media (max-width: 700px) {
+    #app { padding: 18px 15px calc(96px + var(--safe-b)); }
+  }
+
+  button, input, textarea, select { font-family: inherit; color: inherit; }
+
+  /* ---------- cabecera ---------- */
+  .top { display: flex; justify-content: space-between; align-items: flex-start;
+         gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+  .fecha { font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+           text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .titulo { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 7vw, 56px);
+            line-height: .92; letter-spacing: -.03em; }
+  .titulo em { font-style: normal; color: var(--h-hoy); }
+
+  .presion { text-align: right; border-left: 2px solid var(--line); padding-left: 16px;
+             min-width: 150px; }
+  .presion .n { font-family: var(--display); font-size: 40px; font-weight: 800;
+                line-height: 1; letter-spacing: -.03em; }
+  .presion .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+  .presion.alerta .n { color: var(--vencido); }
+  .presion.calma .n  { color: var(--ok); }
+
+  /* ---------- navegación ---------- */
+  .nav { display: flex; gap: 4px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
+  .nav button { background: 0; border: 0; cursor: pointer; color: var(--muted);
+                font-size: 13px; font-weight: 500; padding: 9px 13px; border-radius: 8px 8px 0 0;
+                border-bottom: 2px solid transparent; margin-bottom: -1px;
+                display: flex; align-items: center; gap: 7px; }
+  .nav button:hover { color: var(--text); background: var(--surf); }
+  .nav button.on { color: var(--text); border-bottom-color: var(--h-hoy); }
+  .nav .pip { font-family: var(--mono); font-size: 9.5px; background: var(--vencido);
+              color: var(--ink); border-radius: 20px; padding: 1px 6px; font-weight: 500; }
+  .nav .sync { margin-left: auto; font-family: var(--mono); font-size: 10px;
+               letter-spacing: .06em; color: var(--faint); padding: 9px 4px 9px 13px;
+               display: flex; align-items: center; gap: 7px; border: 0; background: 0;
+               cursor: pointer; }
+  .nav .sync:hover { color: var(--muted); background: 0; }
+  .punto { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+  .punto.viva { background: var(--ok); }
+  .punto.mala { background: var(--vencido); }
+  .punto.trab { background: var(--h-hoy); }
+
+  @media (max-width: 560px) {
+    .top { gap: 12px; margin-bottom: 16px; }
+    .presion { border-left: 0; border-top: 1px solid var(--line); padding: 10px 0 0;
+               text-align: left; min-width: 0; width: 100%;
+               display: flex; align-items: baseline; gap: 10px; }
+    .presion .n { font-size: 30px; }
+    .presion .lbl { margin-top: 0; }
+  }
+  @media (max-width: 700px) {
+    .nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; margin: 0;
+           background: rgba(20,18,32,.94); backdrop-filter: blur(14px);
+           border-top: 1px solid var(--line); border-bottom: 0;
+           padding: 6px 4px calc(6px + var(--safe-b)); justify-content: space-around; }
+    .nav button { flex-direction: column; gap: 3px; font-size: 10.5px; padding: 7px 6px;
+                  border-radius: 10px; border-bottom: 0; margin: 0; flex: 1; }
+    .nav button.on { background: var(--surf2); color: var(--h-hoy); }
+    .nav .sync { display: none; }
+    .nav svg { width: 19px; height: 19px; }
+  }
+  .nav svg { width: 15px; height: 15px; flex: none; }
+
+  /* ---------- banda de horizonte ---------- */
+  .banda { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;
+           margin-bottom: 22px; border-radius: 10px; overflow: hidden; }
+  .zona { background: var(--surf); border: 0; border-top: 3px solid var(--z);
+          padding: 13px 12px 15px; text-align: left; cursor: pointer;
+          color: var(--muted); transition: background .18s ease, color .18s ease; }
+  .zona:hover { background: var(--surf2); }
+  .zona:focus-visible { outline: 2px solid var(--h-hoy); outline-offset: -2px; }
+  .zona.on { background: var(--surf2); color: var(--text); }
+  .zona .z-n { font-family: var(--mono); font-size: 21px; color: var(--z); line-height: 1; }
+  .zona .z-t { font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; margin-top: 7px; }
+  .zona .z-s { font-size: 10px; color: var(--faint); margin-top: 2px; }
+  @media (max-width: 480px) {
+    .zona { padding: 10px 9px 12px; }
+    .zona .z-n { font-size: 18px; }
+    .zona .z-t { font-size: 9.5px; letter-spacing: .08em; }
+    .zona .z-s { display: none; }
+  }
+
+  /* ---------- rejilla ---------- */
+  .rejilla { display: grid; grid-template-columns: 1.5fr 1fr; gap: 26px; align-items: start; }
+  @media (max-width: 860px) { .rejilla { grid-template-columns: 1fr; gap: 22px; } }
+
+  .rotulo { font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+            text-transform: uppercase; color: var(--faint);
+            border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px;
+            display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .rotulo b { color: var(--muted); font-weight: 500; }
+
+  /* ---------- tareas ---------- */
+  .tarea { display: flex; align-items: flex-start; gap: 12px; padding: 11px 12px;
+           border-radius: 9px; margin-bottom: 3px; transition: background .15s ease; }
+  .tarea:hover { background: var(--surf); }
+  .tarea:hover .acc { opacity: 1; }
+  .tarea.vence { background: color-mix(in srgb, var(--vencido) 7%, transparent); }
+
+  .caja { flex: none; width: 19px; height: 19px; margin-top: 1px; border-radius: 6px;
+          border: 1.5px solid var(--c); background: transparent; cursor: pointer;
+          display: grid; place-items: center; transition: all .16s ease; padding: 0; }
+  .caja:hover { background: color-mix(in srgb, var(--c) 22%, transparent); }
+  .caja:focus-visible { outline: 2px solid var(--h-hoy); outline-offset: 2px; }
+  .caja svg { width: 11px; height: 11px; opacity: 0; transform: scale(.4);
+              transition: all .2s cubic-bezier(.3,1.6,.5,1); }
+  .hecha .caja { background: var(--c); border-color: var(--c); }
+  .hecha .caja svg { opacity: 1; transform: scale(1); }
+
+  .cuerpo { flex: 1; min-width: 0; }
+  .txt { font-size: 14.5px; line-height: 1.4; word-break: break-word; cursor: text; }
+  .hecha .txt { color: var(--faint); text-decoration: line-through; text-decoration-color: var(--line); }
+  .txt input { width: 100%; background: var(--surf2); border: 1px solid var(--line);
+               border-radius: 7px; padding: 6px 8px; font-size: 14.5px; outline: 0; }
+  .meta { display: flex; gap: 8px; align-items: center; margin-top: 5px; flex-wrap: wrap; }
+  .etq { font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em;
+         text-transform: uppercase; color: var(--muted);
+         border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px;
+         display: inline-flex; align-items: center; gap: 5px; text-decoration: none; }
+  a.etq:hover { border-color: var(--muted); color: var(--text); }
+  .etq .pt { width: 5px; height: 5px; border-radius: 50%; background: var(--f); }
+  .cuando { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+  .cuando.tarde { color: var(--vencido); }
+  .rep { font-family: var(--mono); font-size: 10px; color: var(--faint); }
+
+  .acc { flex: none; display: flex; gap: 2px; opacity: 0; transition: opacity .15s ease; }
+  @media (hover: none) { .acc { opacity: .55; } }
+  .acc button { background: 0; border: 0; color: var(--faint); cursor: pointer;
+                font-size: 15px; line-height: 1; padding: 4px 5px; border-radius: 6px; }
+  .acc button:hover { color: var(--text); background: var(--surf2); }
+  .acc button.del:hover { color: var(--vencido); }
+  .acc button:focus-visible { opacity: 1; outline: 1px solid var(--muted); }
+
+  .vacio { color: var(--faint); font-size: 13.5px; padding: 18px 12px; line-height: 1.55; }
+
+  /* ---------- agregar ---------- */
+  .agregar { margin-top: 14px; background: var(--surf); border: 1px solid var(--line);
+             border-radius: 11px; padding: 12px; }
+  .agregar.foco { border-color: var(--h-hoy); }
+  .agregar input[type=text] { width: 100%; background: 0; border: 0; color: var(--text);
+             font-size: 15px; padding: 4px 2px 8px; }
+  .agregar input::placeholder { color: var(--faint); }
+  .agregar input:focus { outline: 0; }
+  .lectura { font-family: var(--mono); font-size: 10.5px; color: var(--h-hoy);
+             padding: 0 2px 8px; min-height: 0; }
+  .fila { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  .chip { font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+          text-transform: uppercase; background: 0; color: var(--muted);
+          border: 1px solid var(--line); border-radius: 20px; padding: 5px 11px;
+          cursor: pointer; transition: all .15s ease; }
+  .chip:hover { border-color: var(--muted); color: var(--text); }
+  .chip.on { background: var(--c); border-color: var(--c); color: var(--ink); font-weight: 500; }
+  .chip:focus-visible { outline: 2px solid var(--h-hoy); outline-offset: 1px; }
+
+  .enviar { margin-left: auto; background: var(--text); color: var(--ink); border: 0;
+            border-radius: 20px; padding: 7px 18px; font-size: 12.5px; font-weight: 600;
+            cursor: pointer; }
+  .enviar:disabled { opacity: .28; cursor: default; }
+
+  input[type=date], input[type=time] { background: 0; border: 1px solid var(--line);
+    border-radius: 20px; color: var(--muted); font-family: var(--mono); font-size: 10.5px;
+    padding: 5px 9px; }
+
+  /* ---------- avisos ---------- */
+  .aviso { display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+           background: color-mix(in srgb, var(--vencido) 11%, var(--surf));
+           border: 1px solid color-mix(in srgb, var(--vencido) 34%, transparent);
+           border-radius: 11px; padding: 12px 14px; margin-bottom: 18px; }
+  .aviso.suave { background: var(--surf); border-color: var(--line); }
+  .aviso .a-t { font-size: 13.5px; flex: 1; min-width: 180px; line-height: 1.4; }
+  .aviso b { color: var(--vencido); }
+  .aviso.suave b { color: var(--h-corto); }
+  .btn { background: var(--text); color: var(--ink); border: 0; border-radius: 20px;
+         padding: 7px 15px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.linea { background: 0; border: 1px solid var(--line); color: var(--muted); }
+  .btn.linea:hover { color: var(--text); border-color: var(--muted); filter: none; }
+  .btn:disabled { opacity: .4; cursor: default; }
+
+  /* ---------- agenda ---------- */
+  .dia { margin-bottom: 26px; }
+  .dia-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .dia-h .d { font-family: var(--display); font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+  .dia-h .s { font-family: var(--mono); font-size: 10.5px; color: var(--faint);
+              text-transform: uppercase; letter-spacing: .12em; }
+  .ev { display: flex; gap: 14px; padding: 10px 12px; border-radius: 9px;
+        border-left: 2px solid var(--c); background: var(--surf); margin-bottom: 3px; }
+  .ev .h { font-family: var(--mono); font-size: 11.5px; color: var(--muted); flex: none;
+           width: 52px; line-height: 1.5; }
+  .ev .t { font-size: 14px; line-height: 1.4; }
+  .ev .l { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
+  .ahora { height: 1px; background: var(--h-hoy); position: relative; margin: 6px 0; }
+  .ahora::after { content: "ahora"; position: absolute; right: 0; top: -14px;
+                  font-family: var(--mono); font-size: 9px; color: var(--h-hoy);
+                  letter-spacing: .1em; text-transform: uppercase; }
+
+  /* ---------- revisión ---------- */
+  .rev { background: var(--surf); border: 1px solid var(--line); border-radius: 13px;
+         padding: 16px 16px 14px; margin-bottom: 10px; }
+  .rev .q { font-size: 15px; line-height: 1.4; margin-bottom: 4px; }
+  .rev .m { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-bottom: 12px; }
+  .rev .opts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rev .opts button { background: 0; border: 1px solid var(--line); color: var(--muted);
+                      border-radius: 20px; padding: 7px 13px; font-size: 12px; cursor: pointer; }
+  .rev .opts button:hover { border-color: var(--c, var(--muted)); color: var(--text);
+                            background: var(--surf2); }
+  .paso { font-family: var(--mono); font-size: 10px; color: var(--faint);
+          letter-spacing: .14em; text-transform: uppercase; margin-bottom: 12px; }
+  .fin { text-align: center; padding: 46px 20px; }
+  .fin .g { font-family: var(--display); font-size: 30px; font-weight: 800;
+            letter-spacing: -.03em; margin-bottom: 8px; }
+  .fin .p { color: var(--muted); font-size: 14px; line-height: 1.55; max-width: 380px;
+            margin: 0 auto; }
+
+  /* ---------- notas / ajustes ---------- */
+  .notas { width: 100%; min-height: 130px; background: var(--surf);
+           border: 1px solid var(--line); border-radius: 11px; padding: 14px;
+           color: var(--text); font-size: 13.5px; line-height: 1.62; resize: vertical; }
+  .notas:focus { outline: 0; border-color: var(--h-corto); }
+  .notas::placeholder { color: var(--faint); }
+  .guardado { font-family: var(--mono); font-size: 9.5px; color: var(--faint);
+              text-transform: uppercase; letter-spacing: .1em; }
+  .bloque { margin-top: 28px; }
+
+  .campo { margin-bottom: 16px; }
+  .campo label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .campo input[type=text], .campo input[type=url], .campo textarea {
+    width: 100%; background: var(--surf); border: 1px solid var(--line); border-radius: 9px;
+    padding: 10px 12px; font-size: 13px; font-family: var(--mono); }
+  .campo input:focus, .campo textarea:focus { outline: 0; border-color: var(--h-corto); }
+  .campo .ayuda { font-size: 11.5px; color: var(--faint); margin-top: 6px; line-height: 1.5; }
+  .switch { display: flex; align-items: flex-start; gap: 11px; padding: 11px 0;
+            border-bottom: 1px solid var(--line); cursor: pointer; }
+  .switch:last-child { border-bottom: 0; }
+  .switch input { margin-top: 3px; accent-color: var(--h-hoy); width: 16px; height: 16px; flex: none; }
+  .switch .s-t { font-size: 13.5px; }
+  .switch .s-d { font-size: 11.5px; color: var(--faint); margin-top: 2px; line-height: 1.5; }
+  .caja-info { background: var(--surf); border: 1px solid var(--line); border-radius: 11px;
+               padding: 14px 16px; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+  .caja-info code { font-family: var(--mono); font-size: 11.5px; color: var(--h-corto);
+                    background: var(--ink); padding: 1px 5px; border-radius: 4px; }
+  .caja-info b { color: var(--text); font-weight: 600; }
+  .prosa { font-size: 13px; color: var(--muted); line-height: 1.65; }
+  .prosa b { color: var(--text); font-weight: 600; }
+
+  .toast { position: fixed; left: 50%; transform: translateX(-50%);
+           bottom: calc(24px + var(--safe-b)); background: var(--surf2);
+           border: 1px solid var(--line); color: var(--text); font-size: 13px;
+           padding: 11px 18px; border-radius: 26px; z-index: 90; opacity: 0;
+           transition: opacity .2s ease, transform .2s ease; pointer-events: none;
+           box-shadow: 0 10px 40px rgba(0,0,0,.5); max-width: 90vw; text-align: center; }
+  .toast.ver { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+  @media (max-width: 700px) { .toast { bottom: calc(84px + var(--safe-b)); } }
+
+  .cargando { color: var(--faint); font-family: var(--mono); font-size: 12px; padding: 60px 0;
+              text-align: center; letter-spacing: .1em; }
+
+  @keyframes pulso { 0%,100% { opacity: 1; } 50% { opacity: .42; } }
+  .pulsa { animation: pulso 2.4s ease-in-out infinite; }
+  @keyframes gira { to { transform: rotate(360deg); } }
+  .gira { animation: gira 1s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div id="app"><div class="cargando">cargando…</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   HORIZONTE · Centro de operaciones personal
+   ---------------------------------------------------------------------
+   Una sola página, sin servidor propio y sin librerías externas.
+   - Lo que escribes vive en este navegador (localStorage).
+   - Lo del trabajo (To Do, Planner, correos marcados, calendario) entra
+     por un flujo de Power Automate tuyo: el navegador le habla directo.
+     La URL del flujo se guarda SOLO aquí, nunca en el repositorio, así
+     que nada personal se publica en GitHub Pages.
+   - Lo que creas aquí puede devolverse a Microsoft To Do, para que la
+     notificación suene donde ya suena (celular, Outlook, reloj).
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  var LS      = "centro:estado:v1";
+  var VERSION = 1;
+
+  var HORIZONTES = {
+    hoy:     { t: "Hoy",     s: "ahora mismo", c: "var(--h-hoy)",     max: 0 },
+    corto:   { t: "Corto",   s: "esta semana", c: "var(--h-corto)",   max: 7 },
+    mediano: { t: "Mediano", s: "este mes",    c: "var(--h-mediano)", max: 31 },
+    largo:   { t: "Largo",   s: "algún día",   c: "var(--h-largo)",   max: Infinity }
+  };
+  var ORDEN_H = ["hoy", "corto", "mediano", "largo"];
+
+  /* Fuentes: las tres primeras las escribes tú; las otras llegan solas. */
+  var FUENTES = {
+    personal: { t: "personal", c: "#B79CFF", mia: true },
+    trabajo:  { t: "trabajo",  c: "#FFAE3B", mia: true },
+    curso:    { t: "curso",    c: "#4FBFA8", mia: true },
+    todo:     { t: "to do",    c: "#7C9EFF" },
+    planner:  { t: "planner",  c: "#4FBFA8" },
+    correo:   { t: "correo",   c: "#FF8FA3" },
+    agenda:   { t: "agenda",   c: "#C0A0FF" }
+  };
+
+  var E = null;          // estado
+  var vista = "horizonte";
+  var filtro = "hoy";
+  var nuevo = { h: "hoy", f: "personal", fecha: "", hora: "" };
+  var editando = null;   // id de la tarea en edición
+  var revIdx = 0;        // paso de la revisión
+  var sync = { estado: "idle", msg: "", ts: null };
+  var tNotas = null, tToast = null, tSync = null;
+
+  var app = document.getElementById("app");
+  var elToast = document.getElementById("toast");
+
+  /* ============ utilidades ============ */
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (m) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m];
+    });
+  }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function pad(n) { return String(n).padStart(2, "0"); }
+  function isoDe(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function hoyISO() { return isoDe(new Date()); }
+  function mas(iso, n) { var d = new Date((iso || hoyISO()) + "T00:00:00"); d.setDate(d.getDate() + n); return isoDe(d); }
+  function dias(iso) {
+    if (!iso) return null;
+    return Math.round((new Date(iso + "T00:00:00") - new Date(hoyISO() + "T00:00:00")) / 864e5);
+  }
+  function toast(msg) {
+    elToast.textContent = msg;
+    elToast.classList.add("ver");
+    clearTimeout(tToast);
+    tToast = setTimeout(function () { elToast.classList.remove("ver"); }, 2600);
+  }
+  var MESES_L = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  var MESES_C = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  var DIAS_L  = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+
+  function fechaTexto(iso, hora) {
+    if (!iso) return null;
+    var d = dias(iso), txt;
+    if (d < 0)       txt = d === -1 ? "ayer" : "hace " + (-d) + " días";
+    else if (d === 0) txt = "hoy";
+    else if (d === 1) txt = "mañana";
+    else if (d < 7)   txt = DIAS_L[new Date(iso + "T00:00:00").getDay()];
+    else if (d < 32)  txt = "en " + d + " días";
+    else {
+      var f = new Date(iso + "T00:00:00");
+      txt = f.getDate() + " " + MESES_C[f.getMonth()];
+    }
+    return { txt: txt + (hora ? " · " + hora : ""), tarde: d < 0 };
+  }
+  function diaLargo(iso) {
+    var f = new Date(iso + "T00:00:00");
+    return DIAS_L[f.getDay()] + " " + f.getDate() + " de " + MESES_L[f.getMonth()];
+  }
+
+  /* El horizonte que le toca a una fecha. Es la regla que hace que nada
+     se quede escondido: si la fecha se acerca, la tarea se acerca. */
+  function horizonteDe(iso) {
+    var d = dias(iso);
+    if (d === null) return null;
+    if (d <= 0) return "hoy";
+    if (d <= 7) return "corto";
+    if (d <= 31) return "mediano";
+    return "largo";
+  }
+
+  /* ============ persistencia ============ */
+  function vacio() {
+    return {
+      v: VERSION, tareas: [], eventos: [], notas: "",
+      cfg: { flow: "", auto: true, devolver: true, lista: "", revisionHecha: null },
+      meta: { ultimaSync: null, ultimoDia: hoyISO() }
+    };
+  }
+  function cargar() {
+    try {
+      var crudo = localStorage.getItem(LS);
+      E = crudo ? JSON.parse(crudo) : vacio();
+    } catch (e) { E = vacio(); }
+    var base = vacio();
+    if (!E || typeof E !== "object") E = base;
+    if (!Array.isArray(E.tareas)) E.tareas = [];
+    if (!Array.isArray(E.eventos)) E.eventos = [];
+    if (typeof E.notas !== "string") E.notas = "";
+    E.cfg = Object.assign(base.cfg, E.cfg || {});
+    E.meta = Object.assign(base.meta, E.meta || {});
+  }
+  function guardar() {
+    try { localStorage.setItem(LS, JSON.stringify(E)); }
+    catch (e) { toast("No se pudo guardar en este navegador."); }
+  }
+
+  /* ============ lectura de lenguaje natural ============ */
+  /* "llamar a Ana mañana 9am" → texto + fecha + hora, sin formularios. */
+  var DIA_NUM = { domingo:0, lunes:1, martes:2, "miercoles":3, "miércoles":3, jueves:4, viernes:5, "sabado":6, "sábado":6 };
+  var MES_NUM = { ene:0, enero:0, feb:1, febrero:1, mar:2, marzo:2, abr:3, abril:3, may:4, mayo:4,
+                  jun:5, junio:5, jul:6, julio:6, ago:7, agosto:7, sep:8, sept:8, septiembre:8,
+                  oct:9, octubre:9, nov:10, noviembre:10, dic:11, diciembre:11 };
+
+  function leer(entrada) {
+    var t = " " + entrada + " ";
+    var r = { texto: entrada, fecha: null, hora: null, repetir: null, fuente: null, importante: false };
+    function quita(re) {
+      var m = t.match(re);
+      if (m) t = t.replace(m[0], " ");
+      return m;
+    }
+    var m;
+
+    /* repetición */
+    m = quita(/\bcada\s+(d[ií]a|semana|mes|a[nñ]o|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/i);
+    if (m) {
+      var p = m[1].toLowerCase();
+      if (/^d/.test(p)) r.repetir = "dia";
+      else if (/^s/.test(p) && /semana/.test(p)) r.repetir = "semana";
+      else if (/^m/.test(p) && /mes/.test(p)) r.repetir = "mes";
+      else if (/^a/.test(p)) r.repetir = "anio";
+      else { r.repetir = "semana"; r.fecha = proximoDia(DIA_NUM[p.normalize("NFC")]); }
+    }
+
+    /* fuente por etiqueta:  #trabajo  #personal  #curso */
+    m = quita(/#(personal|trabajo|curso)\b/i);
+    if (m) r.fuente = m[1].toLowerCase();
+
+    /* importante */
+    m = quita(/(^|\s)!(\s|$)/);
+    if (m) r.importante = true;
+
+    /* fechas relativas */
+    if (!r.fecha) {
+      if (quita(/\bpasado\s+ma[nñ]ana\b/i)) r.fecha = mas(hoyISO(), 2);
+      else if (quita(/\bma[nñ]ana\b/i)) r.fecha = mas(hoyISO(), 1);
+      else if (quita(/\bhoy\b/i)) r.fecha = hoyISO();
+      else if ((m = quita(/\ben\s+(\d{1,3})\s*(d[ií]as?|semanas?|meses?)\b/i))) {
+        var n = parseInt(m[1], 10), u = m[2].toLowerCase();
+        r.fecha = /^s/.test(u) ? mas(hoyISO(), n * 7) : /^m/.test(u) ? mas(hoyISO(), n * 30) : mas(hoyISO(), n);
+      }
+      else if ((m = quita(/\b(?:el\s+|este\s+|pr[oó]ximo\s+|la\s+pr[oó]xima\s+)?(lunes|martes|mi[eé]rcoles|miercoles|jueves|viernes|s[aá]bado|sabado|domingo)\b/i))) {
+        r.fecha = proximoDia(DIA_NUM[m[1].toLowerCase()]);
+      }
+      else if ((m = quita(/\b(?:el\s+)?(\d{1,2})\s*(?:de\s+)?(ene|enero|feb|febrero|mar|marzo|abr|abril|may|mayo|jun|junio|jul|julio|ago|agosto|sep|sept|septiembre|oct|octubre|nov|noviembre|dic|diciembre)\b/i))) {
+        r.fecha = enMes(parseInt(m[1], 10), MES_NUM[m[2].toLowerCase()]);
+      }
+      else if ((m = quita(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/))) {
+        var anio = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : null;
+        r.fecha = anio ? anio + "-" + pad(+m[2]) + "-" + pad(+m[1]) : enMes(+m[1], +m[2] - 1);
+      }
+      else if (quita(/\bfin\s+de\s+semana\b/i)) r.fecha = proximoDia(6);
+    }
+
+    /* hora: "9am", "14:30", "a las 9" */
+    m = quita(/\b(?:a\s+las\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|h)\b/i);
+    if (!m) m = quita(/\b(?:a\s+las\s+)(\d{1,2})(?::(\d{2}))?\b/i);
+    if (!m) m = quita(/\b(\d{1,2}):(\d{2})\b/);
+    if (m) {
+      var h = parseInt(m[1], 10), mi = m[2] ? parseInt(m[2], 10) : 0, suf = (m[3] || "").toLowerCase();
+      if (suf === "pm" && h < 12) h += 12;
+      if (suf === "am" && h === 12) h = 0;
+      if (h >= 0 && h <= 23 && mi >= 0 && mi <= 59) r.hora = pad(h) + ":" + pad(mi);
+    }
+
+    r.texto = t.replace(/\s{2,}/g, " ").trim();
+    if (!r.texto) r.texto = entrada.trim();   // no dejar la tarea sin nombre
+    return r;
+  }
+  function proximoDia(dow) {
+    var hoy = new Date(hoyISO() + "T00:00:00"), delta = (dow - hoy.getDay() + 7) % 7;
+    return mas(hoyISO(), delta === 0 ? 7 : delta);
+  }
+  function enMes(d, mes) {
+    var hoy = new Date(), anio = hoy.getFullYear();
+    var iso = anio + "-" + pad(mes + 1) + "-" + pad(d);
+    if (dias(iso) < 0) iso = (anio + 1) + "-" + pad(mes + 1) + "-" + pad(d);
+    return iso;
+  }
+  function resumenLectura(r) {
+    var p = [];
+    if (r.fecha) p.push(fechaTexto(r.fecha, r.hora).txt);
+    else if (r.hora) p.push(r.hora);
+    if (r.repetir) p.push("cada " + { dia: "día", semana: "semana", mes: "mes", anio: "año" }[r.repetir]);
+    if (r.fuente) p.push("#" + r.fuente);
+    if (r.importante) p.push("importante");
+    return p.length ? "→ " + p.join(" · ") : "";
+  }
+
+  /* ============ el motor: nada se queda escondido ============ */
+  /* Cada vez que abres la app (y al cambiar de día) las tareas con fecha
+     se mueven al horizonte que les toca. Una tarea con fecha de hoy no
+     puede seguir durmiendo en "algún día". */
+  function reubicar() {
+    var cambios = 0;
+    E.tareas.forEach(function (t) {
+      if (t.hecha || !t.fecha) return;
+      var h = horizonteDe(t.fecha);
+      if (h && ORDEN_H.indexOf(h) < ORDEN_H.indexOf(t.horizonte)) { t.horizonte = h; cambios++; }
+    });
+    if (E.meta.ultimoDia !== hoyISO()) { E.meta.ultimoDia = hoyISO(); cambios++; }
+    if (cambios) guardar();
+  }
+  function vencidas() {
+    return E.tareas.filter(function (t) { return !t.hecha && t.fecha && dias(t.fecha) < 0; });
+  }
+  function pendientes(h) {
+    return E.tareas.filter(function (t) { return !t.hecha && (!h || t.horizonte === h); });
+  }
+  function necesitaRevision() {
+    return vencidas().length > 0 || (E.cfg.revisionHecha !== hoyISO() && pendientes("hoy").length > 0);
+  }
+
+  /* ============ acciones sobre tareas ============ */
+  function crear(entrada) {
+    var r = leer(entrada);
+    var fecha = nuevo.fecha || r.fecha;
+    var t = {
+      id: uid(),
+      texto: r.texto,
+      fuente: r.fuente || nuevo.f,
+      horizonte: fecha ? (horizonteDe(fecha) || nuevo.h) : nuevo.h,
+      fecha: fecha || null,
+      hora: nuevo.hora || r.hora || null,
+      repetir: r.repetir || null,
+      importante: r.importante,
+      hecha: false,
+      creada: new Date().toISOString(),
+      ext: null,
+      pend: null
+    };
+    if (E.cfg.devolver && E.cfg.flow) t.pend = "crear";   // se enviará a To Do
+    E.tareas.unshift(t);
+    nuevo.fecha = ""; nuevo.hora = "";
+    filtro = t.horizonte;
+    guardar();
+    pintar();
+    var i = document.getElementById("txt"); if (i) i.focus();
+    if (t.pend) empujar();
+  }
+  function alternar(id) {
+    var t = buscar(id);
+    if (!t) return;
+    t.hecha = !t.hecha;
+    t.hechaEn = t.hecha ? new Date().toISOString() : null;
+    if (t.hecha && t.repetir) reprogramar(t);
+    if (t.ext || E.cfg.devolver) t.pend = t.pend === "crear" ? "crear" : "estado";
+    guardar(); pintar();
+    if (t.pend && E.cfg.flow) empujar();
+  }
+  function reprogramar(t) {
+    /* una tarea repetida no se "termina": nace la siguiente */
+    var base = t.fecha || hoyISO(), sig;
+    if (t.repetir === "dia") sig = mas(base, 1);
+    else if (t.repetir === "semana") sig = mas(base, 7);
+    else if (t.repetir === "mes") { var d = new Date(base + "T00:00:00"); d.setMonth(d.getMonth() + 1); sig = isoDe(d); }
+    else { var a = new Date(base + "T00:00:00"); a.setFullYear(a.getFullYear() + 1); sig = isoDe(a); }
+    while (dias(sig) < 0) sig = t.repetir === "dia" ? mas(sig, 1) : mas(sig, 7);
+    E.tareas.unshift({
+      id: uid(), texto: t.texto, fuente: t.fuente, horizonte: horizonteDe(sig),
+      fecha: sig, hora: t.hora, repetir: t.repetir, importante: t.importante,
+      hecha: false, creada: new Date().toISOString(), ext: null,
+      pend: (E.cfg.devolver && E.cfg.flow) ? "crear" : null
+    });
+  }
+  function mover(id, destino) {
+    var t = buscar(id); if (!t) return;
+    if (destino === "hoy" || destino === "manana" || destino === "semana") {
+      t.fecha = destino === "hoy" ? hoyISO() : destino === "manana" ? mas(hoyISO(), 1) : proximoDia(1);
+      t.horizonte = horizonteDe(t.fecha);
+      if (t.ext) t.pend = "fecha";
+    } else {
+      t.horizonte = destino;
+      if (destino !== "hoy" && t.fecha && dias(t.fecha) <= 0) t.fecha = null;
+    }
+    guardar();
+  }
+  function borrar(id) {
+    var t = buscar(id);
+    E.tareas = E.tareas.filter(function (x) { return x.id !== id; });
+    guardar(); pintar();
+    if (t && t.ext) toast("Borrada de aquí. En " + (FUENTES[t.fuente] || {}).t + " sigue existiendo.");
+  }
+  function buscar(id) { return E.tareas.find(function (t) { return t.id === id; }); }
+
+  /* ============ puente con Microsoft (Power Automate) ============ */
+  /* Un solo flujo con disparador "Cuando se recibe una solicitud HTTP".
+     Lee To Do + Planner + correos marcados + calendario y, de paso,
+     aplica lo que hiciste aquí. El contrato está en CONECTAR.md. */
+  function cambiosPendientes() {
+    return E.tareas.filter(function (t) { return t.pend; }).map(function (t) {
+      return {
+        accion: t.pend === "crear" ? "crear" : t.pend === "fecha" ? "mover" : "completar",
+        local: t.id,
+        sys: t.ext ? t.ext.sys : null,
+        id: t.ext ? t.ext.id : null,
+        texto: t.texto,
+        fecha: t.fecha,
+        hora: t.hora,
+        hecha: !!t.hecha,
+        lista: E.cfg.lista || null
+      };
+    });
+  }
+  function empujar() { if (!tSync) tSync = setTimeout(function () { tSync = null; sincronizar(false); }, 1200); }
+
+  function sincronizar(manual) {
+    if (!E.cfg.flow) {
+      if (manual) toast("Falta la URL del flujo. Ve a Ajustes.");
+      return Promise.resolve(false);
+    }
+    if (sync.estado === "sync") return Promise.resolve(false);
+    sync.estado = "sync"; pintarSync();
+    var cuerpo = {
+      op: "sync",
+      cliente: "horizonte",
+      version: VERSION,
+      hoy: hoyISO(),
+      agendaDesde: hoyISO(),
+      agendaHasta: mas(hoyISO(), 8),
+      cambios: cambiosPendientes()
+    };
+    return fetch(E.cfg.flow, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo)
+    }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (d) {
+      fusionar(d);
+      sync.estado = "ok"; sync.ts = Date.now(); sync.msg = "";
+      E.meta.ultimaSync = new Date().toISOString();
+      guardar(); pintar();
+      if (manual) toast("Al día con Microsoft.");
+      return true;
+    }).catch(function (e) {
+      sync.estado = "error";
+      sync.msg = (e && e.message) || "error";
+      pintarSync();
+      if (manual) toast("No se pudo sincronizar (" + sync.msg + "). Lo tuyo sigue guardado aquí.");
+      return false;
+    });
+  }
+
+  function fusionar(d) {
+    if (!d || typeof d !== "object") return;
+
+    /* 1. confirmaciones de lo que empujamos */
+    (d.creadas || []).forEach(function (c) {
+      var t = buscar(c.local);
+      if (t) { t.ext = { sys: c.sys || "todo", id: c.id, url: c.url || null, lista: c.lista || null }; t.pend = null; }
+    });
+    (d.aplicados || []).forEach(function (id) {
+      var t = buscar(id); if (t) t.pend = null;
+    });
+    /* si el flujo no devuelve "aplicados", damos por buenos los cambios enviados */
+    if (!d.aplicados) E.tareas.forEach(function (t) { if (t.pend && t.pend !== "crear") t.pend = null; });
+
+    /* 2. tareas que llegan de Microsoft */
+    var remotas = Array.isArray(d.tareas) ? d.tareas : [];
+    var sistemas = {};
+    remotas.forEach(function (t) { sistemas[t.sys || "todo"] = true; });
+    var indice = {};
+    E.tareas.forEach(function (t) { if (t.ext) indice[t.ext.sys + ":" + t.ext.id] = t; });
+    var vistos = {};
+
+    remotas.forEach(function (rt) {
+      var sys = rt.sys || "todo";
+      var clave = sys + ":" + rt.id;
+      vistos[clave] = true;
+      var local = indice[clave];
+      var fuente = FUENTES[sys] ? sys : "trabajo";
+      if (!local) {
+        var h = horizonteDe(rt.fecha) || "corto";   // sin fecha → esta semana, no invade el Hoy
+        E.tareas.push({
+          id: uid(), texto: rt.texto || "(sin título)", fuente: fuente,
+          horizonte: h, fecha: rt.fecha || null, hora: rt.hora || null,
+          repetir: null, importante: !!rt.importante, hecha: !!rt.hecha,
+          creada: rt.creada || new Date().toISOString(),
+          ext: { sys: sys, id: rt.id, url: rt.url || null, lista: rt.lista || null },
+          pend: null
+        });
+      } else if (!local.pend) {
+        /* la fuente manda en el texto, la fecha y el estado; el horizonte es tuyo */
+        local.texto = rt.texto || local.texto;
+        local.importante = !!rt.importante;
+        if (local.ext) { local.ext.url = rt.url || local.ext.url; local.ext.lista = rt.lista || local.ext.lista; }
+        if ((rt.fecha || null) !== local.fecha) {
+          local.fecha = rt.fecha || null;
+          var nh = horizonteDe(local.fecha);
+          if (nh && ORDEN_H.indexOf(nh) < ORDEN_H.indexOf(local.horizonte)) local.horizonte = nh;
+        }
+        if (!!rt.hecha !== !!local.hecha) {
+          local.hecha = !!rt.hecha;
+          local.hechaEn = local.hecha ? new Date().toISOString() : null;
+        }
+      }
+    });
+
+    /* 3. lo que desapareció en el origen (borrado allá) se va de aquí */
+    E.tareas = E.tareas.filter(function (t) {
+      if (!t.ext || t.pend) return true;
+      if (!sistemas[t.ext.sys]) return true;              // esa fuente no vino en esta sync
+      return !!vistos[t.ext.sys + ":" + t.ext.id];
+    });
+
+    /* 4. agenda (solo lectura, se reemplaza entera) */
+    if (Array.isArray(d.eventos)) {
+      E.eventos = d.eventos.map(function (ev) {
+        return {
+          id: ev.id || uid(), titulo: ev.titulo || "(sin título)",
+          inicio: ev.inicio || null, fin: ev.fin || null,
+          lugar: ev.lugar || "", url: ev.url || null, todoElDia: !!ev.todoElDia
+        };
+      }).filter(function (ev) { return ev.inicio; })
+        .sort(function (a, b) { return a.inicio < b.inicio ? -1 : 1; });
+    }
+    reubicar();
+  }
+
+  /* ============ exportar ============ */
+  function bajar(nombre, contenido, tipo) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([contenido], { type: tipo || "text/plain;charset=utf-8" }));
+    a.download = nombre;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 400);
+  }
+  function ics() {
+    /* para llevarte los pendientes con fecha a Recordatorios o al calendario */
+    var L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Horizonte//Centro de operaciones//ES", "CALSCALE:GREGORIAN"];
+    var sello = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    pendientes().filter(function (t) { return t.fecha; }).forEach(function (t) {
+      var f = t.fecha.replace(/-/g, "");
+      L.push("BEGIN:VTODO", "UID:" + t.id + "@horizonte", "DTSTAMP:" + sello,
+             "SUMMARY:" + String(t.texto).replace(/[\r\n,;]/g, " "),
+             t.hora ? "DUE:" + f + "T" + t.hora.replace(":", "") + "00" : "DUE;VALUE=DATE:" + f,
+             "CATEGORIES:" + (FUENTES[t.fuente] || {}).t, "END:VTODO");
+    });
+    L.push("END:VCALENDAR");
+    bajar("horizonte.ics", L.join("\r\n"), "text/calendar;charset=utf-8");
+  }
+
+  /* ============ pintar ============ */
+  function pintar() {
+    reubicar();
+    var vs = vencidas().length;
+    var hoyN = pendientes("hoy").length;
+    var foco = vs + hoyN;
+    var clase = vs > 0 ? "alerta" : (foco === 0 ? "calma" : "");
+    var etiqueta = vs > 0
+      ? vs + (vs === 1 ? " vencida" : " vencidas") + " · " + hoyN + " para hoy"
+      : (foco === 0 ? "nada pendiente hoy" : (foco === 1 ? "cosa para hoy" : "cosas para hoy"));
+
+    app.innerHTML =
+      '<div class="top">' +
+        '<div>' +
+          '<div class="fecha">' + esc(diaLargo(hoyISO())) + '</div>' +
+          '<h1 class="titulo">Tu <em>horizonte</em></h1>' +
+        '</div>' +
+        '<div class="presion ' + clase + '">' +
+          '<div class="n ' + (vs > 0 ? "pulsa" : "") + '">' + foco + '</div>' +
+          '<div class="lbl">' + etiqueta + '</div>' +
+        '</div>' +
+      '</div>' +
+      navHTML(vs) +
+      (vista === "horizonte" ? vHorizonte() :
+       vista === "agenda"    ? vAgenda() :
+       vista === "revision"  ? vRevision() : vAjustes());
+
+    conectar();
+  }
+
+  var ICONOS = {
+    horizonte: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2 13h16"/><path d="M5 13a5 5 0 0 1 10 0"/><path d="M10 3v2M4 6l1 1M16 6l-1 1"/></svg>',
+    agenda:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M3 8h14M7 2.5v3M13 2.5v3"/></svg>',
+    revision:  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 7 14l10-9.5"/></svg>',
+    ajustes:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.4v2M10 15.6v2M17.6 10h-2M4.4 10h-2M15.4 4.6l-1.4 1.4M6 14l-1.4 1.4M15.4 15.4 14 14M6 6 4.6 4.6"/></svg>'
+  };
+  function navHTML(vs) {
+    var tabs = [["horizonte", "Horizonte"], ["agenda", "Agenda"], ["revision", "Revisión"], ["ajustes", "Ajustes"]];
+    return '<nav class="nav">' + tabs.map(function (x) {
+      var pip = (x[0] === "revision" && necesitaRevision()) ? '<span class="pip">' + (vs || "!") + '</span>' : "";
+      return '<button data-tab="' + x[0] + '" class="' + (vista === x[0] ? "on" : "") + '">' +
+             ICONOS[x[0]] + '<span>' + x[1] + '</span>' + pip + '</button>';
+    }).join("") +
+    '<button class="sync" id="sync-btn">' + syncHTML() + '</button></nav>';
+  }
+  function syncHTML() {
+    var cfg = E.cfg.flow;
+    var cls = !cfg ? "" : sync.estado === "error" ? "mala" : sync.estado === "sync" ? "trab" : "viva";
+    var txt = !cfg ? "sin conectar"
+            : sync.estado === "sync" ? "sincronizando…"
+            : sync.estado === "error" ? "sin conexión"
+            : E.meta.ultimaSync ? "al día · " + new Date(E.meta.ultimaSync).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
+            : "conectado";
+    var n = E.tareas.filter(function (t) { return t.pend; }).length;
+    return '<span class="punto ' + cls + (sync.estado === "sync" ? " pulsa" : "") + '"></span>' +
+           esc(txt) + (n ? " · " + n + " por enviar" : "");
+  }
+  function pintarSync() {
+    var b = document.getElementById("sync-btn");
+    if (b) b.innerHTML = syncHTML();
+  }
+
+  /* ---------- vista: horizonte ---------- */
+  function vHorizonte() {
+    var vs = vencidas();
+    var lista = E.tareas.filter(function (t) { return t.horizonte === filtro; })
+      .sort(function (a, b) {
+        if (a.hecha !== b.hecha) return a.hecha ? 1 : -1;
+        if (!!a.importante !== !!b.importante) return a.importante ? -1 : 1;
+        return (a.fecha || "9999") > (b.fecha || "9999") ? 1 : -1;
+      });
+
+    var aviso = "";
+    if (vs.length) {
+      aviso = '<div class="aviso"><div class="a-t">Se te pasaron <b>' + vs.length + '</b> ' +
+              (vs.length === 1 ? "cosa" : "cosas") + '. Decide qué hacer con ' +
+              (vs.length === 1 ? "ella" : "ellas") + ' en un minuto.</div>' +
+              '<button class="btn" data-tab="revision">Revisar ahora</button></div>';
+    } else if (E.cfg.revisionHecha !== hoyISO() && pendientes("hoy").length) {
+      aviso = '<div class="aviso suave"><div class="a-t">Todavía no cierras el día. La <b>revisión</b> ' +
+              'te pregunta una por una qué hacer con lo que quedó.</div>' +
+              '<button class="btn linea" data-tab="revision">Hacer la revisión</button></div>';
+    }
+
+    return aviso +
+      '<div class="banda">' + ORDEN_H.map(function (k) {
+        var h = HORIZONTES[k];
+        return '<button class="zona ' + (filtro === k ? "on" : "") + '" data-zona="' + k + '" style="--z:' + h.c + '">' +
+               '<div class="z-n">' + pendientes(k).length + '</div>' +
+               '<div class="z-t">' + h.t + '</div><div class="z-s">' + h.s + '</div></button>';
+      }).join("") + '</div>' +
+
+      '<div class="rejilla"><section>' +
+        '<div class="rotulo"><span>' + HORIZONTES[filtro].t + ' — ' + HORIZONTES[filtro].s + '</span>' +
+        '<b>' + lista.filter(function (t) { return !t.hecha; }).length + ' pendientes</b></div>' +
+
+        (lista.length ? lista.map(tareaHTML).join("")
+          : '<div class="vacio">Nada en este horizonte.' +
+            (filtro === "hoy" ? ' Disfrútalo, o trae algo de <b style="color:var(--h-corto)">Corto</b>.' :
+             ' Escribe abajo lo primero que se te venga a la cabeza.') + '</div>') +
+
+        agregarHTML() +
+      '</section>' +
+
+      '<aside>' +
+        agendaCortaHTML() +
+        '<div class="bloque"><div class="rotulo"><span>Notas</span><span class="guardado" id="est"></span></div>' +
+        '<textarea class="notas" id="notas" placeholder="Ideas sueltas, pendientes sin forma, lo que sea…">' + esc(E.notas) + '</textarea></div>' +
+        '<div class="bloque"><div class="rotulo"><span>Cómo funciona</span></div>' +
+        '<div class="prosa">' +
+          'Escribe como hablas: <b>«pagar el arriendo el viernes 9am»</b> y la fecha se entiende sola.<br><br>' +
+          'Lo que tiene fecha <b>sube solo</b> de horizonte cuando se acerca: nada se queda escondido en «algún día».<br><br>' +
+          (E.cfg.flow
+            ? 'Planner, tus correos marcados y To Do entran solos. Lo que creas aquí vuelve a <b>To Do</b>, ' +
+              'para que la alarma suene en tu celular.'
+            : 'Conecta tu <b>Power Automate</b> en Ajustes y Planner, los correos marcados y el calendario ' +
+              'aparecerán aquí sin que los copies.') +
+        '</div></div>' +
+      '</aside></div>';
+  }
+
+  function tareaHTML(t) {
+    var f = fechaTexto(t.fecha, t.hora);
+    var fu = FUENTES[t.fuente] || { t: t.fuente, c: "var(--muted)" };
+    var editar = editando === t.id;
+    return '<div class="tarea ' + (t.hecha ? "hecha" : "") + (f && f.tarde && !t.hecha ? " vence" : "") +
+             '" style="--c:' + (HORIZONTES[t.horizonte] || HORIZONTES.hoy).c + '">' +
+      '<button class="caja" data-alt="' + t.id + '" aria-label="Completar">' +
+        '<svg viewBox="0 0 12 12" fill="none"><path d="M2 6.2 4.7 9 10 3.2" stroke="#0F0E17" ' +
+        'stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+      '<div class="cuerpo">' +
+        '<div class="txt" data-edit="' + t.id + '">' +
+          (editar ? '<input type="text" id="ed" value="' + esc(t.texto) + '">'
+                  : (t.importante ? '<span style="color:var(--h-hoy)">! </span>' : "") + esc(t.texto)) +
+        '</div>' +
+        '<div class="meta">' +
+          (t.ext && t.ext.url
+            ? '<a class="etq" href="' + esc(t.ext.url) + '" target="_blank" rel="noopener" style="--f:' + fu.c + '">' +
+              '<span class="pt"></span>' + esc(fu.t) + (t.ext.lista ? " · " + esc(t.ext.lista) : "") + '</a>'
+            : '<span class="etq" style="--f:' + fu.c + '"><span class="pt"></span>' + esc(fu.t) + '</span>') +
+          (f ? '<span class="cuando ' + (f.tarde && !t.hecha ? "tarde" : "") + '">' + esc(f.txt) + '</span>' : "") +
+          (t.repetir ? '<span class="rep">↻</span>' : "") +
+          (t.pend ? '<span class="rep" title="Pendiente de enviar">↑</span>' : "") +
+        '</div>' +
+      '</div>' +
+      '<div class="acc">' +
+        (filtro !== "hoy" ? '<button data-mov="' + t.id + '|hoy" title="Traer a hoy">↑</button>' : "") +
+        '<button data-mov="' + t.id + '|manana" title="Mañana">→</button>' +
+        '<button class="del" data-del="' + t.id + '" title="Eliminar">×</button>' +
+      '</div></div>';
+  }
+
+  function agregarHTML() {
+    return '<div class="agregar" id="caja-agregar">' +
+      '<input type="text" id="txt" placeholder="¿Qué tienes que hacer?" autocomplete="off" enterkeyhint="done">' +
+      '<div class="lectura" id="lectura"></div>' +
+      '<div class="fila">' +
+        ORDEN_H.map(function (k) {
+          return '<button class="chip ' + (nuevo.h === k ? "on" : "") + '" data-h="' + k + '" style="--c:' +
+                 HORIZONTES[k].c + '">' + HORIZONTES[k].t + '</button>';
+        }).join("") +
+        '<span style="width:1px;height:18px;background:var(--line)"></span>' +
+        Object.keys(FUENTES).filter(function (k) { return FUENTES[k].mia; }).map(function (k) {
+          return '<button class="chip ' + (nuevo.f === k ? "on" : "") + '" data-f="' + k + '" style="--c:' +
+                 FUENTES[k].c + '">' + FUENTES[k].t + '</button>';
+        }).join("") +
+        '<input type="date" id="fch" value="' + nuevo.fecha + '" aria-label="Fecha">' +
+        '<button class="enviar" id="add" disabled>Agregar</button>' +
+      '</div></div>';
+  }
+
+  function agendaCortaHTML() {
+    var hoy = eventosDe(hoyISO());
+    if (!E.cfg.flow) return "";
+    return '<div class="rotulo"><span>Hoy en la agenda</span><b>' + hoy.length + '</b></div>' +
+      (hoy.length ? hoy.slice(0, 5).map(function (ev) { return evHTML(ev, true); }).join("")
+                  : '<div class="vacio" style="padding:10px 2px">Sin reuniones. El día es tuyo.</div>');
+  }
+  function eventosDe(iso) {
+    return E.eventos.filter(function (ev) { return String(ev.inicio).slice(0, 10) === iso; });
+  }
+  function horaDe(s) { return s && s.length > 11 ? s.slice(11, 16) : "—"; }
+  function evHTML(ev, corto) {
+    return '<div class="ev" style="--c:var(--h-largo)">' +
+      '<div class="h">' + (ev.todoElDia ? "todo<br>el día" : esc(horaDe(ev.inicio)) + (corto ? "" : "<br>" + esc(horaDe(ev.fin)))) + '</div>' +
+      '<div><div class="t">' + (ev.url ? '<a href="' + esc(ev.url) + '" target="_blank" rel="noopener" style="color:inherit">' + esc(ev.titulo) + '</a>' : esc(ev.titulo)) + '</div>' +
+      (ev.lugar ? '<div class="l">' + esc(ev.lugar) + '</div>' : "") + '</div></div>';
+  }
+
+  /* ---------- vista: agenda ---------- */
+  function vAgenda() {
+    if (!E.cfg.flow) {
+      return '<div class="vacio" style="max-width:520px">La agenda se llena con tu calendario de Outlook. ' +
+             'Conecta el flujo en <b style="color:var(--h-corto)">Ajustes</b> y verás aquí los próximos ocho días, ' +
+             'junto con lo que tienes que hacer cada día.</div>';
+    }
+    var out = "";
+    for (var i = 0; i < 8; i++) {
+      var iso = mas(hoyISO(), i);
+      var evs = eventosDe(iso);
+      var trs = E.tareas.filter(function (t) { return !t.hecha && t.fecha === iso; });
+      if (i > 2 && !evs.length && !trs.length) continue;
+      out += '<div class="dia"><div class="dia-h"><div class="d">' +
+        (i === 0 ? "Hoy" : i === 1 ? "Mañana" : esc(DIAS_L[new Date(iso + "T00:00:00").getDay()])) +
+        '</div><div class="s">' + esc(diaLargo(iso)) + '</div></div>' +
+        (evs.length || trs.length
+          ? trs.map(function (t) {
+              return '<div class="ev" style="--c:' + HORIZONTES[t.horizonte].c + '">' +
+                '<div class="h">' + (t.hora ? esc(t.hora) : "—") + '</div>' +
+                '<div><div class="t">' + esc(t.texto) + '</div>' +
+                '<div class="l">' + esc((FUENTES[t.fuente] || {}).t || "") + '</div></div></div>';
+            }).join("") + evs.map(function (ev) { return evHTML(ev); }).join("")
+          : '<div class="vacio" style="padding:8px 2px">Libre.</div>') +
+        '</div>';
+    }
+    return out;
+  }
+
+  /* ---------- vista: revisión ---------- */
+  /* El antídoto contra el olvido: una por una, decides qué pasa. */
+  function colaRevision() {
+    var v = vencidas();
+    var hoyP = pendientes("hoy").filter(function (t) { return !t.fecha || dias(t.fecha) >= 0; });
+    var proximas = E.tareas.filter(function (t) {
+      return !t.hecha && t.horizonte !== "hoy" && t.fecha && dias(t.fecha) >= 0 && dias(t.fecha) <= 1;
+    });
+    return v.concat(proximas, hoyP);
+  }
+  function vRevision() {
+    var cola = colaRevision();
+    if (!cola.length) {
+      E.cfg.revisionHecha = hoyISO(); guardar();
+      return '<div class="fin"><div class="g">Todo revisado.</div>' +
+        '<div class="p">No queda nada vencido ni sin decidir. Si algo aparece durante el día, ' +
+        'lo verás en <b>Hoy</b> con su color.</div>' +
+        '<div style="margin-top:22px"><button class="btn linea" data-tab="horizonte">Volver al horizonte</button></div></div>';
+    }
+    if (revIdx >= cola.length) revIdx = 0;
+    var t = cola[revIdx];
+    var f = fechaTexto(t.fecha, t.hora);
+    var fu = FUENTES[t.fuente] || {};
+    return '<div style="max-width:560px">' +
+      '<div class="paso">Revisión del día · ' + (revIdx + 1) + ' de ' + cola.length + '</div>' +
+      '<div class="rev">' +
+        '<div class="q">' + esc(t.texto) + '</div>' +
+        '<div class="m">' + esc((fu.t || "") + (f ? " · " + f.txt : " · sin fecha")) + '</div>' +
+        '<div class="opts">' +
+          '<button data-rev="hecha">✓ Ya está</button>' +
+          '<button data-rev="hoy">Hoy</button>' +
+          '<button data-rev="manana">Mañana</button>' +
+          '<button data-rev="semana">Esta semana</button>' +
+          '<button data-rev="mediano">Este mes</button>' +
+          '<button data-rev="largo">Algún día</button>' +
+          '<button data-rev="borrar">Ya no aplica</button>' +
+          '<button data-rev="saltar">Dejar así</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="prosa" style="margin-top:16px">Esta es la parte que Recordatorios y To Do no hacen: ' +
+      'obligarte a <b>decidir</b> qué pasa con lo que se te pasó, en vez de dejarlo en rojo para siempre.</div>' +
+      '</div>';
+  }
+
+  /* ---------- vista: ajustes ---------- */
+  function vAjustes() {
+    var n = E.tareas.filter(function (t) { return t.pend; }).length;
+    return '<div class="rejilla"><section>' +
+      '<div class="rotulo"><span>Conexión con tu trabajo</span></div>' +
+      '<div class="campo">' +
+        '<label>URL del flujo de Power Automate</label>' +
+        '<input type="url" id="cfg-flow" placeholder="https://…/triggers/manual/paths/invoke?…&amp;sig=…" value="' + esc(E.cfg.flow) + '">' +
+        '<div class="ayuda">Es la dirección que te da el disparador <b>«Cuando se recibe una solicitud HTTP»</b>. ' +
+        'Se guarda solo en este dispositivo: no viaja al repositorio ni la ve nadie más. ' +
+        'El paso a paso para armar el flujo está en <code>centro/CONECTAR.md</code>.</div>' +
+      '</div>' +
+      '<div class="campo">' +
+        '<label>Lista de To Do donde se crean tus tareas</label>' +
+        '<input type="text" id="cfg-lista" placeholder="Tareas" value="' + esc(E.cfg.lista || "") + '">' +
+        '<div class="ayuda">Déjalo vacío para usar la lista predeterminada.</div>' +
+      '</div>' +
+      '<label class="switch"><input type="checkbox" id="cfg-auto" ' + (E.cfg.auto ? "checked" : "") + '>' +
+        '<span><div class="s-t">Sincronizar sola</div><div class="s-d">Al abrir la app, al volver a ella y cada 10 minutos.</div></span></label>' +
+      '<label class="switch"><input type="checkbox" id="cfg-dev" ' + (E.cfg.devolver ? "checked" : "") + '>' +
+        '<span><div class="s-t">Devolver a Microsoft To Do</div>' +
+        '<div class="s-d">Lo que escribes aquí se crea también en To Do, y ahí sí te suena la alarma en el celular ' +
+        'y aparece en Outlook. Al completarlo aquí, se completa allá.</div></span></label>' +
+      '<div class="fila" style="margin-top:18px">' +
+        '<button class="btn" id="probar">Probar y sincronizar</button>' +
+        (n ? '<span class="guardado">' + n + ' cambio(s) por enviar</span>' : "") +
+      '</div>' +
+
+      '<div class="bloque"><div class="rotulo"><span>Tus datos</span></div>' +
+      '<div class="fila">' +
+        '<button class="btn linea" id="exp-ics">Exportar a Recordatorios (.ics)</button>' +
+        '<button class="btn linea" id="exp-json">Copia de seguridad</button>' +
+        '<button class="btn linea" id="imp-json">Restaurar</button>' +
+        '<input type="file" id="file" accept="application/json" style="display:none">' +
+      '</div>' +
+      '<div class="ayuda" style="font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.5">' +
+      'Lo que escribes vive en este navegador. La copia de seguridad es un archivo tuyo; ' +
+      'restaurar reemplaza todo lo que hay aquí.</div></div>' +
+      '</section>' +
+
+      '<aside>' +
+        '<div class="rotulo"><span>Qué entra y qué no</span></div>' +
+        '<div class="caja-info">' +
+          '<b>Entran solas:</b> tus listas de <b>To Do</b>, las tareas de <b>Planner</b> asignadas a ti, ' +
+          'los <b>correos marcados</b> de Outlook y las reuniones del <b>calendario</b>.<br><br>' +
+          'Ojo: To Do te <i>muestra</i> Planner en «Asignadas a mí», pero no lo entrega por API — ' +
+          'por eso el flujo lee Planner aparte. El calendario nunca está en To Do.<br><br>' +
+          '<b>No entra nada de contratos.</b> Este centro es personal y no toca la base del CRM ni el CLM.' +
+        '</div>' +
+        '<div class="bloque"><div class="rotulo"><span>Privacidad</span></div>' +
+        '<div class="caja-info">La página es pública, <b>tus tareas no</b>. Nunca se publican en GitHub: ' +
+        'viven en este navegador y viajan directo entre tu dispositivo y tu flujo de Power Automate.<br><br>' +
+        'Si usas una computadora compartida, borra los datos con «Restaurar» sobre una copia vacía.</div></div>' +
+        '<div class="bloque"><div class="rotulo"><span>Instalar</span></div>' +
+        '<div class="caja-info">En el celular: <b>Compartir → Añadir a pantalla de inicio</b>. ' +
+        'En el escritorio: el icono de instalar de la barra de direcciones. ' +
+        'Queda como una app y funciona sin internet (lo que no se pueda enviar, se envía después).</div></div>' +
+      '</aside></div>';
+  }
+
+  /* ============ eventos ============ */
+  function conectar() {
+    /* navegación */
+    app.querySelectorAll("[data-tab]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        vista = b.dataset.tab; revIdx = 0; pintar();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+    var sb = document.getElementById("sync-btn");
+    if (sb) sb.addEventListener("click", function () {
+      if (!E.cfg.flow) { vista = "ajustes"; pintar(); } else sincronizar(true);
+    });
+
+    if (vista === "horizonte") conectarHorizonte();
+    if (vista === "revision") conectarRevision();
+    if (vista === "ajustes") conectarAjustes();
+  }
+
+  function conectarHorizonte() {
+    var txt = document.getElementById("txt");
+    var fch = document.getElementById("fch");
+    var add = document.getElementById("add");
+    var lec = document.getElementById("lectura");
+    var caja = document.getElementById("caja-agregar");
+
+    function revisar() {
+      var v = txt.value.trim();
+      add.disabled = !v;
+      lec.textContent = v ? resumenLectura(leer(v)) : "";
+    }
+    txt.addEventListener("input", revisar);
+    txt.addEventListener("focus", function () { caja.classList.add("foco"); });
+    txt.addEventListener("blur", function () { caja.classList.remove("foco"); });
+    txt.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && txt.value.trim()) crear(txt.value);
+    });
+    add.addEventListener("click", function () { if (txt.value.trim()) crear(txt.value); });
+    fch.addEventListener("change", function (e) { nuevo.fecha = e.target.value; });
+
+    app.querySelectorAll("[data-zona]").forEach(function (b) {
+      b.addEventListener("click", function () { filtro = b.dataset.zona; pintar(); });
+    });
+    app.querySelectorAll("[data-h]").forEach(function (b) {
+      b.addEventListener("click", function () { nuevo.h = b.dataset.h; pintar(); document.getElementById("txt").focus(); });
+    });
+    app.querySelectorAll("[data-f]").forEach(function (b) {
+      b.addEventListener("click", function () { nuevo.f = b.dataset.f; pintar(); document.getElementById("txt").focus(); });
+    });
+    app.querySelectorAll("[data-alt]").forEach(function (b) {
+      b.addEventListener("click", function () { alternar(b.dataset.alt); });
+    });
+    app.querySelectorAll("[data-del]").forEach(function (b) {
+      b.addEventListener("click", function () { borrar(b.dataset.del); });
+    });
+    app.querySelectorAll("[data-mov]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var p = b.dataset.mov.split("|");
+        mover(p[0], p[1]); pintar();
+        if (E.cfg.flow) empujar();
+      });
+    });
+
+    /* edición en línea del texto */
+    app.querySelectorAll("[data-edit]").forEach(function (d) {
+      d.addEventListener("click", function () {
+        if (editando === d.dataset.edit) return;
+        editando = d.dataset.edit; pintar();
+        var i = document.getElementById("ed");
+        if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+      });
+    });
+    var ed = document.getElementById("ed");
+    if (ed) {
+      var cerrar = function (guardarlo) {
+        var t = buscar(editando);
+        if (t && guardarlo && ed.value.trim() && ed.value.trim() !== t.texto) {
+          t.texto = ed.value.trim();
+          if (t.ext) t.pend = "edit";
+          guardar();
+          if (E.cfg.flow) empujar();
+        }
+        editando = null; pintar();
+      };
+      ed.addEventListener("blur", function () { cerrar(true); });
+      ed.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); cerrar(true); }
+        if (e.key === "Escape") { e.preventDefault(); cerrar(false); }
+      });
+    }
+
+    var notas = document.getElementById("notas");
+    var est = document.getElementById("est");
+    if (notas) notas.addEventListener("input", function () {
+      E.notas = notas.value;
+      est.textContent = "escribiendo…";
+      clearTimeout(tNotas);
+      tNotas = setTimeout(function () {
+        guardar(); est.textContent = "guardado";
+        setTimeout(function () { est.textContent = ""; }, 1600);
+      }, 700);
+    });
+  }
+
+  function conectarRevision() {
+    var cola = colaRevision();
+    var t = cola[revIdx];
+    app.querySelectorAll("[data-rev]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var a = b.dataset.rev;
+        if (!t) return;
+        if (a === "hecha") alternar(t.id);
+        else if (a === "borrar") borrar(t.id);
+        else if (a === "saltar") revIdx++;
+        else { mover(t.id, a === "semana" ? "semana" : a); if (E.cfg.flow) empujar(); }
+        if (a === "saltar") { pintar(); return; }
+        guardar();
+        var quedan = colaRevision();
+        if (!quedan.length) { E.cfg.revisionHecha = hoyISO(); guardar(); }
+        pintar();
+      });
+    });
+  }
+
+  function conectarAjustes() {
+    var flow = document.getElementById("cfg-flow");
+    var lista = document.getElementById("cfg-lista");
+    flow.addEventListener("change", function () {
+      E.cfg.flow = flow.value.trim(); guardar(); pintarSync();
+    });
+    lista.addEventListener("change", function () { E.cfg.lista = lista.value.trim(); guardar(); });
+    document.getElementById("cfg-auto").addEventListener("change", function (e) {
+      E.cfg.auto = e.target.checked; guardar();
+    });
+    document.getElementById("cfg-dev").addEventListener("change", function (e) {
+      E.cfg.devolver = e.target.checked; guardar();
+    });
+    document.getElementById("probar").addEventListener("click", function () {
+      E.cfg.flow = flow.value.trim(); E.cfg.lista = lista.value.trim(); guardar();
+      sincronizar(true);
+    });
+    document.getElementById("exp-ics").addEventListener("click", ics);
+    document.getElementById("exp-json").addEventListener("click", function () {
+      bajar("horizonte-" + hoyISO() + ".json", JSON.stringify(E, null, 2), "application/json");
+    });
+    var file = document.getElementById("file");
+    document.getElementById("imp-json").addEventListener("click", function () { file.click(); });
+    file.addEventListener("change", function () {
+      var f = file.files && file.files[0];
+      if (!f) return;
+      var lector = new FileReader();
+      lector.onload = function () {
+        try {
+          var d = JSON.parse(lector.result);
+          if (!d || !Array.isArray(d.tareas)) throw new Error("formato");
+          E = d; cargar_normalizar(); guardar(); pintar();
+          toast("Restaurado: " + E.tareas.length + " tareas.");
+        } catch (e) { toast("Ese archivo no es una copia válida."); }
+      };
+      lector.readAsText(f);
+    });
+  }
+  function cargar_normalizar() {
+    var base = vacio();
+    E.cfg = Object.assign(base.cfg, E.cfg || {});
+    E.meta = Object.assign(base.meta, E.meta || {});
+    if (!Array.isArray(E.eventos)) E.eventos = [];
+    if (typeof E.notas !== "string") E.notas = "";
+  }
+
+  /* ============ atajos de teclado (escritorio) ============ */
+  document.addEventListener("keydown", function (e) {
+    var enCampo = /^(INPUT|TEXTAREA)$/.test((e.target.tagName || "").toUpperCase());
+    if (e.key === "/" && !enCampo) {
+      var i = document.getElementById("txt");
+      if (i) { e.preventDefault(); vista = "horizonte"; pintar(); document.getElementById("txt").focus(); }
+    }
+    if (!enCampo && ["1", "2", "3", "4"].indexOf(e.key) >= 0 && vista === "horizonte") {
+      filtro = ORDEN_H[+e.key - 1]; pintar();
+    }
+    if (!enCampo && e.key.toLowerCase() === "r") { vista = "revision"; revIdx = 0; pintar(); }
+  });
+
+  /* ============ arranque ============ */
+  cargar();
+  reubicar();
+  /* accesos directos del icono instalado: #revision, #agenda */
+  var atajo = (location.hash || "").replace("#", "");
+  if (["agenda", "revision", "ajustes"].indexOf(atajo) >= 0) vista = atajo;
+  else if (!E.cfg.flow && !E.tareas.length) vista = "horizonte";
+  pintar();
+
+  if (E.cfg.flow && E.cfg.auto) {
+    sincronizar(false);
+    setInterval(function () { if (E.cfg.auto && E.cfg.flow) sincronizar(false); }, 10 * 60 * 1000);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState !== "visible" || !E.cfg.auto || !E.cfg.flow) return;
+      var ultima = E.meta.ultimaSync ? Date.parse(E.meta.ultimaSync) : 0;
+      if (Date.now() - ultima > 2 * 60 * 1000) sincronizar(false);
+      else if (E.meta.ultimoDia !== hoyISO()) pintar();   // cambió el día: recolocar horizontes
+    });
+  }
+  window.addEventListener("online", function () {
+    if (E.cfg.flow && E.tareas.some(function (t) { return t.pend; })) sincronizar(false);
+  });
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () { /* sin conexión: da igual */ });
+    });
+  }
+})();
+</script>
+</body>
+</html>

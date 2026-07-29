@@ -85,8 +85,42 @@ y envío a la Unidad Operativa por el mismo flujo de Power Automate
 (portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
 calificaciones, bitácora) se guarda en el navegador (`localStorage`).
 
+## Horizonte — centro de operaciones personal
+
+**`/centro/index.html`** es una herramienta **personal**, aparte del ciclo de vida de contratos:
+no lee la base del CRM ni toca el CLM. Nace de un problema distinto — que las cosas se olvidan
+porque viven repartidas entre Recordatorios, Microsoft To Do, Planner, los correos marcados y el
+calendario — y las junta en **un solo horizonte**.
+
+**La idea:** cuatro horizontes en vez de una lista infinita — *Hoy* (ahora mismo), *Corto* (esta
+semana), *Mediano* (este mes) y *Largo* (algún día). Lo que tiene fecha **sube solo** de horizonte
+cuando se acerca, así que nada se queda escondido en «algún día», y la **revisión del día** obliga
+a decidir, una por una, qué pasa con lo que se pasó de fecha (lo que ni Recordatorios ni To Do hacen:
+ahí lo vencido se queda en rojo para siempre).
+
+**Qué más trae:** captura en lenguaje natural (*«pagar el arriendo el viernes 9am»* se entiende sola,
+con `#personal`/`#trabajo`/`#curso` y `cada semana`), agenda de ocho días, notas, exportación a
+`.ics` para llevarte los pendientes a Recordatorios, copia de seguridad en JSON y atajos de teclado
+(`/` capturar, `1`–`4` horizontes, `r` revisión).
+
+**Automatización con el trabajo:** un único flujo de Power Automate propio trae las tareas de
+**To Do**, las de **Planner** asignadas a ti, los **correos marcados** de Outlook y las reuniones del
+**calendario**; y devuelve a **To Do** lo que escribes aquí, para que la alarma suene donde ya suena
+(celular, Outlook, reloj). El paso a paso está en **[`centro/CONECTAR.md`](centro/CONECTAR.md)**.
+
+> Ojo con un detalle que define el diseño: To Do sí unifica los **correos marcados**, pero las tareas
+> de **Planner** solo las *muestra* en «Asignadas a mí» (no las entrega por API) y el **calendario**
+> nunca está ahí. Por eso el flujo lee tres conectores, no uno.
+
+**Privacidad:** a diferencia del CRM/CLM, aquí **no se publica ningún dato**. Las tareas viven en el
+navegador (`localStorage`) y viajan directo entre tu dispositivo y tu flujo; la URL del flujo se
+guarda solo en tu navegador y nunca en el repositorio. Es una **PWA**: se instala en el celular
+(*Compartir → Añadir a pantalla de inicio*) y en el escritorio, y funciona sin internet — lo que no
+se pueda enviar se envía después.
+
 ## Estructura
 
+- **`/centro/`** — Horizonte, el centro de operaciones personal (independiente del resto).
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
   Se actualiza automáticamente cada día vía Power Automate, que sobrescribe `crm/contratos_export.json`
   con los datos del Excel maestro. La app lo consulta automáticamente al abrirse.
@@ -108,6 +142,7 @@ Cada herramienta tiene su propio enlace en GitHub Pages:
 - Calificador de Ofertas: https://[tu-usuario].github.io/fap-contratos/calificacion/
 - CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
 - La Mágica: https://[tu-usuario].github.io/fap-contratos/generador/
+- Horizonte (centro de operaciones personal): https://[tu-usuario].github.io/fap-contratos/centro/
 
 La raíz (`https://[tu-usuario].github.io/fap-contratos/`) redirige automáticamente al CLM.
 
