@@ -1,6 +1,6 @@
-# Conectar Horizonte con tu Microsoft del trabajo
+# Conectar el Centro de mando con tu Microsoft del trabajo
 
-Horizonte funciona solo, sin configurar nada: escribes y se guarda en tu navegador.
+El centro funciona solo, sin configurar nada: escribes y se guarda en tu navegador.
 Esta guía es para el otro pedazo — que **lo del trabajo entre solo**: Planner, los
 correos que marcas en Outlook, tus listas de To Do y las reuniones del calendario.
 
@@ -69,13 +69,13 @@ En el disparador:
 ```
 
 Al **guardar**, el disparador te muestra la **URL HTTP POST**. Esa es la que pegas en
-*Ajustes → URL del flujo* dentro de Horizonte. Guárdala como una contraseña: quien la
+*Ajustes → URL del flujo* dentro del centro. Guárdala como una contraseña: quien la
 tenga puede leer y crear tus tareas. Si se te escapa, en el disparador puedes
 regenerar la firma (`sig`).
 
 ---
 
-## 2. Aplicar lo que hiciste en Horizonte
+## 2. Aplicar lo que hiciste en el centro
 
 Primero lo que **sale** de la app, para que To Do quede al día antes de leerlo.
 
@@ -110,7 +110,7 @@ Primero lo que **sale** de la app, para que To Do quede al día antes de leerlo.
    Al final de cada caso: **Anexar a la variable** `aplicados` →
    `items('Aplicar_a_cada_uno')?['local']`.
 
-> Si algo falla aquí, no pasa nada grave: Horizonte reintenta el envío en la siguiente
+> Si algo falla aquí, no pasa nada grave: el centro reintenta el envío en la siguiente
 > sincronización. Un cambio no confirmado se ve con una flecha `↑` en la tarea.
 
 ---
@@ -207,7 +207,7 @@ Solo `ok` es obligatorio. Lo demás puede faltar mientras vas armando el flujo p
 
 ## 5. Probar
 
-En Horizonte: **Ajustes → pega la URL → «Probar y sincronizar»**.
+En el centro: **Ajustes → pega la URL → «Probar y sincronizar»**.
 
 - Si dice **«Al día con Microsoft»**, listo.
 - Si dice **HTTP 4xx/5xx**, abre el historial de ejecuciones del flujo: el error está ahí.
@@ -222,9 +222,9 @@ En Horizonte: **Ajustes → pega la URL → «Probar y sincronizar»**.
 
 - **Cada 10 minutos**, al abrir la app y al volver a ella (si pasaron más de 2 minutos).
 - **El horizonte es tuyo, el contenido es de la fuente.** Si mueves una tarea de Planner a
-  «Este mes», ahí se queda; si cambia el título o la fecha en Planner, se actualiza aquí.
-  Si la fecha se acerca, la tarea sube sola de horizonte.
-- **Lo que llega del trabajo sin fecha entra en *Corto*, no en *Hoy*.** Tu «Hoy» solo se llena
+  «Mediano plazo», ahí se queda; si cambia el título o la fecha en Planner, se actualiza aquí.
+  Si la fecha se acerca, la tarea sube sola de plazo.
+- **Lo que llega del trabajo sin fecha entra en *Corto plazo*, no en *Hoy*.** Tu «Hoy» solo se llena
   con lo que tú decides o con lo que tiene fecha para hoy.
 - **Lo que borras en el origen desaparece de aquí.** Y al revés no: borrar una tarea aquí no
   la borra en To Do (te lo avisa cuando pasa).
@@ -233,9 +233,9 @@ En Horizonte: **Ajustes → pega la URL → «Probar y sincronizar»**.
 
 ## Por qué devolver las tareas a To Do
 
-Horizonte no manda notificaciones (una página web no es confiable para eso, menos en iPhone).
+El centro no manda notificaciones (una página web no es confiable para eso, menos en iPhone).
 En vez de competir, empuja: lo que escribes aquí se crea en **To Do**, y ahí ya tienes la
-alarma en el celular, el recordatorio en Outlook y el reloj. Horizonte es la cabeza —
+alarma en el celular, el recordatorio en Outlook y el reloj. El centro es la cabeza —
 decidir qué importa hoy —; To Do es el despertador.
 
 Si prefieres que no escriba nada en tu Microsoft, apaga *«Devolver a Microsoft To Do»* en
