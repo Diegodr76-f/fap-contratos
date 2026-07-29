@@ -759,7 +759,7 @@
   function cambiosPendientes() {
     return E.tareas.filter(function (t) { return t.pend; }).map(function (t) {
       return {
-        accion: t.pend === "crear" ? "crear" : t.pend === "fecha" ? "mover" : "completar",
+        accion: t.pend === "crear" ? "crear" : (t.pend === "fecha" || t.pend === "edit") ? "mover" : "completar",
         local: t.id, sys: t.ext ? t.ext.sys : null, id: t.ext ? t.ext.id : null,
         texto: t.texto, fecha: t.fecha, hora: t.hora, hecha: !!t.hecha,
         lista: E.cfg.lista || null
