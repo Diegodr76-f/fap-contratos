@@ -756,8 +756,18 @@
   function buscar(id) { return E.tareas.find(function (t) { return t.id === id; }); }
 
   /* ============ puente con Microsoft (Power Automate) ============ */
+  /* Tope de reintentos: si el flujo se cae DESPUÉS de crear la tarea en To Do
+     pero ANTES de responder, la app nunca se entera y la volvería a mandar en
+     cada sincronización — así nacieron seis copias de la misma tarea. Con el
+     tope, un cambio que no se confirma tres veces deja de enviarse solo y se
+     avisa, en vez de multiplicarse en silencio. */
+  var MAX_INTENTOS = 3;
+
+  function atascadas() {
+    return E.tareas.filter(function (t) { return t.pend && (t.intentos || 0) >= MAX_INTENTOS; });
+  }
   function cambiosPendientes() {
-    return E.tareas.filter(function (t) { return t.pend; }).map(function (t) {
+    return E.tareas.filter(function (t) { return t.pend && (t.intentos || 0) < MAX_INTENTOS; }).map(function (t) {
       return {
         accion: t.pend === "crear" ? "crear" : (t.pend === "fecha" || t.pend === "edit") ? "mover" : "completar",
         local: t.id, sys: t.ext ? t.ext.sys : null, id: t.ext ? t.ext.id : null,
@@ -765,6 +775,10 @@
         lista: E.cfg.lista || null
       };
     });
+  }
+  function reintentarAtascadas() {
+    atascadas().forEach(function (t) { t.intentos = 0; });
+    guardar();
   }
   function empujar() { if (!tSync) tSync = setTimeout(function () { tSync = null; sincronizar(false); }, 1200); }
 
@@ -780,6 +794,13 @@
       agendaDesde: hoyISO(), agendaHasta: mas(hoyISO(), 8),
       cambios: cambiosPendientes()
     };
+    /* Se cuenta el intento ANTES de enviarlo: si el flujo crea la tarea y luego
+       revienta, ese intento ya quedó contado y no se repite indefinidamente. */
+    cuerpo.cambios.forEach(function (c) {
+      var t = buscar(c.local);
+      if (t) t.intentos = (t.intentos || 0) + 1;
+    });
+    guardar();
     return fetch(E.cfg.flow, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo)
     }).then(function (r) {
@@ -807,12 +828,17 @@
     /* 1. confirmaciones de lo que empujamos */
     (d.creadas || []).forEach(function (c) {
       var t = buscar(c.local);
-      if (t) { t.ext = { sys: c.sys || "todo", id: c.id, url: c.url || null, lista: c.lista || null }; t.pend = null; }
+      if (t) {
+        t.ext = { sys: c.sys || "todo", id: c.id, url: c.url || null, lista: c.lista || null };
+        t.pend = null; t.intentos = 0;
+      }
     });
     (d.aplicados || []).forEach(function (id) {
-      var t = buscar(id); if (t) t.pend = null;
+      var t = buscar(id); if (t) { t.pend = null; t.intentos = 0; }
     });
-    if (!d.aplicados) E.tareas.forEach(function (t) { if (t.pend && t.pend !== "crear") t.pend = null; });
+    if (!d.aplicados) E.tareas.forEach(function (t) {
+      if (t.pend && t.pend !== "crear") { t.pend = null; t.intentos = 0; }
+    });
 
     /* 2. tareas que llegan de Microsoft */
     var remotas = Array.isArray(d.tareas) ? d.tareas : [];
@@ -964,7 +990,10 @@
             : E.meta.ultimaSync ? "Al día · " + new Date(E.meta.ultimaSync).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
             : "Conectado";
     var n = E.tareas.filter(function (t) { return t.pend; }).length;
-    return '<span class="punto ' + cls + '"></span>' + esc(txt) + (n ? " · " + n + " por enviar" : "");
+    var at = atascadas().length;
+    if (at) cls = "mala";
+    return '<span class="punto ' + cls + '"></span>' + esc(txt) +
+           (at ? " · " + at + " sin enviar" : n ? " · " + n + " por enviar" : "");
   }
   function pintarSync() {
     var b = document.getElementById("sync-btn");
@@ -1214,6 +1243,7 @@
   /* ---------- vista: ajustes ---------- */
   function vAjustes() {
     var n = E.tareas.filter(function (t) { return t.pend; }).length;
+    var at = atascadas().length;
     return '<div class="rejilla"><div class="col-a">' +
       '<section class="tarjeta panel">' +
         '<div class="panel-h"><h2>Conexión con tu trabajo</h2></div>' +
@@ -1239,6 +1269,15 @@
           '<button class="btn" id="probar">Probar y sincronizar</button>' +
           (n ? '<span style="font-size:12.5px;font-weight:600;color:var(--gris3)">' + n + ' cambio(s) por enviar</span>' : "") +
         '</div>' +
+        (at ? '<div style="margin-top:16px;padding:14px 16px;border-radius:14px;' +
+          'background:rgba(209,69,59,.06);border:1px solid rgba(209,69,59,.2)">' +
+          '<div style="font-size:13.5px;font-weight:600;margin-bottom:4px">' +
+          at + (at === 1 ? ' cambio no se pudo enviar' : ' cambios no se pudieron enviar') + '</div>' +
+          '<div style="font-size:12.5px;font-weight:500;color:var(--gris);line-height:1.5;margin-bottom:12px">' +
+          'Se intentó ' + MAX_INTENTOS + ' veces y el flujo no confirmó. Dejé de reintentar a propósito: ' +
+          'insistir a ciegas es lo que crea tareas duplicadas en To Do. Revisa el historial del flujo en ' +
+          'Power Automate, y cuando esté arreglado, reintenta aquí.</div>' +
+          '<button class="btn linea" id="reintentar">Reintentar envíos</button></div>' : "") +
       '</section>' +
 
       '<section class="tarjeta panel" style="margin-top:22px">' +
@@ -1408,6 +1447,10 @@
     document.getElementById("probar").addEventListener("click", function () {
       E.cfg.flow = flow.value.trim(); E.cfg.lista = lista.value.trim(); guardar();
       sincronizar(true);
+    });
+    var rei = document.getElementById("reintentar");
+    if (rei) rei.addEventListener("click", function () {
+      reintentarAtascadas(); pintar(); sincronizar(true);
     });
     document.getElementById("cambiar-frase").addEventListener("click", async function () {
       await candado("crear");
