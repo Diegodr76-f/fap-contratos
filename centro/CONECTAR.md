@@ -54,19 +54,27 @@ En el disparador:
         "properties": {
           "accion": { "type": "string" },
           "local":  { "type": "string" },
-          "sys":    { "type": "string" },
-          "id":     { "type": "string" },
+          "sys":    { "type": ["string", "null"] },
+          "id":     { "type": ["string", "null"] },
           "texto":  { "type": "string" },
-          "fecha":  { "type": "string" },
-          "hora":   { "type": "string" },
+          "fecha":  { "type": ["string", "null"] },
+          "hora":   { "type": ["string", "null"] },
           "hecha":  { "type": "boolean" },
-          "lista":  { "type": "string" }
+          "lista":  { "type": ["string", "null"] }
         }
       }
     }
   }
 }
 ```
+
+> Ojo: `sys`, `id`, `fecha`, `hora` y `lista` aceptan `["string", "null"]`, no solo
+> `"string"`. Una tarea recién creada (antes de que Microsoft le asigne un Id) manda esos
+> campos vacíos — si el esquema exige texto siempre, Power Automate rechaza el pedido
+> **antes de que el flujo siquiera arranque** (no aparece nada en el historial, porque
+> nunca llegó a crear una ejecución). Si ya armaste el disparador con el esquema viejo y
+> te sale «no se pudo sincronizar (HTTP 400)» apenas creas o mueves algo, este es el motivo:
+> entra al disparador, corrige el esquema y guarda de nuevo.
 
 Al **guardar**, el disparador te muestra la **URL HTTP POST**. Esa es la que pegas en
 *Ajustes → URL del flujo* dentro del centro. Guárdala como una contraseña: quien la
