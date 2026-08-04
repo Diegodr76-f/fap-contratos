@@ -13299,6 +13299,21 @@ aside .cats{display:flex;flex-wrap:wrap;gap:5px;padding:10px 12px 4px}
 .item-pl .meta{font-size:11px;color:var(--gris);margin-top:2px;display:flex;gap:6px;align-items:center}
 .badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 7px;border-radius:4px;background:var(--azul-claro);color:var(--azul)}
 aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:8px}
+/* Árbol de carpetas (plantillas y repositorio de cláusulas) */
+.carpeta-fila{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px}
+.carpeta-fila:hover{background:var(--azul-claro)}
+.carpeta-fila:hover .carpeta-acc{visibility:visible}
+.carpeta-toggle{width:12px;color:var(--gris);font-size:10px;flex-shrink:0}
+.carpeta-nom{font-weight:700;color:var(--texto);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carpeta-n{font-size:11px;color:var(--gris)}
+.carpeta-acc{visibility:hidden;display:flex;gap:2px;flex-shrink:0}
+.mini-ico{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px;color:var(--gris);line-height:1}
+.mini-ico:hover{background:#fff;color:var(--azul)}
+.item-pl .mini-ico{margin-left:auto}
+.picker-fila{padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13.5px}
+.picker-fila:hover{background:var(--azul-claro)}
+.picker-fila.raiz{font-weight:600;border-bottom:1px solid var(--borde);border-radius:0;margin-bottom:6px;padding-bottom:10px}
+.carpeta-actual{display:flex;align-items:center;gap:8px;font-size:13px;padding:7px 0}
 .btn{font-family:inherit;font-weight:600;font-size:13px;padding:8px 14px;border-radius:7px;border:1px solid var(--azul);cursor:pointer;background:var(--azul);color:#fff}
 .btn:hover{background:var(--azul-osc)}
 .btn.sec{background:#fff;color:var(--azul)}
@@ -14109,9 +14124,14 @@ function aplicarConcordanciaUI(nombre, idx){
 
 /* ============ Estado ============ */
 let plantillas = [];
+let carpetas = [];          // árbol de carpetas de plantillas: [{id, nombre, padreId}]
+let abiertasPl = new Set(); // carpetas expandidas en el árbol de plantillas (no se persiste)
 let historial = [];
 let contrapartes = [];
 let clausulas = [];
+let carpetasClausulas = []; // árbol de carpetas del repositorio de cláusulas, independiente del de plantillas
+let abiertasCl = new Set(); // carpetas expandidas en el árbol de cláusulas (no se persiste)
+let moverEnCurso = null;    // { cual:'pl'|'cl', tipo:'item'|'carpeta', id } — qué se está moviendo desde el picker de carpetas
 let variablesRepo = [];
 let fijos = {};
 let membrete = { activo:false, imagen:'', ancho:0, alto:0, texto:'', alineacion:'left', escala:100, docx:'', docxNombre:'' };
@@ -14131,7 +14151,6 @@ let ultimoRangeEditable = null;  // última posición del cursor dentro de un ed
 let ultimoEditableId = null;
 let seleccion = null;
 let tabActual = 'generar';
-let catFiltro = 'Todas';
 let datosForm = {};
 let registro = [];
 let registroEstado = 'cargando'; // cargando | ok | error
@@ -14153,12 +14172,16 @@ function cargar(){
   const l = store.get('fap_gen_lote');
   const cl = store.get('fap_gen_clausulas_v2');
   const vr = store.get('fap_gen_variables_v2');
+  const cp = store.get('fap_gen_carpetas_v1');
+  const cpc = store.get('fap_gen_carpetas_cl_v1');
   plantillas = p ? JSON.parse(p) : plantillasSemilla();
+  carpetas = cp ? JSON.parse(cp) : [];
   historial = h ? JSON.parse(h) : [];
   contrapartes = c ? JSON.parse(c) : [];
   fijos = f ? JSON.parse(f) : { representante_fias:'', ciudad:'Quito' };
   loteFilas = l ? JSON.parse(l) : [];
   clausulas = cl ? JSON.parse(cl) : clausulasSemilla();
+  carpetasClausulas = cpc ? JSON.parse(cpc) : [];
   variablesRepo = vr ? JSON.parse(vr) : variablesSemilla();
   const co = store.get('fap_gen_concordancias');
   concordancias = co ? JSON.parse(co) : concordanciasSemilla();
@@ -14182,18 +14205,224 @@ function cargar(){
   // Añade del/de la, al/a la a los grupos sembrados en bibliotecas anteriores.
   let enriquecido = false;
   if(!store.get('fap_gen_conc_enriquecido')){ enriquecido = enriquecerConcordancias(); store.set('fap_gen_conc_enriquecido','1'); }
-  if(!p || !cl || !vr || !co || enriquecido) guardar();
+  // Carpetas: la primera vez, cada "categoría" plana existente se vuelve una
+  // carpeta raíz y cada plantilla/cláusula queda archivada en la que le tocaba.
+  let migradoCarpetas = false;
+  if(!store.get('fap_gen_carpetas_migrado')){ migrarCarpetas(); store.set('fap_gen_carpetas_migrado','1'); migradoCarpetas = true; }
+  // Las carpetas raíz empiezan abiertas en cada carga (como antes, con las
+  // categorías siempre visibles); las subcarpetas que se creen quedan
+  // colapsadas por defecto para que un árbol grande no se vuelva inmanejable.
+  abiertasPl = new Set(carpetas.filter(f => !f.padreId).map(f => f.id));
+  abiertasCl = new Set(carpetasClausulas.filter(f => !f.padreId).map(f => f.id));
+  if(!p || !cl || !vr || !co || enriquecido || migradoCarpetas) guardar();
 }
 function guardar(){
   store.set('fap_gen_plantillas_v2', JSON.stringify(plantillas));
+  store.set('fap_gen_carpetas_v1', JSON.stringify(carpetas));
   store.set('fap_gen_historial', JSON.stringify(historial));
   store.set('fap_gen_contrapartes', JSON.stringify(contrapartes));
   store.set('fap_gen_fijos', JSON.stringify(fijos));
   store.set('fap_gen_lote', JSON.stringify(loteFilas));
   store.set('fap_gen_clausulas_v2', JSON.stringify(clausulas));
+  store.set('fap_gen_carpetas_cl_v1', JSON.stringify(carpetasClausulas));
   store.set('fap_gen_variables_v2', JSON.stringify(variablesRepo));
   store.set('fap_gen_membrete', JSON.stringify(membrete));
   store.set('fap_gen_concordancias', JSON.stringify(concordancias));
+}
+/* Primer arranque con este modelo de carpetas: cada "categoría" plana que ya
+   existía (Actas, Contratos, Importadas de Word…) se vuelve una carpeta raíz,
+   y cada plantilla/cláusula queda archivada en la que le correspondía. De ahí
+   en adelante categoria ya no se usa; todo se organiza por carpetaId. */
+function migrarCarpetas(){
+  if(!carpetas.length && plantillas.some(p => p.categoria)){
+    const nombres = Array.from(new Set(plantillas.map(p => p.categoria).filter(Boolean)));
+    carpetas = nombres.map(n => ({ id: uid(), nombre: n, padreId: null }));
+  }
+  plantillas.forEach(p => {
+    if(p.carpetaId === undefined){
+      const f = carpetas.find(c => c.padreId === null && c.nombre === p.categoria);
+      p.carpetaId = f ? f.id : null;
+    }
+  });
+  if(!carpetasClausulas.length && clausulas.some(c => c.categoria)){
+    const nombres = Array.from(new Set(clausulas.map(c => c.categoria).filter(Boolean)));
+    carpetasClausulas = nombres.map(n => ({ id: uid(), nombre: n, padreId: null }));
+  }
+  clausulas.forEach(cl => {
+    if(cl.carpetaId === undefined){
+      const f = carpetasClausulas.find(c => c.padreId === null && c.nombre === cl.categoria);
+      cl.carpetaId = f ? f.id : null;
+    }
+  });
+}
+/* ============ Carpetas: árbol genérico (plantillas y cláusulas) ============
+   "cual" distingue el árbol: 'pl' = plantillas, 'cl' = cláusulas. Son dos
+   árboles independientes: una cláusula se reutiliza entre familias de
+   contrato distintas, así que su organización no tiene por qué calcar la de
+   las plantillas. */
+function arbolCarpetas(cual){ return cual === 'cl' ? carpetasClausulas : carpetas; }
+function itemsDe(cual){ return cual === 'cl' ? clausulas : plantillas; }
+function abiertasDe(cual){ return cual === 'cl' ? abiertasCl : abiertasPl; }
+function nodosHijos(cual, padreId){
+  return arbolCarpetas(cual).filter(c => (c.padreId||null) === (padreId||null)).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+}
+function itemsEnCarpeta(cual, carpetaId){
+  return itemsDe(cual).filter(x => (x.carpetaId||null) === (carpetaId||null));
+}
+function contarItemsCarpeta(cual, carpetaId){
+  let n = itemsEnCarpeta(cual, carpetaId).length;
+  nodosHijos(cual, carpetaId).forEach(h => { n += contarItemsCarpeta(cual, h.id); });
+  return n;
+}
+function descendientesIds(cual, id){
+  const out = new Set(); const cola = [id];
+  while(cola.length){
+    const cur = cola.pop();
+    nodosHijos(cual, cur).forEach(c => { out.add(c.id); cola.push(c.id); });
+  }
+  return out;
+}
+function rutaCarpeta(cual, id){
+  const arbol = arbolCarpetas(cual);
+  const partes = [];
+  let cur = arbol.find(c => c.id === id);
+  while(cur){ partes.unshift(cur.nombre); cur = arbol.find(c => c.id === cur.padreId); }
+  return partes.join(' / ');
+}
+function carpetaPorNombreEnPadre(cual, nombre, padreId){
+  let f = arbolCarpetas(cual).find(c => (c.padreId||null) === (padreId||null) && c.nombre === nombre);
+  if(!f) f = crearCarpeta(cual, nombre, padreId);
+  return f;
+}
+function carpetaPorNombreORaiz(cual, nombre){ return carpetaPorNombreEnPadre(cual, nombre, null); }
+function crearCarpeta(cual, nombre, padreId){
+  const f = { id: uid(), nombre: nombre.trim(), padreId: padreId || null };
+  arbolCarpetas(cual).push(f);
+  return f;
+}
+function renombrarCarpeta(cual, id, nombre){
+  const f = arbolCarpetas(cual).find(c => c.id === id);
+  if(f && nombre.trim()) f.nombre = nombre.trim();
+}
+function eliminarCarpeta(cual, id){
+  const arbol = arbolCarpetas(cual);
+  const f = arbol.find(c => c.id === id); if(!f) return;
+  const hijos = nodosHijos(cual, id);
+  const items = itemsEnCarpeta(cual, id);
+  if(hijos.length || items.length){
+    const cosa = cual === 'cl' ? 'cláusula(s)' : 'plantilla(s)';
+    if(!confirm(`«${f.nombre}» tiene ${items.length} ${cosa} y ${hijos.length} subcarpeta(s).\n\nSe moverán a la carpeta superior (no se borra nada, solo la carpeta). ¿Continuar?`)) return;
+  }
+  hijos.forEach(h => { h.padreId = f.padreId; });
+  items.forEach(x => { x.carpetaId = f.padreId; });
+  arbol.splice(arbol.indexOf(f), 1);
+  guardar();
+}
+function moverACarpeta(cual, itemId, carpetaId){
+  const item = itemsDe(cual).find(x => x.id === itemId); if(!item) return;
+  item.carpetaId = carpetaId || null;
+  guardar();
+}
+function moverCarpeta(cual, id, nuevoPadreId){
+  if(id === nuevoPadreId) return;
+  if(nuevoPadreId && descendientesIds(cual, id).has(nuevoPadreId)){
+    alert('No puedes mover una carpeta dentro de sí misma o de una de sus propias subcarpetas.');
+    return;
+  }
+  const f = arbolCarpetas(cual).find(c => c.id === id); if(!f) return;
+  f.padreId = nuevoPadreId || null;
+  guardar();
+}
+/* ============ Carpetas: interacción de la interfaz ============ */
+function refrescarArbol(cual){
+  if(cual === 'cl'){ const el = document.getElementById('lista-clausulas'); if(el) el.innerHTML = listaClausulasHtml(); }
+  else renderLista();
+}
+function toggleCarpeta(cual, id){
+  const s = abiertasDe(cual);
+  if(s.has(id)) s.delete(id); else s.add(id);
+  refrescarArbol(cual);
+}
+function crearSubcarpeta(cual, padreId){
+  const nombre = prompt(padreId ? 'Nombre de la subcarpeta:' : 'Nombre de la nueva carpeta:');
+  if(!nombre || !nombre.trim()) return;
+  crearCarpeta(cual, nombre, padreId);
+  if(padreId) abiertasDe(cual).add(padreId);
+  guardar();
+  refrescarArbol(cual);
+}
+function renombrarCarpetaUI(cual, id){
+  const f = arbolCarpetas(cual).find(c => c.id === id); if(!f) return;
+  const nombre = prompt('Nuevo nombre de la carpeta:', f.nombre);
+  if(!nombre || !nombre.trim()) return;
+  renombrarCarpeta(cual, id, nombre);
+  guardar();
+  refrescarArbol(cual);
+}
+function eliminarCarpetaUI(cual, id){
+  eliminarCarpeta(cual, id);   // confirma y guarda internamente si hace falta
+  refrescarArbol(cual);
+}
+/* Recorre el árbol para el selector de "mover a…"; si se está moviendo una
+   carpeta (no un ítem), se excluyen ella misma y sus descendientes: no puedes
+   soltar una carpeta dentro de sí misma. */
+function arbolPickerHtml(cual, excluirId, nivel, padreId){
+  const excluidos = excluirId ? descendientesIds(cual, excluirId) : new Set();
+  if(excluirId) excluidos.add(excluirId);
+  return nodosHijos(cual, padreId).filter(f => !excluidos.has(f.id)).map(f => `
+    <div class="picker-fila" style="padding-left:${8+nivel*16}px" onclick="ejecutarMoverItem('${cual}','${f.id}')">📁 ${esc(f.nombre)}</div>
+    ${arbolPickerHtml(cual, excluirId, nivel+1, f.id)}
+  `).join('');
+}
+function abrirMoverItem(cual, itemId){
+  moverEnCurso = { cual, tipo:'item', id: itemId };
+  abrirModal(`
+    <div class="m-cab"><h3>Mover a carpeta</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <div class="picker-fila raiz" onclick="ejecutarMoverItem('${cual}', null)">📥 Sin carpeta (raíz)</div>
+      ${arbolPickerHtml(cual, null, 0, null) || '<p style="font-size:13px;color:var(--gris)">Todavía no hay carpetas. Crea una con «+ Carpeta».</p>'}
+    </div>`);
+}
+function abrirMoverCarpeta(cual, id){
+  moverEnCurso = { cual, tipo:'carpeta', id };
+  abrirModal(`
+    <div class="m-cab"><h3>Mover carpeta</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <div class="picker-fila raiz" onclick="ejecutarMoverItem('${cual}', null)">📥 Nivel raíz</div>
+      ${arbolPickerHtml(cual, id, 0, null)}
+    </div>`);
+}
+function ejecutarMoverItem(cual, carpetaId){
+  if(!moverEnCurso) return;
+  if(moverEnCurso.tipo === 'item') moverACarpeta(cual, moverEnCurso.id, carpetaId);
+  else moverCarpeta(cual, moverEnCurso.id, carpetaId);
+  moverEnCurso = null;
+  cerrarModal();
+  refrescarArbol(cual);
+  renderContenido();   // si el panel abierto muestra la ruta de carpeta del ítem movido, se refresca también
+}
+/* Dibuja una carpeta y, si está expandida, sus subcarpetas e ítems (recursivo).
+   renderItem(item, nivel) dibuja un ítem hoja (plantilla o cláusula). */
+function renderNodoCarpeta(cual, folder, nivel, renderItem){
+  const abierta = abiertasDe(cual).has(folder.id);
+  const n = contarItemsCarpeta(cual, folder.id);
+  const pad = 8 + nivel*14;
+  let html = `<div class="carpeta-fila" style="padding-left:${pad}px" onclick="toggleCarpeta('${cual}','${folder.id}')">
+    <span class="carpeta-toggle">${abierta ? '▾' : '▸'}</span>
+    <span class="carpeta-nom" title="${esc(folder.nombre)}">📁 ${esc(folder.nombre)}</span>
+    <span class="carpeta-n">${n}</span>
+    <span class="carpeta-acc">
+      <button class="mini-ico" title="Nueva subcarpeta" onclick="event.stopPropagation();crearSubcarpeta('${cual}','${folder.id}')">＋</button>
+      <button class="mini-ico" title="Mover carpeta" onclick="event.stopPropagation();abrirMoverCarpeta('${cual}','${folder.id}')">📂</button>
+      <button class="mini-ico" title="Renombrar" onclick="event.stopPropagation();renombrarCarpetaUI('${cual}','${folder.id}')">✎</button>
+      <button class="mini-ico" title="Eliminar carpeta" onclick="event.stopPropagation();eliminarCarpetaUI('${cual}','${folder.id}')">🗑</button>
+    </span>
+  </div>`;
+  if(abierta){
+    html += nodosHijos(cual, folder.id).map(h => renderNodoCarpeta(cual, h, nivel+1, renderItem)).join('');
+    html += itemsEnCarpeta(cual, folder.id).map(it => renderItem(it, nivel+1)).join('');
+  }
+  return html;
 }
 
 /* ============ Registro de contratos (CRM / Excel maestro) ============ */
@@ -14300,30 +14529,36 @@ function aplicarFijos(vars, datos){
 }
 
 /* ============ Render: sidebar ============ */
-function categorias(){
-  const set = new Set(plantillas.map(p => p.categoria));
-  return ['Todas', ...Array.from(set).sort()];
-}
 function renderCats(){
   const c = document.getElementById('cats');
-  c.innerHTML = categorias().map(cat =>
-    `<button class="chip ${cat===catFiltro?'activo':''}" onclick="catFiltro='${cat.replace(/'/g,"\\'")}';renderCats();renderLista()">${esc(cat)}</button>`
-  ).join('');
+  c.innerHTML = `<button class="chip" onclick="crearSubcarpeta('pl', null)">📁＋ Carpeta</button>`;
+}
+function renderItemPlantilla(p, nivel){
+  const pad = 8 + (nivel||0)*14;
+  return `<div class="item-pl ${seleccion===p.id?'sel':''}" style="padding-left:${pad}px" onclick="seleccionar('${p.id}')">
+      <div class="nom">${esc(p.nombre)}</div>
+      <div class="meta">${p.tipo==='docx' ? '<span class="badge badge-word">WORD</span>' : ''}<span>act. ${p.actualizado}</span><button class="mini-ico" title="Mover a otra carpeta" onclick="event.stopPropagation();abrirMoverItem('pl','${p.id}')">📂</button></div>
+    </div>`;
 }
 function renderLista(){
   const q = (document.getElementById('busqueda').value || '').toLowerCase();
   const cont = document.getElementById('lista-plantillas');
   const top = cont.scrollTop;   // la lista lateral no debe saltar al re-dibujarse
-  const filtradas = plantillas.filter(p =>
-    (catFiltro==='Todas' || p.categoria===catFiltro) &&
-    (p.nombre.toLowerCase().includes(q) || (p.descripcion||'').toLowerCase().includes(q))
-  );
-  if(!filtradas.length){ cont.innerHTML = '<div class="vacio" style="margin-top:30px;font-size:13px">Sin resultados</div>'; return; }
-  cont.innerHTML = filtradas.map(p => `
-    <div class="item-pl ${seleccion===p.id?'sel':''}" onclick="seleccionar('${p.id}')">
-      <div class="nom">${esc(p.nombre)}</div>
-      <div class="meta"><span class="badge">${esc(p.categoria)}</span>${p.tipo==='docx' ? '<span class="badge badge-word">WORD</span>' : ''}<span>act. ${p.actualizado}</span></div>
-    </div>`).join('');
+  if(q){
+    const filtradas = plantillas.filter(p => p.nombre.toLowerCase().includes(q) || (p.descripcion||'').toLowerCase().includes(q));
+    if(!filtradas.length){ cont.innerHTML = '<div class="vacio" style="margin-top:30px;font-size:13px">Sin resultados</div>'; return; }
+    cont.innerHTML = filtradas.map(p => `
+      <div class="item-pl ${seleccion===p.id?'sel':''}" onclick="seleccionar('${p.id}')">
+        <div class="nom">${esc(p.nombre)}</div>
+        <div class="meta">${p.carpetaId ? `<span class="badge" title="Carpeta">${esc(rutaCarpeta('pl',p.carpetaId))}</span>` : ''}${p.tipo==='docx' ? '<span class="badge badge-word">WORD</span>' : ''}<span>act. ${p.actualizado}</span><button class="mini-ico" title="Mover a otra carpeta" onclick="event.stopPropagation();abrirMoverItem('pl','${p.id}')">📂</button></div>
+      </div>`).join('');
+    cont.scrollTop = top;
+    return;
+  }
+  let html = nodosHijos('pl', null).map(f => renderNodoCarpeta('pl', f, 0, renderItemPlantilla)).join('');
+  html += itemsEnCarpeta('pl', null).map(p => renderItemPlantilla(p, 0)).join('');
+  if(!html){ cont.innerHTML = '<div class="vacio" style="margin-top:30px;font-size:13px">Sin plantillas. Crea una nueva o sube un Word.</div>'; return; }
+  cont.innerHTML = html;
   cont.scrollTop = top;
 }
 function seleccionar(id){
@@ -14338,11 +14573,19 @@ function seleccionar(id){
   seleccion = id; datosForm = {}; condForm = {}; listasForm = {}; editandoDoc = false; docEditado = ''; bloqueEditando = null;
   const p = plActual();
   if(p) aplicarFijos(varsDe(p), datosForm);
+  if(p && p.carpetaId) abrirAncestros('pl', p.carpetaId);   // que quede visible dentro de su carpeta, no oculta
   if(tabsSinPlantilla.includes(tabActual)) tabActual = 'generar';
   pedirResetScroll();               // documento nuevo: se empieza desde arriba
   renderLista(); renderTabs(); renderContenido();
 }
 function plActual(){ return plantillas.find(p => p.id === seleccion) || null; }
+/* Expande la carpeta dada y todas sus carpetas ancestras, para que un ítem
+   dentro de ellas quede visible en el árbol en vez de escondido colapsado. */
+function abrirAncestros(cual, carpetaId){
+  const arbol = arbolCarpetas(cual), abiertas = abiertasDe(cual);
+  let cur = arbol.find(c => c.id === carpetaId);
+  while(cur){ abiertas.add(cur.id); cur = arbol.find(c => c.id === cur.padreId); }
+}
 
 /* ============ Tabs ============ */
 /* Si hay un bloque abierto en el editor, vuelca su texto al modelo y lo guarda.
@@ -15042,7 +15285,8 @@ function indexarClausulaEnRepo(titulo, html){
     }
   }
   const v = { id: uid(), nombre: 'Original', cuerpo: html };
-  const cl = { id: uid(), categoria: 'Importadas de Word', nombre: (titulo || 'Cláusula').trim(), variantes: [v] };
+  const carpeta = carpetaPorNombreORaiz('cl', 'Importadas de Word');
+  const cl = { id: uid(), carpetaId: carpeta.id, nombre: (titulo || 'Cláusula').trim(), variantes: [v] };
   clausulas.unshift(cl);
   return { clId: cl.id, varId: v.id, nuevo: true };
 }
@@ -15065,10 +15309,14 @@ function importarDocxAComposicion(p){
     if(rv){ b.cuerpo = rv.v.cuerpo; b.titulo = rv.cl.nombre; b.refHash = hashHTML(rv.v.cuerpo); }
     if(r.nuevo) nuevas++; else vinc++;
   });
+  // La composición se archiva en una subcarpeta "Indexada" junto a su Word de
+  // origen, para que no quede suelta ni mezclada con las plantillas Word en el
+  // mismo nivel — se puede mover a mano después si no calza con tu organización.
+  const carpetaIndexada = carpetaPorNombreEnPadre('pl', 'Indexada', p.carpetaId || null);
   const nueva = {
     id: uid(),
     nombre: (p.nombre || 'Plantilla').replace(/\s*\((Word|docx)\)\s*$/i,'').trim() + ' (composición)',
-    categoria: p.categoria || 'Contratos',
+    carpetaId: carpetaIndexada.id,
     descripcion: 'Importada del Word e indexada al repositorio de cláusulas.',
     tipo: 'html', bloques, actualizado: hoy()
   };
@@ -15319,7 +15567,7 @@ function crearPlantillaDesdeDocx(ev){
     try{ new PizZip(b64ABytes(b64)); }
     catch(e){ alert('El archivo no parece un .docx válido.'); ev.target.value=''; return; }
     const nombre = file.name.replace(/\.docx$/i,'').replace(/[_-]+/g,' ').trim() || 'Plantilla Word';
-    const p = { id: uid(), nombre, categoria: 'Otros', descripcion: '', actualizado: hoy(), tipo:'docx', archivoB64: b64 };
+    const p = { id: uid(), nombre, carpetaId: null, descripcion: '', actualizado: hoy(), tipo:'docx', archivoB64: b64 };
     plantillas.unshift(p); guardar();
     seleccion = p.id; datosForm = {}; condForm = {}; listasForm = {}; tabActual = 'editar';
     renderCats(); renderLista(); renderTabs(); renderContenido();
@@ -16159,7 +16407,7 @@ function renderEditar(c, p){
   c.innerHTML = `
     <div class="ed-meta">
       <div class="campo"><label>Nombre de la plantilla</label><input id="ed-nombre" value="${esc(p.nombre)}"></div>
-      <div class="campo"><label>Categoría</label><input id="ed-cat" list="cats-dl" value="${esc(p.categoria)}"><datalist id="cats-dl">${categorias().filter(x=>x!=='Todas').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
+      <div class="campo"><label>Carpeta</label><div class="carpeta-actual">📁 ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
       <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
     <div class="eb-barra">
@@ -16755,10 +17003,11 @@ function renderModalClausulas(){
   }
   const cats = {};
   clausulas.forEach(cl => {
+    const ruta = cl.carpetaId ? rutaCarpeta('cl', cl.carpetaId) : 'Sin carpeta';
     const variantes = cl.variantes.filter(v =>
-      !q || normalizar(`${cl.categoria} ${cl.nombre} ${v.nombre}`).includes(q) || normalizar(extracto(v.cuerpo)).includes(q)
+      !q || normalizar(`${ruta} ${cl.nombre} ${v.nombre}`).includes(q) || normalizar(extracto(v.cuerpo)).includes(q)
     );
-    if(variantes.length) (cats[cl.categoria] = cats[cl.categoria] || []).push({ cl, variantes });
+    if(variantes.length) (cats[ruta] = cats[ruta] || []).push({ cl, variantes });
   });
   const claves = Object.keys(cats).sort();
   if(!claves.length){ cont.innerHTML = '<p style="color:var(--gris);font-size:13px">Sin resultados para esa búsqueda.</p>'; return; }
@@ -16865,22 +17114,21 @@ function guardarSeleccionComoClausula(target){
   const div = document.createElement('div');
   div.appendChild(sel.getRangeAt(0).cloneContents());
   const cuerpo = div.innerHTML;
-  const categoria = prompt('Categoría de la cláusula (ej. Garantía, Plazo, Confidencialidad):');
-  if(!categoria) return;
-  const nombre = prompt('Nombre de la cláusula:', categoria.trim()) || categoria.trim();
+  const nombre = prompt('Nombre de la cláusula:');
+  if(!nombre) return;
   const variante = prompt('Nombre de esta variante (ej. «Versión convenios»):', 'Variante 1') || 'Variante 1';
   // Si ya existe una cláusula con ese nombre, el texto entra como variante nueva
-  const existente = clausulas.find(c => normalizar(c.categoria) === normalizar(categoria) && normalizar(c.nombre) === normalizar(nombre));
+  const existente = clausulas.find(c => normalizar(c.nombre) === normalizar(nombre));
   if(existente){
     existente.variantes.push({ id: uid(), nombre: variante.trim(), cuerpo });
     clausulaAbierta = existente.id;
   } else {
-    const cl = { id: uid(), categoria: categoria.trim(), nombre: nombre.trim(), variantes: [{ id: uid(), nombre: variante.trim(), cuerpo }] };
+    const cl = { id: uid(), carpetaId: null, nombre: nombre.trim(), variantes: [{ id: uid(), nombre: variante.trim(), cuerpo }] };
     clausulas.unshift(cl);
     clausulaAbierta = cl.id;
   }
   guardar();
-  alert(`Cláusula guardada en el repositorio (${categoria.trim()} · ${nombre.trim()} · ${variante.trim()}).`);
+  alert(`Cláusula guardada en el repositorio (${nombre.trim()} · ${variante.trim()}).`);
 }
 
 /* ============ Repositorio de cláusulas ============ */
@@ -16889,7 +17137,7 @@ function renderRepositorio(c){
     <div class="gen-grid" style="grid-template-columns:330px 1fr">
       <div>
         <div class="card" id="rep-lista-scroll" style="max-height:66vh;overflow-y:auto">
-          <h3>Cláusulas por categoría</h3>
+          <h3 style="display:flex;align-items:center;justify-content:space-between">Cláusulas <button class="chip" style="text-transform:none" onclick="crearSubcarpeta('cl', null)">📁＋ Carpeta</button></h3>
           <div class="campo" style="margin-bottom:10px"><input type="search" id="rep-busq" placeholder="Buscar cláusula…" value="${esc(repoFiltro)}" oninput="repoFiltro=this.value;document.getElementById('lista-clausulas').innerHTML=listaClausulasHtml()"></div>
           <div id="lista-clausulas">${listaClausulasHtml()}</div>
         </div>
@@ -16900,31 +17148,33 @@ function renderRepositorio(c){
       <div id="editor-variante">${varianteActual() ? renderVarianteEditorHtml() : `<div class="vacio" style="margin-top:30px">Selecciona una variante de la izquierda,<br>o crea una cláusula nueva.<br><br>Cada cláusula puede tener varias <b>variantes</b> (p. ej. garantía para bienes vs. servicios).<br>Desde el editor de plantillas o desde el documento final, el botón <b>📋 Cláusula</b><br>inserta cualquiera de estas variantes donde la necesites,<br>y <b>📌 Guardar cláusula</b> trae aquí el texto que selecciones en un documento.</div>`}</div>
     </div>`;
 }
+function renderItemClausula(cl, nivel, forzarAbierta){
+  const pad = 8 + (nivel||0)*14;
+  return `<div class="rep-clausula" style="padding-left:${pad}px">
+      <div class="rep-clausula-nombre">
+        <span onclick="toggleClausula('${cl.id}')" style="flex:1">${esc(cl.nombre)}</span>
+        <span class="n-var">${cl.variantes.length} var.</span>
+        <button class="mini-ico" title="Mover a otra carpeta" onclick="event.stopPropagation();abrirMoverItem('cl','${cl.id}')">📂</button>
+        <span class="del" onclick="eliminarClausulaCompleta('${cl.id}')" title="Eliminar cláusula completa">🗑</span>
+      </div>
+      <div class="rep-variantes" style="display:${clausulaAbierta === cl.id || forzarAbierta ? 'block' : 'none'}">
+        ${cl.variantes.map(v => `<div class="rep-variante ${varianteSel && varianteSel.clId === cl.id && varianteSel.varId === v.id ? 'sel' : ''}" onclick="seleccionarVariante('${cl.id}','${v.id}')">${esc(v.nombre)}</div>`).join('')}
+        <div class="rep-variante nueva" onclick="nuevaVariante('${cl.id}')">+ Nueva variante</div>
+      </div>
+    </div>`;
+}
 function listaClausulasHtml(){
   if(!clausulas.length) return '<p style="font-size:13px;color:var(--gris)">Repositorio vacío. Crea tu primera cláusula.</p>';
   const q = normalizar(repoFiltro || '');
-  const cats = {};
-  clausulas.forEach(cl => {
-    if(q && !normalizar(`${cl.categoria} ${cl.nombre} ${cl.variantes.map(v=>v.nombre).join(' ')}`).includes(q) && !cl.variantes.some(v => normalizar(extracto(v.cuerpo)).includes(q))) return;
-    (cats[cl.categoria] = cats[cl.categoria] || []).push(cl);
-  });
-  const claves = Object.keys(cats).sort();
-  if(!claves.length) return '<p style="font-size:13px;color:var(--gris)">Sin resultados.</p>';
-  return claves.map(cat => `
-    <div class="rep-cat-titulo">${esc(cat)}</div>
-    ${cats[cat].map(cl => `
-      <div class="rep-clausula">
-        <div class="rep-clausula-nombre">
-          <span onclick="toggleClausula('${cl.id}')" style="flex:1">${esc(cl.nombre)}</span>
-          <span class="n-var">${cl.variantes.length} var.</span>
-          <span class="del" onclick="eliminarClausulaCompleta('${cl.id}')" title="Eliminar cláusula completa">🗑</span>
-        </div>
-        <div class="rep-variantes" style="display:${clausulaAbierta === cl.id || q ? 'block' : 'none'}">
-          ${cl.variantes.map(v => `<div class="rep-variante ${varianteSel && varianteSel.clId === cl.id && varianteSel.varId === v.id ? 'sel' : ''}" onclick="seleccionarVariante('${cl.id}','${v.id}')">${esc(v.nombre)}</div>`).join('')}
-          <div class="rep-variante nueva" onclick="nuevaVariante('${cl.id}')">+ Nueva variante</div>
-        </div>
-      </div>`).join('')}`
-  ).join('');
+  if(q){
+    const filtradas = clausulas.filter(cl =>
+      normalizar(`${cl.nombre} ${cl.variantes.map(v=>v.nombre).join(' ')}`).includes(q) || cl.variantes.some(v => normalizar(extracto(v.cuerpo)).includes(q)));
+    if(!filtradas.length) return '<p style="font-size:13px;color:var(--gris)">Sin resultados.</p>';
+    return filtradas.map(cl => renderItemClausula(cl, 0, true)).join('');
+  }
+  let html = nodosHijos('cl', null).map(f => renderNodoCarpeta('cl', f, 0, renderItemClausula)).join('');
+  html += itemsEnCarpeta('cl', null).map(cl => renderItemClausula(cl, 0)).join('');
+  return html || '<p style="font-size:13px;color:var(--gris)">Sin cláusulas todavía.</p>';
 }
 function toggleClausula(id){
   clausulaAbierta = clausulaAbierta === id ? null : id;
@@ -16938,6 +17188,8 @@ function varianteActual(){
 }
 function seleccionarVariante(clId, varId){
   clausulaAbierta = clId; varianteSel = { clId, varId };
+  const cl = clausulas.find(c => c.id === clId);
+  if(cl && cl.carpetaId) abrirAncestros('cl', cl.carpetaId);
   renderContenido();
 }
 function renderVarianteEditorHtml(){
@@ -16946,7 +17198,7 @@ function renderVarianteEditorHtml(){
   return `
     <div class="card">
       <h3>Editar variante</h3>
-      <div class="campo"><label>Cláusula</label><input value="${esc(cl.categoria)} · ${esc(cl.nombre)}" readonly></div>
+      <div class="campo"><label>Cláusula</label><div class="carpeta-actual">${cl.carpetaId ? `📁 ${esc(rutaCarpeta('cl', cl.carpetaId))} · ` : ''}<b>${esc(cl.nombre)}</b><button class="btn sec mini" onclick="abrirMoverItem('cl','${cl.id}')">Mover…</button></div></div>
       <div class="campo"><label>Nombre de esta variante</label><input id="rep-var-nombre" value="${esc(v.nombre)}"></div>
       <div class="campo"><label>Variables que pide esta variante</label><div id="rep-var-chips">${vars.length ? vars.map(x => `<span class="chip-var">${esc(x)}</span>`).join('') : '<span style="font-size:12px;color:var(--gris)">Ninguna (texto fijo)</span>'}</div></div>
     </div>
@@ -16966,10 +17218,9 @@ function refrescarChipsVariante(){
   chips.innerHTML = vars.length ? vars.map(x => `<span class="chip-var">${esc(x)}</span>`).join('') : '<span style="font-size:12px;color:var(--gris)">Ninguna (texto fijo)</span>';
 }
 function nuevaCategoriaClausula(){
-  const categoria = prompt('Categoría de la cláusula (ej. Garantía, Objeto, Plazo):');
-  if(!categoria) return;
-  const nombre = prompt('Nombre de la cláusula (ej. Garantía técnica):', categoria) || categoria;
-  const cl = { id: uid(), categoria: categoria.trim(), nombre: nombre.trim(),
+  const nombre = prompt('Nombre de la cláusula (ej. Garantía técnica):');
+  if(!nombre) return;
+  const cl = { id: uid(), carpetaId: null, nombre: nombre.trim(),
     variantes: [{ id: uid(), nombre: 'Variante 1', cuerpo: '<h2>NOMBRE DE LA CLÁUSULA</h2><p>Redacta aquí el texto. Puedes usar variables como {{variable}}.</p>' }] };
   clausulas.unshift(cl); guardar();
   clausulaAbierta = cl.id; varianteSel = { clId: cl.id, varId: cl.variantes[0].id };
@@ -17030,7 +17281,6 @@ function eliminarClausulaCompleta(clId){
 function guardarPlantilla(){
   const p = plActual(); if(!p) return;
   p.nombre = document.getElementById('ed-nombre').value.trim() || 'Sin título';
-  p.categoria = document.getElementById('ed-cat').value.trim() || 'Otros';
   p.descripcion = document.getElementById('ed-desc').value.trim();
   if(p.tipo === 'docx'){
     const ed = document.getElementById('editor');
@@ -17052,7 +17302,7 @@ function renderEditarDocx(c, p){
   c.innerHTML = `
     <div class="ed-meta">
       <div class="campo"><label>Nombre de la plantilla</label><input id="ed-nombre" value="${esc(p.nombre)}"></div>
-      <div class="campo"><label>Categoría</label><input id="ed-cat" list="cats-dl" value="${esc(p.categoria)}"><datalist id="cats-dl">${categorias().filter(x=>x!=='Todas').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
+      <div class="campo"><label>Carpeta</label><div class="carpeta-actual">📁 ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
       <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
     ${revisiones ? `<div class="aviso-tags" style="background:var(--azul-claro);border-left-color:var(--azul);color:var(--texto)"><b>ℹ Esta plantilla tiene «Control de cambios» activo en Word.</b><p style="margin:6px 0 0">La herramienta usa el <b>texto final</b> (acepta las revisiones automáticamente), así los tags se leen y se rellenan bien. <b>Recomendación:</b> en Word ve a <i>Revisar → Aceptar todos los cambios</i> y <i>Revisar → Control de cambios (desactivar)</i>, y vuelve a subir la plantilla, para evitar confusiones.</p></div>` : ''}
@@ -17090,7 +17340,7 @@ function renderEditarDocx(c, p){
     </div>`;
 }
 function nuevaPlantilla(){
-  const p = { id: uid(), nombre: 'Nueva plantilla', categoria: 'Otros', descripcion: '', actualizado: hoy(),
+  const p = { id: uid(), nombre: 'Nueva plantilla', carpetaId: null, descripcion: '', actualizado: hoy(),
     cuerpo: '<h1>TÍTULO DEL INSTRUMENTO N.º {{numero_documento}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Redacta aquí el contenido e inserta variables como {{proveedor}} donde corresponda.</p>' };
   plantillas.unshift(p); guardar();
   seleccion = p.id; tabActual = 'editar';
@@ -17185,8 +17435,8 @@ function importarBiblioteca(ev){
             data.contrapartes.forEach(x => { if(!cn.has(normalizar(x.nombre))) contrapartes.push(x); });
           }
           if(Array.isArray(data.clausulas)){
-            const nomCl = new Set(clausulas.map(c => normalizar(c.categoria + '|' + c.nombre)));
-            data.clausulas.forEach(c => { if(!nomCl.has(normalizar(c.categoria + '|' + c.nombre))){ c.id = uid(); (c.variantes||[]).forEach(v => v.id = uid()); clausulas.push(c); } });
+            const nomCl = new Set(clausulas.map(c => normalizar(c.nombre)));
+            data.clausulas.forEach(c => { if(!nomCl.has(normalizar(c.nombre))){ c.id = uid(); (c.variantes||[]).forEach(v => v.id = uid()); clausulas.push(c); } });
           }
           if(Array.isArray(data.variables)){
             data.variables.forEach(v => { if(!buscarVar(v.nombre)){ v.id = uid(); variablesRepo.push(v); } });
