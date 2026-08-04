@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Generador de Instrumentos Legales · FAP</title>
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#00249C">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<script>
+/* Instalable y disponible sin conexion cuando se sirve desde un sitio web.
+   Abierto como archivo suelto (file://) no hay service worker: se ignora en
+   silencio para que la herramienta siga funcionando igual desde el disco. */
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js').catch(function () { /* sin caché offline */ });
+  });
+}
+</script>
 <!-- Librerias incrustadas (html-docx-js 0.3.1 y JSZip 3.10.1) para que la
      generacion de Word y de lotes ZIP funcione tambien sin conexion. -->
 <script>!function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.htmlDocx=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
@@ -13589,9 +13602,16 @@ tr:hover td{background:var(--azul-claro)}
 /* ============ Configuración ============ */
 /* Rutas donde buscar el registro de contratos (JSON que Power Automate
    sobrescribe cada mañana desde el Excel maestro). Se prueba en orden. */
+/* Se prueba en orden y gana la primera que responda:
+   1. la copia del repo, cuando la app vive dentro de fap-contratos;
+   2. la fuente viva publicada, que el flujo diario reescribe cada mañana —
+      es la que mantiene los datos frescos en el sitio independiente;
+   3. la copia local incluida en el sitio, como respaldo para trabajar sin
+      internet (puede estar desactualizada, pero evita quedarse sin registro). */
 const RUTAS_REGISTRO = [
   '../crm/contratos_export.json',
-  'https://diegodr76-f.github.io/fap-contratos/crm/contratos_export.json'
+  'https://diegodr76-f.github.io/fap-contratos/crm/contratos_export.json',
+  './datos/contratos_export.json'
 ];
 
 /* Cómo se llenan las variables de plantilla desde una fila del registro.
