@@ -14229,6 +14229,7 @@ function cargar(){
   // carpeta raíz y cada plantilla/cláusula queda archivada en la que le tocaba.
   let migradoCarpetas = false;
   if(!store.get('fap_gen_carpetas_migrado')){ migrarCarpetas(); store.set('fap_gen_carpetas_migrado','1'); migradoCarpetas = true; }
+  sanearCarpetas();
   // Las carpetas raíz empiezan abiertas en cada carga (como antes, con las
   // categorías siempre visibles); las subcarpetas que se creen quedan
   // colapsadas por defecto para que un árbol grande no se vuelva inmanejable.
@@ -14308,6 +14309,36 @@ function rutaCarpeta(cual, id){
   let cur = arbol.find(c => c.id === id);
   while(cur){ partes.unshift(cur.nombre); cur = arbol.find(c => c.id === cur.padreId); }
   return partes.join(' / ');
+}
+/* Red de seguridad: un carpetaId que no corresponde a ninguna carpeta real
+   dejaría al elemento fuera de todas las ramas del árbol, o sea invisible.
+   Todo lo huérfano se suelta a la raíz, donde al menos se ve y se puede mover. */
+function sanearCarpetas(){
+  [['pl', plantillas, carpetas], ['cl', clausulas, carpetasClausulas]].forEach(([cual, items, arbol]) => {
+    const ids = new Set(arbol.map(f => f.id));
+    arbol.forEach(f => { if(f.padreId && !ids.has(f.padreId)) f.padreId = null; });
+    items.forEach(x => { if(x.carpetaId && !ids.has(x.carpetaId)) x.carpetaId = null; });
+  });
+}
+/* Vuelca un árbol de carpetas importado sobre el actual, casando por RUTA
+   completa: si «Contratos / Arriendo» ya existe, lo que venga dentro cae ahí en
+   vez de crear un duplicado. Devuelve el mapa idViejo → idAquí. */
+function fusionarCarpetas(cual, entrantes){
+  const mapa = {};
+  if(!Array.isArray(entrantes) || !entrantes.length) return mapa;
+  const porId = {};
+  entrantes.forEach(f => { porId[f.id] = f; });
+  const rutaDe = (f) => {
+    const partes = []; let cur = f, tope = 0;
+    while(cur && tope++ < 50){ partes.unshift(cur.nombre); cur = cur.padreId ? porId[cur.padreId] : null; }
+    return partes;
+  };
+  entrantes.forEach(f => {
+    let padreId = null;
+    rutaDe(f).forEach(nombre => { padreId = carpetaPorNombreEnPadre(cual, nombre, padreId).id; });
+    mapa[f.id] = padreId;
+  });
+  return mapa;
 }
 function carpetaPorNombreEnPadre(cual, nombre, padreId){
   let f = arbolCarpetas(cual).find(c => (c.padreId||null) === (padreId||null) && c.nombre === nombre);
@@ -15293,22 +15324,164 @@ function huellaClausula(html){
     .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
     .replace(/[^a-z0-9¤]+/g,'');
 }
-/* Busca en el repositorio una cláusula/variante con la misma huella; si no
-   existe, la crea. Así la primera plantilla que trae una cláusula la registra y
-   las siguientes que la comparten se enlazan a la misma (quedan conectadas). */
-function indexarClausulaEnRepo(titulo, html){
+/* Palabras que no distinguen una cláusula de otra, para que «ADMINISTRACIÓN Y
+   SUPERVISIÓN DEL CONTRATO» y «ADMINISTRACIÓN Y SUPERVISIÓN DE CONTRATO» se
+   reconozcan como la misma cláusula. */
+const PALABRAS_VACIAS = new Set(['de','del','la','el','los','las','y','a','al','en','un','una','lo','por','para']);
+/* Clave de identidad de una cláusula: su TÍTULO normalizado. Dos textos con el
+   mismo título son la misma cláusula aunque estén redactados distinto — cada
+   redacción es una VARIANTE (arriendo, prestación de servicios…), que es como
+   se usan de verdad. Los {{tags}} del título se ignoran: «OBLIGACIONES
+   {{DELLACONTRATISTA}}» y «OBLIGACIONES {{delDeLaContratista}}» son una sola. */
+function claveClausula(titulo){
+  const t = String(titulo || '')
+    .replace(/\{\{[^}]*\}\}/g,' ')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .toLowerCase().replace(/[^a-z0-9]+/g,' ');
+  return t.split(' ').filter(p => p && !PALABRAS_VACIAS.has(p)).join(' ');
+}
+/* Nombre corto para la variante, sacado del documento del que se importa:
+   «Formato contrato de arriendo FIAS-FAP (Word)» → «Arriendo». Así la variante
+   dice de qué contrato viene, en vez del inútil «Original». */
+function nombreVarianteDesde(nombrePlantilla){
+  let s = String(nombrePlantilla || '').trim()
+    .replace(/\.(docx?|dotx)$/i,'')
+    .replace(/\((word|docx|composici[óo]n)\)/ig,' ')
+    .replace(/\bfias[\s-]*fap\b|\bfap[\s-]*fias\b|\bfiasfap\b|\bfias\b|\bfap\b/ig,' ')
+    .replace(/^\s*(formato|plantilla|modelo)\b/i,' ')
+    .replace(/^\s*(de|del)\b/i,' ')
+    .replace(/^\s*(contrato|convenio|acta|adenda|informe)\b/i,' ')
+    .replace(/^\s*(de|del)\b/i,' ')
+    .replace(/\s+/g,' ').trim();
+  if(!s) s = String(nombrePlantilla || 'Importada').trim() || 'Importada';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+/* Indexa una cláusula recién extraída de un Word. Tres desenlaces, en orden:
+   1. El texto ya existe igualito → se enlaza a esa variante (nada que crear).
+   2. Existe una cláusula con el MISMO TÍTULO pero otra redacción → entra como
+      VARIANTE nueva de esa cláusula, nombrada según el documento de origen.
+   3. No hay nada parecido → cláusula nueva, con su primera variante.
+   Antes solo existían los casos 1 y 3, así que cada contrato dejaba su propia
+   copia suelta: 5 «ANTECEDENTES» distintos en vez de uno con 5 variantes. */
+function indexarClausulaEnRepo(titulo, html, origen){
   const fp = huellaClausula(html);
   if(fp.replace(/¤/g,'').length < 12) return null;   // demasiado corta para indexar
   for(const cl of clausulas){
     for(const v of cl.variantes){
-      if(huellaClausula(v.cuerpo) === fp) return { clId: cl.id, varId: v.id, nuevo: false };
+      if(huellaClausula(v.cuerpo) === fp) return { clId: cl.id, varId: v.id, estado: 'enlazada' };
     }
   }
-  const v = { id: uid(), nombre: 'Original', cuerpo: html };
+  const nombreVar = nombreVarianteDesde(origen);
+  const clave = claveClausula(titulo);
+  const hermana = clave ? clausulas.find(c => claveClausula(c.nombre) === clave) : null;
+  if(hermana){
+    const v = { id: uid(), nombre: nombreUnicoVariante(hermana, nombreVar), cuerpo: html };
+    hermana.variantes.push(v);
+    return { clId: hermana.id, varId: v.id, estado: 'variante' };
+  }
+  const v = { id: uid(), nombre: nombreVar, cuerpo: html };
   const carpeta = carpetaPorNombreORaiz('cl', 'Importadas de Word');
   const cl = { id: uid(), carpetaId: carpeta.id, nombre: (titulo || 'Cláusula').trim(), variantes: [v] };
   clausulas.unshift(cl);
-  return { clId: cl.id, varId: v.id, nuevo: true };
+  return { clId: cl.id, varId: v.id, estado: 'nueva' };
+}
+function nombreUnicoVariante(cl, base){
+  const usados = new Set(cl.variantes.map(v => normalizar(v.nombre)));
+  if(!usados.has(normalizar(base))) return base;
+  for(let i = 2; i < 99; i++){ if(!usados.has(normalizar(`${base} ${i}`))) return `${base} ${i}`; }
+  return base;
+}
+/* Cláusulas ya guardadas que comparten título y deberían ser una sola con
+   varias variantes (el repositorio de antes creaba una copia suelta por cada
+   contrato importado). */
+function gruposDuplicadosClausulas(){
+  const grupos = {};
+  clausulas.forEach(cl => {
+    const k = claveClausula(cl.nombre);
+    if(k) (grupos[k] = grupos[k] || []).push(cl);
+  });
+  return Object.keys(grupos).filter(k => grupos[k].length > 1).map(k => grupos[k]);
+}
+/* Si una variante se llama «Original», se busca de qué plantilla vino para
+   ponerle un nombre que sirva («Arriendo», «Prestación de servicios»…). */
+function inferirNombreVariante(clId, varId){
+  for(const p of plantillas){
+    if((p.bloques || []).some(b => b.refCl === clId && b.refVar === varId))
+      return nombreVarianteDesde(p.nombre);
+  }
+  return '';
+}
+/* Fusiona las cláusulas repetidas conservando TODO: cada redacción distinta
+   queda como una variante de la cláusula que sobrevive, y las referencias de
+   las plantillas se reapuntan para que ningún bloque vinculado se rompa. */
+function consolidarClausulasDuplicadas(){
+  const grupos = gruposDuplicadosClausulas();
+  if(!grupos.length){ alert('No hay cláusulas repetidas: cada título aparece una sola vez.'); return; }
+  const totalCopias = grupos.reduce((n, g) => n + g.length, 0);
+  const muestra = grupos.slice(0, 12).map(g => {
+    const nv = g.reduce((n, c) => n + c.variantes.length, 0);
+    return `• ${g[0].nombre}  —  ${g.length} copias → 1 con ${nv} variantes`;
+  }).join('\n');
+  if(!confirm(
+    `Se encontraron ${grupos.length} títulos repetidos (${totalCopias} cláusulas sueltas).\n\n${muestra}`
+    + (grupos.length > 12 ? `\n…y ${grupos.length - 12} más` : '')
+    + `\n\nCada redacción distinta se conserva como VARIANTE de una sola cláusula. No se borra ningún texto, y las plantillas que ya usan estas cláusulas se reapuntan solas.\n\n¿Consolidar?`
+  )) return;
+
+  const remap = {};                  // varId viejo → { clId, varId } definitivo
+  const aEliminar = new Set();
+  let variantesMovidas = 0, duplicadasExactas = 0, renombradas = 0;
+
+  grupos.forEach(grupo => {
+    // Sobrevive la que ya tiene más variantes (suele ser la mejor curada)
+    const destino = grupo.slice().sort((a, b) => b.variantes.length - a.variantes.length)[0];
+    grupo.filter(c => c !== destino).forEach(cl => {
+      cl.variantes.forEach(v => {
+        const fp = huellaClausula(v.cuerpo);
+        const gemela = destino.variantes.find(x => huellaClausula(x.cuerpo) === fp);
+        if(gemela){                  // texto idéntico: sobra, se apunta a la que queda
+          remap[v.id] = { clId: destino.id, varId: gemela.id };
+          duplicadasExactas++;
+          return;
+        }
+        let nombre = v.nombre;
+        if(/^original\b/i.test(nombre)){
+          const inferido = inferirNombreVariante(cl.id, v.id);
+          if(inferido){ nombre = inferido; renombradas++; }
+        }
+        v.nombre = nombreUnicoVariante(destino, nombre);
+        destino.variantes.push(v);
+        remap[v.id] = { clId: destino.id, varId: v.id };
+        variantesMovidas++;
+      });
+      aEliminar.add(cl.id);
+    });
+  });
+
+  plantillas.forEach(p => (p.bloques || []).forEach(b => {
+    const r = b.refVar && remap[b.refVar];
+    if(r){ b.refCl = r.clId; b.refVar = r.varId; }
+  }));
+  clausulas = clausulas.filter(c => !aEliminar.has(c.id));
+  // Pasada final de nombres: ya con las referencias reapuntadas se sabe qué
+  // plantilla usa cada variante, así que las que siguen llamándose «Original»
+  // toman el nombre de su contrato. Antes de reapuntar no se podía saber,
+  // porque la plantilla podía estar apuntando a la copia que se absorbió.
+  clausulas.forEach(cl => cl.variantes.forEach(v => {
+    if(!/^original\b/i.test(v.nombre)) return;
+    const inferido = inferirNombreVariante(cl.id, v.id);
+    if(inferido){ v.nombre = nombreUnicoVariante(cl, inferido); renombradas++; }
+  }));
+  if(varianteSel && aEliminar.has(varianteSel.clId)) varianteSel = null;
+  if(clausulaAbierta && aEliminar.has(clausulaAbierta)) clausulaAbierta = null;
+
+  guardar(); renderContenido();
+  alert(`✓ Consolidado.\n\n`
+    + `• ${aEliminar.size} cláusulas sueltas absorbidas (quedan ${clausulas.length})\n`
+    + `• ${variantesMovidas} redacciones conservadas como variantes\n`
+    + `• ${duplicadasExactas} eran texto idéntico y se unificaron\n`
+    + `• ${renombradas} variantes «Original» renombradas según su contrato de origen\n\n`
+    + `Las plantillas vinculadas quedaron reapuntadas: no se rompió ningún bloque.`);
 }
 /* Convierte un .docx subido en una composición de bloques con sus cláusulas
    indexadas y vinculadas al repositorio. Crea una plantilla HTML nueva; la
@@ -15318,16 +15491,19 @@ function importarDocxAComposicion(p){
   const body = docxABodyHtml(p);
   if(!body || !body.replace(/<[^>]+>/g,'').trim()){ alert('No pude extraer texto del documento. ¿Es un .docx válido?'); return; }
   const bloques = migrarABloques({ cuerpo: body });
-  let nCl = 0, vinc = 0, nuevas = 0;
+  const origen = nombreVarianteDesde(p.nombre);
+  let nCl = 0, vinc = 0, nuevas = 0, variantes = 0;
   bloques.forEach(b => {
     if(b.tipo !== 'clausula') return;
     nCl++;
-    const r = indexarClausulaEnRepo(b.titulo, b.cuerpo);
+    const r = indexarClausulaEnRepo(b.titulo, b.cuerpo, p.nombre);
     if(!r) return;
     const rv = buscarVariante(r.clId, r.varId);
     b.refCl = r.clId; b.refVar = r.varId; b.personalizado = false;
     if(rv){ b.cuerpo = rv.v.cuerpo; b.titulo = rv.cl.nombre; b.refHash = hashHTML(rv.v.cuerpo); }
-    if(r.nuevo) nuevas++; else vinc++;
+    if(r.estado === 'nueva') nuevas++;
+    else if(r.estado === 'variante') variantes++;
+    else vinc++;
   });
   // La composición se archiva en una subcarpeta "Indexada" junto a su Word de
   // origen, para que no quede suelta ni mezclada con las plantillas Word en el
@@ -15345,7 +15521,11 @@ function importarDocxAComposicion(p){
   guardar();
   seleccion = nueva.id; datosForm = {}; condForm = {}; listasForm = {}; bloqueEditando = null; tabActual = 'editar';
   renderCats(); renderLista(); renderTabs(); renderContenido();
-  alert(`✓ «${nueva.nombre}» creada como composición editable.\n\n${nCl} cláusulas detectadas:\n• ${nuevas} nuevas, registradas en el repositorio\n• ${vinc} vinculadas a cláusulas que ya existían (quedan conectadas)\n\nEdita cualquier cláusula aquí: los cambios se propagan a todas las plantillas que la comparten. La plantilla Word original y el generador siguen intactos.`);
+  alert(`✓ «${nueva.nombre}» creada como composición editable.\n\n${nCl} cláusulas detectadas:\n`
+    + `• ${nuevas} nuevas en el repositorio\n`
+    + `• ${variantes} añadidas como variante «${origen}» a cláusulas que ya existían con ese mismo título\n`
+    + `• ${vinc} enlazadas a un texto idéntico que ya estaba\n\n`
+    + `Las que entraron como variante no duplican la cláusula: quedan junto a las de los otros contratos, y al generar eliges cuál va. Edita cualquiera aquí y el cambio se propaga a todas las plantillas que la comparten. La plantilla Word original y el generador siguen intactos.`);
 }
 /* Acepta las marcas de revisión (control de cambios) del XML de Word: descarta
    el texto borrado (<w:del>, <w:moveFrom>) y conserva el insertado (<w:ins>,
@@ -17163,6 +17343,9 @@ function renderRepositorio(c){
         </div>
         <div class="acciones-gen">
           <button class="btn sec" onclick="nuevaCategoriaClausula()">+ Nueva cláusula</button>
+          ${(() => { const n = gruposDuplicadosClausulas().length; return n
+            ? `<button class="btn" onclick="consolidarClausulasDuplicadas()" title="Une las cláusulas con el mismo título en una sola, dejando cada redacción como variante">🧹 Unir repetidas (${n})</button>`
+            : ''; })()}
         </div>
       </div>
       <div id="editor-variante">${varianteActual() ? renderVarianteEditorHtml() : `<div class="vacio" style="margin-top:30px">Selecciona una variante de la izquierda,<br>o crea una cláusula nueva.<br><br>Cada cláusula puede tener varias <b>variantes</b> (p. ej. garantía para bienes vs. servicios).<br>Desde el editor de plantillas o desde el documento final, el botón <b>📋 Cláusula</b><br>inserta cualquiera de estas variantes donde la necesites,<br>y <b>📌 Guardar cláusula</b> trae aquí el texto que selecciones en un documento.</div>`}</div>
@@ -17429,7 +17612,7 @@ function descargarJSON(obj, nombre){
   descargarBlob(blob, nombre);
 }
 function exportarBiblioteca(){
-  descargarJSON({ tipo:'biblioteca_fap', version:5, exportado:new Date().toISOString(), plantillas, clausulas, variables: variablesRepo, historial, contrapartes, fijos, membrete, concordancias }, `biblioteca-instrumentos-fap-${hoy()}.json`);
+  descargarJSON({ tipo:'biblioteca_fap', version:6, exportado:new Date().toISOString(), plantillas, carpetas, clausulas, carpetasClausulas, variables: variablesRepo, historial, contrapartes, fijos, membrete, concordancias }, `biblioteca-instrumentos-fap-${hoy()}.json`);
 }
 function importarBiblioteca(ev){
   const file = ev.target.files[0]; if(!file) return;
@@ -17454,6 +17637,12 @@ function importarBiblioteca(ev){
             const cn = new Set(contrapartes.map(x => normalizar(x.nombre)));
             data.contrapartes.forEach(x => { if(!cn.has(normalizar(x.nombre))) contrapartes.push(x); });
           }
+          // Las carpetas se reconstruyen por ruta: si «Contratos / Arriendo» ya
+          // existe aquí, lo importado cae dentro en vez de duplicar el árbol.
+          const mapaPl = fusionarCarpetas('pl', data.carpetas);
+          data.plantillas.forEach(p => { if(p.carpetaId) p.carpetaId = mapaPl[p.carpetaId] || null; });
+          const mapaCl = fusionarCarpetas('cl', data.carpetasClausulas);
+          (data.clausulas || []).forEach(c => { if(c.carpetaId) c.carpetaId = mapaCl[c.carpetaId] || null; });
           if(Array.isArray(data.clausulas)){
             const nomCl = new Set(clausulas.map(c => normalizar(c.nombre)));
             data.clausulas.forEach(c => { if(!nomCl.has(normalizar(c.nombre))){ c.id = uid(); (c.variantes||[]).forEach(v => v.id = uid()); clausulas.push(c); } });
@@ -17469,6 +17658,12 @@ function importarBiblioteca(ev){
           }
         } else {
           plantillas = data.plantillas;
+          // Exportaciones anteriores a la v6 no traen el árbol de carpetas: se
+          // reconstruye a partir de las categorías si las hay, y sanearCarpetas()
+          // suelta a la raíz lo que quede apuntando a una carpeta inexistente
+          // (si no, esos elementos no se dibujarían en ningún lado).
+          carpetas = Array.isArray(data.carpetas) ? data.carpetas : [];
+          carpetasClausulas = Array.isArray(data.carpetasClausulas) ? data.carpetasClausulas : [];
           if(Array.isArray(data.historial)) historial = data.historial;
           if(Array.isArray(data.contrapartes)) contrapartes = data.contrapartes;
           if(Array.isArray(data.clausulas)) clausulas = data.clausulas;
@@ -17483,6 +17678,9 @@ function importarBiblioteca(ev){
       // Las plantillas importadas conservan su id: hay que invalidar la caché de
       // estructuras Word para releer los tags del contenido importado.
       Object.keys(cacheEstructura).forEach(k => delete cacheEstructura[k]);
+      migrarCarpetas(); sanearCarpetas();
+      abiertasPl = new Set(carpetas.filter(f => !f.padreId).map(f => f.id));
+      abiertasCl = new Set(carpetasClausulas.filter(f => !f.padreId).map(f => f.id));
       guardar(); renderCats(); renderLista(); renderContenido();
     }catch(e){ alert('No se pudo leer el archivo: ' + e.message); }
     ev.target.value = '';
