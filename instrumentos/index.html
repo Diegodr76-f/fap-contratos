@@ -15747,9 +15747,19 @@ function actualizarPreviewDocx(){
     if(probs.length){ el.innerHTML = avisoTagsHTML(probs); return; }
     try{
       const blob = generarBlobDocx(p, datosDocx(p, datosForm));
-      el.innerHTML = '';
       if(window.docx && window.docx.renderAsync){
-        await window.docx.renderAsync(blob, el, null, { inWrapper:false, ignoreLastRenderedPageBreak:true, breakPages:false, experimental:true });
+        // Se dibuja en un contenedor oculto y se intercambia de una sola vez:
+        // #preview nunca queda vacío mientras se genera. Con el papel
+        // membretado la vista previa suele ser más alta que el formulario, así
+        // que vaciarla un instante (como se hacía antes) desploma la altura de
+        // #contenido y el navegador recorta el scroll de golpe hacia arriba —
+        // eso era el «sube y baja» al escribir en el formulario.
+        const buffer = document.createElement('div');
+        buffer.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;width:${el.clientWidth}px`;
+        document.body.appendChild(buffer);
+        await window.docx.renderAsync(blob, buffer, null, { inWrapper:false, ignoreLastRenderedPageBreak:true, breakPages:false, experimental:true });
+        el.replaceChildren(...buffer.childNodes);
+        buffer.remove();
       } else {
         el.innerHTML = '<p style="color:var(--gris)">Vista previa no disponible; el Word se genera igual.</p>';
       }
