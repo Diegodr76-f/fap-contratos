@@ -13699,11 +13699,13 @@ function aNumero(x){
   } else if(s.includes(',')) s = s.replace(',', '.');
   return parseFloat(s);
 }
-function numeroALetras(num){
+/* Solo la parte entera deletreada, sin moneda: «150» → «Ciento cincuenta».
+   La usan tanto numeroALetras() (monto, le agrega la coletilla de dólares)
+   como los campos "letras" que no son dinero (p. ej. un plazo en días). */
+function numeroATexto(num){
   num = aNumero(num);
   if(isNaN(num)) return '';
   const ent = Math.floor(num);
-  const cent = Math.round((num - ent) * 100);
   const U = ['','UNO','DOS','TRES','CUATRO','CINCO','SEIS','SIETE','OCHO','NUEVE','DIEZ','ONCE','DOCE','TRECE','CATORCE','QUINCE','DIECISÉIS','DIECISIETE','DIECIOCHO','DIECINUEVE','VEINTE'];
   const D = ['','','VEINTI','TREINTA','CUARENTA','CINCUENTA','SESENTA','SETENTA','OCHENTA','NOVENTA'];
   const C = ['','CIENTO','DOSCIENTOS','TRESCIENTOS','CUATROCIENTOS','QUINIENTOS','SEISCIENTOS','SETECIENTOS','OCHOCIENTOS','NOVECIENTOS'];
@@ -13739,8 +13741,23 @@ function numeroALetras(num){
     if(resto) s += tramo(resto, false);
     return s.trim();
   }
-  const frase = `${grande(ent).toLowerCase()} con ${String(cent).padStart(2,'0')}/100 dólares de los Estados Unidos de América`;
+  const frase = grande(ent).toLowerCase();
   return frase.charAt(0).toUpperCase() + frase.slice(1);
+}
+function numeroALetras(num){
+  const texto = numeroATexto(num);
+  if(!texto) return '';
+  num = aNumero(num);
+  const cent = Math.round((num - Math.floor(num)) * 100);
+  return `${texto} con ${String(cent).padStart(2,'0')}/100 dólares de los Estados Unidos de América`;
+}
+/* Un campo "letras" no siempre es un monto: puede ser un plazo, una cantidad,
+   etc. Si su variable de origen NO tiene pinta de dinero (esDinero), se
+   deletrea el número solo, sin la coletilla de dólares — si no, «plazo: 150
+   días» salía como «Ciento cincuenta con 00/100 dólares de los Estados
+   Unidos de América», que es absurdo. */
+function formatoLetras(origenVar, val){
+  return esDinero(origenVar) ? numeroALetras(val) : numeroATexto(val);
 }
 /* Crece el textarea de «monto en letras» según su contenido, en vez de recortarlo */
 function ajustarAlturaLetras(el){
@@ -14563,12 +14580,13 @@ function origenDe(v){
 }
 const etiqueta = v => v.replace(/_/g,' ').replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g,'$1 $2').toLowerCase().replace(/^\w/, c => c.toUpperCase());
 
-/* Completa montos en letras dentro de un objeto de datos */
+/* Completa los campos "letras" (montos u otras cantidades) dentro de un objeto de datos */
 function completarLetras(vars, datos){
   vars.forEach(v => {
     if(esLetras(v)){
-      const b = datos[origenDe(v)];
-      datos[v] = b ? numeroALetras(b) : '';
+      const origen = origenDe(v);
+      const b = datos[origen];
+      datos[v] = b ? formatoLetras(origen, b) : '';
     }
   });
   return datos;
@@ -14838,7 +14856,7 @@ function actualizarCampo(v, val){
   const vars = varsDe(p);
   vars.forEach(x => {
     if(esLetras(x) && origenDe(x).toLowerCase() === v.toLowerCase()){
-      datosForm[x] = val ? numeroALetras(val) : '';
+      datosForm[x] = val ? formatoLetras(v, val) : '';
       const inp = document.getElementById('f_' + x);
       if(inp){ inp.value = datosForm[x]; ajustarAlturaLetras(inp); }
     }
@@ -15690,7 +15708,7 @@ function datosDocx(p, base, enLote){
   const datos = {};
   est.escalares.forEach(t => {
     let val = base[t] !== undefined && base[t] !== null ? String(base[t]) : '';
-    if(!val && esLetras(t) && base[origenDe(t)]) val = numeroALetras(base[origenDe(t)]);
+    if(!val && esLetras(t) && base[origenDe(t)]) val = formatoLetras(origenDe(t), base[origenDe(t)]);
     if(esFecha(t) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
     if(val && esDinero(t)) val = fmtMonto(val);
     datos[t] = val;
@@ -17246,7 +17264,7 @@ function insertarClausulaEnDoc(clId, varId){
     cuerpo = cuerpo.replace(/\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g, (m, x) => {
       let val = datos[x] || '';
       if(esFecha(x) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
-      if(!val && esLetras(x) && datos[origenDe(x)]) val = numeroALetras(datos[origenDe(x)]);
+      if(!val && esLetras(x) && datos[origenDe(x)]) val = formatoLetras(origenDe(x), datos[origenDe(x)]);
       if(val && esDinero(x)) val = fmtMonto(val);
       return val ? esc(val) : m;
     });
