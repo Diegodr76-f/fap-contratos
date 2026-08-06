@@ -14055,7 +14055,14 @@ function paqueteConsolidacionConcordancias(){
 function consolidarConcordanciasAuto(){
   let creados = 0, ampliados = 0, tagsNuevos = 0;
   paqueteConsolidacionConcordancias().forEach(def => {
-    let g = concordancias.find(x => x.nombre === def.nombre);
+    // Primero por nombre exacto; si no hay, por si ya existe un grupo (creado
+    // a mano, o al indexar un Word, con otro nombre) que gobierna alguno de
+    // estos mismos tags. Sin este segundo intento, un grupo ya existente
+    // llamado distinto («administradoracontadora» vs. el «administradorContadora»
+    // de este paquete) no se encontraba, y se creaba uno nuevo que competía
+    // con el que ya estaba — dos selectores preguntando lo mismo dos veces.
+    let g = concordancias.find(x => x.nombre === def.nombre)
+      || concordancias.find(x => Object.keys(def.tags).some(t => x.tags && x.tags[t]));
     let esNuevo = false;
     if(!g){
       g = { id: uid(), nombre: def.nombre, etiqueta: def.etiqueta, opciones: def.opciones.slice(), tags: {} };
@@ -14072,6 +14079,84 @@ function consolidarConcordanciasAuto(){
   concordancias.forEach(registrarTagsConcordancia);
   guardar();
   return { creados, ampliados, tagsNuevos, quedan: concordanciasHuerfanas().length };
+}
+/* Grupos que se pisan: gobiernan al menos un tag en común, así que preguntan
+   lo mismo más de una vez y el que se aplica de último gana en silencio.
+   Unión por transitividad (si A comparte tag con B y B con C, los tres van
+   juntos), con un union-find sobre el índice de `concordancias`. */
+function gruposConcordanciaDuplicados(){
+  const arr = concordancias;
+  const padre = arr.map((_, i) => i);
+  function raiz(i){ while(padre[i] !== i) i = padre[i] = padre[padre[i]]; return i; }
+  function unir(i, j){ const a = raiz(i), b = raiz(j); if(a !== b) padre[a] = b; }
+  for(let i = 0; i < arr.length; i++){
+    const tagsI = new Set(Object.keys(arr[i].tags || {}));
+    for(let j = i + 1; j < arr.length; j++){
+      if(Object.keys(arr[j].tags || {}).some(t => tagsI.has(t))) unir(i, j);
+    }
+  }
+  const clusters = {};
+  arr.forEach((g, i) => { const r = raiz(i); (clusters[r] = clusters[r] || []).push(g); });
+  return Object.values(clusters).filter(c => c.length > 1);
+}
+/* Fusiona los grupos que se pisan, conservando TODO: cada tag configurado
+   sobrevive, no se pierde ninguna palabra ya definida. Solo une grupos con
+   las MISMAS opciones (mismo número); si difieren, no se tocan — se avisan
+   aparte para revisar a mano, porque unir masculino/femenino con
+   masculino/femenino/empresa dejaría el índice de opciones sin sentido. */
+function consolidarConcordanciasDuplicadas(){
+  const grupos = gruposConcordanciaDuplicados();
+  if(!grupos.length){ alert('No hay grupos de concordancia repetidos: cada tag pertenece a un solo grupo.'); return; }
+  const mismasOpciones = g => JSON.stringify(g.opciones);
+  const compatibles = grupos.filter(g => g.every(x => mismasOpciones(x) === mismasOpciones(g[0])));
+  const incompatibles = grupos.filter(g => !compatibles.includes(g));
+  if(!compatibles.length){
+    alert(`Se encontraron ${grupos.length} grupo(s) que se pisan, pero con distinto número de opciones (no se pueden unir automáticamente sin perder sentido). Revísalos a mano en «Grupos de concordancia»:\n\n`
+      + incompatibles.map(g => g.map(x => `«${x.etiqueta}»`).join(' + ')).join('\n'));
+    return;
+  }
+  const muestra = compatibles.slice(0, 10).map(g => {
+    const tags = new Set(); g.forEach(x => Object.keys(x.tags || {}).forEach(t => tags.add(t)));
+    return `• ${g.map(x => x.etiqueta).join('  =  ')}\n   → 1 solo grupo, ${tags.size} tags`;
+  }).join('\n');
+  if(!confirm(
+    `Se encontraron ${compatibles.length} grupo(s) de concordancia que se pisan (gobiernan los mismos tags): se pregunta lo mismo más de una vez, y el que se aplica de último gana en silencio.\n\n${muestra}`
+    + (incompatibles.length ? `\n\n(${incompatibles.length} más se superponen pero con distinto número de opciones; esos no se tocan.)` : '')
+    + `\n\n¿Unirlos? No se pierde ningún tag ni ninguna palabra ya configurada.`
+  )) return;
+
+  let unidos = 0, tagsConservados = 0;
+  compatibles.forEach(grupo => {
+    // Sobrevive el que ya tiene más tags configurados (el más completo)
+    const destino = grupo.slice().sort((a, b) => Object.keys(b.tags || {}).length - Object.keys(a.tags || {}).length)[0];
+    grupo.filter(g => g !== destino).forEach(g => {
+      Object.keys(g.tags || {}).forEach(t => { if(!destino.tags[t]){ destino.tags[t] = g.tags[t]; tagsConservados++; } });
+      concordancias = concordancias.filter(x => x !== g);
+      unidos++;
+    });
+  });
+  concordancias.forEach(registrarTagsConcordancia);
+  guardar(); renderContenido();
+  alert(`✓ Unidos.\n\n`
+    + `• ${unidos} grupo(s) repetido(s) absorbidos (quedan ${concordancias.length})\n`
+    + `• ${tagsConservados} tag(s) que solo estaban en el duplicado se conservaron en el grupo que quedó\n\n`
+    + `Cada concepto se pregunta ahora una sola vez al generar.`);
+}
+/* Un mismo tag reclamado por DOS grupos que NO se pueden unir (roles
+   distintos, como contratista y consultor, con distinto número de opciones)
+   es un choque real: el que se aplique de último pisa al otro en silencio.
+   A diferencia de gruposConcordanciaDuplicados(), esto no se resuelve
+   fusionando — hay que renombrar el tag en uno de los dos grupos a mano —
+   así que solo se detecta y se avisa, no se ofrece un botón que "arregle". */
+function colisionesTagsConcordancia(){
+  const porTag = {};
+  concordancias.forEach(g => Object.keys(g.tags || {}).forEach(t => (porTag[t] = porTag[t] || []).push(g)));
+  return Object.entries(porTag).filter(([, gs]) => {
+    if(gs.length < 2) return false;
+    // Si todos tienen las mismas opciones, ya lo cubre «unir duplicados»:
+    // aquí solo interesan los que NO se pueden fusionar (roles distintos).
+    return !gs.every(g => JSON.stringify(g.opciones) === JSON.stringify(gs[0].opciones));
+  });
 }
 /* Busca a qué grupo de concordancia pertenece un tag, y una vista previa de sus
    opciones (p. ej. «el contratista / la contratista»), para explicarlo en la UI. */
@@ -15266,6 +15351,10 @@ function varsDe(p){
    que editar una cláusula se propague a todas las plantillas que la usan.
    No toca la plantilla .docx original ni el generador docxtemplater. */
 const desescaparXml = s => String(s).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#\d+;/g, m => String.fromCharCode(+m.slice(2,-1)));
+/* Cuántos marcadores {#tag}/{/tag} (condiciones, tablas repetibles de Word)
+   se descartaron en la última conversión a composición HTML — se reinicia al
+   entrar a docxABodyHtml() y lo lee importarDocxAComposicion() para avisar. */
+let marcadoresBloqueDescartados = 0;
 function runsDocxAHtml(pXml){
   let out = '';
   pXml.replace(/<w:r\b[^>]*>([\s\S]*?)<\/w:r>/g, (m, r) => {
@@ -15282,8 +15371,15 @@ function runsDocxAHtml(pXml){
   // Limpia formato/espacios DENTRO de cada {…} (un tag puede tener la 1.ª letra en
   // otra fuente y quedar partido, p. ej. {<b>N</b>ombre} o { N ombre}).
   out = out.replace(/\{[^{}]*\}/g, m => '{' + m.slice(1, -1).replace(/<[^>]+>/g,'').replace(/\s+/g,'') + '}');
-  // {tag} de docxtemplater → {{tag}} de las plantillas HTML (no toca {#..}{/..})
-  out = out.replace(/\{([#\/^]?)([\wáéíóúñÁÉÍÓÚÑ]+)\}/g, (m, mark, name) => mark ? m : '{{' + name + '}}');
+  // Los marcadores de bloque {#tag}/{/tag} (condiciones, tablas repetibles de
+  // Word) no tienen equivalente en el motor de composición HTML — dejarlos
+  // tal cual los deja como texto suelto en el editor y, peor, en el propio
+  // documento final (rellenarDatos solo reemplaza {{tag}}, nunca los toca).
+  // Se descartan (se conserva el contenido de adentro) y se cuentan para
+  // avisarlo al importar.
+  out = out.replace(/\{([#\/^])([\wáéíóúñÁÉÍÓÚÑ]+)\}/g, () => { marcadoresBloqueDescartados++; return ''; });
+  // {tag} de docxtemplater → {{tag}} de las plantillas HTML
+  out = out.replace(/\{([\wáéíóúñÁÉÍÓÚÑ]+)\}/g, (m, name) => '{{' + name + '}}');
   return out;
 }
 function tablaDocxAHtml(tbl){
@@ -15299,6 +15395,7 @@ function tablaDocxAHtml(tbl){
   return html + '</table>';
 }
 function docxABodyHtml(p){
+  marcadoresBloqueDescartados = 0;
   const b64 = archivoDocxDe(p); if(!b64) return '';
   let xml;
   try{ xml = new PizZip(b64ABytes(b64)).file('word/document.xml').asText(); }catch(e){ return ''; }
@@ -15508,6 +15605,7 @@ function importarDocxAComposicion(p){
   if(!p || p.tipo !== 'docx') return;
   const body = docxABodyHtml(p);
   if(!body || !body.replace(/<[^>]+>/g,'').trim()){ alert('No pude extraer texto del documento. ¿Es un .docx válido?'); return; }
+  const marcadoresPerdidos = marcadoresBloqueDescartados;
   const bloques = migrarABloques({ cuerpo: body });
   const origen = nombreVarianteDesde(p.nombre);
   let nCl = 0, vinc = 0, nuevas = 0, variantes = 0;
@@ -15538,12 +15636,16 @@ function importarDocxAComposicion(p){
   plantillas.unshift(nueva);
   guardar();
   seleccion = nueva.id; datosForm = {}; condForm = {}; listasForm = {}; bloqueEditando = null; tabActual = 'editar';
+  abrirAncestros('pl', nueva.carpetaId);   // que la carpeta «Indexada» quede visible, no colapsada
   renderCats(); renderLista(); renderTabs(); renderContenido();
   alert(`✓ «${nueva.nombre}» creada como composición editable.\n\n${nCl} cláusulas detectadas:\n`
     + `• ${nuevas} nuevas en el repositorio\n`
     + `• ${variantes} añadidas como variante «${origen}» a cláusulas que ya existían con ese mismo título\n`
     + `• ${vinc} enlazadas a un texto idéntico que ya estaba\n\n`
-    + `Las que entraron como variante no duplican la cláusula: quedan junto a las de los otros contratos, y al generar eliges cuál va. Edita cualquiera aquí y el cambio se propaga a todas las plantillas que la comparten. La plantilla Word original y el generador siguen intactos.`);
+    + `Las que entraron como variante no duplican la cláusula: quedan junto a las de los otros contratos, y al generar eliges cuál va. Edita cualquiera aquí y el cambio se propaga a todas las plantillas que la comparten. La plantilla Word original y el generador siguen intactos.`
+    + (marcadoresPerdidos
+      ? `\n\n⚠ El Word tenía ${marcadoresPerdidos} marcador(es) de condición o tabla repetible ({#tag}) que la composición HTML no puede reproducir (no tiene ese mecanismo). Se conservó el texto de adentro, pero fijo: siempre visible en vez de opcional, y como una sola fila en vez de repetirse. Revisa esas tablas/secciones en «Editar plantilla» y ajústalas a mano si hace falta.`
+      : ''));
 }
 /* Acepta las marcas de revisión (control de cambios) del XML de Word: descarta
    el texto borrado (<w:del>, <w:moveFrom>) y conserva el insertado (<w:ins>,
@@ -17015,6 +17117,7 @@ function renderVariables(c){
           <h3 style="margin:0 0 6px">⚥ Grupos de concordancia</h3>
           <p style="font-size:12.5px;color:var(--gris);margin-bottom:8px">Cuadros combinados: una sola elección al llenar (p. ej. contratista masculino/femenino/empresa) cambia varias palabras a la vez en todo el documento.</p>
           ${huerfanas.length ? `<button class="btn mini" style="margin-bottom:8px" onclick="ejecutarConsolidacionAuto()">🧹 Consolidar automáticamente (${huerfanas.length})</button>` : ''}
+          ${(() => { const n = gruposConcordanciaDuplicados().length; return n ? `<button class="btn mini" style="margin-bottom:8px" onclick="consolidarConcordanciasDuplicadas()">🧹 Unir duplicados (${n})</button>` : ''; })()}
           <button class="btn sec" onclick="abrirConcordancias()">Administrar grupos (${concordancias.length})</button>
         </div>
       </div>
@@ -17046,6 +17149,16 @@ function abrirConcordancias(){
       </div>
       <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">Cada grupo tiene unas <b>opciones</b> (lo que eliges al llenar) y unos <b>tags</b>; para cada tag defines qué palabra sale en cada opción.</p>
       ${concordanciasHuerfanas().length ? `<div class="aviso-tags" style="margin-bottom:10px"><b>⚥ ${concordanciasHuerfanas().length} tag(s) sueltos sin grupo.</b> <button class="btn mini" onclick="ejecutarConsolidacionAuto()">🧹 Consolidar automáticamente</button></div>` : ''}
+      ${(() => { const dup = gruposConcordanciaDuplicados(); return dup.length ? `<div class="aviso-tags" style="margin-bottom:10px;background:#FDF0D2">
+        <b>⚠ ${dup.length} grupo(s) se pisan</b> (gobiernan los mismos tags): se te pregunta lo mismo más de una vez.
+        <div style="margin:6px 0;font-size:12px">${dup.map(g => g.map(x=>`«${esc(x.etiqueta)}»`).join(' = ')).join('<br>')}</div>
+        <button class="btn mini" onclick="consolidarConcordanciasDuplicadas()">🧹 Unir duplicados (${dup.length})</button>
+      </div>` : ''; })()}
+      ${(() => { const col = colisionesTagsConcordancia(); return col.length ? `<div class="aviso-tags" style="margin-bottom:10px">
+        <b>⚠ ${col.length} tag(s) reclamados por grupos que NO se pueden unir</b> (opciones distintas — son roles distintos, p. ej. contratista y consultor).
+        <div style="margin:6px 0;font-size:12px">${col.map(([t,gs]) => `<code>{{${esc(t)}}}</code> en ${gs.map(g=>`«${esc(g.etiqueta)}»`).join(' y ')}`).join('<br>')}</div>
+        <span style="font-size:12px">El que se aplique de último pisa al otro en silencio. Renombra el tag en uno de los dos grupos (y en las plantillas que lo usan) para separarlos.</span>
+      </div>` : ''; })()}
       <div class="conc-lista">${filas||'<div class="vacio">Aún no hay grupos.</div>'}</div>
       <button class="btn sec mini" style="margin-top:10px" onclick="editarConcordancia('')">+ Nuevo grupo</button>
     </div>
