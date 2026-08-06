@@ -73,15 +73,48 @@ C = dict(
 )
 estado_cols = [j for j, h in enumerate(hdr) if "estado" in h and "gesti" in h] \
               or [j for j, h in enumerate(hdr) if "estado" in h]
+if not estado_cols:
+    print("AVISO: la hoja 2026 no tiene ninguna columna 'estado'; los cierres "
+          "saldrán únicamente de la hoja Export.")
 
-# Links y estado desde la hoja Export, cruzados por nro de contrato
+# Links y estado desde la hoja Export, cruzados por nro de contrato.
+# Las columnas se buscan por encabezado, no por posición: la hoja la regenera
+# Power Automate y cualquier columna nueva desplaza los índices en silencio
+# (así se perdían los cierres marcados en el Excel). Mismo criterio que el CRM.
 exp = {}
 if "Export" in wb.sheetnames:
-    for row in wb["Export"].iter_rows(min_row=2, values_only=True):
-        if row and row[0]:
-            link = str(row[14]).strip() if len(row) > 14 and row[14] and "http" in str(row[14]) else None
-            estado = str(row[13] or "").strip() if len(row) > 13 else ""
-            exp[str(row[0]).strip()] = {"link": link, "estado": estado}
+    ws_exp = wb["Export"]
+    ehdr = [str(c.value or "").strip().lower() for c in ws_exp[1]]
+
+    def ecol(*preds):
+        """Primer encabezado que cumpla un criterio, probándolos en orden."""
+        for p in preds:
+            for j, h in enumerate(ehdr):
+                if p(h):
+                    return j
+        return None
+
+    iNro = ecol(lambda h: h.startswith("nro"), lambda h: "contrato" in h)
+    iLink = ecol(lambda h: h == "link", lambda h: "enlace" in h or "url" in h or "link" in h)
+    iEstado = ecol(lambda h: h == "estado", lambda h: "estado" in h)
+
+    if iNro is None:
+        print("AVISO: la hoja Export no tiene columna de nro de contrato; se ignora.")
+    else:
+        if iEstado is None:
+            print("AVISO: la hoja Export no tiene columna 'estado'; los cierres "
+                  "saldrán únicamente de la hoja 2026.")
+        for row in ws_exp.iter_rows(min_row=2, values_only=True):
+            cell = lambda j: row[j] if j is not None and j < len(row) else None
+            nro_exp = cell(iNro)
+            if not nro_exp:
+                continue
+            link = cell(iLink)
+            link = str(link).strip() if link and "http" in str(link) else None
+            exp[str(nro_exp).strip()] = {
+                "link": link,
+                "estado": str(cell(iEstado) or "").strip(),
+            }
 
 def iso(v):
     if isinstance(v, (datetime.datetime, datetime.date)):
