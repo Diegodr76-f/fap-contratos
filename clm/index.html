@@ -440,7 +440,7 @@ function mySolicitudes(){
 }
 
 /* ================= ROUTER ================= */
-let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",viewMode:"table",repQ:""};
+let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:"table",repQ:""};
 const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
 function go(view,cur){ST.view=view;if(cur!==undefined)ST.cur=cur;location.hash="#/"+view+(view==="detalle"&&ST.cur!=null?"/"+ST.cur:"");render();window.scrollTo(0,0);}
 window.addEventListener("hashchange",()=>{
@@ -757,8 +757,20 @@ function vPipeline(){
 }
 
 /* ================= VISTA: CONTRATOS (repositorio) ================= */
+/* clave de "novedad": año*1e6 + secuencia del número de contrato (FIAS-FAP - 2026 - 158 → 2026000158) */
+function nroKey(c){
+  const s=String(c.nro||"");
+  const m=s.match(/(\d{4})\D+(\d+)\s*$/);
+  if(m)return (+m[1])*1000000+(+m[2]);
+  const m2=s.match(/(\d+)\s*$/);
+  return m2?+m2[1]:0;
+}
+function countLabel(n,total){
+  if(n===total)return `${total} contrato${total===1?"":"s"}`;
+  return `Mostrando <b style="color:var(--ink)">${n}</b> de ${total}`;
+}
 function filteredContracts(){
-  return myContracts().filter(c=>{
+  const list=myContracts().filter(c=>{
     if(ST.filter!=="all"){
       const k=statusLive(c).key;
       if(ST.filter==="vig"&&k!=="vigente")return false;
@@ -767,35 +779,64 @@ function filteredContracts(){
       if(ST.filter==="ter"&&!(k==="terminado"||k==="cerrado"))return false;
     }
     if(ST.catFilter!=="all"&&(c.cat||"—")!==ST.catFilter)return false;
+    if(ST.areaFilter!=="all"&&(c.area||"—")!==ST.areaFilter)return false;
     if(ST.q){const hay=norm(c.detalle+" "+c.nro+" "+c.area+" "+c.proveedor+" "+c.cat);if(!hay.includes(norm(ST.q)))return false;}
     return true;
   });
+  const dias=c=>{const d=diasRestantes(c);return d==null?1e9:d;};
+  const S={
+    recientes:(a,b)=>nroKey(b)-nroKey(a),
+    antiguos:(a,b)=>nroKey(a)-nroKey(b),
+    vence:(a,b)=>dias(a)-dias(b),
+    monto:(a,b)=>montoDe(b)-montoDe(a),
+    area:(a,b)=>String(a.area||"").localeCompare(String(b.area||""))||nroKey(b)-nroKey(a)
+  };
+  list.sort(S[ST.sort]||S.recientes);   // list es copia (filter), no muta CONTRACTS
+  return list;
 }
 function vContratos(){
   const mine=myContracts(),list=filteredContracts();
   const cats=[...new Set(mine.map(c=>c.cat||"—"))].sort((a,b)=>a.localeCompare(b));
+  const areas=[...new Set(mine.map(c=>c.area||"—"))].sort((a,b)=>a.localeCompare(b));
+  const areaCount={};mine.forEach(c=>{const a=c.area||"—";areaCount[a]=(areaCount[a]||0)+1;});
+  const sel="padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer";
+  const sorts=[["recientes","Más recientes"],["antiguos","Más antiguos"],["vence","Vence antes"],["monto","Mayor monto"],["area","Área (A–Z)"]];
   $("#view").innerHTML=`<div class="up">
     <div class="toolbar">
       <div class="search">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <input id="q" placeholder="Buscar por contrato, proveedor o área…" value="${esc(ST.q)}">
       </div>
-      <div class="chips">
-        ${[["all","Todos"],["vig","Vigentes"],["avi","Por vencer"],["ven","Vencidos"],["ter","Terminados"]].map(([k,l])=>`<button class="chip ${ST.filter===k?"on":""}" data-f="${k}">${l}</button>`).join("")}
-      </div>
+      <select id="areaSel" title="Filtrar por área protegida" style="${sel};max-width:240px">
+        <option value="all"${ST.areaFilter==="all"?" selected":""}>📍 Todas las áreas · ${mine.length}</option>
+        ${areas.map(a=>`<option value="${esc(a)}"${ST.areaFilter===a?" selected":""}>${esc(a)} · ${areaCount[a]}</option>`).join("")}
+      </select>
+      <select id="sortSel" title="Ordenar la lista" style="${sel};max-width:170px">
+        ${sorts.map(([k,l])=>`<option value="${k}"${ST.sort===k?" selected":""}>↕ ${l}</option>`).join("")}
+      </select>
       <div class="viewtog">
         <button data-v="table" class="${ST.viewMode==="table"?"on":""}">Listado</button>
         <button data-v="cards" class="${ST.viewMode==="cards"?"on":""}">Tarjetas</button>
       </div>
     </div>
-    ${cats.length>1?`<div class="chips" style="margin:-6px 0 15px">
+    <div class="chips">
+      ${[["all","Todos"],["vig","Vigentes"],["avi","Por vencer"],["ven","Vencidos"],["ter","Terminados"]].map(([k,l])=>`<button class="chip ${ST.filter===k?"on":""}" data-f="${k}">${l}</button>`).join("")}
+    </div>
+    ${cats.length>1?`<div class="chips" style="margin:10px 0 4px">
       <button class="chip ${ST.catFilter==="all"?"on":""}" data-c="all">Todas las categorías</button>
       ${cats.map(k=>{const col=catColor(k),on=ST.catFilter===k;
         return `<button class="chip" data-c="${esc(k)}" style="background:${on?col.fg:col.bg};color:${on?"#fff":col.fg};border-color:${on?col.fg:"transparent"}">${esc(k)} · ${mine.filter(c=>(c.cat||"—")===k).length}</button>`;}).join("")}
     </div>`:""}
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 10px">
+      <span id="rescount" style="font-size:12.5px;color:var(--muted);font-weight:600">${countLabel(list.length,mine.length)}</span>
+      ${ST.areaFilter!=="all"?`<button class="chip on" id="clearArea" style="padding:5px 11px;font-size:12px">📍 ${esc(ST.areaFilter)} &nbsp;✕</button>`:""}
+    </div>
     <div id="listbody">${ST.viewMode==="cards"?cardsHTML(list):tableHTML(list)}</div>
   </div>`;
-  $("#q").oninput=e=>{ST.q=e.target.value;$("#listbody").innerHTML=ST.viewMode==="cards"?cardsHTML(filteredContracts()):tableHTML(filteredContracts());bindRows();};
+  $("#q").oninput=e=>{ST.q=e.target.value;const l=filteredContracts();$("#listbody").innerHTML=ST.viewMode==="cards"?cardsHTML(l):tableHTML(l);$("#rescount").innerHTML=countLabel(l.length,mine.length);bindRows();};
+  $("#areaSel").onchange=e=>{ST.areaFilter=e.target.value;vContratos();};
+  $("#sortSel").onchange=e=>{ST.sort=e.target.value;vContratos();};
+  const ca=$("#clearArea",$("#view"));if(ca)ca.onclick=()=>{ST.areaFilter="all";vContratos();};
   $("#view").querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{ST.filter=b.dataset.f;vContratos();});
   $("#view").querySelectorAll(".chip[data-c]").forEach(b=>b.onclick=()=>{ST.catFilter=(ST.catFilter===b.dataset.c)?"all":b.dataset.c;vContratos();});
   $("#view").querySelectorAll(".viewtog button").forEach(b=>b.onclick=()=>{ST.viewMode=b.dataset.v;vContratos();});
