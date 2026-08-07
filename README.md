@@ -71,6 +71,7 @@ plantillas Word reales (`crm/plantillas/`).
 | **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa |
 | **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar |
 | **Reportes** | Analítica por categoría/área/AC + exportación CSV del portafolio |
+| **Mapa de áreas** | Mapa del Ecuador con las áreas protegidas que tienen contratos: cada círculo es un área, su tamaño el monto (o el n.º de contratos) y su color el estado más urgente; al tocar una se listan sus contratos y montos, con salida a CSV |
 | **Bitácora** | Registro de auditoría de cada acción (autor, fecha, contrato) |
 | **La Mágica / CRM clásico** | Las herramientas originales embebidas, completas y funcionales |
 
@@ -80,6 +81,13 @@ FAP-2026-11; terminación con causal y acta FAP-2026-12; calificación de provee
 FO-AD-ABC-017 (13 criterios, 40/30/5/25) con CSV para el banco de calificaciones;
 y envío a la Unidad Operativa por el mismo flujo de Power Automate
 (`FLOW_DOCS_URL`) que usan La Mágica y el CRM.
+
+El **Mapa de áreas** es autónomo como el resto del CLM: la silueta del país es un
+trazado SVG incrustado (Natural Earth, dominio público) y las coordenadas de las
+44 áreas protegidas viven en una tabla fija dentro del propio archivo, así que no
+llama a ningún servicio de mapas —funciona igual en redes que bloquean CDNs y sin
+internet—. La procedencia de cada coordenada, las variantes de nombre que el CLM
+unifica y cómo agregar un área están en **[`clm/MAPA_AREAS.md`](clm/MAPA_AREAS.md)**.
 
 **Roles de ingreso:** Administradora (AC), Área protegida o Unidad Operativa
 (portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
