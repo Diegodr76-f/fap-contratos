@@ -233,6 +233,36 @@
   .legend .li{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
   .legend .sw{width:11px;height:11px;border-radius:3px}
   #tip{position:fixed;pointer-events:none;background:var(--ink);color:#fff;font-size:12px;font-weight:600;padding:7px 11px;border-radius:8px;z-index:95;display:none;box-shadow:0 10px 26px rgba(11,21,63,.3);max-width:260px;line-height:1.4}
+
+  /* mapa de áreas protegidas */
+  .maplayout{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:16px;align-items:start}
+  @media(max-width:1080px){.maplayout{grid-template-columns:1fr}}
+  .mapbox{background:#DDE7F2;border:1px solid var(--line2);border-radius:15px;overflow:hidden;position:relative}
+  .map-svg{width:100%;height:auto;display:block}
+  .map-ec{fill:#FBFCFE;stroke:#B9C6D8;stroke-width:2;stroke-linejoin:round}
+  .map-nb{fill:#E7EDF4;stroke:#CDD8E5;stroke-width:1.5;stroke-linejoin:round}
+  .map-pt{cursor:pointer;stroke:#fff;stroke-width:1.6;transition:filter .12s}
+  .map-pt:hover{filter:brightness(1.12)}
+  .map-pt.dim,.map-sede.dim{opacity:.22}
+  .map-sede{cursor:pointer;stroke:#fff;stroke-width:1.6}
+  .map-halo{fill:none;stroke:var(--ink);stroke-width:2.5;opacity:.8;pointer-events:none}
+  .map-lbl{font-family:'Titillium Web',sans-serif;font-size:15px;font-weight:700;fill:var(--ink);paint-order:stroke;stroke:#FBFCFE;stroke-width:4px;stroke-linejoin:round;pointer-events:none}
+  .map-note{position:absolute;left:12px;bottom:10px;font-size:11px;font-weight:600;color:var(--muted);background:rgba(255,255,255,.82);border-radius:7px;padding:4px 9px}
+  .aplist{max-height:560px;overflow-y:auto;margin:-4px -6px 0;padding:4px 6px}
+  .aprow{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+  .aprow:hover{background:var(--tint)}
+  .aprow.on{background:var(--tint);border-color:#C9D3F2}
+  .aprow .rk{flex:0 0 20px;font-size:11px;font-weight:700;color:var(--muted2);text-align:right}
+  .aprow .nm{flex:1;min-width:0;font-size:12.5px;font-weight:600;line-height:1.25}
+  .aprow .nm small{display:block;font-weight:600;color:var(--muted);font-size:11px}
+  .aprow .vl{flex:0 0 auto;font-size:12.5px;font-weight:700;white-space:nowrap}
+  .apc{display:block;width:100%;text-align:left;border:1px solid var(--line2);border-radius:11px;padding:10px 12px;margin-bottom:8px;background:#fff;cursor:pointer;border-left:4px solid var(--line)}
+  .apc:hover{background:var(--tint)}
+  .apc.g{border-left-color:var(--green)}.apc.a{border-left-color:var(--amber)}
+  .apc.r{border-left-color:var(--red)}.apc.done{border-left-color:var(--muted2)}
+  .apc .t{font-size:11.5px;font-weight:700;color:var(--navy)}
+  .apc .o{font-size:12.5px;font-weight:600;margin:3px 0 5px;line-height:1.3}
+  .apc .m{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--muted);font-weight:600}
   .stackbar{display:flex;height:34px;border-radius:9px;overflow:hidden;gap:2px;background:var(--bg)}
   .stackbar>div{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:#fff;min-width:0;overflow:hidden;white-space:nowrap}
 
@@ -441,7 +471,7 @@ function mySolicitudes(){
 
 /* ================= ROUTER ================= */
 let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:"table",repQ:""};
-const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
+const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",mapa:"Mapa de áreas protegidas",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
 function go(view,cur){ST.view=view;if(cur!==undefined)ST.cur=cur;location.hash="#/"+view+(view==="detalle"&&ST.cur!=null?"/"+ST.cur:"");render();window.scrollTo(0,0);}
 window.addEventListener("hashchange",()=>{
   const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
@@ -462,6 +492,7 @@ function render(){
     bell:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
     chart:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/></svg>',
     clock:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
+    map:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3 3 5.5v15L9 18l6 3 6-2.5v-15L15 6z"/><path d="M9 3v15M15 6v15"/></svg>',
     magic:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 21 9-9"/><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M12.2 6.2 11 5"/></svg>',
     grid:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>',
     scale:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 21h10M6 7h12l-3 5a3 3 0 0 1-6 0zM6 7 3 12a3 3 0 0 0 6 0zM18 7l3 5a3 3 0 0 1-6 0z"/></svg>'
@@ -478,6 +509,7 @@ function render(){
       ${nav("alertas","Alertas",I.bell,nAlerts||"")}
       <div class="navgrp">Análisis</div>
       ${nav("reportes","Reportes",I.chart)}
+      ${nav("mapa","Mapa de áreas",I.map)}
       ${nav("actividad","Bitácora",I.clock)}
       <div class="navgrp">Herramientas integradas</div>
       ${nav("calificacion","Calificador de ofertas",I.scale)}
@@ -505,7 +537,7 @@ function render(){
   app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
   $("#logout").onclick=()=>{setSes(null);location.hash="";render();};
   bindGlobalSearch();
-  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,actividad:vActividad,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>vFrame("../generador/index.html","La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa)."),crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
+  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,mapa:vMapa,actividad:vActividad,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>vFrame("../generador/index.html","La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa)."),crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
   (V[ST.view]||vPanel)();
 }
 
@@ -1490,6 +1522,288 @@ function vReportes(){
   };
 }
 
+/* ================= GEOGRAFÍA DE LAS ÁREAS PROTEGIDAS =================
+   Coordenadas (WGS84, grados decimales) de cada área protegida del SNAP que
+   aparece en la base de contratos. Es un catálogo cerrado: las áreas no se
+   mueven, así que la tabla se escribe una vez y no necesita mantenimiento.
+   Cada punto es un centroide referencial del área (no su polígono), suficiente
+   para ubicarla en el mapa; la fuente de cada dato está en MAPA_AREAS.md.
+   La silueta de Ecuador y de los países vecinos viene de Natural Earth
+   (dominio público) simplificada y proyectada a este mismo encuadre.       */
+const MAP_VIEW={lon0:-81.30,lon1:-75.05,lat0:-5.20,lat1:1.60,w:1000,h:1088};
+const MAP_PATHS={ec:"M395.5 26.5L404.7 33.0L421.4 53.3L431.8 53.8L437.0 64.6L450.2 65.2L468.1 84.1L488.2 92.7L509.0 108.7L541.2 116.0L543.5 123.0L552.2 126.5L571.7 121.1L580.4 124.9L581.5 136.5L585.0 141.4L601.1 151.1L613.2 151.9L618.4 186.5L624.2 194.0L654.7 202.4L666.2 199.2L674.9 200.3L680.6 207.0L696.7 210.0L706.5 217.5L720.4 215.9L730.7 218.6L731.9 211.6L747.4 214.6L757.8 221.3L782.6 215.4L781.4 191.6L789.5 190.8L799.8 182.2L811.9 190.8L826.3 192.4L828.6 199.7L839.6 197.8L855.7 223.5L877.0 240.0L887.4 244.3L907.6 243.5L933.5 262.4L962.9 273.2L955.4 279.1L939.2 282.1L922.0 275.1L908.1 272.9L905.3 276.7L908.7 284.8L915.6 285.4L928.9 293.2L943.3 326.7L966.3 342.9L966.9 357.2L961.7 361.0L960.6 375.6L967.5 405.3L971.5 411.3L952.5 412.1L942.7 402.3L916.2 502.0L833.3 596.6L824.0 603.9L741.1 666.3L549.3 734.4L537.2 744.7L511.3 775.2L504.4 787.6L496.3 794.1L496.3 797.6L503.2 804.6L502.1 812.5L491.7 817.1L487.1 801.7L472.1 798.4L463.5 831.1L464.0 844.9L460.0 846.2L461.7 859.5L452.5 868.9L448.5 887.8L438.1 892.7L435.8 911.9L418.5 948.4L420.3 960.3L426.0 965.7L420.8 974.8L419.1 986.7L391.5 1000.2L384.0 1007.0L379.4 1015.6L384.0 1031.0L382.2 1034.3L371.3 1035.9L366.7 1049.7L358.0 1057.8L351.1 1052.9L319.5 1049.7L313.7 1040.8L295.8 1025.6L283.7 994.8L287.8 982.7L263.0 966.2L240.5 973.5L234.8 972.7L223.3 959.7L210.6 958.1L185.8 941.3L173.7 944.9L167.4 957.8L146.7 972.1L139.7 971.3L129.4 962.1L153.0 927.8L132.8 930.0L125.9 909.5L129.4 898.4L133.4 894.1L139.7 893.0L155.9 898.4L166.8 887.0L181.8 878.4L172.6 859.2L173.7 838.7L172.0 830.6L168.0 828.4L169.7 818.1L164.5 813.8L165.7 804.1L153.6 799.0L153.6 794.9L158.8 787.3L157.6 796.3L162.2 787.3L166.8 791.7L186.4 788.4L198.5 768.7L202.0 769.2L201.4 780.9L215.8 767.6L218.7 754.4L227.9 736.8L226.7 730.3L234.2 705.2L244.0 681.4L251.5 670.9L248.6 654.4L241.7 653.1L233.6 636.3L233.6 609.6L229.0 601.7L230.2 593.4L245.7 576.9L234.8 583.1L234.2 587.1L227.9 588.0L223.8 600.9L230.2 623.6L224.4 663.1L220.4 667.9L208.3 673.3L197.9 668.5L196.8 665.8L207.7 652.8L216.9 655.8L219.2 653.3L218.1 650.1L217.5 653.3L211.7 649.0L202.5 651.7L201.4 649.6L206.6 633.3L211.7 631.7L215.8 625.2L206.0 628.2L195.6 649.3L180.1 669.8L170.8 676.6L163.4 674.1L163.4 679.8L169.1 687.9L167.4 692.8L156.4 689.8L133.4 674.9L102.9 642.5L79.3 636.0L70.0 628.7L62.0 627.1L58.5 617.7L45.9 602.8L56.2 605.8L59.1 610.6L68.9 608.5L89.1 592.5L90.2 583.1L86.2 571.7L90.8 568.5L90.8 560.7L82.7 533.9L71.2 512.6L71.8 508.3L77.5 504.5L77.0 496.1L85.6 490.4L85.6 478.5L89.1 471.0L66.6 439.4L62.6 423.1L75.8 408.0L92.5 405.0L97.7 408.0L103.5 403.7L109.2 406.7L116.7 402.1L120.2 398.3L125.3 374.8L134.6 354.0L140.3 351.8L143.2 359.4L159.9 362.1L159.9 359.9L145.5 356.1L138.0 345.3L128.8 317.0L138.6 310.2L148.4 291.6L156.4 283.7L159.3 286.2L162.8 284.5L180.6 268.1L192.2 249.7L197.3 247.5L201.4 236.2L200.2 205.1L202.0 198.9L207.1 204.0L209.4 197.6L200.8 182.7L205.4 166.5L202.0 155.9L193.3 151.6L191.0 147.3L192.2 131.1L200.8 121.6L211.2 122.7L230.2 115.7L245.7 103.3L263.0 95.4L260.7 108.7L269.3 120.8L264.2 110.8L265.3 100.6L269.3 96.5L276.3 98.7L298.1 83.5L324.6 81.1L328.1 83.3L341.3 80.0L358.6 61.1L366.1 65.2L369.6 76.8L374.2 72.7L375.3 62.7L379.4 57.1L384.0 58.1L388.6 49.8L397.8 51.7L386.8 44.9L394.9 34.9L395.5 26.5ZM198.5 682.0L205.4 682.2L223.3 692.0L208.9 703.6L187.0 739.2L175.5 741.4L165.7 739.0L166.2 710.6L174.3 692.0L198.5 682.0ZM384.0 36.3L385.1 46.0L382.2 56.8L378.2 54.9L374.8 58.1L369.0 50.0L384.0 36.3ZM237.1 653.9L244.6 662.8L235.4 670.6L234.8 677.6L227.9 680.1L226.7 676.3L237.1 653.9Z",co:"M395.5 26.5L397.8 25.2L391.5 17.6L390.3 6.5L384.0 8.7L364.4 -6.2L392.6 -35.3L406.4 -37.0L436.4 -29.1L438.7 -40.0L1040.0 -40.0L1040.0 289.5L1036.0 283.2L1026.8 291.6L1015.3 288.1L1006.6 279.1L999.7 277.5L985.3 262.9L972.6 261.3L969.8 268.1L962.9 273.2L933.5 262.4L907.6 243.5L881.6 242.4L855.7 223.5L839.6 197.8L828.6 199.7L826.3 192.4L811.9 190.8L799.8 182.2L789.5 190.8L781.4 191.6L782.6 215.4L757.8 221.3L747.4 214.6L731.9 211.6L730.7 218.6L720.4 215.9L706.5 217.5L696.7 210.0L680.6 207.0L674.9 200.3L666.2 199.2L654.7 202.4L624.2 194.0L618.4 186.5L613.2 151.9L601.1 151.1L585.0 141.4L581.5 136.5L580.4 124.9L571.7 121.1L552.2 126.5L543.5 123.0L541.2 116.0L509.0 108.7L488.2 92.7L468.1 84.1L450.2 65.2L437.0 64.6L431.8 53.8L421.4 53.3L404.7 33.0L395.5 26.5Z",pe:"M1040.0 1128.0L57.0 1128.0L36.6 1107.0L26.8 1104.0L16.5 1089.4L21.7 1082.4L19.4 1078.9L22.2 1076.2L20.5 1069.9L27.4 1066.4L29.7 1069.1L34.9 1068.6L37.8 1059.4L34.3 1051.8L24.0 1042.7L-6.0 1004.6L-0.8 998.9L-1.4 981.6L-4.8 972.1L3.2 959.4L0.9 946.7L5.5 936.5L21.7 924.6L30.3 913.2L37.8 909.7L53.9 886.2L68.9 875.7L78.7 854.3L109.8 834.6L122.5 816.8L146.7 812.5L153.6 799.0L165.7 804.1L164.5 813.8L169.7 818.1L168.0 828.4L172.0 830.6L173.7 838.7L172.6 859.2L181.8 878.4L166.8 887.0L155.9 898.4L139.7 893.0L133.4 894.1L129.4 898.4L125.9 909.5L132.8 930.0L153.0 927.8L130.0 959.4L130.5 965.4L139.7 971.3L146.7 972.1L167.4 957.8L173.7 944.9L185.8 941.3L210.6 958.1L223.3 959.7L234.8 972.7L240.5 973.5L263.0 966.2L287.8 982.7L283.7 994.8L295.8 1025.6L313.7 1040.8L319.5 1049.7L351.1 1052.9L358.0 1057.8L366.7 1049.7L371.3 1035.9L382.2 1034.3L384.0 1031.0L379.4 1020.0L384.0 1007.0L391.5 1000.2L419.1 986.7L420.8 974.8L426.0 965.7L420.3 960.3L418.5 948.4L435.8 911.9L438.1 892.7L448.5 887.8L452.5 868.9L461.7 859.5L460.0 846.2L464.0 844.9L463.5 831.1L472.1 798.4L487.1 801.7L491.7 817.1L502.1 812.5L503.2 804.6L496.3 797.6L496.3 794.1L504.4 787.6L511.3 775.2L537.2 744.7L549.3 734.4L723.8 673.1L748.0 662.0L833.3 596.6L916.2 502.0L942.7 402.3L952.5 412.1L971.5 410.2L967.5 405.3L960.6 375.6L961.7 361.0L966.9 357.2L966.3 342.9L943.3 326.7L935.8 313.7L930.6 295.6L915.6 285.4L908.7 284.8L905.3 276.7L908.1 272.9L923.7 275.6L935.2 281.8L953.1 280.0L969.8 268.1L972.6 261.3L978.4 261.0L988.8 264.6L999.7 277.5L1006.6 279.1L1015.3 288.1L1028.5 291.6L1034.3 283.7L1039.5 286.2L1040.0 287.2Z"};
+
+const AREAS_GEO=[
+  {n:"Parque Nacional Cayambe Coca",                     lat:-0.3500, lon:-77.9500},
+  {n:"Parque Nacional Cotacachi Cayapas",                lat: 0.5833, lon:-78.6833},
+  {n:"Parque Nacional Cotopaxi",                         lat:-0.6800, lon:-78.4400},
+  {n:"Parque Nacional Antisana",                         lat:-0.5000, lon:-78.1400},
+  {n:"Parque Nacional Llanganates",                      lat:-1.1500, lon:-78.2000},
+  {n:"Parque Nacional Machalilla",                       lat:-1.5500, lon:-80.7500},
+  {n:"Parque Nacional Podocarpus",                       lat:-4.1200, lon:-79.1000},
+  {n:"Parque Nacional Río Negro Sopladora Tinajillas Río Gualaceño", lat:-2.7339, lon:-78.5441},
+  {n:"Parque Nacional Sangay",                           lat:-2.0000, lon:-78.3333},
+  {n:"Parque Nacional Sumaco Napo Galeras",              lat:-0.3833, lon:-77.5500},
+  {n:"Parque Nacional Yacuri",                           lat:-4.7060, lon:-79.3650},
+  {n:"Parque Nacional Yasuní",                           lat:-0.9500, lon:-75.9000},
+  {n:"Reserva Ecológica Arenillas",                      lat:-3.5380, lon:-80.1370},
+  {n:"Reserva Ecológica Cofán Bermejo",                  lat: 0.3170, lon:-77.3121},
+  {n:"Reserva Ecológica El Ángel",                       lat: 0.7167, lon:-77.9500},
+  {n:"Reserva Ecológica Los Ilinizas",                   lat:-0.7000, lon:-78.8000},
+  {n:"Reserva Ecológica Mache Chindul",                  lat: 0.4772, lon:-79.7856},
+  {n:"Reserva Ecológica Manglares Cayapas Mataje",       lat: 1.2200, lon:-78.9300},
+  {n:"Reserva Ecológica Manglares Churute",              lat:-2.4200, lon:-79.6500},
+  {n:"Reserva Biológica Cerro Plateado",                 lat:-4.6000, lon:-78.7667},
+  {n:"Reserva Biológica Colonso Chalupas",               lat:-0.9500, lon:-77.9500},
+  {n:"Reserva Biológica El Cóndor",                      lat:-3.4476, lon:-78.1979},
+  {n:"Reserva Biológica El Quimi",                       lat:-3.5000, lon:-78.3800},
+  {n:"Reserva Biológica Limoncocha",                     lat:-0.4167, lon:-76.5833},
+  {n:"Reserva Geobotánica Pululahua",                    lat: 0.0333, lon:-78.5000},
+  {n:"Reserva Marina El Pelado",                         lat:-1.9362, lon:-80.7889},
+  {n:"Reserva Marina Galera San Francisco",              lat: 0.7500, lon:-80.1200},
+  {n:"Reserva Marina Isla Santa Clara",                  lat:-3.1700, lon:-80.4400},
+  {n:"Reserva de Producción de Fauna Chimborazo",        lat:-1.4700, lon:-78.8200},
+  {n:"Reserva de Producción de Fauna Cuyabeno",          lat: 0.0000, lon:-76.1800},
+  {n:"Reserva de Producción de Fauna Marino Costera Puntilla Santa Elena", lat:-2.2000, lon:-80.9800},
+  {n:"Refugio de Vida Silvestre El Pambilar",            lat: 0.5000, lon:-79.3000},
+  {n:"Refugio de Vida Silvestre El Zarza",               lat:-3.8000, lon:-78.5000},
+  {n:"Refugio de Vida Silvestre Estuario Río Esmeraldas",lat: 0.9800, lon:-79.6500},
+  {n:"Refugio de Vida Silvestre Isla Corazón y Fragatas",lat:-0.6600, lon:-80.3800},
+  {n:"Refugio de Vida Silvestre La Chiquita",            lat: 1.2200, lon:-78.7800},
+  {n:"Refugio de Vida Silvestre Machángara Tomebamba",   lat:-2.7500, lon:-79.0500},
+  {n:"Refugio de Vida Silvestre Manglares El Morro",     lat:-2.6800, lon:-80.3100},
+  {n:"Refugio de Vida Silvestre Manglares Estuario Río Muisne", lat: 0.6000, lon:-80.0200},
+  {n:"Refugio de Vida Silvestre Pasochoa",               lat:-0.4667, lon:-78.4833},
+  {n:"Área Nacional de Recreación El Boliche",           lat:-0.6000, lon:-78.5000},
+  {n:"Área Nacional de Recreación Isla Santay",          lat:-2.2170, lon:-79.8500},
+  {n:"Área Nacional de Recreación Playas de Villamil",   lat:-2.6600, lon:-80.3500},
+  /* No es un área protegida sino la dirección administrativa: se ubica en Quito. */
+  {n:"Dirección de Áreas Protegidas y Otras Formas de Conservación", lat:-0.1807, lon:-78.4678, sede:true}
+];
+
+/* Variantes de escritura que aparecen en el Excel maestro y que designan la
+   misma área (tildes, espacios dobles, sectores, «marina/marino costera»). */
+const AREA_ALIAS={
+  "parque nacional podocarpus sector bombuscaro":"Parque Nacional Podocarpus",
+  "parque nacional rio negro sopladora":"Parque Nacional Río Negro Sopladora Tinajillas Río Gualaceño",
+  "reserva de produccion de fauna marina costera puntilla santa elena":"Reserva de Producción de Fauna Marino Costera Puntilla Santa Elena",
+  "reserva de produccion de fauna marino costera puntilla de santa elena":"Reserva de Producción de Fauna Marino Costera Puntilla Santa Elena",
+  "refugio de vida silvestre manglares estuario rio esmeraldas":"Refugio de Vida Silvestre Estuario Río Esmeraldas",
+  /* Recategorizadas de Reserva Ecológica a Parque Nacional; el Excel aún trae
+     el nombre antiguo en registros de años anteriores. */
+  "reserva ecologica cayambe coca":"Parque Nacional Cayambe Coca",
+  "reserva ecologica cotacachi cayapas":"Parque Nacional Cotacachi Cayapas",
+  "reserva ecologica antisana":"Parque Nacional Antisana"
+};
+
+/* Clave de comparación: sin tildes, sin mayúsculas, sin signos ni espacios
+   repetidos. Así «El Condor», «El Cóndor» y «El  Cóndor » son la misma clave. */
+function areaKey(s){
+  return String(s==null?"":s).normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+}
+const GEO_IX=(()=>{
+  const m={};
+  AREAS_GEO.forEach(a=>{m[areaKey(a.n)]=a;});
+  Object.keys(AREA_ALIAS).forEach(k=>{const t=m[areaKey(AREA_ALIAS[k])];if(t)m[k]=t;});
+  return m;
+})();
+function geoDe(area){return GEO_IX[areaKey(area)]||null;}
+
+/* Unifica la escritura del área en toda la base al entrar: el repositorio, los
+   filtros, el buscador y los reportes pasan a hablar de una sola «Reserva
+   Biológica El Cóndor» en vez de dos. Se conserva el texto original del Excel. */
+function canonAreas(list){
+  (list||[]).forEach(c=>{
+    const g=geoDe(c.area);
+    if(g&&c.area!==g.n){c.areaOriginal=c.area;c.area=g.n;}
+  });
+}
+
+function prjXY(lat,lon){
+  const V=MAP_VIEW;
+  return [(lon-V.lon0)/(V.lon1-V.lon0)*V.w,(V.lat1-lat)/(V.lat1-V.lat0)*V.h];
+}
+/* Siglas oficiales que ya usa el equipo (PNC, REMACAM, RVS…) para las etiquetas. */
+function apCorto(n){
+  return String(n)
+    .replace(/^Parque Nacional\s+/i,"PN ")
+    .replace(/^Reserva Ecológica\s+/i,"RE ")
+    .replace(/^Reserva Biológica\s+/i,"RB ")
+    .replace(/^Reserva Marina\s+/i,"RM ")
+    .replace(/^Reserva Geobotánica\s+/i,"RG ")
+    .replace(/^Reserva de Producción de Fauna\s+/i,"RPF ")
+    .replace(/^Refugio de Vida Silvestre\s+/i,"RVS ")
+    .replace(/^Área Nacional de Recreación\s+/i,"ANR ")
+    .replace(/^Dirección de Áreas Protegidas.*$/i,"DAPOFC (Quito)");
+}
+
+/* ================= VISTA: MAPA ================= */
+let MAPST={metric:"monto",sel:null};
+
+/* Agrupa los contratos del rol por área y les cuelga su punto en el mapa. */
+function mapAgg(){
+  const m=new Map();
+  myContracts().forEach(c=>{
+    const key=String(c.area||"").trim()||"—";
+    if(!m.has(key))m.set(key,{n:key,g:geoDe(key),items:[],monto:0,ven:0,avi:0,act:0});
+    const e=m.get(key);
+    e.items.push(c);e.monto+=montoDe(c);
+    const k=statusLive(c).key;
+    if(k==="vencido")e.ven++;else if(k==="aviso")e.avi++;else if(k==="vigente")e.act++;
+  });
+  return [...m.values()].sort((a,b)=>mapVal(b)-mapVal(a)||b.monto-a.monto);
+}
+const mapVal=(e)=>MAPST.metric==="monto"?e.monto:e.items.length;
+const mapFmt=(v)=>MAPST.metric==="monto"?moneyShort(v):v+(v===1?" contrato":" contratos");
+function mapColor(e){
+  if(e.ven)return "var(--red)";
+  if(e.avi)return "var(--amber)";
+  if(e.act)return "var(--navy2)";
+  return "var(--muted2)";
+}
+
+function vMapa(){
+  const grupos=mapAgg();
+  const ubicados=grupos.filter(e=>e.g),sinUbicar=grupos.filter(e=>!e.g);
+  const nSede=ubicados.filter(e=>e.g.sede).length,nAp=ubicados.length-nSede;
+  const total=grupos.reduce((a,e)=>a+e.monto,0);
+  const maxV=Math.max(1,...ubicados.map(mapVal));
+  const R_MIN=11,R_MAX=52;
+
+  // Símbolos proporcionales: el ÁREA del círculo crece con el valor (r ∝ √v),
+  // que es como el ojo compara círculos. Los grandes se dibujan primero para
+  // que los pequeños queden encima y sigan siendo clicables.
+  const pts=ubicados.map(e=>{
+    const [x,y]=prjXY(e.g.lat,e.g.lon),v=mapVal(e);
+    return {e,x,y,v,r:e.g.sede?13:Math.max(R_MIN,R_MAX*Math.sqrt(v/maxV))};
+  }).sort((a,b)=>b.r-a.r);
+
+  // Con un área seleccionada el resto se atenúa y la elegida recibe un aro,
+  // para que se vea de un golpe a qué punto corresponde el panel de al lado.
+  const marcas=pts.map(p=>{
+    const dim=MAPST.sel&&MAPST.sel!==p.e.n?" dim":"";
+    const tip=`<b>${esc(p.e.n)}</b><br>${p.e.items.length} contrato(s) · ${money0(p.e.monto)}`
+      +(p.e.ven?`<br>${p.e.ven} vencido(s)`:"")+(p.e.avi?`<br>${p.e.avi} por vencer`:"");
+    if(p.e.g.sede)return `<rect class="map-sede${dim}" x="${(p.x-11).toFixed(1)}" y="${(p.y-11).toFixed(1)}" width="22" height="22" rx="6" fill="var(--violet)" data-ap="${esc(p.e.n)}" data-tip="${esc(tip)}"/>`;
+    return `<circle class="map-pt${dim}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r.toFixed(1)}" fill="${mapColor(p.e)}" fill-opacity=".82" data-ap="${esc(p.e.n)}" data-tip="${esc(tip)}"/>`;
+  }).join("");
+  const elegido=pts.find(p=>p.e.n===MAPST.sel);
+  const aro=elegido?`<circle class="map-halo" cx="${elegido.x.toFixed(1)}" cy="${elegido.y.toFixed(1)}" r="${(Math.max(elegido.r,13)+9).toFixed(1)}"/>`:"";
+
+  // Etiquetas: se rotulan de mayor a menor las que caben sin pisar otra
+  // etiqueta ni otro marcador. Las que no caben viven en la lista de al lado.
+  // El área seleccionada se rotula siempre: va primera en la cola de etiquetas.
+  const puestas=[],etiquetas=[];
+  pts.slice().sort((a,b)=>(b.e.n===MAPST.sel)-(a.e.n===MAPST.sel)||b.v-a.v).forEach(p=>{
+    if(etiquetas.length>=11)return;
+    const t=apCorto(p.e.n),w=t.length*7.4,h=17;
+    const cand=[[p.x+p.r+7,p.y+5,"start"],[p.x-p.r-7,p.y+5,"end"],
+                [p.x,p.y-p.r-8,"middle"],[p.x,p.y+p.r+18,"middle"]];
+    for(const [x,y,anc] of cand){
+      const bx=anc==="start"?x:anc==="end"?x-w:x-w/2;
+      const box={x0:bx-2,y0:y-h+3,x1:bx+w+2,y1:y+5};
+      if(box.x0<4||box.x1>MAP_VIEW.w-4||box.y0<4||box.y1>MAP_VIEW.h-4)continue;
+      if(puestas.some(o=>!(box.x1<o.x0||box.x0>o.x1||box.y1<o.y0||box.y0>o.y1)))continue;
+      if(pts.some(q=>q!==p&&q.x+q.r>box.x0&&q.x-q.r<box.x1&&q.y+q.r>box.y0&&q.y-q.r<box.y1))continue;
+      puestas.push(box);
+      const dim=MAPST.sel&&MAPST.sel!==p.e.n?' opacity=".35"':"";
+      etiquetas.push(`<text class="map-lbl" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anc}"${dim}>${esc(t)}</text>`);
+      break;
+    }
+  });
+
+  const leyenda=[["var(--navy2)","Al día"],["var(--amber)","Con contratos por vencer"],
+                 ["var(--red)","Con contratos vencidos"],["var(--violet)","Oficina (no es área protegida)"]]
+    .map(([c,t])=>`<span class="li"><span class="sw" style="background:${c};border-radius:50%">&nbsp;</span>${t}</span>`).join("");
+
+  $("#view").innerHTML=`<div class="up">
+    <div class="toolbar">
+      <div style="flex:1"><p class="psub" style="margin:0">${nAp} área${nAp===1?"":"s"} protegida${nAp===1?"":"s"} en el mapa${nSede?" + la DAPOFC (Quito)":""} · ${grupos.reduce((a,e)=>a+e.items.length,0)} contratos · ${money(total)}. El tamaño del círculo es ${MAPST.metric==="monto"?"el monto vigente":"el número de contratos"}; el color, el estado más urgente del área.</p></div>
+      <div class="viewtog">
+        <button data-metric="monto" class="${MAPST.metric==="monto"?"on":""}">Monto</button>
+        <button data-metric="n" class="${MAPST.metric==="n"?"on":""}">N.º de contratos</button>
+      </div>
+      <button class="btn line sm" id="expMapa">⬇ CSV por área</button>
+    </div>
+
+    <div class="maplayout">
+      <div>
+        <div class="mapbox">
+          <svg class="map-svg" viewBox="0 0 ${MAP_VIEW.w} ${MAP_VIEW.h}" role="img"
+               aria-label="Mapa del Ecuador con las áreas protegidas que tienen contratos del FAP">
+            <rect width="${MAP_VIEW.w}" height="${MAP_VIEW.h}" fill="#DDE7F2" id="mapbg"/>
+            <path class="map-nb" d="${MAP_PATHS.co}"/>
+            <path class="map-nb" d="${MAP_PATHS.pe}"/>
+            <path class="map-ec" d="${MAP_PATHS.ec}"/>
+            ${marcas}${aro}${etiquetas.join("")}
+          </svg>
+          <div class="map-note">Puntos referenciales de cada área · Ecuador continental</div>
+        </div>
+        <div class="legend" style="margin-top:12px">${leyenda}</div>
+        ${sinUbicar.length?`<p class="psub" style="margin-top:12px">Sin ubicación en el catálogo (${sinUbicar.length}): ${sinUbicar.map(e=>esc(e.n)+" · "+money0(e.monto)).join(" · ")}.</p>`:""}
+      </div>
+      <div class="panel" id="apPanel"></div>
+    </div>
+  </div>`;
+
+  pintaPanelAP(grupos);
+  $("#view").querySelectorAll("[data-metric]").forEach(b=>b.onclick=()=>{MAPST.metric=b.dataset.metric;vMapa();});
+  $("#view").querySelectorAll("[data-ap]").forEach(el=>el.onclick=()=>{
+    MAPST.sel=MAPST.sel===el.dataset.ap?null:el.dataset.ap;vMapa();
+  });
+  const bg=$("#mapbg");if(bg)bg.onclick=()=>{if(MAPST.sel){MAPST.sel=null;vMapa();}};
+  $("#expMapa").onclick=()=>{
+    const BOM="\uFEFF";
+    const head=["Area","Contratos","Monto vigente","Vencidos","Por vencer","Latitud","Longitud"];
+    const rows=grupos.map(e=>[e.n,e.items.length,e.monto.toFixed(2),e.ven,e.avi,
+      e.g?e.g.lat:"",e.g?e.g.lon:""].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";"));
+    const blob=new Blob([BOM+[head.join(";")].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+    a.download="Areas_protegidas_FAP_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
+    logAdd("🗺️","Exportación CSV por área protegida");
+    toast("CSV por área exportado");
+  };
+}
+
+/* Panel derecho: ranking de áreas, o el detalle del área seleccionada. */
+function pintaPanelAP(grupos){
+  const box=$("#apPanel");
+  const sel=MAPST.sel?grupos.find(e=>e.n===MAPST.sel):null;
+
+  if(!sel){
+    const max=Math.max(1,...grupos.map(mapVal));
+    box.innerHTML=`<p class="ptitle">Áreas por ${MAPST.metric==="monto"?"monto":"n.º de contratos"}</p>
+      <p class="psub">Toca un área —aquí o en el mapa— para ver sus contratos.</p>
+      <div class="aplist">${grupos.map((e,i)=>`
+        <div class="aprow" data-sel="${esc(e.n)}">
+          <div class="rk">${i+1}</div>
+          <div class="nm">${esc(apCorto(e.n))}
+            <small>${e.items.length} contrato${e.items.length===1?"":"s"}${e.ven?` · ${e.ven} vencido${e.ven===1?"":"s"}`:""}${e.g&&e.g.sede?" · oficina, no es área protegida":""}${!e.g?" · sin ubicación":""}</small>
+            <div style="height:4px;border-radius:3px;background:var(--bg);margin-top:5px">
+              <div style="height:100%;border-radius:3px;width:${Math.max(2,mapVal(e)/max*100).toFixed(0)}%;background:${mapColor(e)}"></div></div>
+          </div>
+          <div class="vl">${MAPST.metric==="monto"?moneyShort(e.monto):e.items.length}</div>
+        </div>`).join("")}</div>`;
+  }else{
+    const lista=sel.items.slice().sort((a,b)=>montoDe(b)-montoDe(a));
+    box.innerHTML=`<button class="chip" id="apBack" style="margin-bottom:12px">← Todas las áreas</button>
+      <p class="ptitle">${esc(sel.n)}</p>
+      <p class="psub">${sel.items.length} contrato${sel.items.length===1?"":"s"} · ${money(sel.monto)}${sel.g?` · ${sel.g.lat.toFixed(3)}, ${sel.g.lon.toFixed(3)}`:""}</p>
+      <div class="aplist">${lista.map(c=>{
+        const s=statusLive(c),i=CONTRACTS.indexOf(c);
+        return `<button class="apc ${s.cls}" data-open="${i}">
+          <div class="t">${esc(c.nro)}</div>
+          <div class="o">${esc(trunc(c.detalle,110))}</div>
+          <div class="m"><span>${esc(trunc(c.proveedor||"—",26))}</span><span>${money(montoDe(c))}</span></div>
+          <div class="m" style="margin-top:3px"><span><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(vigenciaText(c))}</span><span>${esc(c.ac||"")}</span></div>
+        </button>`;}).join("")}</div>`;
+    $("#apBack").onclick=()=>{MAPST.sel=null;vMapa();};
+    box.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>go("detalle",+b.dataset.open));
+  }
+  box.querySelectorAll("[data-sel]").forEach(r=>r.onclick=()=>{MAPST.sel=r.dataset.sel;vMapa();});
+}
+
 /* ================= VISTA: BITÁCORA ================= */
 function vActividad(){
   $("#view").innerHTML=`<div class="up">
@@ -1570,6 +1884,7 @@ async function boot(){
     }catch(e2){}
   }
   if(!CONTRACTS.length)dataSource={label:"Sin datos disponibles",live:false};
+  canonAreas(CONTRACTS);   // unifica las variantes de escritura del área protegida
   const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
   if(m&&VIEWS[m[1]]){ST.view=m[1];if(m[2]!=null)ST.cur=+m[2];}
   render();
