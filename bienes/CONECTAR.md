@@ -1,290 +1,306 @@
-# Conectar el registro de bienes con el Excel matriz
+# Conectar el registro de bienes con SharePoint y la cuenta de FIAS
 
-La herramienta **funciona sin configurar nada**: calcula el código, la hoja, la vida
-útil y la depreciación, y deja descargado el registro del bien. Esta guía es para el
-otro pedazo — que la fila **entre sola** a la MATRIZ NACIONAL DE ACTIVOS Y BIENES y
-que a la administradora de bienes **le llegue el aviso**.
+Esta guía monta la versión con **login real**: cada quien entra con su cuenta de
+Microsoft de FIAS, y quién ve qué lo decide una lista de accesos, no una frase.
+No hace falta Power Apps ni ninguna licencia nueva — todo lo de aquí viene incluido
+en un Microsoft 365 que ya tiene SharePoint, Outlook y Power Automate, que es lo que
+este proyecto ya usa.
 
-Mientras nada de esto esté configurado, la administradora de bienes ya puede usar el
-panel completo: en la pantalla de acceso, **«Abre tu matriz .xlsx»** lee el archivo
-dentro del navegador —no lo sube a ningún lado— y muestra el patrimonio, la
-depreciación al día y las alertas. Ese mismo botón es el respaldo el día que el robot
-falle.
+Son cuatro piezas. Las tres primeras las arma quien administre esa cuenta de
+Microsoft 365 (Cata, o quien tenga ese rol); la cuarta es pegar unos IDs en un
+archivo.
 
-Son dos piezas independientes, y se pueden hacer en cualquier orden:
-
-| Pieza | Qué hace | Sin ella |
+| Pieza | Qué hace | Dónde se hace |
 |---|---|---|
-| **Flujo de Power Automate** | La AC envía → la fila cae en el Excel → llega el correo | El registro se descarga y toca pegarlo a mano |
-| **Robot diario (GitHub Actions)** | Publica la matriz cifrada para verla en la herramienta | El panel solo funciona abriendo el `.xlsx` a mano |
+| 1. Listas de SharePoint | Guardan los bienes y quién puede ver qué | SharePoint |
+| 2. Flujo de ingreso | La fila nueva entra a la lista de Bienes | Power Automate |
+| 3. App en Entra ID | Permite iniciar sesión con la cuenta de FIAS | Entra admin center |
+| 4. Flujo de consulta | Cada quien recibe solo lo suyo, nunca todo | Power Automate |
+
+Si en algún punto la parte 4 (la más técnica) se atasca, existe un plan B más
+simple sin renunciar al login real: al final de esta guía, en **«Si la parte 4 se
+complica»**, está la versión que usa los permisos nativos de SharePoint en vez de
+un flujo que interpreta el token.
 
 ---
 
-## Parte 1 · El flujo que agrega la fila
+## Parte 1 · Las listas de SharePoint
 
-### 1.0 Antes de empezar: revisar las tablas del Excel
+### 1.1 La lista «Bienes»
 
-Power Automate escribe en **tablas** de Excel, no en hojas sueltas. La matriz ya
-tiene dos (`Tabla1` en *Activos* y `Tabla16` en *Bienes control*), pero **su rango
-está corto**: `Tabla1` llega a la fila 15 y `Tabla16` a la 8, aunque las hojas
-tengan cientos de filas. Si se deja así, el flujo insertaría la fila nueva **en la
-mitad de los datos**.
+En el sitio de SharePoint donde hoy vive la matriz → **Contenido del sitio → Nuevo
+→ Lista → Desde Excel** → subir `MATRIZ_NACIONAL_ACTIVOS_BIENES_2026.xlsx`, hoja
+por hoja (una lista para *Activos*, otra para *Bienes control* — **o, más simple,
+una sola lista con todo y una columna extra `hoja`** que diga `Activos` o `Bienes
+control`; la herramienta funciona igual con cualquiera de las dos formas, así que
+elige la que sea menos trabajo).
 
-Arreglarlo una vez, en Excel de escritorio:
+**Nombra las columnas igual que el JSON**, no como los encabezados largos del
+Excel. Ahorra un paso de traducción en los dos flujos de más abajo:
 
-1. Clic en cualquier celda de la tabla → pestaña **Diseño de tabla**.
-2. **Cambiar tamaño de la tabla** → poner el rango completo, hasta la última fila
-   con datos. Para *Activos*, hoy sería `A1:AR557`; para *Bienes control*, `A1:AR803`.
-3. Guardar. De ahí en adelante la tabla crece sola con cada fila que agregue el flujo.
+`codigo, descripcion, detalle, cantidad, tipoSeguros, tipoContable, proyecto,
+fechaCompra, donante, proveedor, ruc, factura, facturaLink, valor, marca, modelo,
+serie, cedula, custodio, institucion, ubicacion, acta, asegurado, inicioSeguro,
+finSeguro, aseguradora, poliza, garantia, inicioGarantia, finGarantia,
+estadoFisico, vida, fechaBaja, motivoBaja, observaciones, foto, hoja, sigla`
 
-> Mientras se está en eso: conviene **quitar las filas totalmente vacías** que hay en
-> medio (por ejemplo la fila 7 de *Activos*). Una tabla con huecos hace que
-> «agregar fila» caiga en el hueco en vez de al final.
+`sigla` es nueva: el segundo bloque del código (`02-`**`RBL`**`-014-EC`). Vale la
+pena tenerla como columna propia — así el flujo de consulta filtra por igualdad
+exacta en vez de tener que interpretar el código cada vez. Al importar desde
+Excel, se llena con una columna calculada una sola vez; de ahí en adelante, el
+flujo de ingreso ya la manda calculada (`_sigla`, ver parte 2).
 
-### 1.1 Crear el flujo
+> No hace falta migrar `ESTADO DE GARANTIA` ni `Código QR`: la herramienta calcula
+> el primero sola y el segundo nunca funcionó (ver `MATRIZ.md`, sección 6).
 
-En [make.powerautomate.com](https://make.powerautomate.com) → **Crear** → **Flujo de
-nube instantáneo** → disparador **«Cuando se recibe una solicitud HTTP»**
-(*When an HTTP request is received*).
+### 1.2 La lista «Accesos»
 
-- **Método**: `POST`
-- **Esquema JSON de la solicitud**: pegar esto tal cual.
+Una lista nueva, chiquita, dos columnas:
+
+| Correo | Área |
+|---|---|
+| cata@fias.org.ec | TODAS |
+| ac.limoncocha@fias.org.ec | RBL |
+| ac.podocarpus@fias.org.ec | PNP |
+| … | … |
+
+`TODAS` es el valor especial para quien administra bienes. El correo es el mismo
+con el que cada quien inicia sesión en Microsoft 365 — no hace falta que coincida
+con nada de la matriz, es una tabla aparte.
+
+**Esta lista es el control de acceso real.** Agregar, mover o sacar a alguien es
+editarla — no hay que tocar código ni volver a publicar nada. Quien no esté aquí
+puede iniciar sesión igual (es una cuenta válida de FIAS) pero no ve ningún bien:
+solo le queda el formulario de registro.
+
+---
+
+## Parte 2 · El flujo de ingreso
+
+Es el mismo flujo que ya existía, con dos cambios: escribe en la Lista de
+SharePoint en vez del Excel, y ya no hace falta separar por hoja con una condición
+— la columna `hoja` va en la propia fila.
+
+En [make.powerautomate.com](https://make.powerautomate.com) → **Crear → Flujo de
+nube instantáneo** → disparador **«Cuando se recibe una solicitud HTTP»**, método
+`POST`, con el mismo esquema JSON de antes (los 44 campos del bien más
+`_hoja`, `_sigla`, `_area`, `_enviado`, `_id` — sin cambios; si ya tenías el flujo
+viejo del Excel, basta con abrirlo y reemplazar el paso de Excel).
+
+**No lleva seguridad de Azure AD.** Es intencional: es un flujo que solo escribe,
+nunca devuelve datos de nadie, así que no hay nada que proteger del lado de la
+lectura. Sigue protegido igual que antes, con la URL larga y el `sig=…` que trae.
+
+Acción **SharePoint → Crear elemento**:
+
+- **Dirección del sitio**: el sitio donde creaste la lista «Bienes»
+- **Nombre de lista**: `Bienes`
+- Mapea cada columna al campo del JSON del mismo nombre — como se llamaron igual
+  en el paso 1.1, es prácticamente automático.
+
+Al final, igual que antes: acción **Respuesta** (código 200) y el correo a la
+administradora de bienes con **Office 365 Outlook → Enviar un correo (V2)**. El
+cuerpo del correo puede quedar tal cual estaba en la versión anterior de esta guía.
+
+Copia la URL del disparador y pégala en `bienes/index.html`:
+
+```js
+var FLOW_BIENES_URL = '';   // ← aquí
+```
+
+---
+
+## Parte 3 · Registrar la app en Entra ID
+
+Esto es lo que permite el botón «Iniciar sesión con Microsoft». Lo hace una vez
+quien administre esa cuenta — necesita poder crear registros de aplicación, que en
+la mayoría de organizaciones **cualquier usuario puede hacer por defecto** (no
+hace falta ser administrador global). Si el botón «Nuevo registro» no aparece,
+alguien de IT lo activa en un minuto.
+
+### 3.1 Crear el registro
+
+[entra.microsoft.com](https://entra.microsoft.com) → **Identidad → Aplicaciones →
+Registros de aplicaciones → Nuevo registro**.
+
+- **Nombre**: `Bienes FAP`
+- **Tipos de cuenta admitidos**: *Solo cuentas de este directorio organizativo*
+- **URI de redirección**: tipo **SPA (aplicación de una sola página)**, valor la
+  URL exacta donde vive `bienes/index.html`
+  (`https://[usuario].github.io/fap-contratos/bienes/`)
+
+Al terminar, copia dos valores de la página **Información general**:
+
+- **Id. de aplicación (cliente)** → va en `MSAL_CONFIG.clientId`
+- **Id. de directorio (inquilino)** → va en `MSAL_CONFIG.authority`, así:
+  `https://login.microsoftonline.com/<Id.-de-directorio>`
+
+### 3.2 Exponer una API
+
+En el mismo registro → **Exponer una API → Agregar** (acepta el URI de
+aplicación que propone, algo como `api://<client-id>`).
+
+**Agregar un ámbito**:
+- Nombre del ámbito: `Bienes.Leer`
+- Quién puede dar su consentimiento: *Administradores y usuarios*
+- Nombre para mostrar del consentimiento del administrador: `Leer mis bienes`
+- Descripción: `Permite consultar los bienes que le corresponden a quien inicia sesión`
+
+El ámbito completo (`api://<client-id>/Bienes.Leer`) va en `MSAL_API_SCOPE`.
+
+### 3.3 Permisos de API
+
+**Autorizar clientes cliente** (en la misma pantalla de «Exponer una API») → pega
+el mismo Id. de aplicación (cliente) del paso 3.1, marca `Bienes.Leer` → **Agregar
+una aplicación**. Esto le dice a Entra ID que la propia app tiene permiso de
+pedirse el ámbito a sí misma — es el patrón normal para una SPA que llama a su
+propio backend.
+
+### 3.4 Pegar los tres valores
+
+En `bienes/index.html`:
+
+```js
+var MSAL_CONFIG = {
+  clientId: '',      // Id. de aplicación (cliente) — paso 3.1
+  authority: '',      // https://login.microsoftonline.com/<Id. de directorio>
+  redirectUri: window.location.origin + window.location.pathname
+};
+var MSAL_API_SCOPE = '';   // api://<client-id>/Bienes.Leer — paso 3.2
+```
+
+Con esto el botón de login ya funciona y pide la sesión de Microsoft — lo único
+que falta es que tenga a quién preguntarle los bienes (parte 4).
+
+---
+
+## Parte 4 · El flujo protegido «obtener mis bienes»
+
+Este es el que decide qué ve cada quien. La idea: el disparador, protegido con
+Azure AD, garantiza que **solo cuentas de FIAS pueden llamarlo** — pero eso solo
+dice *quién es*, no *qué le toca ver*. Ese segundo paso lo hace el flujo, cruzando
+el correo contra la lista de Accesos, y filtrando la lista de Bienes antes de
+devolver nada. El navegador nunca decide esto por sí mismo: si lo hiciera, bastaría
+con cambiar una línea de código para que alguien viera el área de otro.
+
+### 4.1 Crear el flujo y protegerlo
+
+**Crear → Flujo de nube instantáneo** → disparador «Cuando se recibe una solicitud
+HTTP», método `GET` (no necesita cuerpo, solo el token).
+
+Abre los **ajustes del disparador** (⚙) → **Seguridad**:
+- **¿Quién puede desencadenar el flujo?**: *Cualquier usuario de mi inquilino*
+
+Esto pide un registro de aplicación para la seguridad del propio disparador —
+puede ser el **mismo** `Bienes FAP` del paso 3.1, con el mismo Id. de cliente y de
+directorio.
+
+### 4.2 Averiguar quién llama — probarlo antes de dar por buena la fórmula
+
+Cuando el disparador tiene seguridad de Azure AD, Power Automate recibe la
+identidad de quien llama en un encabezado, **`X-MS-CLIENT-PRINCIPAL`**: un texto
+en Base64 que, al decodificarlo, es una lista de "claims" (afirmaciones) sobre esa
+persona — entre ellas su correo, aunque el nombre exacto de ese campo cambia según
+cómo esté configurado el directorio (a veces es `upn`, a veces
+`preferred_username`, a veces la URL larga
+`http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn`). En vez de adivinar,
+se prueba una vez:
+
+1. Agrega una acción **Compose** justo después del disparador, con esta fórmula:
+   ```
+   json(base64ToString(triggerOutputs()?['headers']?['X-MS-CLIENT-PRINCIPAL']))
+   ```
+2. Agrega una acción **Respuesta**, código 200, cuerpo = la salida de ese Compose.
+3. Guarda, y llama al flujo una vez de prueba (con `curl` o Postman, pidiendo antes
+   un token con `MSAL_API_SCOPE` — o más fácil: usa el botón «Probar» de Power
+   Automate, que ya corre autenticado como tú).
+4. Mira la lista `claims` que responde. Busca la entrada cuyo `typ` sea tu correo
+   — normalmente `upn` o `preferred_username` — y anota el nombre exacto de ese
+   `typ` en **tu** tenant.
+
+Con ese nombre confirmado, arma el resto del flujo. No hay atajo honesto para este
+paso: los nombres de claims varían de un tenant a otro y una fórmula copiada de
+otra guía puede simplemente no calzar con la tuya.
+
+### 4.3 Buscar el correo en Accesos
+
+Acción **Compose** — el correo de quien llama (usa el `typ` que confirmaste en 4.2):
+
+```
+first(filter(outputs('Compose_-_decodificar_claims')?['claims'], equals(item()?['typ'], 'upn')))?['val']
+```
+
+Acción **SharePoint → Obtener elementos**, lista `Accesos`, filtro de OData:
+
+```
+Correo eq '@{outputs('Compose_-_correo')}'
+```
+
+Acción **Condición**: `length(body('Obtener_elementos')?['value'])` es mayor que `0`.
+
+- **No** → acción **Respuesta**, código `403`, cuerpo
+  `{"error":"No estás en la lista de accesos."}`. Aquí termina: una cuenta válida
+  de FIAS que no está en Accesos no ve ningún bien.
+- **Sí** → sigue al paso 4.4.
+
+### 4.4 Filtrar Bienes y responder
+
+Con el área ya resuelta (`first(body('Obtener_elementos')?['value'])?['Área']`):
+
+Acción **Condición**: ¿esa área es `TODAS`?
+
+- **Sí** (es Cata) → **SharePoint: Obtener elementos** de la lista `Bienes`, sin
+  filtro — trae todo.
+- **No** (es un área) → **SharePoint: Obtener elementos** de `Bienes`, filtro
+  `sigla eq '<el área encontrada>'`.
+
+Acción **Respuesta**, código 200, cuerpo:
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "codigo":       { "type": "string" },
-    "descripcion":  { "type": "string" },
-    "detalle":      { "type": "string" },
-    "cantidad":     { "type": "number" },
-    "tipoSeguros":  { "type": "string" },
-    "tipoContable": { "type": "string" },
-    "proyecto":     { "type": "string" },
-    "fechaCompra":  { "type": "string" },
-    "donante":      { "type": "string" },
-    "proveedor":    { "type": "string" },
-    "ruc":          { "type": "string" },
-    "factura":      { "type": "string" },
-    "facturaLink":  { "type": "string" },
-    "valor":        { "type": "number" },
-    "marca":        { "type": "string" },
-    "modelo":       { "type": "string" },
-    "serie":        { "type": "string" },
-    "cedula":       { "type": "string" },
-    "custodio":     { "type": "string" },
-    "institucion":  { "type": "string" },
-    "ubicacion":    { "type": "string" },
-    "acta":         { "type": "string" },
-    "asegurado":    { "type": "string" },
-    "inicioSeguro": { "type": "string" },
-    "finSeguro":    { "type": "string" },
-    "aseguradora":  { "type": "string" },
-    "poliza":       { "type": "string" },
-    "garantia":     { "type": "string" },
-    "inicioGarantia": { "type": "string" },
-    "finGarantia":  { "type": "string" },
-    "estadoGarantia": { "type": "string" },
-    "estadoFisico": { "type": "string" },
-    "vida":         { "type": "number" },
-    "depAnual":     { "type": "number" },
-    "depAcumulada": { "type": "number" },
-    "depMensual":   { "type": "number" },
-    "residual":     { "type": "number" },
-    "fechaBaja":    { "type": "string" },
-    "motivoBaja":   { "type": "string" },
-    "observaciones":{ "type": "string" },
-    "foto":         { "type": "string" },
-    "_hoja":        { "type": "string" },
-    "_sigla":       { "type": "string" },
-    "_area":        { "type": "string" },
-    "_enviado":     { "type": "string" },
-    "_id":          { "type": "string" }
-  }
+  "rol": "@{if(equals(variables('area'), 'TODAS'), 'cata', 'area')}",
+  "sigla": "@{if(equals(variables('area'), 'TODAS'), null, variables('area'))}",
+  "bienes": @{body('Obtener_elementos_2')?['value']}
 }
 ```
 
-Los cuatro campos con guion bajo **no son columnas de la matriz**: le sirven al flujo
-para decidir la hoja (`_hoja`), armar el correo (`_area`) y no duplicar (`_id`).
+(Ajusta los nombres de las acciones a como te haya quedado el flujo — Power
+Automate los va numerando según el orden en que las agregas.)
 
-### 1.2 Elegir la hoja
-
-Agregar una acción **Condición**:
-
-- Izquierda: `_hoja` (contenido dinámico del disparador)
-- Operador: **es igual a**
-- Derecha: `Activos`
-
-En la rama **Sí** va la fila a *Activos*; en la rama **No**, a *Bienes control*.
-La herramienta ya decidió cuál toca (activo fijo desde **$500**, ver
-[`MATRIZ.md`](MATRIZ.md)), así que el flujo solo obedece.
-
-### 1.3 Agregar la fila
-
-En cada rama, acción **Excel Online (Empresa) → Agregar una fila a una tabla**:
-
-- **Ubicación**: OneDrive de la administradora de bienes (o el SharePoint donde viva la matriz)
-- **Biblioteca / Archivo**: `ACTIVOS FAP NACIONAL 2026 …/MATRIZ_NACIONAL_ACTIVOS_BIENES_2026.xlsx`
-- **Tabla**: `Tabla1` en la rama *Activos*, `Tabla16` en la rama *Bienes control*
-
-Y el mapeo columna por columna. Las 44 columnas de la matriz, en orden:
-
-| # | Columna de la matriz | Campo del JSON |
-|---|---|---|
-| 1 | CODIGO | `codigo` |
-| 2 | DESCRIPCIÓN | `descripcion` |
-| 3 | DESCRIPCIÓN(ADICIONAL) | `detalle` |
-| 4 | CANTIDAD | `cantidad` |
-| 5 | TIPO DE BIEN SEGUROS | `tipoSeguros` |
-| 6 | TIPO DE BIEN SISTEMA CONTABLE | `tipoContable` |
-| 7 | PROYECTO | `proyecto` |
-| 8 | FECHA DE COMPRA | `fechaCompra` |
-| 9 | DONANTE | `donante` |
-| 10 | PROVEEDOR | `proveedor` |
-| 11 | RUC DE PROVEEDOR | `ruc` |
-| 12 | N° Factura | `factura` |
-| 13 | FACTURA DIGITAL | `facturaLink` |
-| 14 | VALOR DEL BIEN(INC.IMP) | `valor` |
-| 15 | MARCA | `marca` |
-| 16 | MODELO | `modelo` |
-| 17 | NUMERO DE SERIE | `serie` |
-| 18 | CEDULA CUSTODIO | `cedula` |
-| 19 | NOMBRES Y APELLIDOS CUSTODIO | `custodio` |
-| 20 | INSTITUCIÓN | `institucion` |
-| 21 | UBICACIÓN | `ubicacion` |
-| 22 | ACTA ENTREGA | `acta` |
-| 23 | ASEGURADO (SI/NO) | `asegurado` |
-| 24 | INICIO SEGURO | `inicioSeguro` |
-| 25 | FIN SEGURO | `finSeguro` |
-| 26 | ASEGURADORA | `aseguradora` |
-| 27 | NRO DE POLIZA | `poliza` |
-| 28 | GARANTIA TECNICA | `garantia` |
-| 29 | INICIO GARANTIA | `inicioGarantia` |
-| 30 | FIN DE GARANTIA | `finGarantia` |
-| 31 | ESTADO DE GARANTIA | *(rama Activos: vacío · rama Bienes control: `estadoGarantia`)* |
-| 32 | Estado físico detallado | `estadoFisico` |
-| 33 | Vida útil estimada (AÑOS) | `vida` |
-| 34 | Depreciación Lineal Anual | `depAnual` |
-| 35 | Depreciación Acumulada | `depAcumulada` |
-| 36 | Depreciación Acumulada Diciembre | *(vacío)* |
-| 37 | Depreciación Mensual | `depMensual` |
-| 38 | Valor residual | `residual` |
-| 39 | Valor residual diciembre | *(vacío)* |
-| 40 | Fecha de baja | `fechaBaja` |
-| 41 | Motivo de baja | `motivoBaja` |
-| 42 | OBSERVACIONES | `observaciones` |
-| 43 | Fotografía del bien | `foto` |
-| 44 | Código QR | *(dejar vacío: la columna ya tiene fórmula)* |
-
-> **Ojo con las fechas.** La herramienta manda `AAAA-MM-DD`. Si la matriz las
-> muestra como texto en vez de fecha, envolver el campo en
-> `formatDateTime(triggerBody()?['fechaCompra'], 'dd/MM/yyyy')`.
-
-> **Las columnas 31 y 44 se tratan distinto en cada hoja.** En *Activos* las dos son
-> fórmulas de la tabla (`=IF(...)` para el estado de garantía e `=IMAGE(...)` para el
-> QR): Excel las copia sola a la fila nueva, y escribirlas desde el flujo las
-> rompería. En *Bienes control* no son fórmulas sino texto pegado, así que ahí sí hay
-> que mandar `estadoGarantia`; el QR se deja vacío en las dos.
-
-> **El QR hoy no funciona en ninguna de las dos hojas**: las 1.260 filas tienen
-> `#VALUE!` porque `IMAGE()` no está disponible en la versión de Excel que se usa.
-> Es un problema aparte de este flujo; está anotado en [`MATRIZ.md`](MATRIZ.md).
-
-### 1.4 Avisar a la administradora de bienes
-
-Al final, acción **Office 365 Outlook → Enviar un correo electrónico (V2)**:
-
-- **Para**: la administradora de bienes
-- **Asunto**: `Bien nuevo en la matriz · @{triggerBody()?['_sigla']} · @{triggerBody()?['codigo']}`
-- **Cuerpo**:
-
-```
-@{triggerBody()?['_area']} registró un bien nuevo.
-
-Código:     @{triggerBody()?['codigo']}
-Bien:       @{triggerBody()?['descripcion']}
-Valor:      @{triggerBody()?['valor']}
-Hoja:       @{triggerBody()?['_hoja']}
-Custodio:   @{triggerBody()?['custodio']}
-Ubicación:  @{triggerBody()?['ubicacion']}
-Factura:    @{triggerBody()?['factura']}
-Acta:       @{triggerBody()?['acta']}
-Fotografía: @{triggerBody()?['foto']}
-
-Ya está en la matriz. Para revisarlo, abre /bienes/ y entra a «Revisión».
-```
-
-Si se prefiere un solo correo al día en vez de uno por bien, se cambia por una
-acción **Agregar fila** a una lista de avisos y un segundo flujo programado que
-mande el resumen. Con el volumen actual (unos pocos bienes por semana) el correo
-por bien es más simple y llega a tiempo.
-
-### 1.5 Responder que llegó
-
-Última acción: **Respuesta** (*Response*), código **200**, cuerpo `{"ok":true}`.
-Sin esta acción el navegador se queda esperando y la herramienta cree que falló
-(guardaría el registro en la cola de reintento, y la fila se duplicaría en el
-siguiente envío).
-
-### 1.6 Pegar la URL en la herramienta
-
-Guardar el flujo, copiar la **URL HTTP POST** del disparador —completa, incluido el
-`&sig=…`— y pegarla en `bienes/index.html`, en esta línea:
+### 4.5 Pegar la URL
 
 ```js
-var FLOW_BIENES_URL = '';
+var API_MIS_BIENES_URL = '';   // URL del disparador de este flujo
 ```
 
-Es la única línea que hay que tocar. Con eso, «Enviar a la matriz» deja de descargar
-el archivo y manda la fila de verdad.
+Y, si quieres el atajo directo a la lista de Accesos desde el panel:
+
+```js
+var SP_ACCESOS_URL = '';   // enlace a la lista «Accesos» en SharePoint
+```
 
 ---
 
-## Parte 2 · El robot que publica la matriz para verla
+## Si la parte 4 se complica
 
-Esto es lo que hace que el panel, las alertas y «mis bienes» tengan datos.
+Interpretar el token dentro de un flujo (4.2–4.4) es la pieza más técnica de toda
+esta guía, y la única que no se puede probar sin un tenant real — así que es
+razonable que tome más de un intento. Si se atasca, hay un plan B que llega al
+mismo resultado —login real, cada quien ve solo lo suyo— sin escribir ninguna
+fórmula de claims:
 
-1. En OneDrive/SharePoint, sobre el archivo de la matriz → **Compartir** → **Copiar
-   vínculo**, con permiso *«Cualquier persona con el vínculo puede ver»*.
-2. En el repositorio → **Settings → Secrets and variables → Actions → New repository
-   secret**, crear dos secretos:
-
-   | Secreto | Qué es |
-   |---|---|
-   | `BIENES_EXCEL_URL` | El vínculo del paso 1 |
-   | `BIENES_KEY` | **La frase maestra de la administradora de bienes** |
-
-3. Ir a **Actions → Actualizar matriz de bienes → Run workflow** para probarlo.
-
-De ahí en adelante corre solo todas las mañanas (6:45 a. m. de Ecuador) y regenera
-`bienes/bienes_export.json` y `bienes/datos/*.json`.
-
-> `BIENES_KEY` es **distinta** de `DATA_KEY` (la del CRM/CLM) a propósito: la de
-> contratos la tiene todo el equipo, y aquí la idea es que solo la administradora de
-> bienes vea la matriz completa. Si se usa la misma, cualquiera del equipo abre todo.
-
-> Si la matriz no cambió, el robot no vuelve a publicar. Cada cifrado estrena sal e
-> IV, así que sin esa comprobación el repositorio recibiría un commit diario aunque
-> nadie hubiera tocado el Excel.
-
----
-
-## Parte 3 · Repartir las frases de acceso
-
-La administradora entra a **Áreas y frases** → **Calcular las frases**. Sale una
-tabla con las 46 áreas y la frase de cada una (`XXXXX-XXXXX-XXXXX`). A cada AC se le
-manda **solo la suya**, con el enlace de la herramienta.
-
-Las frases **no se guardan en ninguna parte**: se derivan de la frase maestra con
-HMAC-SHA256, así que se vuelven a calcular igualitas cuando haga falta. Y como se
-derivan, un área no puede deducir la de otra ni la maestra.
-
-Cambiar la frase maestra (`BIENES_KEY`) **cambia todas las frases de área**. Hay que
-volver a correr el robot y repartirlas de nuevo.
-
-Quien no tenga frase igual puede registrar bienes: entra por **«Registrar un bien»**
-y no descarga ningún dato. Lo único que pierde es que la herramienta no le puede
-proponer el código siguiente de su área — se lo asigna la administradora.
+**Permisos nativos de SharePoint en vez de un flujo que decide.** En vez de una
+lista `Bienes`, se crean carpetas dentro de ella —una por sigla de área— y a cada
+carpeta se le **rompe la herencia de permisos** (botón *Compartir → Permisos
+avanzados → Dejar de heredar permisos*) dándole acceso de lectura solo a esa área
+y a Cata. El navegador, ya con la sesión de Microsoft, consulta la lista
+directamente por **Microsoft Graph** (`GET
+https://graph.microsoft.com/v1.0/sites/{id}/lists/Bienes/items`) con el token que
+entrega MSAL — y SharePoint, no un flujo, decide qué le devuelve: si la carpeta no
+es suya, Graph responde vacío o con error, sin que nadie haya tenido que escribir
+esa regla en Power Automate. Es más trabajo de configuración manual (una carpeta y
+un permiso por área, una vez), pero el mecanismo que manda es el más probado que
+existe en SharePoint — el mismo que usa cualquier sitio con carpetas privadas.
 
 ---
 
@@ -292,9 +308,10 @@ proponer el código siguiente de su área — se lo asigna la administradora.
 
 | Síntoma | Causa casi siempre |
 |---|---|
-| `401` al enviar | La URL del flujo se pegó sin el `&sig=…` completo |
-| La fila cae en medio de la hoja | El rango de la tabla está corto (paso 1.0) |
-| Fechas raras en Excel | Usar `formatDateTime(...)` en el mapeo (paso 1.3) |
-| «Guardado sin conexión» siempre | Falta la acción **Respuesta** en el flujo (paso 1.5) |
-| El panel dice «sin copia de la matriz» | El robot no ha corrido, o faltan los secretos |
-| «Esa frase no abre nada» | La frase de área quedó vieja porque cambió `BIENES_KEY` |
+| El botón de Microsoft no aparece | `MSAL_CONFIG.clientId` o `.authority` siguen vacíos |
+| «AADSTS500011» al iniciar sesión | El URI de redirección (3.1) no coincide exactamente con la URL de la página |
+| «AADSTS65001» o pantalla de consentimiento atascada | Falta el consentimiento del administrador para `Bienes.Leer` (Entra admin center → Permisos de API → Conceder consentimiento) |
+| El login funciona pero «no pude consultar tus bienes» | `API_MIS_BIENES_URL` vacío, o el flujo de la parte 4 no está publicado |
+| Login correcto pero «no está en la lista de accesos» | Falta agregar ese correo en la lista `Accesos` (parte 1.2) — es el comportamiento esperado, no un error |
+| El flujo de consulta da 401 | La seguridad del disparador (4.1) no quedó en «Cualquier usuario de mi inquilino», o el scope pedido no coincide con `MSAL_API_SCOPE` |
+| Alguien ve bienes de un área que no es la suya | Revisa la lista `Accesos` primero — es la causa más probable y la más fácil de arreglar |

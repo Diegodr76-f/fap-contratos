@@ -11,6 +11,9 @@
 <!-- Lector de Excel: PizZip ya vive en el repositorio (no en un CDN externo), igual
      que en el CLM y el Calificador. Sirve para abrir la matriz .xlsx sin internet. -->
 <script src="../clm/vendor/pizzip.min.js"></script>
+<!-- Login con la cuenta de Microsoft de FIAS: MSAL.js, vendorizado por la misma
+     razón que PizZip (nada de CDNs externos que las redes institucionales bloqueen). -->
+<script src="vendor/msal-browser.min.js"></script>
 <style>
   :root{
     --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
@@ -201,14 +204,39 @@
    ===================================================================== */
 
 /* ================= CONFIG ================= */
-// URL del flujo de Power Automate que agrega la fila al Excel matriz y
-// avisa a la administradora de bienes. El paso a paso está en CONECTAR.md.
+// URL del flujo de Power Automate que agrega la fila a la Lista de SharePoint
+// y avisa a la administradora de bienes. El paso a paso está en CONECTAR.md.
 // Si se deja vacía (''), la herramienta funciona igual: calcula todo y
-// permite descargar la fila, pero no la envía.
+// permite descargar la fila, pero no la envía. No necesita frase ni login:
+// solo escribe, nunca devuelve datos de nadie.
 var FLOW_BIENES_URL = '';
 
-// Datos publicados por el robot (cifrados). Ver scripts/actualizar_bienes.py.
-var DATA_URL = 'bienes_export.json';
+/* Inicio de sesión con la cuenta de Microsoft (Entra ID) de FIAS. Reemplaza
+   al sistema de frases: quien entra aquí demuestra ser un empleado real, y
+   el flujo protegido de abajo decide QUÉ puede ver según un cruce con la
+   lista de accesos — este archivo nunca decide solo, por diseño, para que
+   nadie pueda verse a sí mismo el área de otro con solo tocar el código.
+   Los tres valores los llena quien registre la app en Entra ID (ver
+   CONECTAR.md, parte 3). Mientras estén vacíos, el botón de login no
+   aparece y la herramienta sigue sirviendo para registrar bienes y para
+   que la administradora abra su .xlsx a mano. */
+var MSAL_CONFIG = {
+  clientId: '',                                    // Application (client) ID de la app registrada
+  authority: '',                                    // 'https://login.microsoftonline.com/<tenant-id-o-dominio>'
+  redirectUri: window.location.origin + window.location.pathname
+};
+// Recurso para el que se pide el token que llega al flujo protegido.
+// Ver CONECTAR.md parte 3.4: es la misma app registrada, expuesta como API.
+var MSAL_API_SCOPE = '';   // algo como 'api://<client-id>/Bienes.Leer'
+
+// Flujo protegido con Azure AD: recibe el token, mira quién llama (nunca lo
+// que el navegador diga de sí mismo) y devuelve solo lo que le toca ver.
+var API_MIS_BIENES_URL = '';
+
+// Enlace directo a la Lista de SharePoint donde se administra quién ve qué
+// (correo → área). Solo es un atajo para el botón de «Accesos»; si se deja
+// vacío, ese botón no aparece pero todo lo demás funciona igual.
+var SP_ACCESOS_URL = '';
 
 // Umbral contable que separa activo fijo de bien de control.
 // Verificado contra la matriz 2026: los 504 registros de la hoja "Activos"
@@ -323,38 +351,51 @@ var INSTITUCIONES = [
 ];
 var ESTADOS_FIS = ['NUEVO','BUENO','REGULAR','MALO'];
 
-/* ================= CIFRADO (WebCrypto) =================
-   Mismo sobre que el CRM/CLM: AES-256-GCM con clave PBKDF2-SHA256.
-   Aquí hay un sobre por área más el sobre maestro. */
-var LS_KEY = 'fap_bienes_key';
-function isEnc(o){ return !!(o && typeof o==='object' && o.fap_enc); }
-function b64(s){ return Uint8Array.from(atob(s), function(c){return c.charCodeAt(0);}); }
-async function decrypt(env, pass){
-  var salt=b64(env.salt), iv=b64(env.iv), ct=b64(env.ct);
-  var base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
-  var key = await crypto.subtle.deriveKey(
-    {name:'PBKDF2', salt:salt, iterations: env.iter||250000, hash:'SHA-256'},
-    base, {name:'AES-GCM', length:256}, false, ['decrypt']);
-  var pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, ct);
-  return JSON.parse(new TextDecoder().decode(pt));
+/* ================= SESIÓN (MSAL / Entra ID) =================
+   Quién ve qué ya no lo decide este archivo ni una frase: lo decide el
+   flujo protegido, cruzando el correo de quien inició sesión contra la
+   lista de accesos. Aquí solo se pide el login y se llama al flujo. */
+var msalApp = null, msalCuenta = null;
+function msalListo(){ return !!(MSAL_CONFIG.clientId && MSAL_CONFIG.authority && window.msal); }
+async function msalIniciar(){
+  if(!msalListo()) return null;
+  if(!msalApp){
+    msalApp = new msal.PublicClientApplication({
+      auth: { clientId: MSAL_CONFIG.clientId, authority: MSAL_CONFIG.authority, redirectUri: MSAL_CONFIG.redirectUri },
+      cache: { cacheLocation: 'localStorage' }   // sobrevive a cerrar la pestaña, como cualquier sesión de Office
+    });
+    await msalApp.initialize();
+  }
+  var ctas = msalApp.getAllAccounts();
+  msalCuenta = ctas.length ? ctas[0] : null;
+  return msalCuenta;
 }
-async function sha256hex(txt){
-  var h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
-  return Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+async function msalEntrar(){
+  await msalIniciar();
+  var r = await msalApp.loginPopup({ scopes: ['User.Read'] });
+  msalCuenta = r.account;
+  return msalCuenta;
 }
-/* Frase de cada área: se deriva de la frase maestra con HMAC-SHA256, así
-   que la administradora de bienes las puede volver a calcular cuando
-   quiera (el panel las muestra) y ningún área puede deducir la de otra
-   ni la maestra. Alfabeto sin I, O, 0 ni 1 para que nadie las confunda
-   al copiarlas a mano. */
-var ALFA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-async function fraseArea(master, sigla){
-  var key = await crypto.subtle.importKey('raw', new TextEncoder().encode(master),
-    {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
-  var mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('bienes-area:'+sigla));
-  var b = new Uint8Array(mac), out='';
-  for(var i=0;i<15;i++){ out += ALFA[b[i] % 32]; if(i%5===4 && i<14) out+='-'; }
-  return out;
+function msalSalir(){
+  if(msalApp && msalCuenta) msalApp.logoutRedirect({ account: msalCuenta });
+}
+// Token para llamar al flujo protegido. Silencioso si la sesión sigue viva
+// (no vuelve a pedir contraseña); solo abre ventana si de verdad hace falta.
+async function msalToken(){
+  var req = { scopes: [MSAL_API_SCOPE], account: msalCuenta };
+  try{ return (await msalApp.acquireTokenSilent(req)).accessToken; }
+  catch(e){ return (await msalApp.acquireTokenPopup(req)).accessToken; }
+}
+// Pide al flujo protegido los bienes que le tocan a quien inició sesión.
+// El servidor devuelve YA decidido el rol y el área: este archivo no
+// vuelve a decidirlo, solo pinta lo que le llega.
+async function pedirMisBienes(){
+  var token = await msalToken();
+  var r = await fetch(API_MIS_BIENES_URL, { headers: { Authorization: 'Bearer '+token } });
+  if(r.status===403) throw new Error('Tu cuenta inició sesión, pero no está en la lista de accesos. Pídele a la administradora de bienes que te agregue.');
+  if(!r.ok) throw new Error('No pude consultar tus bienes (HTTP '+r.status+').');
+  var d = await r.json();
+  return { rol: d.rol==='cata'?'cata':'area', sigla: d.sigla||null, bienes: (d.bienes||[]).map(normalizaBien) };
 }
 
 /* ================= HELPERS ================= */
@@ -658,18 +699,28 @@ function leerXlsx(buf){
 /* ================= ARRANQUE Y ACCESO ================= */
 async function boot(){
   S.enviados = lsGet(LS_ENVIADOS, []);
-  var paquete=null;
-  try{
-    var res = await fetch(DATA_URL, {cache:'no-store'});
-    if(res.ok) paquete = await res.json();
-  }catch(e){ /* sin datos publicados todavía: la herramienta sirve igual para registrar */ }
-  S.paquete = paquete;
-  S.generado = paquete && paquete.generado ? paquete.generado : null;
+  // Si ya había sesión de Microsoft abierta (misma pestaña o antes, gracias al
+  // caché en localStorage de MSAL), entra directo sin mostrar la puerta.
+  if(msalListo()){
+    try{
+      var cta = await msalIniciar();
+      if(cta){ await continuarConSesion(); return; }
+    }catch(e){ /* si algo falla, se cae a la puerta de acceso normal */ }
+  }
   pantallaAcceso();
 }
 
+async function continuarConSesion(){
+  try{
+    var r = await pedirMisBienes();
+    entrar(r.rol, r.sigla, r.bienes);
+  }catch(err){
+    pantallaAcceso(err && err.message ? err.message : 'No pude cargar tus bienes.');
+  }
+}
+
 function pantallaAcceso(msg){
-  var hayDatos = !!(S.paquete && (S.paquete.maestro || S.paquete.areas));
+  var conLogin = msalListo();
   var g=document.createElement('div');
   g.className='gate';
   g.innerHTML =
@@ -678,24 +729,25 @@ function pantallaAcceso(msg){
       '<h1>Bienes del FAP</h1>'+
       '<p>Activos fijos y bienes de control de las áreas protegidas.<br>'+
         'Si vas a <b>registrar un bien nuevo</b>, entra directo. Si además quieres '+
-        '<b>ver los bienes de tu área</b>, escribe la frase que te compartió la '+
-        'administradora de bienes.</p>'+
+        '<b>ver los bienes de tu área</b>, inicia sesión con tu cuenta de FIAS.</p>'+
       (msg?'<div class="note err" style="margin:0 0 14px">'+esc(msg)+'</div>':'')+
       '<button type="button" class="btn big" id="gForm" style="width:100%">Registrar un bien</button>'+
-      '<div class="or">o entra con tu frase</div>'+
-      '<input type="password" autocomplete="current-password" placeholder="Frase de acceso" id="gPass">'+
-      '<button type="submit" class="btn line" style="width:100%;margin-top:11px">Entrar y ver mis bienes</button>'+
-      (hayDatos?'':'<p style="margin:14px 0 0;font-size:11.5px;color:#9AA0B2">Todavía no hay una copia publicada de la matriz. '+
-        'El formulario funciona igual; el código del bien lo asigna la administradora.</p>')+
-      // Respaldo de la administradora: sirve el día uno (antes de configurar el robot)
-      // y el día que el robot falle. La llave aquí es tener el archivo: quien no lo
-      // tenga no ve nada, y el que lo abre nunca sale de su propio navegador.
-      '<p style="margin:16px 0 0;font-size:11.5px;color:#9AA0B2">¿Administras los bienes y todavía no hay copia publicada? '+
+      (conLogin
+        ? '<div class="or">o entra con tu cuenta</div>'+
+          '<button type="button" class="btn line" id="gMs" style="width:100%">'+
+            '<svg width="16" height="16" viewBox="0 0 21 21" style="flex:0 0 auto"><rect width="9" height="9" x="1" y="1" fill="#F25022"/><rect width="9" height="9" x="11" y="1" fill="#7FBA00"/><rect width="9" height="9" x="1" y="11" fill="#00A4EF"/><rect width="9" height="9" x="11" y="11" fill="#FFB900"/></svg>'+
+            ' Iniciar sesión con Microsoft</button>'
+        : '<p style="margin:16px 0 0;font-size:11.5px;color:#9AA0B2">El inicio de sesión con la cuenta de FIAS todavía no está configurado '+
+          '(falta registrar la app en Entra ID — ver <b>CONECTAR.md</b>).</p>')+
+      // Respaldo de la administradora: sirve el día uno (antes de terminar de
+      // configurar Entra ID) y el día que el flujo protegido falle. La llave
+      // aquí es tener el archivo: quien no lo tenga no ve nada, y el que lo
+      // abre nunca sale de su propio navegador.
+      '<p style="margin:16px 0 0;font-size:11.5px;color:#9AA0B2">¿Administras los bienes y no puedes iniciar sesión? '+
         '<a href="#" id="gXlsx" style="font-weight:700">Abre tu matriz .xlsx</a> — se lee en tu navegador, no se sube a ningún lado.</p>'+
       '<input type="file" id="gFile" accept=".xlsx" style="display:none">'+
     '</form>';
   document.body.appendChild(g);
-  var input=$('#gPass',g);
   $('#gForm',g).addEventListener('click', function(){ g.remove(); entrar('form',null,[]); });
   $('#gXlsx',g).addEventListener('click', function(e){ e.preventDefault(); $('#gFile',g).click(); });
   $('#gFile',g).addEventListener('change', function(e){
@@ -711,63 +763,27 @@ function pantallaAcceso(msg){
       }
       g.remove();
       entrar('cata', null, lista);
-      S.fuente='excel'; S.generado=null; S.vista='panel'; render();
+      S.fuente='excel'; S.vista='panel'; render();
       toast(lista.length+' bienes leídos de la matriz.');
     };
     fr.readAsArrayBuffer(file);
   });
-  $('form',g).addEventListener('submit', async function(e){
-    e.preventDefault();
-    var pass=input.value.trim(); if(!pass) return;
-    var btn=$('button[type=submit]',g); btn.disabled=true; btn.textContent='Abriendo…';
+  if(conLogin) $('#gMs',g).addEventListener('click', async function(){
+    var btn=this; btn.disabled=true; btn.textContent='Abriendo…';
     try{
-      var r = await abrirCon(pass);
+      await msalEntrar();
       g.remove();
-      entrar(r.rol, r.sigla, r.bienes, pass);
+      await continuarConSesion();
     }catch(err){
-      g.remove(); pantallaAcceso(err && err.message ? err.message : 'Frase incorrecta.');
+      g.remove();
+      pantallaAcceso(err && err.message ? err.message : 'No se pudo iniciar sesión.');
     }
   });
-  setTimeout(function(){ input.focus(); }, 60);
 }
 
-// Una frase de área se reconoce por su huella (un SHA-256, sin derivar clave):
-// así se baja UN archivo, el del área, y no la matriz entera. Si la frase no es
-// de ninguna área, se prueba como maestra contra el sobre grande.
-async function traerSobre(ruta){
-  var r = await fetch(ruta, {cache:'no-store'});
-  if(!r.ok) throw new Error('No pude descargar los datos ('+r.status+').');
-  return r.json();
-}
-async function abrirCon(pass){
-  var p=S.paquete;
-  if(!p) throw new Error('Todavía no hay datos publicados para abrir. Puedes registrar bienes sin frase.');
-  var huella = await sha256hex(pass);
-  if(p.areas){
-    var sigla=null;
-    Object.keys(p.areas).forEach(function(k){ if(p.areas[k].huella===huella) sigla=k; });
-    if(sigla){
-      var sobre = await traerSobre(p.areas[sigla].archivo);
-      var lista = await decrypt(sobre, pass);
-      return {rol:'area', sigla:sigla, bienes:marcaDuplicados(lista.map(normalizaBien))};
-    }
-  }
-  if(p.maestro){
-    var maestro = await traerSobre(p.maestro);
-    var todo;
-    // WebCrypto no distingue «frase equivocada» de «archivo dañado»: en ambos
-    // casos falla la verificación del sello GCM. Para quien entra, el caso real
-    // es siempre el primero.
-    try{ todo = await decrypt(maestro, pass); }
-    catch(e){ throw new Error('Esa frase no abre nada. Revisa que sea la de tu área.'); }
-    return {rol:'cata', sigla:null, bienes:marcaDuplicados(todo.map(normalizaBien))};
-  }
-  throw new Error('Esa frase no abre nada. Revisa que sea la de tu área.');
-}
-
-function entrar(rol, sigla, bienes, pass){
-  S.rol=rol; S.sigla=sigla; S.bienes=bienes||[]; S.master = (rol==='cata') ? pass : null;
-  S.fuente = S.bienes.length ? 'publicado' : 'ninguna';
+function entrar(rol, sigla, bienes){
+  S.rol=rol; S.sigla=sigla; S.bienes=marcaDuplicados(bienes||[]);
+  S.fuente = S.bienes.length ? (rol==='form'?'ninguna':'en vivo') : 'ninguna';
   if(rol==='cata' && !vistosSet()) marcarTodoVisto(S.bienes.map(function(b){return b.codigo;}));
   nuevoFormulario();
   // La administradora entra a mirar; la AC entra a registrar.
@@ -918,7 +934,7 @@ function sidebar(){
     items.splice(0,0,['panel','Panel','▦']);
     items.push(['revision','Revisión','✓', pend]);
     items.push(['alertas','Alertas','!']);
-    items.push(['areas','Áreas y frases','⚿']);
+    items.push(['areas','Accesos','⚿']);
   }
   items.push(['enviados','Lo que envié','↗']);
   var nav = items.map(function(it){
@@ -926,8 +942,11 @@ function sidebar(){
       '<span style="width:16px;text-align:center">'+it[2]+'</span>'+esc(it[1])+
       (it[3]?'<span class="nbadge">'+it[3]+'</span>':'')+'</button>';
   }).join('');
-  var quien = S.rol==='cata' ? ['Administración de bienes','Ve toda la matriz','AB']
-            : S.rol==='area' ? [areaNombre(S.sigla), 'Solo esta área', S.sigla.slice(0,3)]
+  // Con sesión de Microsoft se muestra quién es de verdad (nombre y correo de
+  // FIAS), no una etiqueta genérica — es justo lo que la frase no podía dar.
+  var nombreReal = msalCuenta ? (msalCuenta.name || msalCuenta.username) : null;
+  var quien = nombreReal ? [nombreReal, S.rol==='cata'?'Ve toda la matriz':areaNombre(S.sigla), nombreReal.slice(0,2).toUpperCase()]
+            : S.rol==='cata' ? ['Matriz abierta en este navegador','Ve toda la matriz','AB']
             : ['Registro de bienes','Solo formulario','＋'];
   return '<aside class="side">'+
     '<div class="side-brand"><div class="logo">FAP</div>'+
@@ -941,8 +960,8 @@ function sidebar(){
 }
 function topbar(){
   var titulos={registrar:'Registrar un bien', bienes:(S.rol==='cata'?'Todos los bienes':'Mis bienes'),
-    panel:'Panel', revision:'Revisión', alertas:'Alertas', areas:'Áreas y frases de acceso', enviados:'Lo que envié'};
-  var pill = S.fuente==='publicado' ? '<span class="srcpill"><span class="srcdot"></span>'+S.bienes.length+' bienes · corte '+esc((S.generado||'').slice(0,10)||'—')+'</span>'
+    panel:'Panel', revision:'Revisión', alertas:'Alertas', areas:'Accesos', enviados:'Lo que envié'};
+  var pill = S.fuente==='en vivo' ? '<span class="srcpill"><span class="srcdot"></span>'+S.bienes.length+' bienes · en vivo</span>'
            : S.fuente==='excel' ? '<span class="srcpill"><span class="srcdot"></span>'+S.bienes.length+' bienes · matriz abierta aquí</span>'
            : '<span class="srcpill"><span class="srcdot off"></span>sin copia de la matriz</span>';
   return '<div class="topbar"><h1>'+esc(titulos[S.vista]||'Bienes')+'</h1>'+pill+'</div>';
@@ -1206,9 +1225,10 @@ function vistaBienes(){
    '<p class="psub" style="margin-top:10px">'+lista.length+' bien(es). Toca una fila para ver la ficha completa.</p>');
 }
 function sinDatos(){
-  return '<div class="panel"><div class="ptitle">Todavía no hay una copia de la matriz</div>'+
-    '<p class="psub">El listado aparece cuando el robot publica el corte diario, o cuando abres la matriz aquí mismo. '+
-    'Mientras tanto, el formulario funciona igual.</p>'+
+  return '<div class="panel"><div class="ptitle">No hay bienes para mostrar</div>'+
+    '<p class="psub">Si acabas de iniciar sesión y esto no cambia, probablemente tu cuenta todavía no está en la '+
+    'lista de accesos — pídele a la administradora de bienes que te agregue. Mientras tanto, el formulario '+
+    'funciona igual.</p>'+
     (S.rol==='cata'?botonExcel():'')+'</div>';
 }
 function botonExcel(){
@@ -1274,7 +1294,7 @@ function vistaPanel(){
     '<div class="ptitle">Datos</div>'+
     '<p class="psub">'+(S.fuente==='excel'
       ? 'Estás viendo la matriz que abriste en este navegador. No se guardó en ningún lado.'
-      : 'Corte publicado por el robot el '+esc((S.generado||'').slice(0,10)||'—')+'.')+'</p>'+
+      : 'Consultado en vivo a la Lista de SharePoint al iniciar sesión — no es una copia guardada en ningún lado.')+'</p>'+
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
       '<button class="btn line sm" id="csvTodo">Exportar toda la matriz (CSV)</button>'+
       '<button class="btn line sm" id="abrirXlsx">Abrir otra matriz (.xlsx)</button>'+
@@ -1369,50 +1389,34 @@ function vistaAlertas(){
 }
 
 /* ---------- vista: áreas y frases ---------- */
+// Quién ve qué ya no lo calcula esta página: lo decide la Lista de accesos
+// en SharePoint (correo → área/rol) que consulta el flujo protegido. Aquí
+// solo se explica y se enlaza — editar accesos es cosa de SharePoint, no
+// de este archivo, así que no hay nada que este archivo pueda romper.
 function vistaAreas(){
-  // Las frases se derivan de la maestra. Si esta sesión entró abriendo el Excel,
-  // esa frase nunca se escribió y no hay de dónde derivarlas.
-  if(!S.master){
-    return '<div class="panel">'+
-      '<div class="ptitle">Para ver las frases, entra con la tuya</div>'+
-      '<p class="psub">Estás viendo la matriz que abriste desde tu computador, así que la herramienta '+
-        'no conoce tu frase maestra — y las frases de las áreas se derivan de ella.</p>'+
-      '<div class="note">Sal y vuelve a entrar escribiendo tu frase maestra (la misma del secreto '+
-        '<b>BIENES_KEY</b>). Necesita que el robot ya haya publicado la matriz al menos una vez.</div>'+
-    '</div>';
-  }
-  return '<div class="panel">'+
-    '<div class="ptitle">Una frase por área</div>'+
-    '<p class="psub">Cada área tiene su propia frase de acceso. Con ella, la AC ve <b>solo los bienes de su área</b> '+
-      'y el formulario. Con la tuya —la maestra— se ve todo. Las frases salen de la tuya, así que no hay una lista '+
-      'que mantener ni nada que se pueda perder: se vuelven a calcular aquí cuando haga falta. '+
-      'Si cambias la frase maestra, cambian todas.</p>'+
-    '<div class="note">Mándale a cada AC <b>solo su frase</b>, junto con el enlace de esta página. '+
-      'Quien no tenga frase igual puede registrar bienes: entra por «Registrar un bien».</div>'+
-    '<div class="toolbar" style="margin-top:14px">'+
-      '<button class="btn line sm" id="calcFrases">Calcular las frases</button>'+
-      '<button class="btn line sm noprint" id="imprFrases">Imprimir la lista</button>'+
-    '</div>'+
-    '<div id="frases"></div>'+
-  '</div>';
-}
-async function pintarFrases(){
-  var cont=$('#frases'); if(!cont||!S.master) return;
-  cont.innerHTML='<p class="psub">Calculando…</p>';
   var conBienes={}; S.bienes.forEach(function(b){ conBienes[b.sigla]=(conBienes[b.sigla]||0)+1; });
-  var filas=[];
-  for(var i=0;i<AREAS.length;i++){
-    var a=AREAS[i], fr=await fraseArea(S.master, a.s);
-    filas.push('<tr>'+
-      '<td><b class="mono">'+esc(a.s)+'</b><div style="font-size:11.5px;color:var(--muted)">'+esc(a.n)+'</div></td>'+
-      '<td class="num">'+(conBienes[a.s]||0)+'</td>'+
-      '<td><div class="copyrow"><span class="mono" style="font-weight:700">'+esc(fr)+'</span>'+
-        '<button class="iconbtn noprint" data-copy="'+esc(fr)+'" title="Copiar">⧉</button></div></td>'+
-    '</tr>');
-  }
-  cont.innerHTML='<div class="tablewrap"><table class="list"><thead><tr>'+
-    '<th>Área</th><th style="text-align:right">Bienes</th><th>Frase de acceso</th>'+
-    '</tr></thead><tbody>'+filas.join('')+'</tbody></table></div>';
+  var filas=AREAS.map(function(a){
+    return '<tr><td><b class="mono">'+esc(a.s)+'</b><div style="font-size:11.5px;color:var(--muted)">'+esc(a.n)+'</div></td>'+
+      '<td class="num">'+(conBienes[a.s]||0)+'</td></tr>';
+  }).join('');
+  return '<div class="panel">'+
+    '<div class="ptitle">Quién ve qué</div>'+
+    '<p class="psub">El acceso no es una frase ni un archivo: es la <b>Lista de accesos</b> en SharePoint, dos '+
+      'columnas — correo institucional y área (o «TODAS» para quien administra bienes). Cuando alguien inicia '+
+      'sesión, el flujo protegido busca su correo ahí antes de devolver un solo dato. Agregar, mover o quitar '+
+      'a alguien es editar esa lista — no hace falta tocar esta página ni volver a publicar nada.</p>'+
+    '<div class="note">Quien no esté en la lista puede iniciar sesión igual (es una cuenta válida de FIAS), pero '+
+      'no ve ningún bien — solo el formulario de registro. Ver «Sin acceso todavía» abajo.</div>'+
+    (SP_ACCESOS_URL
+      ? '<a class="btn line sm" href="'+esc(SP_ACCESOS_URL)+'" target="_blank" rel="noopener" style="margin-top:8px">Abrir la Lista de accesos</a>'
+      : '<p class="psub" style="margin-top:8px">Falta pegar el enlace a la lista en <code>SP_ACCESOS_URL</code> (una línea, ver CONECTAR.md).</p>')+
+  '</div>'+
+  '<div class="panel">'+
+    '<div class="ptitle">Bienes por área</div>'+
+    '<p class="psub">Para saber a quién dar acceso: cuántos bienes tiene cada área hoy.</p>'+
+    '<div class="tablewrap"><table class="list"><thead><tr><th>Área</th><th style="text-align:right">Bienes</th></tr></thead>'+
+    '<tbody>'+filas+'</tbody></table></div>'+
+  '</div>';
 }
 
 /* ---------- vista: enviados ---------- */
@@ -1506,11 +1510,10 @@ function csvDe(lista, nombre){
 function bind(sel, ev, fn){ var el=$(sel); if(el) el.addEventListener(ev, fn); }
 function enlazar(){
   document.querySelectorAll('.navitem').forEach(function(b){
-    b.addEventListener('click', function(){ S.vista=b.dataset.v; render(); if(S.vista==='areas'&&S.master) pintarFrases(); });
+    b.addEventListener('click', function(){ S.vista=b.dataset.v; render(); });
   });
   bind('#salir','click', function(){
-    localStorage.removeItem(LS_KEY);
-    location.reload();
+    if(msalCuenta) msalSalir(); else location.reload();
   });
 
   /* ---- formulario ---- */
@@ -1586,16 +1589,6 @@ function enlazar(){
     }
   });
 
-  /* ---- áreas ---- */
-  bind('#calcFrases','click', pintarFrases);
-  bind('#imprFrases','click', function(){ window.print(); });
-  document.querySelectorAll('[data-copy]').forEach(function(b){
-    b.addEventListener('click', function(){
-      navigator.clipboard.writeText(b.dataset.copy).then(function(){ toast('Frase copiada.'); },
-        function(){ toast('No se pudo copiar; selecciónala a mano.'); });
-    });
-  });
-
   /* ---- enviados ---- */
   document.querySelectorAll('[data-dl]').forEach(function(b){
     b.addEventListener('click', function(){
@@ -1613,7 +1606,7 @@ function enlazar(){
       try{
         var lista=leerXlsx(fr.result);
         if(!lista.length) throw new Error('No encontré filas en las hojas «Activos» y «Bienes control».');
-        S.bienes=lista; S.fuente='excel'; S.generado=null;
+        S.bienes=lista; S.fuente='excel';
         if(!vistosSet()) marcarTodoVisto(lista.map(function(b){return b.codigo;}));
         S.vista='panel'; render();
         toast(lista.length+' bienes leídos de la matriz.');

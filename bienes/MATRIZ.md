@@ -214,8 +214,9 @@ Y tres formas de escribir que apuntan a lo mismo, tratadas como alias: `RMPCPS` 
 ### El código nuevo
 
 `02-SIGLA-###-SUF`, donde `###` es el secuencial siguiente del área. La herramienta
-lo propone sola cuando la AC entró con la frase de su área (porque solo entonces
-puede ver hasta qué número va). Sin frase, la administradora lo asigna.
+lo propone sola cuando la AC inició sesión y su cuenta está en la lista de accesos
+(porque solo entonces sabe hasta qué número va su área). Sin sesión, la
+administradora lo asigna.
 
 Se estandarizó ese orden porque es el que usan **1.108 de los 1.260** bienes. Los 152
 restantes se desvían de cinco maneras, y la herramienta las lee todas aunque no las
@@ -292,27 +293,40 @@ Otros tres detalles que no son alertas pero conviene saber:
 
 ## 7. Quién ve qué
 
-La herramienta es un archivo estático publicado en GitHub Pages, que no permite
-sitios privados. Por eso la separación **no es de pantalla sino de cifrado**: lo
-publicado está cifrado con AES-256-GCM y cada quien solo tiene la llave de lo suyo.
+La matriz junta dos cosas delicadas a la vez: cédula y nombre de cada custodio
+(dato personal), y un inventario con ubicación exacta y número de serie de equipos
+portátiles caros (un mapa de qué robar y dónde, si cae en las manos equivocadas).
+Eso pesa más que "cómodo de compartir", así que el acceso no depende de una frase
+que alguien pueda reenviar por WhatsApp sin querer: depende de **iniciar sesión
+con la cuenta real de FIAS**.
 
-| Entra como | Descarga | Ve |
-|---|---|---|
-| Sin frase | nada | Solo el formulario |
-| Frase de área | `datos/SIGLA.json` (unos 30 kB) | El formulario y los bienes de su área |
-| Frase maestra | `datos/maestro.json` | Todo: panel, revisión, alertas, frases |
+| Entra como | Ve |
+|---|---|
+| Sin iniciar sesión | Solo el formulario de registro |
+| Cuenta de FIAS, en la lista de Accesos con un área | El formulario y los bienes de esa área |
+| Cuenta de FIAS, en Accesos como `TODAS` | Todo: panel, revisión, alertas |
+| Cuenta de FIAS que no está en Accesos | Solo el formulario — el login no basta por sí solo |
 
-La frase de cada área se deriva de la maestra con
-`HMAC-SHA256(maestra, "bienes-area:" + SIGLA)`, recortada a 15 caracteres de un
-alfabeto sin `I`, `O`, `0` ni `1` para que nadie las confunda al copiarlas. Son unos
-75 bits de azar: no se adivinan.
+El mecanismo tiene dos capas que hacen preguntas distintas, y las dos tienen que
+responder que sí:
 
-Que la frase se **derive** en vez de guardarse tiene dos consecuencias buenas: no hay
-una lista de claves que mantener ni que se pueda perder (el panel las vuelve a
-calcular), y ningún área puede deducir la frase de otra ni la maestra.
+1. **¿Es una cuenta real de FIAS?** Lo verifica Entra ID (el directorio de
+   Microsoft 365) cuando alguien toca «Iniciar sesión con Microsoft». Esto
+   descarta a cualquiera fuera de la organización, sin que este archivo tenga
+   que saber nada de contraseñas.
+2. **¿Qué le toca ver a esa cuenta?** Lo decide un flujo de Power Automate que
+   nunca confía en lo que diga el navegador: lee la identidad que el propio
+   inicio de sesión certificó, la busca en la lista **Accesos** de SharePoint
+   (correo → área), y filtra los bienes con ese resultado antes de mandar nada.
+   Este archivo HTML solo pinta lo que ese flujo decide — no puede decidirlo por
+   su cuenta ni aunque alguien le cambiara el código en su propio navegador,
+   porque los datos de las demás áreas nunca llegan a descargarse.
 
-El índice `bienes_export.json` va en claro, pero solo dice qué áreas existen y
-cuántos bienes tiene cada una: ni un dato de un bien. Sirve para dos cosas: que la
-herramienta sepa a qué área pertenece una frase sin tener que probar las 46 (compara
-un hash, no deriva 46 claves), y que cada AC descargue solo su archivo en vez de la
-matriz entera.
+La diferencia con el modelo anterior (una frase compartida, cifrado en el propio
+navegador) es esa segunda capa: antes, quien tenía la frase maestra podía ver todo
+sin que nadie más lo supiera. Ahora, dar o quitar acceso es editar dos columnas en
+una lista de SharePoint, queda con el registro de quién lo cambió, y se puede
+revocar al instante — algo que una frase ya repartida no permite deshacer.
+
+El paso a paso completo, incluyendo cómo el flujo verifica la identidad sin
+confiar en el cliente, está en [`CONECTAR.md`](CONECTAR.md).

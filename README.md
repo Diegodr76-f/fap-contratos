@@ -107,36 +107,43 @@ Ahora la AC llena un formulario de **12 campos** y la herramienta calcula las ot
 los datos de la **póliza vigente**. La fila cae sola en el Excel matriz por Power
 Automate y a la administradora le llega el aviso para revisarla.
 
-**Quién ve qué.** Como GitHub Pages no permite sitios privados, la separación no es
-de pantalla sino de cifrado: lo publicado va en sobres AES-256-GCM y cada quien tiene
-solo su llave.
+**Quién ve qué.** La matriz junta cédulas de custodios con la ubicación exacta y el
+número de serie de equipos caros — más delicado que los contratos, así que el
+acceso no es una frase compartida: es **iniciar sesión con la cuenta real de FIAS**
+(Entra ID / Microsoft 365), sin licencia nueva, sin Power Apps. Los datos ya no se
+publican en este repositorio ni en ningún sitio público: viven en una Lista de
+SharePoint, y un flujo de Power Automate protegido con Azure AD decide qué le
+manda a cada quien, cruzando el correo de quien inició sesión contra una lista de
+accesos — nunca contra lo que el navegador diga de sí mismo.
 
-| Entra como | Descarga | Ve |
-|---|---|---|
-| Sin frase | nada | Solo el formulario de ingreso |
-| Frase de su área | `datos/SIGLA.json` (~30 kB) | El formulario y **los bienes de su área** |
-| Frase maestra | `datos/maestro.json` | Todo: panel, revisión, alertas, exportación |
+| Entra como | Ve |
+|---|---|
+| Sin iniciar sesión | Solo el formulario de ingreso |
+| Cuenta de FIAS, en la lista de accesos con un área | El formulario y **los bienes de esa área** |
+| Cuenta de FIAS, en la lista de accesos como `TODAS` | Todo: panel, revisión, alertas, exportación |
+| Cuenta de FIAS que no está en la lista de accesos | Solo el formulario — el login no basta por sí solo |
 
-La frase de cada área **se deriva** de la maestra (`HMAC-SHA256`), así que no hay
-lista de claves que mantener ni que se pueda perder: el panel las vuelve a calcular y
-las muestra para repartirlas. Ningún área puede deducir la de otra ni la maestra.
+Dar o quitar acceso es editar dos columnas en esa lista de SharePoint, no volver a
+publicar nada ni recalcular ninguna frase — y a diferencia de una frase ya
+repartida, se puede revocar al instante.
 
 **Para la administradora de bienes:** panel con el patrimonio por área y el valor en
 libros **recalculado al día**; **Revisión**, que marca como nuevo todo lo que entró
 desde la última vez; y **Alertas** —bienes sin seguro, pólizas por vencer, códigos
-repetidos, bienes en la hoja equivocada, sin custodio, sin acta o sin foto—. Puede
-abrir la matriz `.xlsx` dentro de la propia página (se lee en el navegador, no se
-sube a ningún lado), así que sirve desde el primer día, antes de configurar nada.
+repetidos, el mismo bien duplicado en las dos hojas, sin custodio, sin acta o sin
+foto—. Mientras se termina de configurar el login (o el día que falle), puede abrir
+la matriz `.xlsx` dentro de la propia página: se lee en el navegador, no se sube a
+ningún lado.
 
-El robot diario (`scripts/actualizar_bienes.py`) republica la matriz cifrada, pero
-**no publica la depreciación**: la recalcula la herramienta al abrirse. En el Excel
-esas columnas son números pegados a mano y hoy conviven cifras calculadas a fechas
-distintas —unas a marzo de 2026, otras a febrero, y algunos bienes de noviembre de
-2025 en cero—.
+La depreciación **no se publica en ningún lado**: la calcula la herramienta al
+abrirse. En el Excel esas columnas son números pegados a mano y hoy conviven cifras
+calculadas a fechas distintas —unas a marzo de 2026, otras a febrero, y algunos
+bienes de noviembre de 2025 en cero—.
 
 El detalle de cada regla, cada catálogo y lo que la revisión encontró en la matriz
 actual está en **[`bienes/MATRIZ.md`](bienes/MATRIZ.md)**; el paso a paso para
-conectar el flujo y el robot, en **[`bienes/CONECTAR.md`](bienes/CONECTAR.md)**.
+montar las listas de SharePoint, el login y los dos flujos de Power Automate, en
+**[`bienes/CONECTAR.md`](bienes/CONECTAR.md)**.
 
 ## Centro de mando diario — herramienta personal
 
@@ -180,9 +187,10 @@ publican, tampoco hay nada que robar aunque alguien la esquivara.
 ## Estructura
 
 - **`/bienes/`** — Registro de activos fijos y bienes de control. El formulario de las
-  ACs y el panel de la administradora de bienes, en un solo archivo. Los datos
-  publicados (`bienes/bienes_export.json` + `bienes/datos/*.json`) los regenera el
-  robot `scripts/actualizar_bienes.py` desde la matriz de OneDrive.
+  ACs y el panel de la administradora de bienes, en un solo archivo. No publica datos
+  en el repositorio: quien inicia sesión con su cuenta de FIAS consulta en vivo una
+  Lista de SharePoint, a través de un flujo de Power Automate protegido con Azure AD.
+  Configuración completa en `bienes/CONECTAR.md`.
 - **`/centro/`** — Centro de mando diario, herramienta personal (independiente del resto).
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
   Se actualiza automáticamente cada día vía Power Automate, que sobrescribe `crm/contratos_export.json`
@@ -217,19 +225,18 @@ El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el rob
 flujo falla, la AC puede seguir usando el botón "Actualizar base desde Excel" dentro de la app como
 respaldo manual.
 
-Los datos de bienes (`bienes/bienes_export.json` y `bienes/datos/*.json`) funcionan igual, con su
-propio robot (`scripts/actualizar_bienes.py`, 6:45 a. m.) y su propio secreto de OneDrive
-(`BIENES_EXCEL_URL`). Con una diferencia: **si la matriz no cambió, no republica**. Cada cifrado
-estrena sal e IV, así que sin esa comprobación el repositorio recibiría un commit diario aunque
-nadie hubiera tocado el Excel. El respaldo manual es "Abre tu matriz .xlsx", que está en la pantalla
-de acceso y en el panel: la administradora abre el archivo y ve todo, sin robot y sin flujo.
+Los bienes no tienen robot ni archivo publicado: no hay nada que regenerar porque no hay copia.
+`/bienes/index.html` consulta la Lista de SharePoint **en vivo**, en el momento en que cada quien
+inicia sesión — ver la sección de seguridad más abajo. El respaldo manual es "Abre tu matriz .xlsx",
+en la pantalla de acceso y en el panel: la administradora abre el archivo y ve todo, sin depender de
+que el login o los flujos de Power Automate estén configurados o funcionando.
 
-## Seguridad de los datos (frase de acceso)
+## Seguridad de los datos
 
-Como el sitio es estático y público, los datos NO se publican en claro: se cifran con **AES-256-GCM**
-(clave derivada de una frase de acceso con PBKDF2-SHA256). Esto aplica al `contratos_export.json` diario
-y a las copias embebidas (`seed-data` del CLM, `EMBEDDED` del CRM). Quien abra los archivos sin la frase
-solo ve un bloque cifrado ilegible.
+**Contratos (CRM/CLM):** como el sitio es estático y público, los datos NO se publican en claro: se
+cifran con **AES-256-GCM** (clave derivada de una frase de acceso con PBKDF2-SHA256). Esto aplica al
+`contratos_export.json` diario y a las copias embebidas (`seed-data` del CLM, `EMBEDDED` del CRM).
+Quien abra los archivos sin la frase solo ve un bloque cifrado ilegible.
 
 - **Al entrar**, el CLM/CRM piden la **frase de acceso** una sola vez; queda guardada en el navegador
   (`localStorage`) y el descifrado ocurre localmente con WebCrypto. Nada de servidores nuevos ni librerías externas.
@@ -242,9 +249,12 @@ solo ve un bloque cifrado ilegible.
 > Alcance: la frase es compartida por el equipo (no es login por persona). Protege los datos *publicados*
 > de aquí en adelante; el historial de git anterior a esta protección aún contiene versiones en claro.
 
-**Los bienes van aparte.** Usan el secreto **`BIENES_KEY`**, distinto de `DATA_KEY` a propósito: la
-frase de contratos la tiene todo el equipo, y en bienes la idea es que **solo la administradora de
-bienes vea la matriz completa**. De esa frase maestra se derivan las de cada área, que abren
-únicamente el sobre de esa área. Es lo más parecido a un login por persona que permite un sitio
-estático: no hay servidor que autentique, pero tampoco hay nada que descifrar sin la llave correcta.
-Cambiar `BIENES_KEY` cambia todas las frases de área y obliga a repartirlas de nuevo.
+**Bienes va aparte y con un modelo distinto**, porque junta algo que los contratos no tienen: cédulas de
+custodios y la ubicación exacta de equipos caros. Una frase compartida —por bien derivada que esté— sigue
+siendo algo que alguien puede reenviar por error, y una vez en un repositorio público no hay forma de
+revocarla. Por eso bienes **no publica ningún dato**, ni cifrado: quien quiere ver algo tiene que iniciar
+sesión con su cuenta real de Microsoft 365 de FIAS (Entra ID), y un flujo de Power Automate protegido con
+Azure AD decide qué le entrega, cruzando esa identidad —nunca lo que el navegador diga de sí mismo— contra
+una lista de accesos en SharePoint. Dar o quitar acceso es editar esa lista; no hay frase que rotar ni
+archivo que volver a cifrar. El paso a paso, incluida la parte de por qué el flujo no puede confiar en el
+cliente para decidir el área de nadie, está en `bienes/CONECTAR.md`.
