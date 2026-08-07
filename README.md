@@ -93,6 +93,51 @@ unifica y cómo agregar un área están en **[`clm/MAPA_AREAS.md`](clm/MAPA_AREA
 (portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
 calificaciones, bitácora) se guarda en el navegador (`localStorage`).
 
+## Bienes — activos fijos y bienes de control
+
+**`/bienes/index.html`** resuelve el mismo problema que resolvió el CRM con los
+contratos, pero del lado del patrimonio: la **matriz nacional de activos y bienes**
+se llenaba a mano. Cada administradora de área mandaba su matriz por correo y la
+administradora de bienes copiaba fila por fila, **44 columnas cada una**.
+
+Ahora la AC llena un formulario de **12 campos** y la herramienta calcula las otras
+32 columnas antes de enviar: **código del bien** (el secuencial siguiente de su
+área), **hoja de destino** (activo fijo desde $500, bien de control por debajo),
+**vida útil**, las cuatro cuentas de **depreciación**, el **estado de la garantía** y
+los datos de la **póliza vigente**. La fila cae sola en el Excel matriz por Power
+Automate y a la administradora le llega el aviso para revisarla.
+
+**Quién ve qué.** Como GitHub Pages no permite sitios privados, la separación no es
+de pantalla sino de cifrado: lo publicado va en sobres AES-256-GCM y cada quien tiene
+solo su llave.
+
+| Entra como | Descarga | Ve |
+|---|---|---|
+| Sin frase | nada | Solo el formulario de ingreso |
+| Frase de su área | `datos/SIGLA.json` (~30 kB) | El formulario y **los bienes de su área** |
+| Frase maestra | `datos/maestro.json` | Todo: panel, revisión, alertas, exportación |
+
+La frase de cada área **se deriva** de la maestra (`HMAC-SHA256`), así que no hay
+lista de claves que mantener ni que se pueda perder: el panel las vuelve a calcular y
+las muestra para repartirlas. Ningún área puede deducir la de otra ni la maestra.
+
+**Para la administradora de bienes:** panel con el patrimonio por área y el valor en
+libros **recalculado al día**; **Revisión**, que marca como nuevo todo lo que entró
+desde la última vez; y **Alertas** —bienes sin seguro, pólizas por vencer, códigos
+repetidos, bienes en la hoja equivocada, sin custodio, sin acta o sin foto—. Puede
+abrir la matriz `.xlsx` dentro de la propia página (se lee en el navegador, no se
+sube a ningún lado), así que sirve desde el primer día, antes de configurar nada.
+
+El robot diario (`scripts/actualizar_bienes.py`) republica la matriz cifrada, pero
+**no publica la depreciación**: la recalcula la herramienta al abrirse. En el Excel
+esas columnas son números pegados a mano y hoy conviven cifras calculadas a fechas
+distintas —unas a marzo de 2026, otras a febrero, y algunos bienes de noviembre de
+2025 en cero—.
+
+El detalle de cada regla, cada catálogo y lo que la revisión encontró en la matriz
+actual está en **[`bienes/MATRIZ.md`](bienes/MATRIZ.md)**; el paso a paso para
+conectar el flujo y el robot, en **[`bienes/CONECTAR.md`](bienes/CONECTAR.md)**.
+
 ## Centro de mando diario — herramienta personal
 
 **`/centro/index.html`** es una herramienta **personal**, aparte del ciclo de vida de contratos:
@@ -134,6 +179,10 @@ publican, tampoco hay nada que robar aunque alguien la esquivara.
 
 ## Estructura
 
+- **`/bienes/`** — Registro de activos fijos y bienes de control. El formulario de las
+  ACs y el panel de la administradora de bienes, en un solo archivo. Los datos
+  publicados (`bienes/bienes_export.json` + `bienes/datos/*.json`) los regenera el
+  robot `scripts/actualizar_bienes.py` desde la matriz de OneDrive.
 - **`/centro/`** — Centro de mando diario, herramienta personal (independiente del resto).
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
   Se actualiza automáticamente cada día vía Power Automate, que sobrescribe `crm/contratos_export.json`
@@ -153,6 +202,7 @@ publican, tampoco hay nada que robar aunque alguien la esquivara.
 Cada herramienta tiene su propio enlace en GitHub Pages:
 
 - **CLM (plataforma unificada):** https://[tu-usuario].github.io/fap-contratos/clm/
+- Bienes (activos fijos y bienes de control): https://[tu-usuario].github.io/fap-contratos/bienes/
 - Calificador de Ofertas: https://[tu-usuario].github.io/fap-contratos/calificacion/
 - CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
 - La Mágica: https://[tu-usuario].github.io/fap-contratos/generador/
@@ -166,6 +216,13 @@ El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el rob
 (`scripts/actualizar_datos.py`) todas las mañanas a partir de la hoja "Export" del Excel maestro. Si el
 flujo falla, la AC puede seguir usando el botón "Actualizar base desde Excel" dentro de la app como
 respaldo manual.
+
+Los datos de bienes (`bienes/bienes_export.json` y `bienes/datos/*.json`) funcionan igual, con su
+propio robot (`scripts/actualizar_bienes.py`, 6:45 a. m.) y su propio secreto de OneDrive
+(`BIENES_EXCEL_URL`). Con una diferencia: **si la matriz no cambió, no republica**. Cada cifrado
+estrena sal e IV, así que sin esa comprobación el repositorio recibiría un commit diario aunque
+nadie hubiera tocado el Excel. El respaldo manual es "Abre tu matriz .xlsx", que está en la pantalla
+de acceso y en el panel: la administradora abre el archivo y ve todo, sin robot y sin flujo.
 
 ## Seguridad de los datos (frase de acceso)
 
@@ -184,3 +241,10 @@ solo ve un bloque cifrado ilegible.
 
 > Alcance: la frase es compartida por el equipo (no es login por persona). Protege los datos *publicados*
 > de aquí en adelante; el historial de git anterior a esta protección aún contiene versiones en claro.
+
+**Los bienes van aparte.** Usan el secreto **`BIENES_KEY`**, distinto de `DATA_KEY` a propósito: la
+frase de contratos la tiene todo el equipo, y en bienes la idea es que **solo la administradora de
+bienes vea la matriz completa**. De esa frase maestra se derivan las de cada área, que abren
+únicamente el sobre de esa área. Es lo más parecido a un login por persona que permite un sitio
+estático: no hay servidor que autentique, pero tampoco hay nada que descifrar sin la llave correcta.
+Cambiar `BIENES_KEY` cambia todas las frases de área y obliga a repartirlas de nuevo.

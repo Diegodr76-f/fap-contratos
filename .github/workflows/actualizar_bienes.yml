@@ -1,0 +1,40 @@
+name: Actualizar matriz de bienes
+
+on:
+  schedule:
+    # 11:45 UTC = 6:45 AM Ecuador, todos los días (15 min después del CRM,
+    # para no pelear con el otro robot por el push).
+    - cron: '45 11 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: pip install openpyxl requests cryptography
+
+      - name: Leer la matriz de bienes y regenerar los datos (cifrados)
+        env:
+          BIENES_EXCEL_URL: ${{ secrets.BIENES_EXCEL_URL }}
+          BIENES_KEY: ${{ secrets.BIENES_KEY }}
+        run: python scripts/actualizar_bienes.py
+
+      - name: Publicar cambios (solo si hay datos nuevos)
+        run: |
+          git config user.name "robot-fap"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A bienes/bienes_export.json bienes/datos
+          git diff --cached --quiet || git commit -m "Actualización automática de la matriz de bienes"
+          git push

@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bienes FAP · Registro de activos fijos y bienes de control · FIAS</title>
+<meta name="description" content="Registro de activos fijos y bienes de control del FAP/FIAS: la AC llena un formulario corto, la fila cae en la matriz nacional y la administradora de bienes revisa y da seguimiento.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<!-- Lector de Excel: PizZip ya vive en el repositorio (no en un CDN externo), igual
+     que en el CLM y el Calificador. Sirve para abrir la matriz .xlsx sin internet. -->
+<script src="../clm/vendor/pizzip.min.js"></script>
+<style>
+  :root{
+    --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
+    --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
+    --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
+    --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0E9AA7;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;min-height:100%}
+  body{font-family:'Titillium Web',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px}
+  a{color:var(--navy);text-decoration:none}
+  button{font-family:inherit}
+  input,select,textarea{font-family:inherit;font-size:14px}
+  ::placeholder{color:var(--muted2)}
+  @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .up{animation:up .25s ease}
+
+  /* ===== shell ===== */
+  .shell{display:flex;min-height:100vh}
+  aside.side{width:232px;flex:0 0 232px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .side-brand{display:flex;align-items:center;gap:11px;padding:16px 16px 14px;border-bottom:1px solid var(--line2)}
+  .logo{width:40px;height:40px;border-radius:10px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
+  .side-brand .t{font-weight:700;font-size:14px;line-height:1.15}
+  .side-brand .s{font-size:11px;color:var(--muted)}
+  .navgrp{font-size:10.5px;font-weight:700;letter-spacing:.7px;color:var(--muted2);text-transform:uppercase;padding:16px 18px 6px}
+  .navitem{all:unset;cursor:pointer;display:flex;align-items:center;gap:11px;padding:9px 14px;margin:1px 8px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);width:calc(100% - 16px)}
+  .navitem:hover{background:var(--tint);color:var(--navy)}
+  .navitem.on{background:var(--navy);color:#fff}
+  .navitem .nbadge{margin-left:auto;font-size:11px;font-weight:700;background:var(--redbg);color:var(--red);padding:1px 8px;border-radius:99px}
+  .navitem.on .nbadge{background:rgba(255,255,255,.22);color:#fff}
+  .side-foot{margin-top:auto;border-top:1px solid var(--line2);padding:12px 14px;display:flex;align-items:center;gap:10px}
+  .avatar{width:34px;height:34px;border-radius:50%;background:var(--tint);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:0 0 auto}
+  .side-foot .n{font-size:12.5px;font-weight:700;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .side-foot .r{font-size:11px;color:var(--muted)}
+  .iconbtn{all:unset;cursor:pointer;color:var(--muted);padding:6px;border-radius:8px;display:flex;font-size:13px}
+  .iconbtn:hover{background:var(--tint);color:var(--navy)}
+
+  main.main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{display:flex;align-items:center;gap:14px;background:#fff;border-bottom:1px solid var(--line);padding:0 22px;min-height:58px;position:sticky;top:0;z-index:15}
+  .topbar h1{font-size:16.5px;font-weight:700;margin:0}
+  .content{padding:22px 24px 70px;max-width:1180px;width:100%;margin:0 auto}
+  .srcpill{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);border:1px solid var(--line2);padding:5px 10px;border-radius:99px;white-space:nowrap;margin-left:auto}
+  .srcdot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+  .srcdot.off{background:var(--amber)}
+
+  @media(max-width:860px){
+    .shell{flex-direction:column}
+    aside.side{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center}
+    .side-brand{border:0}
+    .navgrp{display:none}
+    .navitem{width:auto;padding:8px 11px}
+    .side-foot{margin-left:auto;border:0}
+    .content{padding:16px 14px 60px}
+  }
+
+  /* ===== atoms ===== */
+  .btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--navy);color:#fff;font-weight:700;font-size:13.5px;padding:11px 17px;border-radius:10px;transition:filter .15s}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.line{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+  .btn.line:hover{background:var(--bg);filter:none}
+  .btn.danger{background:var(--red)}
+  .btn.sm{padding:8px 13px;font-size:12.5px}
+  .btn.big{padding:14px 22px;font-size:15px}
+  .btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+  .panel{background:#fff;border:1px solid var(--line2);border-radius:15px;padding:20px 22px;margin-bottom:16px}
+  .ptitle{font-size:14.5px;font-weight:700;margin:0 0 3px}
+  .psub{font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap;display:inline-block}
+  .b-g{background:var(--greenbg);color:var(--green)} .b-a{background:var(--amberbg);color:var(--amber)}
+  .b-r{background:var(--redbg);color:var(--red)} .b-d{background:#EEF0F5;color:var(--muted)}
+  .b-n{background:var(--tint);color:var(--navy)} .b-v{background:#EFE6FA;color:var(--violet)}
+  .chip{all:unset;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--muted);padding:7px 13px;border:1.5px solid var(--line);border-radius:99px;background:#fff}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+  @media(max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:#fff;border:1px solid var(--line2);border-radius:13px;padding:14px 16px}
+  .kpi-n{font-size:23px;font-weight:700;line-height:1}
+  .kpi-l{font-size:11.5px;color:var(--muted);margin-top:6px;font-weight:600}
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+  .search{flex:1;min-width:190px}
+  .search input{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+  .search input:focus{outline:none;border-color:var(--navy)}
+  select.f,input.f{padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  select.f:focus,input.f:focus{outline:none;border-color:var(--navy)}
+
+  /* tables */
+  .tablewrap{background:#fff;border:1px solid var(--line2);border-radius:14px;overflow-x:auto}
+  table.list{width:100%;border-collapse:collapse;min-width:720px}
+  table.list th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted2);text-align:left;padding:11px 12px;border-bottom:1.5px solid var(--line2);background:#FAFBFE;white-space:nowrap}
+  table.list td{font-size:13px;padding:10px 12px;border-bottom:1px solid var(--line2);vertical-align:middle}
+  table.list tbody tr:hover{background:#FAFBFE}
+  table.list td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .empty{padding:40px 20px;text-align:center;color:var(--muted)}
+
+  /* ===== formulario ===== */
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:13px}
+  .fld{grid-column:span 6;display:flex;flex-direction:column;gap:5px;min-width:0}
+  .fld.s3{grid-column:span 3} .fld.s4{grid-column:span 4} .fld.s12{grid-column:span 12}
+  @media(max-width:760px){.fld,.fld.s3,.fld.s4{grid-column:span 12}}
+  .fld label{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.2px}
+  .fld label .req{color:var(--red)}
+  .fld .hint{font-size:11px;color:var(--muted2);line-height:1.4}
+  .fld input,.fld select,.fld textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  .fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(0,36,156,.08)}
+  .fld input.bad,.fld select.bad{border-color:var(--red);background:#FFF8F8}
+  .fld textarea{resize:vertical;min-height:62px}
+  .secline{display:flex;align-items:center;gap:10px;margin:22px 0 14px}
+  .secline .n{width:24px;height:24px;border-radius:7px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 auto}
+  .secline .t{font-weight:700;font-size:14px}
+  .secline .l{flex:1;height:1px;background:var(--line2)}
+
+  /* tarjeta de campos automáticos */
+  .auto{background:linear-gradient(160deg,#F7F9FF,#EEF2FD);border:1.5px solid #DCE4F8;border-radius:14px;padding:16px 18px}
+  .auto h4{margin:0 0 3px;font-size:13px;font-weight:700;color:var(--navy)}
+  .auto p.s{margin:0 0 12px;font-size:11.5px;color:var(--muted);line-height:1.45}
+  .autogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:11px}
+  .ai .k{font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.4px}
+  .ai .v{font-size:14px;font-weight:700;margin-top:2px;word-break:break-word}
+  .ai .v.big{font-size:16px;color:var(--navy)}
+  .ai .v.mut{color:var(--muted2);font-weight:600}
+
+  .note{border-left:3px solid var(--navy);background:var(--tint);border-radius:0 10px 10px 0;padding:11px 14px;font-size:12.5px;line-height:1.55;margin:12px 0}
+  .note.warn{border-color:var(--amber);background:var(--amberbg)}
+  .note.err{border-color:var(--red);background:var(--redbg)}
+  .note.ok{border-color:var(--green);background:var(--greenbg)}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 14px 34px rgba(11,21,63,.24);z-index:9999;max-width:92vw;text-align:center}
+
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(11,21,63,.42);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+  .modal .box{background:#fff;border-radius:17px;max-width:760px;width:100%;max-height:88vh;overflow:auto;padding:24px 26px}
+  .modal h3{margin:0 0 4px;font-size:17px}
+  .dl{display:grid;grid-template-columns:180px 1fr;gap:8px 16px;font-size:13px;margin-top:14px}
+  .dl dt{color:var(--muted);font-weight:600}
+  .dl dd{margin:0;word-break:break-word}
+  @media(max-width:600px){.dl{grid-template-columns:1fr;gap:2px 0}.dl dd{margin-bottom:8px}}
+
+  /* pantalla de acceso */
+  .gate{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#F4F6FB,#E4EAFA);padding:22px;overflow:auto}
+  .gate .card{background:#fff;border:1px solid #E3E8F5;border-radius:19px;padding:30px 30px 26px;max-width:452px;width:100%;box-shadow:0 18px 50px rgba(11,21,63,.12)}
+  .gate .glogo{width:48px;height:48px;border-radius:13px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;margin-bottom:14px}
+  .gate h1{font-size:21px;font-weight:700;margin:0 0 6px;letter-spacing:-.3px}
+  .gate p{margin:0 0 16px;color:#5A6484;font-size:13.5px;line-height:1.55}
+  .gate input{width:100%;padding:12px 14px;border:1.5px solid #D6DCEC;border-radius:11px;font-size:15px;color:var(--ink);outline:none}
+  .gate input:focus{border-color:var(--navy)}
+  .gate .or{display:flex;align-items:center;gap:10px;margin:18px 0 14px;color:var(--muted2);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+  .gate .or:before,.gate .or:after{content:"";flex:1;height:1px;background:var(--line2)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;letter-spacing:.6px}
+  .copyrow{display:flex;align-items:center;gap:8px}
+  .print-only{display:none}
+  @media print{
+    aside.side,.topbar,.noprint{display:none!important}
+    .content{padding:0;max-width:none}
+    .panel{border:0;padding:0}
+    body{background:#fff;font-size:11px}
+    .print-only{display:block}
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div id="modal"></div>
+
+<script>
+/* =====================================================================
+   BIENES FAP — registro de activos fijos y bienes de control (FIAS)
+   ---------------------------------------------------------------------
+   Problema que resuelve: la matriz nacional de bienes se llenaba a mano.
+   Cada administradora de área (AC) mandaba su matriz por correo y la
+   administradora de bienes copiaba fila por fila, 44 columnas cada una.
+
+   Cómo lo resuelve: la AC llena un formulario de 12 campos; la
+   herramienta calcula sola las otras 32 columnas (código, hoja destino,
+   vida útil, depreciación, estado de garantía, datos de póliza) y manda
+   la fila al Excel matriz por Power Automate. La administradora de
+   bienes recibe el aviso, revisa lo que entró y le da seguimiento.
+
+   Quién ve qué (la herramienta es un archivo estático y público, así que
+   la separación es criptográfica, no de interfaz):
+     · sin frase        → SOLO el formulario. No se descarga ningún dato.
+     · frase de área    → el formulario + los bienes de ESA área.
+     · frase maestra    → todo: panel, revisión, alertas y exportación.
+   Cada área tiene su propia frase, derivada de la maestra; el panel las
+   muestra para que la administradora de bienes las reparta.
+   ===================================================================== */
+
+/* ================= CONFIG ================= */
+// URL del flujo de Power Automate que agrega la fila al Excel matriz y
+// avisa a la administradora de bienes. El paso a paso está en CONECTAR.md.
+// Si se deja vacía (''), la herramienta funciona igual: calcula todo y
+// permite descargar la fila, pero no la envía.
+var FLOW_BIENES_URL = '';
+
+// Datos publicados por el robot (cifrados). Ver scripts/actualizar_bienes.py.
+var DATA_URL = 'bienes_export.json';
+
+// Umbral contable que separa activo fijo de bien de control.
+// Verificado contra la matriz 2026: los 504 registros de la hoja "Activos"
+// valen $500 o más; los de "Bienes control", menos.
+var UMBRAL_ACTIVO = 500;
+
+// Póliza vigente: se precarga en cada bien nuevo para no volver a teclearla.
+// Cuando el FAP renueve la póliza, se cambia aquí (una línea) y todos los
+// registros nuevos salen con los datos correctos.
+var POLIZA = {
+  aseguradora: 'ASEGURADORA DEL SUR',
+  nro: '201752',
+  inicio: '2026-01-01',
+  fin: '2027-01-01'
+};
+
+/* ================= CATÁLOGOS =================
+   Salen de la propia matriz 2026 (1.260 bienes), ya normalizados: donde
+   el Excel tiene 49 formas de escribir el tipo de bien, aquí hay 8.
+   Ver bienes/MATRIZ.md para el detalle de cada decisión. */
+
+// Áreas protegidas y siglas del código. La sigla es el segundo bloque del
+// código del bien (02-«SIGLA»-###-XX) y define de quién es cada registro.
+var AREAS = [
+  {s:'PNA',      n:'Parque Nacional Antisana'},
+  {s:'PNCC',     n:'Parque Nacional Cayambe Coca'},
+  {s:'PNCCa',    n:'Parque Nacional Cotacachi Cayapas'},
+  {s:'PNC',      n:'Parque Nacional Cotopaxi'},
+  {s:'PNLL',     n:'Parque Nacional Llanganates'},
+  {s:'PNM',      n:'Parque Nacional Machalilla'},
+  {s:'PNP',      n:'Parque Nacional Podocarpus'},
+  {s:'PNRNS',    n:'Parque Nacional Río Negro Sopladora'},
+  {s:'PNS',      n:'Parque Nacional Sangay'},
+  {s:'PNSNG',    n:'Parque Nacional Sumaco Napo Galeras'},
+  {s:'PNYCI',    n:'Parque Nacional Yacuri'},
+  {s:'PNY',      n:'Parque Nacional Yasuní'},
+  {s:'REAR',     n:'Reserva Ecológica Arenillas'},
+  {s:'RECB',     n:'Reserva Ecológica Cofán Bermejo'},
+  {s:'REEA',     n:'Reserva Ecológica El Ángel'},
+  {s:'REI',      n:'Reserva Ecológica Los Ilinizas'},
+  {s:'REMACH',   n:'Reserva Ecológica Mache Chindul'},
+  {s:'RCM',      n:'Reserva Ecológica Manglares Cayapas Mataje'},
+  {s:'REMCH',    n:'Reserva Ecológica Manglares Churute'},
+  {s:'RBCP',     n:'Reserva Biológica Cerro Plateado'},
+  {s:'RBCC',     n:'Reserva Biológica Colonso Chalupas'},
+  {s:'RBEC',     n:'Reserva Biológica El Cóndor'},
+  {s:'RBEQ',     n:'Reserva Biológica El Quimi'},
+  {s:'RBL',      n:'Reserva Biológica Limoncocha'},
+  {s:'RGP',      n:'Reserva Geobotánica Pululahua'},
+  {s:'RMEP',     n:'Reserva Marina El Pelado'},
+  {s:'RMGSF',    n:'Reserva Marina Galera San Francisco'},
+  {s:'RMISC',    n:'Reserva Marina Isla Santa Clara'},
+  {s:'RPFCH',    n:'Reserva de Producción de Fauna Chimborazo'},
+  {s:'RPFC',     n:'Reserva de Producción de Fauna Cuyabeno'},
+  {s:'RPFMS',    n:'Reserva de Producción de Fauna Manglares El Salado'},
+  {s:'RMPSE',    n:'Reserva de Producción de Fauna Marino Costera Puntilla Santa Elena'},
+  {s:'RVSEP',    n:'Refugio de Vida Silvestre El Pambilar'},
+  {s:'RVSEZ',    n:'Refugio de Vida Silvestre El Zarza'},
+  {s:'RVSMERE',  n:'Refugio de Vida Silvestre Estuario del Río Esmeraldas'},
+  {s:'REVISICOF',n:'Refugio de Vida Silvestre Isla Corazón y Fragatas'},
+  {s:'RVSCH',    n:'Refugio de Vida Silvestre La Chiquita'},
+  {s:'RVSMT',    n:'Refugio de Vida Silvestre Machángara Tomebamba'},
+  {s:'REVISMEM', n:'Refugio de Vida Silvestre Manglares El Morro'},
+  {s:'RVSMERM',  n:'Refugio de Vida Silvestre Manglares Estuario Río Muisne'},
+  {s:'RVSMCP',   n:'Refugio de Vida Silvestre Marino Costero Pacoche'},
+  {s:'RVSP',     n:'Refugio de Vida Silvestre Pasochoa'},
+  {s:'ANRB',     n:'Área Nacional de Recreación El Boliche'},
+  {s:'ANRIS',    n:'Área Nacional de Recreación Isla Santay'},
+  {s:'ANRPL',    n:'Área Nacional de Recreación Playas de Villamil'},
+  {s:'DAPOFC',   n:'Dirección de Áreas Protegidas y Otras Formas de Conservación'}
+];
+
+/* Siglas que aparecen escritas de otra forma en la matriz histórica y que
+   designan la misma área. Sirven para que un bien viejo caiga en el área
+   correcta al leer el Excel. RVSP es el caso delicado: se usó a la vez
+   para Pasochoa y para El Pambilar, así que la ubicación desempata. */
+var SIGLA_ALIAS = {
+  'RMPCPS':'REVISICOF',   // mismo sitio (Puerto Portovelo, San Vicente)
+  'REVISIC':'REVISICOF',
+  'RVSMEM':'REVISMEM',
+  'RPFMCPSE':'RMPSE',
+  'REMCHU':'REMCH',
+  'RECM':'RCM'
+};
+var AREA_IX = (function(){ var m={}; AREAS.forEach(function(a){m[a.s]=a;}); return m; })();
+function areaNombre(s){ var a=AREA_IX[s]; return a?a.n:(s||'—'); }
+
+// Tipo de bien del sistema contable → vida útil, sufijo del código y el
+// tipo que pide la aseguradora. Es la tabla que hace automáticas 4 columnas.
+var TIPOS = [
+  {c:'EQUIPO DE COMPUTACIÓN',        vida:3,  suf:'EC', seg:'EQUIPO DE COMPUTACIÓN',
+   ej:'computador, laptop, impresora, monitor, disco externo, tablet'},
+  {c:'EQUIPO DE OFICINA/CAMPO',      vida:10, suf:'EO', seg:'EQUIPO DE OFICINA Y CAMPO',
+   ej:'GPS, radio, cámara, binoculares, proyector, aire acondicionado'},
+  {c:'MAQUINARIA Y EQUIPO DE CAMPO', vida:10, suf:'MA', seg:'MAQUINARIA Y EQUIPO',
+   ej:'motoguadaña, generador, motor fuera de borda, bomba, motosierra'},
+  {c:'MUEBLES Y ENSERES',            vida:10, suf:'ME', seg:'MUEBLES Y ENSERES',
+   ej:'escritorio, silla, archivador, mesa, anaquel, cocina, refrigeradora'},
+  {c:'VEHÍCULOS',                    vida:5,  suf:'VH', seg:'VEHÍCULO',
+   ej:'camioneta, motocicleta, cuadrón, embarcación'}
+];
+var TIPO_IX = (function(){ var m={}; TIPOS.forEach(function(t){m[t.c]=t;}); return m; })();
+
+var DONANTES = ['KFW','ECUADOR AZUL','BEZOS / CI','PLUSPETROL','AMAZONÍA NORTE','CI / LUNDIN GOLD','FIAS','FAP','OTRO'];
+var INSTITUCIONES = [
+  'MAE','MAATE',
+  'MINISTERIO DEL AMBIENTE Y ENERGÍA',
+  'MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 1','MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 3',
+  'MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 4','MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 6',
+  'MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 7','MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 8',
+  'MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 9','FIAS'
+];
+var ESTADOS_FIS = ['NUEVO','BUENO','REGULAR','MALO'];
+
+/* ================= CIFRADO (WebCrypto) =================
+   Mismo sobre que el CRM/CLM: AES-256-GCM con clave PBKDF2-SHA256.
+   Aquí hay un sobre por área más el sobre maestro. */
+var LS_KEY = 'fap_bienes_key';
+function isEnc(o){ return !!(o && typeof o==='object' && o.fap_enc); }
+function b64(s){ return Uint8Array.from(atob(s), function(c){return c.charCodeAt(0);}); }
+async function decrypt(env, pass){
+  var salt=b64(env.salt), iv=b64(env.iv), ct=b64(env.ct);
+  var base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  var key = await crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt:salt, iterations: env.iter||250000, hash:'SHA-256'},
+    base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+  var pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, ct);
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function sha256hex(txt){
+  var h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+  return Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+/* Frase de cada área: se deriva de la frase maestra con HMAC-SHA256, así
+   que la administradora de bienes las puede volver a calcular cuando
+   quiera (el panel las muestra) y ningún área puede deducir la de otra
+   ni la maestra. Alfabeto sin I, O, 0 ni 1 para que nadie las confunda
+   al copiarlas a mano. */
+var ALFA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+async function fraseArea(master, sigla){
+  var key = await crypto.subtle.importKey('raw', new TextEncoder().encode(master),
+    {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+  var mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('bienes-area:'+sigla));
+  var b = new Uint8Array(mac), out='';
+  for(var i=0;i<15;i++){ out += ALFA[b[i] % 32]; if(i%5===4 && i<14) out+='-'; }
+  return out;
+}
+
+/* ================= HELPERS ================= */
+var $=function(s,el){ return (el||document).querySelector(s); };
+var esc=function(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
+function norm(s){ return String(s==null?'':s).trim().toLowerCase(); }
+function money(n){ return (n==null||n===''||isNaN(n))?'—':'$'+Number(n).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function money0(n){ return '$'+Math.round(Number(n)||0).toLocaleString('es-EC'); }
+function moneyShort(n){ n=Number(n)||0; if(n>=1e6)return '$'+(n/1e6).toFixed(1).replace('.0','')+' M'; if(n>=1e3)return '$'+Math.round(n/1e3)+' k'; return '$'+Math.round(n); }
+function todayISO(){ var t=new Date(), p=function(n){return String(n).padStart(2,'0');}; return t.getFullYear()+'-'+p(t.getMonth()+1)+'-'+p(t.getDate()); }
+function fdate(iso){ if(!iso)return '—'; var a=String(iso).split('-'); if(a.length<3)return iso;
+  var M=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return (+a[2])+' '+M[(+a[1])-1]+' '+a[0]; }
+function dias(iso){ if(!iso)return null; var t=new Date(todayISO()+'T00:00:00'), f=new Date(String(iso).slice(0,10)+'T00:00:00');
+  if(isNaN(f.getTime()))return null; return Math.round((f-t)/86400000); }
+function trunc(s,n){ s=String(s==null?'':s); return s.length>n? s.slice(0,n-1).trimEnd()+'…' : s; }
+function toast(msg,ms){
+  var old=$('.toast'); if(old)old.remove();
+  var d=document.createElement('div'); d.className='toast'; d.textContent=msg;
+  document.body.appendChild(d); setTimeout(function(){ d.remove(); }, ms||3200);
+}
+function download(txt,name,mime){
+  var b=new Blob([txt],{type:mime||'text/plain;charset=utf-8'}), u=URL.createObjectURL(b);
+  var a=document.createElement('a'); a.href=u; a.download=name; a.click();
+  setTimeout(function(){URL.revokeObjectURL(u);},1500);
+}
+function csvCell(v){ v=(v==null?'':String(v)); return /[",\n;]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+
+/* ================= REGLAS DEL NEGOCIO =================
+   Las cuatro cuentas que la matriz llama "campo automático" y que hoy se
+   escriben a mano (y por eso están calculadas a fechas distintas en la
+   misma matriz: unas a febrero, otras a marzo, otras en cero). */
+
+// Meses completos transcurridos entre dos fechas.
+function mesesEntre(desdeISO, hastaISO){
+  if(!desdeISO) return 0;
+  var a=new Date(String(desdeISO).slice(0,10)+'T00:00:00');
+  var b=new Date(String(hastaISO||todayISO()).slice(0,10)+'T00:00:00');
+  if(isNaN(a.getTime())||isNaN(b.getTime())) return 0;
+  var m=(b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth());
+  if(b.getDate() < a.getDate()) m--;
+  return Math.max(0,m);
+}
+// Depreciación lineal a valor residual cero, topada al valor del bien.
+function depreciacion(valor, vida, fechaCompra, hastaISO){
+  valor=Number(valor)||0; vida=Number(vida)||0;
+  if(!valor || !vida) return {anual:0, mensual:0, acumulada:0, residual:valor, meses:0, agotada:false};
+  var anual=valor/vida, mensual=anual/12, meses=mesesEntre(fechaCompra,hastaISO);
+  var acumulada=Math.min(mensual*meses, valor);
+  return {anual:anual, mensual:mensual, acumulada:acumulada, residual:valor-acumulada,
+          meses:meses, agotada:acumulada>=valor-0.005};
+}
+// Un bien de $500 o más es activo fijo; por debajo, bien de control.
+function hojaDe(valor){ return (Number(valor)||0) >= UMBRAL_ACTIVO ? 'Activos' : 'Bienes control'; }
+function estadoGarantia(tiene, finISO){
+  if(!tiene || tiene==='NO' || tiene==='N/A') return 'N/A';
+  if(!finISO) return 'N/A';
+  var d=dias(finISO); if(d==null) return 'N/A';
+  return d<0 ? 'Caducado' : 'Vigente';
+}
+// Código del bien: 02-SIGLA-###-SUFIJO, con el secuencial siguiente del área.
+function proximoCodigo(sigla, suf, bienes){
+  var max=0;
+  (bienes||[]).forEach(function(b){
+    if(b.sigla!==sigla) return;
+    var partes=String(b.codigo||'').replace(/\s+/g,'-').split('-');
+    partes.forEach(function(p){ var n=parseInt(p,10); if(!isNaN(n) && String(p).length<=4 && n>max) max=n; });
+  });
+  return '02-'+sigla+'-'+String(max+1).padStart(3,'0')+'-'+suf;
+}
+
+/* ================= ESTADO ================= */
+var S = {
+  rol: null,          // 'form' | 'area' | 'cata'
+  sigla: null,        // área cuando rol==='area'
+  master: null,       // frase maestra en memoria (solo rol 'cata')
+  bienes: [],         // registros visibles según el rol
+  generado: null,     // fecha del corte publicado
+  fuente: 'ninguna',  // 'publicado' | 'excel' | 'ninguna'
+  vista: 'registrar',
+  form: {},
+  filtro: {q:'', area:'', hoja:'', alerta:''},
+  enviados: []        // lo que se envió desde este navegador
+};
+
+var LS_ENVIADOS='fap_bienes_enviados', LS_COLA='fap_bienes_cola',
+    LS_VISTOS='fap_bienes_vistos', LS_REVISADOS='fap_bienes_revisados';
+function lsGet(k,def){ try{ var r=localStorage.getItem(k); return r?JSON.parse(r):def; }catch(e){ return def; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+/* ================= REVISIÓN (estado local de la administradora) =================
+   No toca el Excel: la primera vez que se abre el panel se toma una foto de
+   los códigos existentes; de ahí en adelante, todo código que no estaba en
+   esa foto sale marcado como «nuevo, por revisar» hasta que se lo marca. */
+function vistosSet(){ return lsGet(LS_VISTOS, null); }
+function marcarTodoVisto(codigos){ lsSet(LS_VISTOS, codigos); }
+function revisados(){ return lsGet(LS_REVISADOS, {}); }
+function esNuevo(b){
+  var v=vistosSet(); if(!v) return false;
+  if(v.indexOf(b.codigo)>=0) return false;
+  return !revisados()[b.codigo];
+}
+function marcarRevisado(cod){ var r=revisados(); r[cod]={f:todayISO()}; lsSet(LS_REVISADOS,r); }
+
+/* ================= ALERTAS ================= */
+function alertasDe(b){
+  var a=[];
+  if(esNuevo(b)) a.push({k:'nuevo', t:'Nuevo, por revisar', cls:'b-n'});
+  if(!b.fechaCompra) a.push({k:'sinfecha', t:'Sin fecha de compra', cls:'b-a'});
+  if(!b.foto) a.push({k:'sinfoto', t:'Sin fotografía', cls:'b-a'});
+  if(!b.acta) a.push({k:'sinacta', t:'Sin acta de entrega', cls:'b-a'});
+  if(!b.custodio) a.push({k:'sincustodio', t:'Sin custodio', cls:'b-r'});
+  var dSeg=dias(b.finSeguro);
+  if(norm(b.asegurado)==='no') a.push({k:'sinseguro', t:'No asegurado', cls:'b-r'});
+  else if(dSeg!=null && dSeg<0) a.push({k:'seguro', t:'Seguro vencido', cls:'b-r'});
+  else if(dSeg!=null && dSeg<=60) a.push({k:'seguro', t:'Seguro vence en '+dSeg+' d', cls:'b-a'});
+  // En una fila copiada en las dos hojas, la hoja «equivocada» es consecuencia de la
+  // copia, no un problema aparte: avisarlo dos veces solo despista a quien revisa.
+  if(!b.dupFila && b.hoja!==hojaDe(b.valor)) a.push({k:'hoja', t:'Debería estar en «'+hojaDe(b.valor)+'»', cls:'b-a'});
+  if(b.dep && b.dep.agotada) a.push({k:'agotada', t:'Totalmente depreciado', cls:'b-d'});
+  if(b.dupFila) a.push({k:'dupfila', t:'Está en las dos hojas', cls:'b-r'});
+  if(b.dupCodigo) a.push({k:'dup', t:'Código repetido', cls:'b-r'});
+  if(b.fechaBaja) a.push({k:'baja', t:'Dado de baja', cls:'b-d'});
+  return a;
+}
+
+/* ================= NORMALIZACIÓN DE UNA FILA ================= */
+function siglaDeCodigo(cod, ubicacion){
+  var partes=String(cod||'').replace(/[\s\n]+/g,'-').split('-').filter(Boolean);
+  var s=partes.length>1 ? partes[1] : '';
+  // Las filas viejas escritas «02 RPFMS-026-001-EO» dejan la sigla en el bloque 1.
+  if(/^\d+$/.test(s) && partes.length>2) s=partes[0].replace(/^\d+/,'')||partes[2];
+  s=SIGLA_ALIAS[s]||s;
+  // RVSP se usó a la vez para Pasochoa y para El Pambilar: la ubicación desempata.
+  if(s==='RVSP' && /pambilar/i.test(String(ubicacion||''))) s='RVSEP';
+  return AREA_IX[s] ? s : (s||'—');
+}
+function normalizaBien(o){
+  var b = {
+    codigo: String(o.codigo||'').replace(/[\n\r]+/g,' ').trim(),
+    descripcion: String(o.descripcion||'').trim(),
+    detalle: String(o.detalle||'').trim(),
+    cantidad: Number(o.cantidad)||1,
+    tipoSeguros: String(o.tipoSeguros||'').trim(),
+    tipoContable: String(o.tipoContable||'').trim(),
+    proyecto: String(o.proyecto||'FAP').trim(),
+    fechaCompra: o.fechaCompra||'',
+    donante: String(o.donante||'').trim(),
+    proveedor: String(o.proveedor||'').trim(),
+    ruc: String(o.ruc||'').trim(),
+    factura: String(o.factura||'').trim(),
+    facturaLink: String(o.facturaLink||'').trim(),
+    valor: Number(o.valor)||0,
+    marca: String(o.marca||'').trim(),
+    modelo: String(o.modelo||'').trim(),
+    serie: String(o.serie||'').trim(),
+    cedula: String(o.cedula||'').trim(),
+    custodio: String(o.custodio||'').trim(),
+    institucion: String(o.institucion||'').trim(),
+    ubicacion: String(o.ubicacion||'').replace(/[\n\r]+/g,' ').trim(),
+    acta: String(o.acta||'').trim(),
+    asegurado: String(o.asegurado||'').trim(),
+    inicioSeguro: o.inicioSeguro||'', finSeguro: o.finSeguro||'',
+    aseguradora: String(o.aseguradora||'').trim(), poliza: String(o.poliza||'').trim(),
+    garantia: String(o.garantia||'').trim(),
+    inicioGarantia: o.inicioGarantia||'', finGarantia: o.finGarantia||'',
+    estadoFisico: String(o.estadoFisico||'').trim().toUpperCase(),
+    vida: Number(o.vida)||0,
+    fechaBaja: o.fechaBaja||'', motivoBaja: String(o.motivoBaja||'').trim(),
+    observaciones: String(o.observaciones||'').trim(),
+    foto: String(o.foto||'').trim(),
+    hoja: o.hoja||''
+  };
+  b.sigla = o.sigla || siglaDeCodigo(b.codigo, b.ubicacion);
+  b.area = areaNombre(b.sigla);
+  if(!b.vida){ var t=TIPO_IX[b.tipoContable]; b.vida = t?t.vida:10; }
+  if(!b.hoja) b.hoja = hojaDe(b.valor);
+  b.dep = depreciacion(b.valor, b.vida, b.fechaCompra);
+  b.estadoGarantia = estadoGarantia(b.garantia, b.finGarantia);
+  return b;
+}
+/* Un código repetido son dos problemas muy distintos, con dos arreglos distintos:
+   · la MISMA fila copiada en las dos hojas (mismo bien, mismo valor) → sobra una,
+     y mientras tanto el bien se cuenta dos veces en el patrimonio;
+   · dos bienes DISTINTOS con el mismo código → hay que recodificar uno.
+   Mezclarlos deja a quien revisa sin saber qué hacer, así que se marcan aparte. */
+function marcaDuplicados(lista){
+  var grupos={};
+  lista.forEach(function(b){ (grupos[b.codigo]=grupos[b.codigo]||[]).push(b); });
+  lista.forEach(function(b){
+    var g=grupos[b.codigo];
+    b.dupCodigo=false; b.dupFila=false;
+    if(!g || g.length<2) return;
+    var firma=function(x){ return norm(x.descripcion)+'|'+Number(x.valor).toFixed(2); };
+    var iguales=g.every(function(x){ return firma(x)===firma(g[0]); });
+    if(iguales) b.dupFila=true; else b.dupCodigo=true;
+  });
+  return lista;
+}
+
+/* ================= LECTOR DE EXCEL (matriz .xlsx) =================
+   Para el día uno: la administradora de bienes abre su matriz aquí mismo y
+   ve el panel completo sin necesidad de robot ni de flujo. Se lee con
+   PizZip (el mismo que ya usa el CLM), sin subir el archivo a ningún lado. */
+function colLetra(ref){ return String(ref||'').replace(/[0-9]/g,''); }
+function colIndice(letras){
+  var n=0; for(var i=0;i<letras.length;i++){ n=n*26+(letras.charCodeAt(i)-64); } return n-1;
+}
+function serialAFecha(n){
+  n=Number(n); if(!n || n<1) return '';
+  var ms=Math.round((n-25569)*86400000);
+  var d=new Date(ms); if(isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0,10);
+}
+function aFechaISO(v){
+  if(v==null||v==='') return '';
+  if(typeof v==='number') return serialAFecha(v);
+  var s=String(v).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);   // dd/mm/aaaa
+  if(m) return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
+  if(/^\d+(\.\d+)?$/.test(s)) return serialAFecha(parseFloat(s));
+  return '';
+}
+// Columnas de la matriz que son fechas (H, X, Y, AC, AD, AN, en base 0).
+var COLS_FECHA = {7:1, 23:1, 24:1, 28:1, 29:1, 39:1};
+
+function leerXlsx(buf){
+  var zip = new PizZip(buf);
+  var parser = new DOMParser();
+  var xml = function(path){ var f=zip.file(path); return f ? parser.parseFromString(f.asText(),'application/xml') : null; };
+
+  var shared=[], ssDoc=xml('xl/sharedStrings.xml');
+  if(ssDoc){
+    var sis=ssDoc.getElementsByTagName('si');
+    for(var i=0;i<sis.length;i++){
+      var ts=sis[i].getElementsByTagName('t'), txt='';
+      for(var j=0;j<ts.length;j++) txt+=ts[j].textContent;
+      shared.push(txt);
+    }
+  }
+  // Nombre de hoja → archivo, pasando por los rels del libro.
+  var wbDoc=xml('xl/workbook.xml'), relDoc=xml('xl/_rels/workbook.xml.rels');
+  if(!wbDoc||!relDoc) throw new Error('El archivo no parece un Excel válido.');
+  var rels={}, rl=relDoc.getElementsByTagName('Relationship');
+  for(var r=0;r<rl.length;r++){
+    var tgt=rl[r].getAttribute('Target').replace(/^\/?xl\//,'').replace(/^\.\//,'');
+    rels[rl[r].getAttribute('Id')]=tgt;
+  }
+  var hojas=[], sl=wbDoc.getElementsByTagName('sheet');
+  for(var s=0;s<sl.length;s++){
+    var rid = sl[s].getAttribute('r:id') || sl[s].getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+    hojas.push({nombre: sl[s].getAttribute('name'), path: 'xl/'+rels[rid]});
+  }
+
+  function filasDe(path){
+    var doc=xml(path); if(!doc) return [];
+    var out=[], rows=doc.getElementsByTagName('row');
+    for(var i=0;i<rows.length;i++){
+      var celdas=rows[i].getElementsByTagName('c'), fila=[];
+      for(var k=0;k<celdas.length;k++){
+        var c=celdas[k], t=c.getAttribute('t'), idx=colIndice(colLetra(c.getAttribute('r')));
+        var v='', vn=c.getElementsByTagName('v')[0];
+        if(t==='s'){ v = vn ? (shared[parseInt(vn.textContent,10)]||'') : ''; }
+        else if(t==='inlineStr'){ var isn=c.getElementsByTagName('t')[0]; v = isn?isn.textContent:''; }
+        else if(vn){ var raw=vn.textContent; v = (raw!=='' && !isNaN(raw)) ? parseFloat(raw) : raw; }
+        if(idx>=0) fila[idx]=v;
+      }
+      out.push(fila);
+    }
+    return out;
+  }
+
+  var bienes=[];
+  hojas.forEach(function(h){
+    var esControl=/control/i.test(h.nombre);
+    var esActivo=/activo/i.test(h.nombre);
+    if(!esControl && !esActivo) return;
+    var filas=filasDe(h.path);
+    filas.slice(1).forEach(function(f){
+      if(!f || f[0]==null || String(f[0]).trim()==='') return;
+      var g=function(i){ var v=f[i]; return v==null?'':v; };
+      var gf=function(i){ return COLS_FECHA[i] ? aFechaISO(f[i]) : ''; };
+      bienes.push(normalizaBien({
+        codigo:g(0), descripcion:g(1), detalle:g(2), cantidad:g(3),
+        tipoSeguros:g(4), tipoContable:g(5), proyecto:g(6), fechaCompra:gf(7),
+        donante:g(8), proveedor:g(9), ruc:g(10), factura:g(11), facturaLink:g(12),
+        valor:g(13), marca:g(14), modelo:g(15), serie:g(16), cedula:g(17),
+        custodio:g(18), institucion:g(19), ubicacion:g(20), acta:g(21),
+        asegurado:g(22), inicioSeguro:gf(23), finSeguro:gf(24), aseguradora:g(25), poliza:g(26),
+        garantia:g(27), inicioGarantia:gf(28), finGarantia:gf(29),
+        estadoFisico:g(31), vida:g(32),
+        fechaBaja:gf(39), motivoBaja:g(40), observaciones:g(41), foto:g(42),
+        hoja: esControl ? 'Bienes control' : 'Activos'
+      }));
+    });
+  });
+  return marcaDuplicados(bienes);
+}
+
+/* ================= ARRANQUE Y ACCESO ================= */
+async function boot(){
+  S.enviados = lsGet(LS_ENVIADOS, []);
+  var paquete=null;
+  try{
+    var res = await fetch(DATA_URL, {cache:'no-store'});
+    if(res.ok) paquete = await res.json();
+  }catch(e){ /* sin datos publicados todavía: la herramienta sirve igual para registrar */ }
+  S.paquete = paquete;
+  S.generado = paquete && paquete.generado ? paquete.generado : null;
+  pantallaAcceso();
+}
+
+function pantallaAcceso(msg){
+  var hayDatos = !!(S.paquete && (S.paquete.maestro || S.paquete.areas));
+  var g=document.createElement('div');
+  g.className='gate';
+  g.innerHTML =
+    '<form class="card">'+
+      '<div class="glogo">FAP</div>'+
+      '<h1>Bienes del FAP</h1>'+
+      '<p>Activos fijos y bienes de control de las áreas protegidas.<br>'+
+        'Si vas a <b>registrar un bien nuevo</b>, entra directo. Si además quieres '+
+        '<b>ver los bienes de tu área</b>, escribe la frase que te compartió la '+
+        'administradora de bienes.</p>'+
+      (msg?'<div class="note err" style="margin:0 0 14px">'+esc(msg)+'</div>':'')+
+      '<button type="button" class="btn big" id="gForm" style="width:100%">Registrar un bien</button>'+
+      '<div class="or">o entra con tu frase</div>'+
+      '<input type="password" autocomplete="current-password" placeholder="Frase de acceso" id="gPass">'+
+      '<button type="submit" class="btn line" style="width:100%;margin-top:11px">Entrar y ver mis bienes</button>'+
+      (hayDatos?'':'<p style="margin:14px 0 0;font-size:11.5px;color:#9AA0B2">Todavía no hay una copia publicada de la matriz. '+
+        'El formulario funciona igual; el código del bien lo asigna la administradora.</p>')+
+      // Respaldo de la administradora: sirve el día uno (antes de configurar el robot)
+      // y el día que el robot falle. La llave aquí es tener el archivo: quien no lo
+      // tenga no ve nada, y el que lo abre nunca sale de su propio navegador.
+      '<p style="margin:16px 0 0;font-size:11.5px;color:#9AA0B2">¿Administras los bienes y todavía no hay copia publicada? '+
+        '<a href="#" id="gXlsx" style="font-weight:700">Abre tu matriz .xlsx</a> — se lee en tu navegador, no se sube a ningún lado.</p>'+
+      '<input type="file" id="gFile" accept=".xlsx" style="display:none">'+
+    '</form>';
+  document.body.appendChild(g);
+  var input=$('#gPass',g);
+  $('#gForm',g).addEventListener('click', function(){ g.remove(); entrar('form',null,[]); });
+  $('#gXlsx',g).addEventListener('click', function(e){ e.preventDefault(); $('#gFile',g).click(); });
+  $('#gFile',g).addEventListener('change', function(e){
+    var file=e.target.files[0]; if(!file) return;
+    var fr=new FileReader();
+    fr.onload=function(){
+      var lista;
+      try{
+        lista=leerXlsx(fr.result);
+        if(!lista.length) throw new Error('No encontré filas en las hojas «Activos» y «Bienes control».');
+      }catch(err){
+        g.remove(); pantallaAcceso('No pude leer el archivo: '+(err.message||'formato inesperado.')); return;
+      }
+      g.remove();
+      entrar('cata', null, lista);
+      S.fuente='excel'; S.generado=null; S.vista='panel'; render();
+      toast(lista.length+' bienes leídos de la matriz.');
+    };
+    fr.readAsArrayBuffer(file);
+  });
+  $('form',g).addEventListener('submit', async function(e){
+    e.preventDefault();
+    var pass=input.value.trim(); if(!pass) return;
+    var btn=$('button[type=submit]',g); btn.disabled=true; btn.textContent='Abriendo…';
+    try{
+      var r = await abrirCon(pass);
+      g.remove();
+      entrar(r.rol, r.sigla, r.bienes, pass);
+    }catch(err){
+      g.remove(); pantallaAcceso(err && err.message ? err.message : 'Frase incorrecta.');
+    }
+  });
+  setTimeout(function(){ input.focus(); }, 60);
+}
+
+// Una frase de área se reconoce por su huella (un SHA-256, sin derivar clave):
+// así se baja UN archivo, el del área, y no la matriz entera. Si la frase no es
+// de ninguna área, se prueba como maestra contra el sobre grande.
+async function traerSobre(ruta){
+  var r = await fetch(ruta, {cache:'no-store'});
+  if(!r.ok) throw new Error('No pude descargar los datos ('+r.status+').');
+  return r.json();
+}
+async function abrirCon(pass){
+  var p=S.paquete;
+  if(!p) throw new Error('Todavía no hay datos publicados para abrir. Puedes registrar bienes sin frase.');
+  var huella = await sha256hex(pass);
+  if(p.areas){
+    var sigla=null;
+    Object.keys(p.areas).forEach(function(k){ if(p.areas[k].huella===huella) sigla=k; });
+    if(sigla){
+      var sobre = await traerSobre(p.areas[sigla].archivo);
+      var lista = await decrypt(sobre, pass);
+      return {rol:'area', sigla:sigla, bienes:marcaDuplicados(lista.map(normalizaBien))};
+    }
+  }
+  if(p.maestro){
+    var maestro = await traerSobre(p.maestro);
+    var todo;
+    // WebCrypto no distingue «frase equivocada» de «archivo dañado»: en ambos
+    // casos falla la verificación del sello GCM. Para quien entra, el caso real
+    // es siempre el primero.
+    try{ todo = await decrypt(maestro, pass); }
+    catch(e){ throw new Error('Esa frase no abre nada. Revisa que sea la de tu área.'); }
+    return {rol:'cata', sigla:null, bienes:marcaDuplicados(todo.map(normalizaBien))};
+  }
+  throw new Error('Esa frase no abre nada. Revisa que sea la de tu área.');
+}
+
+function entrar(rol, sigla, bienes, pass){
+  S.rol=rol; S.sigla=sigla; S.bienes=bienes||[]; S.master = (rol==='cata') ? pass : null;
+  S.fuente = S.bienes.length ? 'publicado' : 'ninguna';
+  if(rol==='cata' && !vistosSet()) marcarTodoVisto(S.bienes.map(function(b){return b.codigo;}));
+  nuevoFormulario();
+  // La administradora entra a mirar; la AC entra a registrar.
+  S.vista = (rol==='cata') ? 'panel' : 'registrar';
+  render();
+}
+
+/* ================= FORMULARIO ================= */
+function nuevoFormulario(){
+  S.form = {
+    sigla: S.sigla || '',
+    descripcion:'', detalle:'', tipoContable:'', valor:'', fechaCompra: todayISO(),
+    donante:'KFW', proveedor:'', ruc:'', factura:'', facturaLink:'',
+    marca:'', modelo:'', serie:'', cantidad:1,
+    cedula:'', custodio:'', institucion:'MAE', ubicacion:'',
+    acta:'', foto:'', estadoFisico:'NUEVO',
+    garantia:'NO', inicioGarantia:'', finGarantia:'',
+    asegurado:'SI', observaciones:'', codigoManual:''
+  };
+  S.errores={};
+}
+// Todo lo que la herramienta calcula sola a partir de los 12 campos.
+function calculado(){
+  var f=S.form, t=TIPO_IX[f.tipoContable]||null, valor=Number(f.valor)||0;
+  var sigla=f.sigla||'';
+  var hoja=hojaDe(valor), vida=t?t.vida:null;
+  var dep = (t && valor) ? depreciacion(valor, vida, f.fechaCompra) : null;
+  var puedeCodigo = !!(sigla && t && (S.rol!=='form'));
+  var codigo = f.codigoManual ? f.codigoManual
+             : (puedeCodigo ? proximoCodigo(sigla, t.suf, S.bienes) : '');
+  return {
+    codigo: codigo, sigla: sigla, area: areaNombre(sigla),
+    tipo: t, vida: vida, hoja: hoja, valor: valor, dep: dep,
+    tipoSeguros: t?t.seg:'', estadoGarantia: estadoGarantia(f.garantia, f.finGarantia),
+    codigoAutomatico: puedeCodigo && !f.codigoManual
+  };
+}
+function validar(){
+  var f=S.form, e={};
+  if(!f.sigla) e.sigla='Elige el área.';
+  if(!f.descripcion.trim()) e.descripcion='Escribe qué es el bien.';
+  if(!f.tipoContable) e.tipoContable='Elige el tipo de bien.';
+  if(!(Number(f.valor)>0)) e.valor='Escribe el valor con IVA.';
+  if(!f.fechaCompra) e.fechaCompra='Falta la fecha de compra.';
+  else if(dias(f.fechaCompra)>0) e.fechaCompra='La fecha de compra no puede ser futura.';
+  if(!f.proveedor.trim()) e.proveedor='Falta el proveedor.';
+  if(!f.factura.trim()) e.factura='Falta el número de factura.';
+  if(!f.custodio.trim()) e.custodio='Falta el custodio.';
+  if(!f.ubicacion.trim()) e.ubicacion='Falta la ubicación.';
+  if(f.ruc && !/^\d{10,13}$/.test(f.ruc.replace(/\D/g,''))) e.ruc='El RUC debe tener entre 10 y 13 dígitos.';
+  if(f.cedula && !/^\d{10}$/.test(f.cedula.replace(/\D/g,''))) e.cedula='La cédula debe tener 10 dígitos.';
+  if(f.garantia==='SI'){
+    if(!f.finGarantia) e.finGarantia='Si hay garantía, pon hasta cuándo va.';
+    else if(f.inicioGarantia && f.finGarantia < f.inicioGarantia) e.finGarantia='El fin de garantía es anterior al inicio.';
+  }
+  S.errores=e;
+  return Object.keys(e).length===0;
+}
+// La fila tal como cae en la matriz: las 44 columnas, en orden.
+function filaMatriz(){
+  var f=S.form, c=calculado();
+  return {
+    codigo: c.codigo, descripcion: f.descripcion.trim().toUpperCase(), detalle: f.detalle.trim(),
+    cantidad: Number(f.cantidad)||1, tipoSeguros: c.tipoSeguros, tipoContable: f.tipoContable,
+    proyecto:'FAP', fechaCompra: f.fechaCompra, donante: f.donante,
+    proveedor: f.proveedor.trim(), ruc: f.ruc.trim(), factura: f.factura.trim(),
+    facturaLink: f.facturaLink.trim(), valor: Number(f.valor)||0,
+    marca: f.marca.trim(), modelo: f.modelo.trim(), serie: f.serie.trim(),
+    cedula: f.cedula.trim(), custodio: f.custodio.trim().toUpperCase(),
+    institucion: f.institucion, ubicacion: f.ubicacion.trim(), acta: f.acta.trim(),
+    asegurado: f.asegurado,
+    inicioSeguro: f.asegurado==='SI'?POLIZA.inicio:'', finSeguro: f.asegurado==='SI'?POLIZA.fin:'',
+    aseguradora: f.asegurado==='SI'?POLIZA.aseguradora:'N/A',
+    poliza: f.asegurado==='SI'?POLIZA.nro:'N/A',
+    garantia: f.garantia, inicioGarantia: f.inicioGarantia, finGarantia: f.finGarantia,
+    estadoGarantia: c.estadoGarantia, estadoFisico: f.estadoFisico,
+    vida: c.vida,
+    depAnual: c.dep?+c.dep.anual.toFixed(2):0,
+    depAcumulada: c.dep?+c.dep.acumulada.toFixed(2):0,
+    depMensual: c.dep?+c.dep.mensual.toFixed(2):0,
+    residual: c.dep?+c.dep.residual.toFixed(2):0,
+    fechaBaja:'', motivoBaja:'', observaciones: f.observaciones.trim(),
+    foto: f.foto.trim(),
+    // Metadatos del envío (no son columnas de la matriz; sirven al flujo).
+    _hoja: c.hoja, _sigla: c.sigla, _area: c.area,
+    _enviado: new Date().toISOString(),
+    _id: (c.codigo||'sin-codigo')+'|'+Date.now()
+  };
+}
+
+async function enviar(){
+  if(!validar()){ render(); toast('Faltan datos. Mira los campos en rojo.'); return; }
+  var fila=filaMatriz();
+  S.enviados.unshift(fila); if(S.enviados.length>200) S.enviados.length=200;
+  lsSet(LS_ENVIADOS, S.enviados);
+
+  if(!FLOW_BIENES_URL){
+    download(JSON.stringify(fila,null,2), 'BIEN_'+(fila.codigo||'nuevo').replace(/[^\w-]+/g,'_')+'.json', 'application/json');
+    toast('Registro guardado y descargado. Falta configurar el flujo para que llegue solo a la matriz.', 5200);
+  }else{
+    try{
+      var r = await fetch(FLOW_BIENES_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(fila)});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      toast('Listo. El bien '+(fila.codigo||'')+' entró a la matriz y ya le avisamos a la administradora.', 5000);
+    }catch(e){
+      var cola=lsGet(LS_COLA,[]); cola.push(fila); lsSet(LS_COLA,cola);
+      toast('Guardado sin conexión. Se enviará solo la próxima vez que abras la herramienta.', 5000);
+    }
+  }
+  var sigla=S.form.sigla;
+  nuevoFormulario(); S.form.sigla=sigla;
+  S.vista='registrar';
+  render();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+// Reintento silencioso de lo que quedó sin enviar por falta de internet.
+async function vaciarCola(){
+  if(!FLOW_BIENES_URL) return;
+  var cola=lsGet(LS_COLA,[]); if(!cola.length) return;
+  var fallan=[];
+  for(var i=0;i<cola.length;i++){
+    try{
+      var r=await fetch(FLOW_BIENES_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cola[i])});
+      if(!r.ok) throw new Error();
+    }catch(e){ fallan.push(cola[i]); }
+  }
+  lsSet(LS_COLA, fallan);
+  if(cola.length>fallan.length) toast('Se enviaron '+(cola.length-fallan.length)+' registro(s) que estaban pendientes.');
+}
+
+/* ================= RENDER ================= */
+function render(){
+  var app=$('#app');
+  app.innerHTML =
+    '<div class="shell">'+ sidebar() +
+      '<main class="main">'+ topbar() +
+        '<div class="content up">'+ contenido() +'</div>'+
+      '</main>'+
+    '</div>';
+  enlazar();
+}
+
+function sidebar(){
+  var items=[['registrar','Registrar un bien','＋']];
+  if(S.rol!=='form') items.push(['bienes', S.rol==='cata'?'Todos los bienes':'Mis bienes','▤']);
+  if(S.rol==='cata'){
+    var pend=S.bienes.filter(esNuevo).length;
+    items.splice(0,0,['panel','Panel','▦']);
+    items.push(['revision','Revisión','✓', pend]);
+    items.push(['alertas','Alertas','!']);
+    items.push(['areas','Áreas y frases','⚿']);
+  }
+  items.push(['enviados','Lo que envié','↗']);
+  var nav = items.map(function(it){
+    return '<button class="navitem'+(S.vista===it[0]?' on':'')+'" data-v="'+it[0]+'">'+
+      '<span style="width:16px;text-align:center">'+it[2]+'</span>'+esc(it[1])+
+      (it[3]?'<span class="nbadge">'+it[3]+'</span>':'')+'</button>';
+  }).join('');
+  var quien = S.rol==='cata' ? ['Administración de bienes','Ve toda la matriz','AB']
+            : S.rol==='area' ? [areaNombre(S.sigla), 'Solo esta área', S.sigla.slice(0,3)]
+            : ['Registro de bienes','Solo formulario','＋'];
+  return '<aside class="side">'+
+    '<div class="side-brand"><div class="logo">FAP</div>'+
+      '<div><div class="t">Bienes</div><div class="s">Activos y bienes de control</div></div></div>'+
+    '<div class="navgrp">Menú</div>'+ nav +
+    '<div class="side-foot"><div class="avatar">'+esc(quien[2])+'</div>'+
+      '<div style="min-width:0"><div class="n" title="'+esc(quien[0])+'">'+esc(trunc(quien[0],22))+'</div>'+
+      '<div class="r">'+esc(quien[1])+'</div></div>'+
+      '<button class="iconbtn" id="salir" title="Salir">⏻</button></div>'+
+  '</aside>';
+}
+function topbar(){
+  var titulos={registrar:'Registrar un bien', bienes:(S.rol==='cata'?'Todos los bienes':'Mis bienes'),
+    panel:'Panel', revision:'Revisión', alertas:'Alertas', areas:'Áreas y frases de acceso', enviados:'Lo que envié'};
+  var pill = S.fuente==='publicado' ? '<span class="srcpill"><span class="srcdot"></span>'+S.bienes.length+' bienes · corte '+esc((S.generado||'').slice(0,10)||'—')+'</span>'
+           : S.fuente==='excel' ? '<span class="srcpill"><span class="srcdot"></span>'+S.bienes.length+' bienes · matriz abierta aquí</span>'
+           : '<span class="srcpill"><span class="srcdot off"></span>sin copia de la matriz</span>';
+  return '<div class="topbar"><h1>'+esc(titulos[S.vista]||'Bienes')+'</h1>'+pill+'</div>';
+}
+function contenido(){
+  switch(S.vista){
+    case 'registrar': return vistaRegistrar();
+    case 'bienes':    return vistaBienes();
+    case 'panel':     return vistaPanel();
+    case 'revision':  return vistaRevision();
+    case 'alertas':   return vistaAlertas();
+    case 'areas':     return vistaAreas();
+    case 'enviados':  return vistaEnviados();
+  }
+  return '';
+}
+
+/* ---------- vista: formulario ---------- */
+function opt(v,sel,txt){ return '<option value="'+esc(v)+'"'+(String(sel)===String(v)?' selected':'')+'>'+esc(txt==null?v:txt)+'</option>'; }
+function campo(id,label,html,req,hint){
+  var err=S.errores&&S.errores[id];
+  return '<label>'+esc(label)+(req?' <span class="req">*</span>':'')+'</label>'+html+
+    (err?'<div class="hint" style="color:var(--red);font-weight:600">'+esc(err)+'</div>'
+        :(hint?'<div class="hint">'+hint+'</div>':''));
+}
+function datalist(id, valores){
+  var vistos={}, out=[];
+  valores.forEach(function(v){ v=String(v||'').trim(); if(v && !vistos[norm(v)]){ vistos[norm(v)]=1; out.push(v); } });
+  out.sort(function(a,b){ return a.localeCompare(b,'es'); });
+  return '<datalist id="'+id+'">'+out.slice(0,400).map(function(v){return '<option value="'+esc(v)+'">';}).join('')+'</datalist>';
+}
+function vistaRegistrar(){
+  var f=S.form, c=calculado();
+  var areasSel = (S.rol==='area')
+    ? '<input class="f" value="'+esc(areaNombre(S.sigla))+'" disabled style="width:100%">'
+    : '<select id="f-sigla"><option value="">— elige el área —</option>'+
+        AREAS.map(function(a){ return opt(a.s, f.sigla, a.n); }).join('')+'</select>';
+
+  var tiposSel = '<select id="f-tipoContable"><option value="">— elige —</option>'+
+    TIPOS.map(function(t){ return opt(t.c, f.tipoContable, t.c); }).join('')+'</select>';
+  var tipoAyuda = f.tipoContable && TIPO_IX[f.tipoContable]
+    ? 'Ej.: '+esc(TIPO_IX[f.tipoContable].ej)+'. Vida útil <b>'+TIPO_IX[f.tipoContable].vida+' años</b>.'
+    : 'De aquí salen solas la vida útil, la depreciación, el tipo para el seguro y la letra final del código.';
+
+  var proveedores=[], ubicaciones=[], descripciones=[], marcas=[];
+  S.bienes.forEach(function(b){
+    proveedores.push(b.proveedor); descripciones.push(b.descripcion); marcas.push(b.marca);
+    if(!f.sigla || b.sigla===f.sigla) ubicaciones.push(b.ubicacion);
+  });
+
+  var alertaHoja = c.valor>0
+    ? '<div class="note '+(c.hoja==='Activos'?'':'warn')+'" style="margin:0">'+
+        '<b>'+(c.hoja==='Activos'?'Activo fijo':'Bien de control')+'.</b> '+
+        (c.hoja==='Activos'
+          ? 'Vale '+money(c.valor)+', o sea $500 o más: va a la hoja <b>Activos</b> y se deprecia.'
+          : 'Vale '+money(c.valor)+', menos de $500: va a la hoja <b>Bienes control</b>. Igual se le hace seguimiento, pero no entra en la depreciación contable.')+
+      '</div>'
+    : '';
+
+  return ''+
+  '<div class="panel">'+
+    '<div class="ptitle">Un bien nuevo, en un minuto</div>'+
+    '<p class="psub">La matriz nacional tiene 44 columnas. Aquí llenas <b>12</b>: el resto '+
+      '—código, hoja, vida útil, depreciación, datos de la póliza, estado de la garantía— se calcula solo '+
+      'y se ve abajo antes de enviar.</p>'+
+
+    '<div class="secline"><span class="n">1</span><span class="t">Qué compraste</span><span class="l"></span></div>'+
+    '<div class="grid">'+
+      '<div class="fld s4">'+campo('sigla','Área protegida', areasSel, true)+'</div>'+
+      '<div class="fld s4">'+campo('descripcion','¿Qué es?',
+        '<input id="f-descripcion" list="dl-desc" value="'+esc(f.descripcion)+'" placeholder="COMPUTADOR PORTÁTIL" class="'+(S.errores.descripcion?'bad':'')+'">'+
+        datalist('dl-desc', descripciones), true, 'El nombre corto y genérico del bien.')+'</div>'+
+      '<div class="fld s4">'+campo('tipoContable','Tipo de bien', tiposSel, true, tipoAyuda)+'</div>'+
+      '<div class="fld s12">'+campo('detalle','Detalle',
+        '<textarea id="f-detalle" placeholder="Laptop DELL INSPIRON 3511, Core i5, 16 GB RAM, SSD 512 GB">'+esc(f.detalle)+'</textarea>',
+        false, 'Marca, características, color: lo que sirva para reconocerlo en una revisión física.')+'</div>'+
+      '<div class="fld s3">'+campo('marca','Marca','<input id="f-marca" list="dl-marca" value="'+esc(f.marca)+'">'+datalist('dl-marca',marcas))+'</div>'+
+      '<div class="fld s3">'+campo('modelo','Modelo','<input id="f-modelo" value="'+esc(f.modelo)+'">')+'</div>'+
+      '<div class="fld s3">'+campo('serie','N.º de serie','<input id="f-serie" value="'+esc(f.serie)+'" placeholder="Si no tiene, escribe S/N">')+'</div>'+
+      '<div class="fld s3">'+campo('cantidad','Cantidad','<input id="f-cantidad" type="number" min="1" step="1" value="'+esc(f.cantidad)+'">',false,'Un registro por bien. Solo sube esto si son idénticos y van juntos.')+'</div>'+
+    '</div>'+
+
+    '<div class="secline"><span class="n">2</span><span class="t">Cómo se compró</span><span class="l"></span></div>'+
+    '<div class="grid">'+
+      '<div class="fld s3">'+campo('valor','Valor con IVA',
+        '<input id="f-valor" type="number" min="0" step="0.01" value="'+esc(f.valor)+'" placeholder="1265.60" class="'+(S.errores.valor?'bad':'')+'">', true)+'</div>'+
+      '<div class="fld s3">'+campo('fechaCompra','Fecha de compra',
+        '<input id="f-fechaCompra" type="date" max="'+todayISO()+'" value="'+esc(f.fechaCompra)+'" class="'+(S.errores.fechaCompra?'bad':'')+'">', true)+'</div>'+
+      '<div class="fld s3">'+campo('donante','Donante','<select id="f-donante">'+DONANTES.map(function(d){return opt(d,f.donante);}).join('')+'</select>')+'</div>'+
+      '<div class="fld s3">'+campo('factura','N.º de factura',
+        '<input id="f-factura" value="'+esc(f.factura)+'" placeholder="001-100-000000158" class="'+(S.errores.factura?'bad':'')+'">', true,
+        'O el número del acta de donación.')+'</div>'+
+      '<div class="fld s12">'+(c.valor>0?alertaHoja:'')+'</div>'+
+      '<div class="fld">'+campo('proveedor','Proveedor',
+        '<input id="f-proveedor" list="dl-prov" value="'+esc(f.proveedor)+'" class="'+(S.errores.proveedor?'bad':'')+'">'+datalist('dl-prov',proveedores), true)+'</div>'+
+      '<div class="fld">'+campo('ruc','RUC del proveedor',
+        '<input id="f-ruc" inputmode="numeric" value="'+esc(f.ruc)+'" placeholder="1713435038001" class="'+(S.errores.ruc?'bad':'')+'">')+'</div>'+
+      '<div class="fld s12">'+campo('facturaLink','Enlace a la factura digital',
+        '<input id="f-facturaLink" type="url" value="'+esc(f.facturaLink)+'" placeholder="https://fiasec-my.sharepoint.com/…">',
+        false,'Pega el enlace de SharePoint del PDF. Si aún no lo tienes, déjalo vacío y la administradora lo pedirá.')+'</div>'+
+    '</div>'+
+
+    '<div class="secline"><span class="n">3</span><span class="t">Quién lo tiene y dónde</span><span class="l"></span></div>'+
+    '<div class="grid">'+
+      '<div class="fld s4">'+campo('cedula','Cédula del custodio',
+        '<input id="f-cedula" inputmode="numeric" maxlength="10" value="'+esc(f.cedula)+'" placeholder="1714505904" class="'+(S.errores.cedula?'bad':'')+'">',
+        false,'Al escribirla completa se llena el nombre si ya es custodio de otro bien.')+'</div>'+
+      '<div class="fld s4">'+campo('custodio','Nombre del custodio',
+        '<input id="f-custodio" list="dl-cust" value="'+esc(f.custodio)+'" class="'+(S.errores.custodio?'bad':'')+'">'+
+        datalist('dl-cust', S.bienes.map(function(b){return b.custodio;})), true)+'</div>'+
+      '<div class="fld s4">'+campo('institucion','Institución','<select id="f-institucion">'+INSTITUCIONES.map(function(i){return opt(i,f.institucion);}).join('')+'</select>')+'</div>'+
+      '<div class="fld">'+campo('ubicacion','Ubicación exacta',
+        '<input id="f-ubicacion" list="dl-ubi" value="'+esc(f.ubicacion)+'" placeholder="Oficina administrativa / Guardianía…" class="'+(S.errores.ubicacion?'bad':'')+'">'+datalist('dl-ubi',ubicaciones), true,
+        'Dónde está físicamente. Las opciones son las que ya usa tu área.')+'</div>'+
+      '<div class="fld">'+campo('estadoFisico','Estado físico','<select id="f-estadoFisico">'+ESTADOS_FIS.map(function(e){return opt(e,f.estadoFisico);}).join('')+'</select>')+'</div>'+
+      '<div class="fld">'+campo('acta','Enlace al acta de entrega-recepción',
+        '<input id="f-acta" type="url" value="'+esc(f.acta)+'" placeholder="https://fiasec-my.sharepoint.com/…">')+'</div>'+
+      '<div class="fld">'+campo('foto','Enlace a la fotografía del bien',
+        '<input id="f-foto" type="url" value="'+esc(f.foto)+'" placeholder="https://fiasec-my.sharepoint.com/…">',
+        false,'Una foto donde se vea el bien y su etiqueta de código.')+'</div>'+
+    '</div>'+
+
+    '<div class="secline"><span class="n">4</span><span class="t">Seguro y garantía</span><span class="l"></span></div>'+
+    '<div class="grid">'+
+      '<div class="fld s3">'+campo('asegurado','¿Va al seguro?',
+        '<select id="f-asegurado">'+opt('SI',f.asegurado,'Sí')+opt('NO',f.asegurado,'No')+'</select>', false,
+        f.asegurado==='SI' ? 'Entra a la póliza '+esc(POLIZA.nro)+' de '+esc(POLIZA.aseguradora)+', vigente hasta el '+fdate(POLIZA.fin)+'.' : 'Quedará marcado como no asegurado y saldrá en las alertas.')+'</div>'+
+      '<div class="fld s3">'+campo('garantia','¿Tiene garantía técnica?',
+        '<select id="f-garantia">'+opt('SI',f.garantia,'Sí')+opt('NO',f.garantia,'No')+opt('N/A',f.garantia,'No aplica')+'</select>')+'</div>'+
+      (f.garantia==='SI'
+        ? '<div class="fld s3">'+campo('inicioGarantia','Inicio de la garantía','<input id="f-inicioGarantia" type="date" value="'+esc(f.inicioGarantia||f.fechaCompra)+'">')+'</div>'+
+          '<div class="fld s3">'+campo('finGarantia','Fin de la garantía','<input id="f-finGarantia" type="date" value="'+esc(f.finGarantia)+'" class="'+(S.errores.finGarantia?'bad':'')+'">', true)+'</div>'
+        : '<div class="fld s6"></div>')+
+      '<div class="fld s12">'+campo('observaciones','Observaciones','<textarea id="f-observaciones" placeholder="Algo que la administradora de bienes deba saber">'+esc(f.observaciones)+'</textarea>')+'</div>'+
+    '</div>'+
+
+    tarjetaAutomatica(c)+
+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">'+
+      '<button class="btn big" id="btn-enviar">Enviar a la matriz</button>'+
+      '<button class="btn line" id="btn-limpiar">Limpiar</button>'+
+      (FLOW_BIENES_URL?'':'<span style="align-self:center;font-size:12px;color:var(--muted)">El envío automático aún no está configurado: por ahora se descarga el registro.</span>')+
+    '</div>'+
+  '</div>';
+}
+
+function tarjetaAutomatica(c){
+  var d=c.dep, f=S.form;
+  var it=function(k,v,cls){ return '<div class="ai"><div class="k">'+esc(k)+'</div><div class="v '+(cls||'')+'">'+v+'</div></div>'; };
+  var codigoHtml = c.codigo
+    ? '<span class="mono">'+esc(c.codigo)+'</span>'
+    : (S.rol==='form'
+        ? '<span class="v mut" style="font-size:12.5px">lo asigna la administradora</span>'
+        : '<span class="v mut" style="font-size:12.5px">falta área o tipo</span>');
+  return '<div class="auto" style="margin-top:20px">'+
+    '<h4>Lo que la herramienta llena por ti</h4>'+
+    '<p class="s">Estas 32 columnas de la matriz no se escriben: se calculan con lo de arriba. '+
+      'La depreciación queda con corte de <b>hoy ('+fdate(todayISO())+')</b> y el panel la vuelve a calcular cada vez que se abre, '+
+      'así que nunca más quedan filas cerradas a fechas distintas.</p>'+
+    '<div class="autogrid">'+
+      it('Código del bien', codigoHtml, 'big')+
+      // Sin valor no se puede decir la hoja: $0 caería en «Bienes control» y
+      // parecería una respuesta cuando en realidad todavía no hay dato.
+      it('Hoja de la matriz', c.valor>0 ? esc(c.hoja) : '<span class="mut">—</span>')+
+      it('Tipo para el seguro', c.tipoSeguros?esc(c.tipoSeguros):'<span class="mut">—</span>')+
+      it('Vida útil', c.vida?c.vida+' años':'<span class="mut">—</span>')+
+      it('Proyecto','FAP')+
+      it('Depreciación anual', d?money(d.anual):'<span class="mut">—</span>')+
+      it('Depreciación mensual', d?money(d.mensual):'<span class="mut">—</span>')+
+      it('Depreciación acumulada', d?money(d.acumulada):'<span class="mut">—</span>')+
+      it('Valor en libros hoy', d?money(d.residual):'<span class="mut">—</span>')+
+      it('Estado de la garantía', esc(c.estadoGarantia))+
+      it('Aseguradora', f.asegurado==='SI'?esc(POLIZA.aseguradora):'N/A')+
+      it('Póliza', f.asegurado==='SI'?esc(POLIZA.nro)+' · hasta '+fdate(POLIZA.fin):'N/A')+
+    '</div>'+
+    (c.codigoAutomatico
+      ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">El código es el siguiente libre de tu área. '+
+        '<a href="#" id="codman">Poner otro a mano</a>.</div>'
+      : (f.codigoManual
+        ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">Código escrito a mano. <a href="#" id="codauto">Volver al automático</a>.</div>'
+        : ''))+
+  '</div>';
+}
+
+/* ---------- vista: listado de bienes ---------- */
+function bienesFiltrados(){
+  var f=S.filtro, q=norm(f.q);
+  return S.bienes.filter(function(b){
+    if(f.area && b.sigla!==f.area) return false;
+    if(f.hoja && b.hoja!==f.hoja) return false;
+    if(f.alerta && !alertasDe(b).some(function(a){return a.k===f.alerta;})) return false;
+    if(!q) return true;
+    return (norm(b.codigo)+' '+norm(b.descripcion)+' '+norm(b.detalle)+' '+norm(b.serie)+' '+
+            norm(b.custodio)+' '+norm(b.ubicacion)+' '+norm(b.marca)+' '+norm(b.proveedor)).indexOf(q)>=0;
+  });
+}
+function filaBien(b){
+  var al=alertasDe(b).filter(function(a){return a.k!=='agotada';});
+  return '<tr data-cod="'+esc(b.codigo)+'">'+
+    '<td><div style="font-weight:700" class="mono">'+esc(b.codigo||'—')+'</div>'+
+      '<div style="font-size:11.5px;color:var(--muted)">'+esc(trunc(b.descripcion,44))+'</div></td>'+
+    (S.rol==='cata'?'<td>'+esc(b.sigla)+'</td>':'')+
+    '<td>'+esc(trunc(b.custodio||'—',26))+'<div style="font-size:11.5px;color:var(--muted)">'+esc(trunc(b.ubicacion||'',30))+'</div></td>'+
+    '<td class="num">'+money(b.valor)+'</td>'+
+    '<td class="num">'+money(b.dep.residual)+'</td>'+
+    '<td>'+fdate(b.fechaCompra)+'</td>'+
+    '<td><span class="badge '+(b.hoja==='Activos'?'b-n':'b-d')+'">'+(b.hoja==='Activos'?'Activo':'Control')+'</span></td>'+
+    '<td>'+(al.length? al.slice(0,2).map(function(a){return '<span class="badge '+a.cls+'">'+esc(a.t)+'</span>';}).join(' ')+
+      (al.length>2?' <span class="badge b-d">+'+(al.length-2)+'</span>':'') : '<span class="badge b-g">Al día</span>')+'</td>'+
+  '</tr>';
+}
+// El vacío tiene dos causas muy distintas —no hay nada, o hay un filtro puesto—
+// y decir cuál es evita que alguien crea que su área no tiene bienes.
+function filaVacia(){
+  var f=S.filtro, puestos=[];
+  if(f.q) puestos.push('la búsqueda «'+esc(f.q)+'»');
+  if(f.alerta) puestos.push('el filtro «'+esc(nombreAlerta(f.alerta))+'»');
+  if(f.area) puestos.push('el área '+esc(f.area));
+  if(f.hoja) puestos.push('«'+esc(f.hoja)+'»');
+  return '<tr><td colspan="8" class="empty">'+
+    (puestos.length ? 'Ningún bien cumple '+puestos.join(' y ')+'.' : 'Todavía no hay bienes registrados.')+
+    '</td></tr>';
+}
+// Nombre legible de cada filtro de alerta, para poder mostrarlo y quitarlo.
+function nombreAlerta(k){
+  var g=GRUPOS_ALERTA.filter(function(x){return x.k===k;})[0];
+  return g?g.t:k;
+}
+function vistaBienes(){
+  var lista=bienesFiltrados();
+  if(!S.bienes.length) return sinDatos();
+  var areasConBienes={}; S.bienes.forEach(function(b){ areasConBienes[b.sigla]=1; });
+  // Los filtros activos se ven y se quitan de a uno: si no, uno se queda puesto
+  // sin que se note y la lista aparece vacía sin explicación.
+  var chips=[];
+  if(S.filtro.alerta) chips.push('<button class="chip on" data-quita="alerta">'+esc(nombreAlerta(S.filtro.alerta))+' ✕</button>');
+  if(S.filtro.area)   chips.push('<button class="chip on" data-quita="area">'+esc(S.filtro.area)+' ✕</button>');
+  if(S.filtro.hoja)   chips.push('<button class="chip on" data-quita="hoja">'+esc(S.filtro.hoja)+' ✕</button>');
+  return ''+
+  (chips.length?'<div class="chips" style="margin-bottom:13px">'+chips.join('')+'</div>':'')+
+  '<div class="toolbar">'+
+    '<div class="search"><input id="q" placeholder="Buscar por código, descripción, serie, custodio, ubicación…" value="'+esc(S.filtro.q)+'"></div>'+
+    (S.rol==='cata'
+      ? '<select class="f" id="fArea"><option value="">Todas las áreas</option>'+
+        AREAS.filter(function(a){return areasConBienes[a.s];}).map(function(a){return opt(a.s,S.filtro.area,a.s+' · '+trunc(a.n,34));}).join('')+'</select>'
+      : '')+
+    '<select class="f" id="fHoja">'+opt('',S.filtro.hoja,'Activos y bienes de control')+opt('Activos',S.filtro.hoja,'Solo activos fijos')+opt('Bienes control',S.filtro.hoja,'Solo bienes de control')+'</select>'+
+    '<button class="btn line sm" id="csv">Exportar CSV</button>'+
+  '</div>'+
+  '<div class="tablewrap">'+
+    '<table class="list"><thead><tr>'+
+      '<th>Código y bien</th>'+(S.rol==='cata'?'<th>Área</th>':'')+'<th>Custodio y ubicación</th>'+
+      '<th style="text-align:right">Valor</th><th style="text-align:right">En libros hoy</th>'+
+      '<th>Compra</th><th>Clase</th><th>Estado</th>'+
+    '</tr></thead><tbody>'+
+      (lista.length? lista.slice(0,400).map(filaBien).join('')
+        : filaVacia())+
+    '</tbody></table>'+
+  '</div>'+
+  (lista.length>400?'<p class="psub" style="margin-top:10px">Se muestran los primeros 400 de '+lista.length+'. Afina la búsqueda o exporta el CSV.</p>':
+   '<p class="psub" style="margin-top:10px">'+lista.length+' bien(es). Toca una fila para ver la ficha completa.</p>');
+}
+function sinDatos(){
+  return '<div class="panel"><div class="ptitle">Todavía no hay una copia de la matriz</div>'+
+    '<p class="psub">El listado aparece cuando el robot publica el corte diario, o cuando abres la matriz aquí mismo. '+
+    'Mientras tanto, el formulario funciona igual.</p>'+
+    (S.rol==='cata'?botonExcel():'')+'</div>';
+}
+function botonExcel(){
+  return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+    '<button class="btn line" id="abrirXlsx">Abrir la matriz (.xlsx)</button>'+
+    '<span style="font-size:12px;color:var(--muted)">Se lee en tu navegador: el archivo no sale de tu computador.</span>'+
+    '<input type="file" id="fileXlsx" accept=".xlsx" style="display:none">'+
+  '</div>';
+}
+
+/* ---------- vista: panel ---------- */
+function vistaPanel(){
+  if(!S.bienes.length) return sinDatos();
+  var b=S.bienes;
+  var total=b.reduce(function(a,x){return a+x.valor;},0);
+  var libros=b.reduce(function(a,x){return a+x.dep.residual;},0);
+  var activos=b.filter(function(x){return x.hoja==='Activos';}).length;
+  var nuevos=b.filter(esNuevo).length;
+  var conAlerta=b.filter(function(x){return alertasDe(x).some(function(a){return a.cls==='b-r'||a.cls==='b-a';});}).length;
+
+  // Concentración por área, de mayor a menor valor.
+  var porArea={};
+  b.forEach(function(x){
+    var k=x.sigla; porArea[k]=porArea[k]||{n:0,v:0,alert:0};
+    porArea[k].n++; porArea[k].v+=x.valor;
+    if(alertasDe(x).some(function(a){return a.cls==='b-r';})) porArea[k].alert++;
+  });
+  var filas=Object.keys(porArea).map(function(k){ return {s:k, d:porArea[k]}; })
+    .sort(function(a,b2){ return b2.d.v-a.d.v; });
+  var maxV=filas.length?filas[0].d.v:1;
+
+  return ''+
+  '<div class="kpis">'+
+    '<div class="kpi"><div class="kpi-n">'+b.length+'</div><div class="kpi-l">Bienes registrados</div></div>'+
+    '<div class="kpi"><div class="kpi-n">'+moneyShort(total)+'</div><div class="kpi-l">Valor de compra</div></div>'+
+    '<div class="kpi"><div class="kpi-n">'+moneyShort(libros)+'</div><div class="kpi-l">Valor en libros hoy</div></div>'+
+    '<div class="kpi"><div class="kpi-n" style="color:'+(nuevos?'var(--navy)':'inherit')+'">'+nuevos+'</div><div class="kpi-l">Nuevos por revisar</div></div>'+
+    '<div class="kpi"><div class="kpi-n" style="color:'+(conAlerta?'var(--amber)':'inherit')+'">'+conAlerta+'</div><div class="kpi-l">Con algo pendiente</div></div>'+
+  '</div>'+
+
+  '<div class="panel">'+
+    '<div class="ptitle">Cómo se reparte el patrimonio</div>'+
+    '<p class="psub">'+activos+' activos fijos y '+(b.length-activos)+' bienes de control, en '+filas.length+' áreas. '+
+      'El valor en libros se recalcula al abrir esta página, no queda congelado en el Excel.</p>'+
+    '<div class="tablewrap"><table class="list"><thead><tr>'+
+      '<th>Área</th><th style="text-align:right">Bienes</th><th style="text-align:right">Valor</th><th>Peso</th><th style="text-align:right">Urgentes</th>'+
+    '</tr></thead><tbody>'+
+    filas.map(function(r){
+      var pct=Math.max(2, Math.round(r.d.v/maxV*100));
+      return '<tr data-area="'+esc(r.s)+'">'+
+        '<td><b class="mono">'+esc(r.s)+'</b><div style="font-size:11.5px;color:var(--muted)">'+esc(trunc(areaNombre(r.s),46))+'</div></td>'+
+        '<td class="num">'+r.d.n+'</td>'+
+        '<td class="num">'+money0(r.d.v)+'</td>'+
+        '<td style="min-width:130px"><div style="height:7px;background:var(--line2);border-radius:9px;overflow:hidden">'+
+          '<div style="height:100%;width:'+pct+'%;background:var(--navy2);border-radius:9px"></div></div></td>'+
+        '<td class="num">'+(r.d.alert?'<span class="badge b-r">'+r.d.alert+'</span>':'—')+'</td>'+
+      '</tr>';
+    }).join('')+
+    '</tbody></table></div>'+
+  '</div>'+
+
+  '<div class="panel">'+
+    '<div class="ptitle">Datos</div>'+
+    '<p class="psub">'+(S.fuente==='excel'
+      ? 'Estás viendo la matriz que abriste en este navegador. No se guardó en ningún lado.'
+      : 'Corte publicado por el robot el '+esc((S.generado||'').slice(0,10)||'—')+'.')+'</p>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+      '<button class="btn line sm" id="csvTodo">Exportar toda la matriz (CSV)</button>'+
+      '<button class="btn line sm" id="abrirXlsx">Abrir otra matriz (.xlsx)</button>'+
+      '<input type="file" id="fileXlsx" accept=".xlsx" style="display:none">'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- vista: revisión ---------- */
+function vistaRevision(){
+  if(!S.bienes.length) return sinDatos();
+  var nuevos=S.bienes.filter(esNuevo);
+  var revs=revisados(), revisadosHoy=Object.keys(revs).length;
+  if(!nuevos.length){
+    return '<div class="panel"><div class="ptitle">Nada pendiente</div>'+
+      '<p class="psub">No hay bienes nuevos desde la última vez que revisaste. '+
+      'Llevas '+revisadosHoy+' bien(es) marcados como revisados.</p>'+
+      '<div class="note">Cuando una AC registre un bien, la fila entra a la matriz y aparece aquí '+
+      'marcada como <b>nueva</b> hasta que la marques revisada. El aviso también te llega por correo desde el flujo.</div>'+
+      '<button class="btn line sm" id="resetVistos">Volver a marcar todo como nuevo</button></div>';
+  }
+  return ''+
+  '<div class="panel">'+
+    '<div class="ptitle">'+nuevos.length+' bien(es) nuevos por revisar</div>'+
+    '<p class="psub">Entraron a la matriz después de tu última revisión. Revisa que el código, el valor, '+
+      'el custodio y los enlaces estén bien; si algo falta, sale marcado abajo.</p>'+
+    '<div class="tablewrap"><table class="list"><thead><tr>'+
+      '<th>Código y bien</th><th>Área</th><th>Custodio</th><th style="text-align:right">Valor</th><th>Faltantes</th><th></th>'+
+    '</tr></thead><tbody>'+
+    nuevos.map(function(b){
+      var faltan=alertasDe(b).filter(function(a){return a.k!=='nuevo'&&a.k!=='agotada';});
+      return '<tr>'+
+        '<td data-cod="'+esc(b.codigo)+'" style="cursor:pointer"><b class="mono">'+esc(b.codigo)+'</b>'+
+          '<div style="font-size:11.5px;color:var(--muted)">'+esc(trunc(b.descripcion,40))+'</div></td>'+
+        '<td>'+esc(b.sigla)+'</td>'+
+        '<td>'+esc(trunc(b.custodio||'—',24))+'</td>'+
+        '<td class="num">'+money(b.valor)+'</td>'+
+        '<td>'+(faltan.length? faltan.map(function(a){return '<span class="badge '+a.cls+'">'+esc(a.t)+'</span>';}).join(' ') : '<span class="badge b-g">Completo</span>')+'</td>'+
+        '<td><button class="btn sm" data-rev="'+esc(b.codigo)+'">Revisado</button></td>'+
+      '</tr>';
+    }).join('')+
+    '</tbody></table></div>'+
+    '<div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">'+
+      '<button class="btn line sm" id="revTodo">Marcar todos como revisados</button>'+
+      '<button class="btn line sm" id="csvNuevos">Exportar los nuevos (CSV)</button>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- vista: alertas ---------- */
+var GRUPOS_ALERTA=[
+  {k:'dupfila',   t:'El mismo bien en las dos hojas', d:'La fila está copiada en «Activos» y en «Bienes control»: sobra una, y mientras esté el bien se cuenta dos veces en el patrimonio.'},
+  {k:'sinseguro', t:'Bienes sin seguro', d:'No entran en la póliza: ante un robo o daño no hay cómo reponerlos.'},
+  {k:'seguro',    t:'Seguro vencido o por vencer', d:'La póliza de estos bienes se acaba en 60 días o menos.'},
+  {k:'dup',       t:'Códigos repetidos', d:'Dos bienes distintos con el mismo código: a uno de los dos hay que cambiarle el código.'},
+  {k:'hoja',      t:'En la hoja equivocada', d:'El valor no cuadra con la hoja donde está: activo fijo desde $500.'},
+  {k:'sincustodio',t:'Sin custodio', d:'Nadie responde por ellos en una constatación física.'},
+  {k:'sinfecha',  t:'Sin fecha de compra', d:'Sin fecha no se puede depreciar ni saber si la garantía sigue viva.'},
+  {k:'sinacta',   t:'Sin acta de entrega', d:'Falta el respaldo firmado de quién lo recibió.'},
+  {k:'sinfoto',   t:'Sin fotografía', d:'Sin foto la constatación física se hace a ciegas.'}
+];
+function vistaAlertas(){
+  if(!S.bienes.length) return sinDatos();
+  var html='';
+  GRUPOS_ALERTA.forEach(function(g){
+    var lista=S.bienes.filter(function(b){ return alertasDe(b).some(function(a){return a.k===g.k;}); });
+    if(!lista.length) return;
+    // En «el mismo bien en las dos hojas» lo que interesa no es la suma de las filas
+    // sino cuánto sobra: el valor de las copias de más, que es lo que infla el total.
+    var valor, leyenda;
+    if(g.k==='dupfila'){
+      var vistos={}; valor=0;
+      lista.forEach(function(x){
+        if(vistos[x.codigo]) valor+=x.valor; else vistos[x.codigo]=1;
+      });
+      leyenda=money0(valor)+' contados de más';
+    }else{
+      valor=lista.reduce(function(a,x){return a+x.valor;},0);
+      leyenda=money0(valor)+' en juego';
+    }
+    html+='<div class="panel">'+
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+        '<div class="ptitle" style="margin:0">'+esc(g.t)+'</div>'+
+        '<span class="badge '+(lista.length>50?'b-r':'b-a')+'">'+lista.length+'</span>'+
+        '<span style="font-size:12px;color:var(--muted)">'+esc(leyenda)+'</span>'+
+        '<button class="btn line sm" style="margin-left:auto" data-verk="'+g.k+'">Ver la lista</button>'+
+      '</div>'+
+      '<p class="psub" style="margin:6px 0 0">'+esc(g.d)+'</p>'+
+    '</div>';
+  });
+  return html || '<div class="panel"><div class="ptitle">Sin alertas</div><p class="psub">La matriz está completa: todos los bienes tienen custodio, seguro, acta y foto.</p></div>';
+}
+
+/* ---------- vista: áreas y frases ---------- */
+function vistaAreas(){
+  // Las frases se derivan de la maestra. Si esta sesión entró abriendo el Excel,
+  // esa frase nunca se escribió y no hay de dónde derivarlas.
+  if(!S.master){
+    return '<div class="panel">'+
+      '<div class="ptitle">Para ver las frases, entra con la tuya</div>'+
+      '<p class="psub">Estás viendo la matriz que abriste desde tu computador, así que la herramienta '+
+        'no conoce tu frase maestra — y las frases de las áreas se derivan de ella.</p>'+
+      '<div class="note">Sal y vuelve a entrar escribiendo tu frase maestra (la misma del secreto '+
+        '<b>BIENES_KEY</b>). Necesita que el robot ya haya publicado la matriz al menos una vez.</div>'+
+    '</div>';
+  }
+  return '<div class="panel">'+
+    '<div class="ptitle">Una frase por área</div>'+
+    '<p class="psub">Cada área tiene su propia frase de acceso. Con ella, la AC ve <b>solo los bienes de su área</b> '+
+      'y el formulario. Con la tuya —la maestra— se ve todo. Las frases salen de la tuya, así que no hay una lista '+
+      'que mantener ni nada que se pueda perder: se vuelven a calcular aquí cuando haga falta. '+
+      'Si cambias la frase maestra, cambian todas.</p>'+
+    '<div class="note">Mándale a cada AC <b>solo su frase</b>, junto con el enlace de esta página. '+
+      'Quien no tenga frase igual puede registrar bienes: entra por «Registrar un bien».</div>'+
+    '<div class="toolbar" style="margin-top:14px">'+
+      '<button class="btn line sm" id="calcFrases">Calcular las frases</button>'+
+      '<button class="btn line sm noprint" id="imprFrases">Imprimir la lista</button>'+
+    '</div>'+
+    '<div id="frases"></div>'+
+  '</div>';
+}
+async function pintarFrases(){
+  var cont=$('#frases'); if(!cont||!S.master) return;
+  cont.innerHTML='<p class="psub">Calculando…</p>';
+  var conBienes={}; S.bienes.forEach(function(b){ conBienes[b.sigla]=(conBienes[b.sigla]||0)+1; });
+  var filas=[];
+  for(var i=0;i<AREAS.length;i++){
+    var a=AREAS[i], fr=await fraseArea(S.master, a.s);
+    filas.push('<tr>'+
+      '<td><b class="mono">'+esc(a.s)+'</b><div style="font-size:11.5px;color:var(--muted)">'+esc(a.n)+'</div></td>'+
+      '<td class="num">'+(conBienes[a.s]||0)+'</td>'+
+      '<td><div class="copyrow"><span class="mono" style="font-weight:700">'+esc(fr)+'</span>'+
+        '<button class="iconbtn noprint" data-copy="'+esc(fr)+'" title="Copiar">⧉</button></div></td>'+
+    '</tr>');
+  }
+  cont.innerHTML='<div class="tablewrap"><table class="list"><thead><tr>'+
+    '<th>Área</th><th style="text-align:right">Bienes</th><th>Frase de acceso</th>'+
+    '</tr></thead><tbody>'+filas.join('')+'</tbody></table></div>';
+}
+
+/* ---------- vista: enviados ---------- */
+function vistaEnviados(){
+  var cola=lsGet(LS_COLA,[]);
+  if(!S.enviados.length){
+    return '<div class="panel"><div class="ptitle">Todavía no has registrado nada desde este navegador</div>'+
+      '<p class="psub">Aquí queda la lista de los bienes que envías, para que tengas el respaldo de lo que mandaste '+
+      'aunque el correo se pierda.</p></div>';
+  }
+  return (cola.length?'<div class="note warn"><b>'+cola.length+' registro(s) esperando internet.</b> Se envían solos cuando vuelva la conexión.</div>':'')+
+  '<div class="tablewrap"><table class="list"><thead><tr>'+
+    '<th>Código</th><th>Bien</th><th>Área</th><th style="text-align:right">Valor</th><th>Enviado</th><th></th>'+
+  '</tr></thead><tbody>'+
+  S.enviados.map(function(e,i){
+    return '<tr><td class="mono">'+esc(e.codigo||'—')+'</td>'+
+      '<td>'+esc(trunc(e.descripcion,40))+'</td><td>'+esc(e._sigla||'')+'</td>'+
+      '<td class="num">'+money(e.valor)+'</td>'+
+      '<td>'+esc(String(e._enviado||'').slice(0,10))+'</td>'+
+      '<td><button class="btn line sm" data-dl="'+i+'">Descargar</button></td></tr>';
+  }).join('')+
+  '</tbody></table></div>';
+}
+
+/* ---------- ficha de un bien ---------- */
+function abrirFicha(cod){
+  var b=S.bienes.filter(function(x){return x.codigo===cod;})[0]; if(!b) return;
+  var al=alertasDe(b);
+  var link=function(u,t){ return u? '<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(t)+'</a>' : '<span style="color:var(--muted2)">—</span>'; };
+  $('#modal').innerHTML='<div class="modal" id="mwrap"><div class="box">'+
+    '<div style="display:flex;align-items:flex-start;gap:12px">'+
+      '<div style="flex:1"><h3 class="mono">'+esc(b.codigo)+'</h3>'+
+      '<div style="color:var(--muted);font-size:13px">'+esc(b.descripcion)+' · '+esc(b.area)+'</div></div>'+
+      '<button class="iconbtn" id="cerrar" style="font-size:18px">✕</button></div>'+
+    (al.length?'<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">'+
+      al.map(function(a){return '<span class="badge '+a.cls+'">'+esc(a.t)+'</span>';}).join('')+'</div>':'')+
+    '<dl class="dl">'+
+      '<dt>Detalle</dt><dd>'+esc(b.detalle||'—')+'</dd>'+
+      '<dt>Marca / modelo / serie</dt><dd>'+esc([b.marca,b.modelo,b.serie].filter(Boolean).join(' · ')||'—')+'</dd>'+
+      '<dt>Clase</dt><dd>'+esc(b.hoja==='Activos'?'Activo fijo':'Bien de control')+' · '+esc(b.tipoContable||'—')+'</dd>'+
+      '<dt>Valor de compra</dt><dd>'+money(b.valor)+' · '+fdate(b.fechaCompra)+'</dd>'+
+      '<dt>Depreciación</dt><dd>'+money(b.dep.anual)+'/año · '+money(b.dep.mensual)+'/mes · '+
+        b.dep.meses+' meses corridos<br><b>Acumulada '+money(b.dep.acumulada)+' · en libros '+money(b.dep.residual)+'</b>'+
+        (b.dep.agotada?' <span class="badge b-d">vida útil cumplida</span>':'')+'</dd>'+
+      '<dt>Custodio</dt><dd>'+esc(b.custodio||'—')+(b.cedula?' · '+esc(b.cedula):'')+'</dd>'+
+      '<dt>Ubicación</dt><dd>'+esc(b.ubicacion||'—')+' · '+esc(b.institucion||'')+'</dd>'+
+      '<dt>Estado físico</dt><dd>'+esc(b.estadoFisico||'—')+'</dd>'+
+      '<dt>Proveedor</dt><dd>'+esc(b.proveedor||'—')+(b.ruc?' · RUC '+esc(b.ruc):'')+'<br>Factura '+esc(b.factura||'—')+'</dd>'+
+      '<dt>Donante / proyecto</dt><dd>'+esc(b.donante||'—')+' · '+esc(b.proyecto||'FAP')+'</dd>'+
+      '<dt>Seguro</dt><dd>'+esc(b.asegurado||'—')+(norm(b.asegurado)==='si'?' · '+esc(b.aseguradora)+' · póliza '+esc(b.poliza)+' · hasta '+fdate(b.finSeguro):'')+'</dd>'+
+      '<dt>Garantía</dt><dd>'+esc(b.garantia||'—')+(b.finGarantia?' · hasta '+fdate(b.finGarantia)+' ('+esc(b.estadoGarantia)+')':'')+'</dd>'+
+      '<dt>Respaldos</dt><dd>'+link(b.acta,'Acta de entrega')+' · '+link(b.facturaLink,'Factura')+' · '+link(b.foto,'Fotografía')+'</dd>'+
+      (b.observaciones?'<dt>Observaciones</dt><dd>'+esc(b.observaciones)+'</dd>':'')+
+      (b.fechaBaja?'<dt>Baja</dt><dd>'+fdate(b.fechaBaja)+' · '+esc(b.motivoBaja||'')+'</dd>':'')+
+    '</dl>'+
+  '</div></div>';
+  $('#cerrar').addEventListener('click', cerrarModal);
+  $('#mwrap').addEventListener('click', function(e){ if(e.target.id==='mwrap') cerrarModal(); });
+}
+function cerrarModal(){ $('#modal').innerHTML=''; }
+
+/* ---------- CSV ---------- */
+var CSV_COLS=[
+  ['codigo','CODIGO'],['descripcion','DESCRIPCIÓN'],['detalle','DESCRIPCIÓN(ADICIONAL)'],['cantidad','CANTIDAD'],
+  ['tipoSeguros','TIPO DE BIEN SEGUROS'],['tipoContable','TIPO DE BIEN SISTEMA CONTABLE'],['proyecto','PROYECTO'],
+  ['fechaCompra','FECHA DE COMPRA'],['donante','DONANTE'],['proveedor','PROVEEDOR'],['ruc','RUC DE PROVEEDOR'],
+  ['factura','N° FACTURA'],['facturaLink','FACTURA DIGITAL'],['valor','VALOR DEL BIEN(INC.IMP)'],
+  ['marca','MARCA'],['modelo','MODELO'],['serie','NUMERO DE SERIE'],['cedula','CEDULA CUSTODIO'],
+  ['custodio','NOMBRES Y APELLIDOS CUSTODIO'],['institucion','INSTITUCIÓN'],['ubicacion','UBICACIÓN'],
+  ['acta','ACTA ENTREGA'],['asegurado','ASEGURADO (SI/NO)'],['inicioSeguro','INICIO SEGURO'],['finSeguro','FIN SEGURO'],
+  ['aseguradora','ASEGURADORA'],['poliza','NRO DE POLIZA'],['garantia','GARANTIA TECNICA'],
+  ['inicioGarantia','INICIO GARANTIA'],['finGarantia','FIN DE GARANTIA'],['estadoGarantia','ESTADO DE GARANTIA'],
+  ['estadoFisico','ESTADO FÍSICO'],['vida','VIDA ÚTIL (AÑOS)']
+];
+function csvDe(lista, nombre){
+  var head=CSV_COLS.map(function(c){return c[1];})
+    .concat(['DEPRECIACIÓN ANUAL','DEPRECIACIÓN MENSUAL','DEPRECIACIÓN ACUMULADA','VALOR EN LIBROS',
+             'HOJA','ÁREA','FECHA DE BAJA','MOTIVO DE BAJA','OBSERVACIONES','FOTOGRAFÍA']);
+  var filas=lista.map(function(b){
+    return CSV_COLS.map(function(c){ return csvCell(b[c[0]]); })
+      .concat([b.dep.anual.toFixed(2), b.dep.mensual.toFixed(2), b.dep.acumulada.toFixed(2), b.dep.residual.toFixed(2),
+               csvCell(b.hoja), csvCell(b.area), csvCell(b.fechaBaja), csvCell(b.motivoBaja),
+               csvCell(b.observaciones), csvCell(b.foto)]).join(';');
+  });
+  // BOM para que Excel en español abra las tildes bien.
+  download('﻿'+head.join(';')+'\n'+filas.join('\n'), nombre, 'text/csv;charset=utf-8');
+  toast(lista.length+' fila(s) exportadas. La depreciación va calculada a hoy.');
+}
+
+/* ================= EVENTOS ================= */
+function bind(sel, ev, fn){ var el=$(sel); if(el) el.addEventListener(ev, fn); }
+function enlazar(){
+  document.querySelectorAll('.navitem').forEach(function(b){
+    b.addEventListener('click', function(){ S.vista=b.dataset.v; render(); if(S.vista==='areas'&&S.master) pintarFrases(); });
+  });
+  bind('#salir','click', function(){
+    localStorage.removeItem(LS_KEY);
+    location.reload();
+  });
+
+  /* ---- formulario ---- */
+  Object.keys(S.form).forEach(function(k){
+    var el=$('#f-'+k); if(!el) return;
+    var ev = (el.tagName==='SELECT') ? 'change' : 'input';
+    el.addEventListener(ev, function(){
+      S.form[k] = (el.type==='number') ? el.value : el.value;
+      if(k==='cedula' && /^\d{10}$/.test(el.value.trim())) autocompletarCustodio(el.value.trim());
+      if(k==='garantia' && el.value==='SI' && !S.form.inicioGarantia) S.form.inicioGarantia=S.form.fechaCompra;
+      // Solo se vuelve a dibujar cuando el cambio mueve los cálculos.
+      if(['sigla','tipoContable','valor','fechaCompra','garantia','finGarantia','asegurado','inicioGarantia'].indexOf(k)>=0){
+        var pos=document.activeElement && document.activeElement.id;
+        render();
+        var again=pos?$('#'+pos):null; if(again && again.focus) again.focus();
+      }
+    });
+  });
+  bind('#btn-enviar','click', enviar);
+  bind('#btn-limpiar','click', function(){ var s=S.form.sigla; nuevoFormulario(); S.form.sigla=s; render(); });
+  bind('#codman','click', function(e){
+    e.preventDefault();
+    var c=calculado();
+    var v=prompt('Código del bien (formato 02-SIGLA-###-XX):', c.codigo||'');
+    if(v!=null){ S.form.codigoManual=v.trim(); render(); }
+  });
+  bind('#codauto','click', function(e){ e.preventDefault(); S.form.codigoManual=''; render(); });
+
+  /* ---- listado ---- */
+  bind('#q','input', function(e){
+    S.filtro.q=e.target.value;
+    var tb=$('.tablewrap tbody'); if(!tb) return;
+    var l=bienesFiltrados();
+    tb.innerHTML = l.length? l.slice(0,400).map(filaBien).join('')
+      : filaVacia();
+    filasClicables();
+  });
+  bind('#fArea','change', function(e){ S.filtro.area=e.target.value; render(); });
+  bind('#fHoja','change', function(e){ S.filtro.hoja=e.target.value; render(); });
+  bind('#csv','click', function(){ csvDe(bienesFiltrados(), 'bienes_FAP_'+todayISO()+'.csv'); });
+  bind('#csvTodo','click', function(){ csvDe(S.bienes, 'matriz_bienes_FAP_'+todayISO()+'.csv'); });
+  bind('#csvNuevos','click', function(){ csvDe(S.bienes.filter(esNuevo), 'bienes_nuevos_'+todayISO()+'.csv'); });
+  filasClicables();
+
+  // Saltar al listado desde el panel o desde una alerta parte de cero: si se
+  // acumulara con lo que ya estaba filtrado, la lista saldría vacía sin motivo.
+  document.querySelectorAll('[data-area]').forEach(function(tr){
+    tr.style.cursor='pointer';
+    tr.addEventListener('click', function(){
+      S.filtro={q:'', area:tr.dataset.area, hoja:'', alerta:''}; S.vista='bienes'; render();
+    });
+  });
+  document.querySelectorAll('[data-verk]').forEach(function(b){
+    b.addEventListener('click', function(){
+      S.filtro={q:'', area:'', hoja:'', alerta:b.dataset.verk}; S.vista='bienes'; render();
+    });
+  });
+  document.querySelectorAll('[data-quita]').forEach(function(b){
+    b.addEventListener('click', function(){ S.filtro[b.dataset.quita]=''; render(); });
+  });
+
+  /* ---- revisión ---- */
+  document.querySelectorAll('[data-rev]').forEach(function(b){
+    b.addEventListener('click', function(){ marcarRevisado(b.dataset.rev); render(); });
+  });
+  bind('#revTodo','click', function(){
+    marcarTodoVisto(S.bienes.map(function(b){return b.codigo;}));
+    lsSet(LS_REVISADOS,{}); render(); toast('Todo marcado como revisado.');
+  });
+  bind('#resetVistos','click', function(){
+    if(confirm('¿Volver a marcar todos los bienes como nuevos? Sirve para hacer una revisión completa desde cero.')){
+      localStorage.removeItem(LS_VISTOS); localStorage.removeItem(LS_REVISADOS); render();
+    }
+  });
+
+  /* ---- áreas ---- */
+  bind('#calcFrases','click', pintarFrases);
+  bind('#imprFrases','click', function(){ window.print(); });
+  document.querySelectorAll('[data-copy]').forEach(function(b){
+    b.addEventListener('click', function(){
+      navigator.clipboard.writeText(b.dataset.copy).then(function(){ toast('Frase copiada.'); },
+        function(){ toast('No se pudo copiar; selecciónala a mano.'); });
+    });
+  });
+
+  /* ---- enviados ---- */
+  document.querySelectorAll('[data-dl]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var e=S.enviados[+b.dataset.dl];
+      download(JSON.stringify(e,null,2), 'BIEN_'+String(e.codigo||'nuevo').replace(/[^\w-]+/g,'_')+'.json','application/json');
+    });
+  });
+
+  /* ---- abrir matriz .xlsx ---- */
+  bind('#abrirXlsx','click', function(){ var i=$('#fileXlsx'); if(i) i.click(); });
+  bind('#fileXlsx','change', function(e){
+    var file=e.target.files[0]; if(!file) return;
+    var fr=new FileReader();
+    fr.onload=function(){
+      try{
+        var lista=leerXlsx(fr.result);
+        if(!lista.length) throw new Error('No encontré filas en las hojas «Activos» y «Bienes control».');
+        S.bienes=lista; S.fuente='excel'; S.generado=null;
+        if(!vistosSet()) marcarTodoVisto(lista.map(function(b){return b.codigo;}));
+        S.vista='panel'; render();
+        toast(lista.length+' bienes leídos de la matriz.');
+      }catch(err){
+        toast('No pude leer el archivo: '+(err.message||'formato inesperado.'), 5200);
+      }
+    };
+    fr.readAsArrayBuffer(file);
+  });
+}
+function filasClicables(){
+  document.querySelectorAll('tr[data-cod],td[data-cod]').forEach(function(el){
+    el.style.cursor='pointer';
+    el.addEventListener('click', function(){ abrirFicha(el.dataset.cod); });
+  });
+}
+// Con la cédula ya escrita, el nombre del custodio sale del catálogo.
+function autocompletarCustodio(ced){
+  var b=S.bienes.filter(function(x){ return String(x.cedula||'').replace(/\D/g,'')===ced.replace(/\D/g,''); })[0];
+  if(b && b.custodio && !S.form.custodio){
+    S.form.custodio=b.custodio;
+    var el=$('#f-custodio'); if(el) el.value=b.custodio;
+  }
+}
+
+/* ================= GO ================= */
+boot().then(vaciarCola);
+</script>
+</body>
+</html>
