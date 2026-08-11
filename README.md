@@ -58,8 +58,9 @@ cada plantilla puede regenerarse desde el Calificador de Ofertas para mantener l
 **`/clm/index.html`** es la plataforma única y funcional que reúne todo el ciclo de vida
 del contrato en una sola aplicación, siguiendo el modelo estándar de un CLM
 (intake → elaboración → firma → ejecución → obligaciones → renovación → analítica).
-Lee la misma base viva del CRM (`crm/contratos_export.json`) y usa las mismas
-plantillas Word reales (`crm/plantillas/`).
+Consulta los contratos en vivo (login con la cuenta de FIAS, no publica nada en el
+repositorio — ver la sección de seguridad más abajo) y usa las mismas plantillas
+Word reales (`crm/plantillas/`).
 
 **Módulos:**
 
@@ -193,8 +194,11 @@ publican, tampoco hay nada que robar aunque alguien la esquivara.
   Configuración completa en `bienes/CONECTAR.md`.
 - **`/centro/`** — Centro de mando diario, herramienta personal (independiente del resto).
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
-  Se actualiza automáticamente cada día vía Power Automate, que sobrescribe `crm/contratos_export.json`
-  con los datos del Excel maestro. La app lo consulta automáticamente al abrirse.
+  Igual que bienes: no publica datos, consulta en vivo con login de FIAS. Cada AC ve
+  automáticamente los contratos donde aparece como responsable (columna `correo` de la
+  Lista de SharePoint), sin que nadie tenga que darla de alta en ningún lado. Trae su
+  propio respaldo local (abrir el Excel maestro a mano, con SheetJS) para el día que el
+  login o el flujo protegido no estén disponibles.
 - **`/generador/`** — La Mágica: generador de documentos precontractuales para las ACs
   (`generador/index.html`, con las plantillas Word embebidas). Cubre captura del proceso por
   momentos, generación de documentos y registro central vía Power Automate.
@@ -220,41 +224,42 @@ La raíz (`https://[tu-usuario].github.io/fap-contratos/`) redirige automáticam
 
 ## Actualización de datos
 
-El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el robot de GitHub Actions
-(`scripts/actualizar_datos.py`) todas las mañanas a partir de la hoja "Export" del Excel maestro. Si el
-flujo falla, la AC puede seguir usando el botón "Actualizar base desde Excel" dentro de la app como
-respaldo manual.
+Ninguna de las tres herramientas (bienes, CLM, CRM) publica datos en el repositorio ni tiene un robot
+diario de GitHub Actions: no hay nada que regenerar porque no hay copia que mantener al día. Cada una
+consulta sus datos **en vivo**, en el momento en que cada quien inicia sesión con su cuenta de FIAS —
+ver la sección de seguridad, abajo.
 
-Los bienes no tienen robot ni archivo publicado: no hay nada que regenerar porque no hay copia.
-`/bienes/index.html` consulta la Lista de SharePoint **en vivo**, en el momento en que cada quien
-inicia sesión — ver la sección de seguridad más abajo. El respaldo manual es "Abre tu matriz .xlsx",
-en la pantalla de acceso y en el panel: la administradora abre el archivo y ve todo, sin depender de
-que el login o los flujos de Power Automate estén configurados o funcionando.
+El respaldo manual, para el día uno o el día que el login o los flujos de Power Automate no estén
+disponibles, es abrir el archivo maestro a mano dentro de la propia herramienta (nunca sale del
+navegador): "Abre tu matriz .xlsx" en bienes, "Abrir el Excel maestro (OneDrive)" en el CRM (con
+SheetJS, ya venía así). El CLM no lo tiene directamente — su mensaje de "no puedo iniciar sesión"
+enlaza a abrir el CRM, que sí lo tiene.
 
 ## Seguridad de los datos
 
-**Contratos (CRM/CLM):** como el sitio es estático y público, los datos NO se publican en claro: se
-cifran con **AES-256-GCM** (clave derivada de una frase de acceso con PBKDF2-SHA256). Esto aplica al
-`contratos_export.json` diario y a las copias embebidas (`seed-data` del CLM, `EMBEDDED` del CRM).
-Quien abra los archivos sin la frase solo ve un bloque cifrado ilegible.
+Las tres herramientas comparten el mismo modelo: **login real con la cuenta de Microsoft 365 de FIAS**
+(Entra ID), no una frase compartida. La razón del cambio: contratos y sobre todo bienes juntan datos
+que una frase filtrada no debería exponer —cédulas de custodios, ubicación exacta de equipos caros,
+montos de contratos por AC— y una frase, por bien que se reparta, es algo que alguien puede reenviar
+por error y que, una vez en un repositorio público, no se puede revocar.
 
-- **Al entrar**, el CLM/CRM piden la **frase de acceso** una sola vez; queda guardada en el navegador
-  (`localStorage`) y el descifrado ocurre localmente con WebCrypto. Nada de servidores nuevos ni librerías externas.
-- **El robot diario** cifra con el secreto **`DATA_KEY`** (repositorio → *Settings → Secrets and variables →
-  Actions*). Debe valer **exactamente la misma frase** que usan las ACs. Sin ese secreto, el robot no publica
-  (falla a propósito) para no exponer datos en claro.
-- **Rotar la frase:** cambia el valor de `DATA_KEY`, vuelve a cifrar las copias embebidas y avisa la nueva
-  frase al equipo.
+Con login real, el navegador nunca decide qué le toca ver a cada quien: un flujo de Power Automate
+protegido con Azure AD lee la identidad que el propio inicio de sesión certificó —nunca lo que el
+navegador afirme de sí mismo— y filtra los datos contra una lista de accesos en SharePoint antes de
+devolver nada. Dar o quitar acceso es editar esa lista; no hay frase que rotar ni archivo que volver a
+cifrar, y se revoca al instante.
 
-> Alcance: la frase es compartida por el equipo (no es login por persona). Protege los datos *publicados*
-> de aquí en adelante; el historial de git anterior a esta protección aún contiene versiones en claro.
+- **Bienes**: cada AC ve solo los bienes de su área (la lista de accesos indica qué área le toca, o
+  `TODAS` para quien administra bienes).
+- **CLM/CRM**: cada AC ve automáticamente los contratos donde aparece como responsable —sin que nadie
+  tenga que darla de alta en ninguna lista—; la lista de accesos solo cubre las excepciones (ver todo,
+  o ver toda un área).
 
-**Bienes va aparte y con un modelo distinto**, porque junta algo que los contratos no tienen: cédulas de
-custodios y la ubicación exacta de equipos caros. Una frase compartida —por bien derivada que esté— sigue
-siendo algo que alguien puede reenviar por error, y una vez en un repositorio público no hay forma de
-revocarla. Por eso bienes **no publica ningún dato**, ni cifrado: quien quiere ver algo tiene que iniciar
-sesión con su cuenta real de Microsoft 365 de FIAS (Entra ID), y un flujo de Power Automate protegido con
-Azure AD decide qué le entrega, cruzando esa identidad —nunca lo que el navegador diga de sí mismo— contra
-una lista de accesos en SharePoint. Dar o quitar acceso es editar esa lista; no hay frase que rotar ni
-archivo que volver a cifrar. El paso a paso, incluida la parte de por qué el flujo no puede confiar en el
-cliente para decidir el área de nadie, está en `bienes/CONECTAR.md`.
+No hace falta Power Apps ni ninguna licencia nueva: todo esto corre sobre SharePoint, Power Automate y
+Entra ID, que ya vienen con cualquier Microsoft 365 que tenga lo que este proyecto ya usa (Outlook,
+OneDrive). El paso a paso completo —crear la app en Entra ID (una sola, compartida por las tres
+herramientas), las listas de SharePoint, y los flujos protegidos, incluida la parte de por qué un flujo
+no puede confiar en el cliente para decidir qué le toca ver a nadie— está en `bienes/CONECTAR.md`.
+
+> Historial: el repositorio guardó versiones publicadas en claro y cifradas con frase compartida antes
+> de este cambio; ese historial de git no se reescribió.

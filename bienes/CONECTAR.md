@@ -1,14 +1,16 @@
-# Conectar el registro de bienes con SharePoint y la cuenta de FIAS
+# Conectar bienes y contratos con SharePoint y la cuenta de FIAS
 
-Esta guía monta la versión con **login real**: cada quien entra con su cuenta de
-Microsoft de FIAS, y quién ve qué lo decide una lista de accesos, no una frase.
-No hace falta Power Apps ni ninguna licencia nueva — todo lo de aquí viene incluido
-en un Microsoft 365 que ya tiene SharePoint, Outlook y Power Automate, que es lo que
-este proyecto ya usa.
+Esta guía monta el **login real** que usan las tres herramientas del CLM que
+manejan datos sensibles: **bienes**, **CLM** y **CRM**. Cada quien entra con su
+cuenta de Microsoft de FIAS, y quién ve qué lo decide una lista de accesos, no
+una frase compartida. No hace falta Power Apps ni ninguna licencia nueva — todo
+lo de aquí viene incluido en un Microsoft 365 que ya tiene SharePoint, Outlook y
+Power Automate, que es lo que este proyecto ya usa.
 
-Son cuatro piezas. Las tres primeras las arma quien administre esa cuenta de
-Microsoft 365 (Cata, o quien tenga ese rol); la cuarta es pegar unos IDs en un
-archivo.
+Las partes 1 a 4 son de **bienes**; las partes 5 y 6 son de **contratos**
+(CLM/CRM) y reutilizan la **misma app de Entra ID** de la parte 3 — no hay que
+registrar una segunda. Todo lo arma quien administre esa cuenta de Microsoft 365
+(Cata, o quien tenga ese rol); lo único que toca en código es pegar unos IDs.
 
 | Pieza | Qué hace | Dónde se hace |
 |---|---|---|
@@ -123,11 +125,14 @@ alguien de IT lo activa en un minuto.
 [entra.microsoft.com](https://entra.microsoft.com) → **Identidad → Aplicaciones →
 Registros de aplicaciones → Nuevo registro**.
 
-- **Nombre**: `Bienes FAP`
+- **Nombre**: `CLM FAP` (una sola app para bienes, CLM y CRM — no hace falta una por herramienta)
 - **Tipos de cuenta admitidos**: *Solo cuentas de este directorio organizativo*
-- **URI de redirección**: tipo **SPA (aplicación de una sola página)**, valor la
-  URL exacta donde vive `bienes/index.html`
-  (`https://[usuario].github.io/fap-contratos/bienes/`)
+- **URI de redirección**: tipo **SPA (aplicación de una sola página)**, y aquí se
+  agregan **las tres URLs**, una por herramienta (el botón «Agregar URI» permite
+  varias):
+  - `https://[usuario].github.io/fap-contratos/bienes/`
+  - `https://[usuario].github.io/fap-contratos/clm/`
+  - `https://[usuario].github.io/fap-contratos/crm/`
 
 Al terminar, copia dos valores de la página **Información general**:
 
@@ -140,37 +145,52 @@ Al terminar, copia dos valores de la página **Información general**:
 En el mismo registro → **Exponer una API → Agregar** (acepta el URI de
 aplicación que propone, algo como `api://<client-id>`).
 
-**Agregar un ámbito**:
-- Nombre del ámbito: `Bienes.Leer`
-- Quién puede dar su consentimiento: *Administradores y usuarios*
-- Nombre para mostrar del consentimiento del administrador: `Leer mis bienes`
-- Descripción: `Permite consultar los bienes que le corresponden a quien inicia sesión`
+**Agregar dos ámbitos** (uno por dominio de datos — así una persona autorizada
+solo para bienes nunca recibe, ni por accidente, un token que también sirva
+para leer contratos):
 
-El ámbito completo (`api://<client-id>/Bienes.Leer`) va en `MSAL_API_SCOPE`.
+| Nombre del ámbito | Nombre para mostrar | Descripción |
+|---|---|---|
+| `Bienes.Leer` | Leer mis bienes | Permite consultar los bienes que le corresponden a quien inicia sesión |
+| `Contratos.Leer` | Leer mis contratos | Permite consultar los contratos que le corresponden a quien inicia sesión |
+
+En los dos, «Quién puede dar su consentimiento»: *Administradores y usuarios*.
+
+Cada ámbito completo va en la constante `MSAL_API_SCOPE` de su propia
+herramienta: `api://<client-id>/Bienes.Leer` en bienes, `api://<client-id>/Contratos.Leer` en CLM y CRM.
 
 ### 3.3 Permisos de API
 
 **Autorizar clientes cliente** (en la misma pantalla de «Exponer una API») → pega
-el mismo Id. de aplicación (cliente) del paso 3.1, marca `Bienes.Leer` → **Agregar
-una aplicación**. Esto le dice a Entra ID que la propia app tiene permiso de
-pedirse el ámbito a sí misma — es el patrón normal para una SPA que llama a su
-propio backend.
+el mismo Id. de aplicación (cliente) del paso 3.1, marca **los dos ámbitos**
+(`Bienes.Leer` y `Contratos.Leer`) → **Agregar una aplicación**. Esto le dice a
+Entra ID que la propia app tiene permiso de pedirse esos ámbitos a sí misma — es
+el patrón normal para una SPA que llama a su propio backend.
 
-### 3.4 Pegar los tres valores
+### 3.4 Pegar los valores en cada herramienta
+
+Los dos primeros valores son **los mismos en las tres herramientas** (es la
+misma app); el tercero cambia según el ámbito de cada una.
 
 En `bienes/index.html`:
-
 ```js
 var MSAL_CONFIG = {
-  clientId: '',      // Id. de aplicación (cliente) — paso 3.1
-  authority: '',      // https://login.microsoftonline.com/<Id. de directorio>
+  clientId: '',      // Id. de aplicación (cliente) — paso 3.1, igual en las tres
+  authority: '',      // https://login.microsoftonline.com/<Id. de directorio> — igual en las tres
   redirectUri: window.location.origin + window.location.pathname
 };
-var MSAL_API_SCOPE = '';   // api://<client-id>/Bienes.Leer — paso 3.2
+var MSAL_API_SCOPE = '';   // api://<client-id>/Bienes.Leer
 ```
 
-Con esto el botón de login ya funciona y pide la sesión de Microsoft — lo único
-que falta es que tenga a quién preguntarle los bienes (parte 4).
+En `clm/index.html` **y** `crm/index.html` (el mismo `MSAL_CONFIG`, el scope de contratos):
+```js
+const MSAL_CONFIG = { clientId: '', authority: '', redirectUri: window.location.origin + window.location.pathname };
+const MSAL_API_SCOPE = '';   // api://<client-id>/Contratos.Leer
+```
+
+Con esto el botón de login ya funciona en las tres y pide la sesión de
+Microsoft — lo único que falta es que cada una tenga a quién preguntarle los
+datos: la parte 4 para bienes, la parte 6 para contratos.
 
 ---
 
@@ -281,6 +301,113 @@ var SP_ACCESOS_URL = '';   // enlace a la lista «Accesos» en SharePoint
 
 ---
 
+## Parte 5 · La lista de SharePoint «Contratos»
+
+Mismo espíritu que la lista de Bienes, pero más simple de llenar: hoy el CRM ya
+lee el Excel maestro con una lógica de columnas resuelta (hoja **2026** para los
+datos del contrato, hoja **Export** cruzada por número de contrato para el
+enlace y el estado). Antes de crear la lista, usa esa misma lógica para no
+tener que rehacerla a mano:
+
+1. Abre el **CRM** (`crm/index.html`) directamente y pulsa **«Abrir el Excel
+   maestro (OneDrive)»** — ya cruza las dos hojas y te deja `CONTRACTS` armado
+   en el navegador con los nombres de campo correctos.
+2. En la consola del navegador (F12): `copy(JSON.stringify(CONTRACTS))` copia
+   esa lista al portapapeles, ya en el formato que necesita la lista de
+   SharePoint.
+3. **Contenido del sitio → Nuevo → Lista → En blanco**, nómbrala `Contratos`, y
+   crea una columna por cada campo — usando el nombre del campo tal cual
+   (`nro`, `detalle`, `area`, `cat`, `monto`, `montoTotal`, `cerrado`, `inicio`,
+   `firma`, `fin`, `tipo`, `proveedor`, `plazo`, `adenda`, `tipoAdenda`,
+   `modificacion`, `firmaAdenda`, `ac`, `correo`, `link`) — otra vez, nombrar
+   igual que el JSON ahorra un paso de traducción en el flujo.
+4. Importa el JSON copiado (Power Automate, o a mano si son pocos contratos —
+   crece unas decenas al año, no miles).
+
+De ahí en adelante, **el flujo de ingreso de nuevos contratos** (si el equipo
+decide automatizar también esa parte, con un formulario parecido al de bienes)
+escribiría directamente en esta lista con **SharePoint: Crear elemento** — el
+mismo patrón de la parte 2. Mientras tanto, los contratos nuevos se agregan a
+mano a la lista, o se sigue usando el Excel y se reimporta.
+
+`correo` es la columna que hace todo el trabajo de acceso: **cualquiera cuyo
+correo aparezca ahí ve automáticamente esos contratos al iniciar sesión**, sin
+que nadie tenga que darlo de alta en ninguna lista aparte. Vale la pena
+revisar que esté bien escrito (el correo real de Microsoft 365, no una
+variante) para que el cruce del flujo de la parte 6 no falle en silencio.
+
+---
+
+## Parte 6 · El flujo protegido «obtener mis contratos»
+
+Mismo mecanismo que la parte 4 (Azure AD en el disparador, identidad leída del
+encabezado `X-MS-CLIENT-PRINCIPAL`, nunca de lo que mande el navegador — repasa
+4.1 y 4.2 antes de esta parte, son los mismos pasos). Lo que cambia es la
+regla de negocio: aquí no hay una sigla de área que buscar, hay **dos fuentes
+de acceso que se combinan**.
+
+### 6.1 Crear el flujo
+
+Igual que 4.1: disparador HTTP, método `GET`, seguridad Azure AD OAuth con
+«Cualquier usuario de mi inquilino», usando la misma app `CLM FAP`. Resuelve
+el correo de quien llama exactamente como en 4.2–4.3 (decodificar
+`X-MS-CLIENT-PRINCIPAL`, ubicar el `typ` del correo verificado contra tu
+tenant).
+
+### 6.2 Resolver el alcance
+
+Con el correo ya resuelto, en orden:
+
+1. **Buscar en `Accesos`**, columna `Contratos` (no la de `Bienes` — es la
+   misma lista, otra columna): filtro `Correo eq '<correo>'`.
+   - Si el valor es `TODAS` → alcance `todas`, se traen todos los contratos.
+   - Si el valor es un nombre de área → alcance `area`, se filtra `Contratos`
+     por `area eq '<ese valor>'`.
+2. **Si no hay entrada en Accesos, o el valor no es ninguno de los dos
+   anteriores** → se buscan en `Contratos` las filas donde
+   `correo eq '<el correo de quien llama>'` (sus propios contratos, los que
+   la matriz ya le tiene asignados). Si hay alguna → alcance `ac`.
+3. **Si ninguna de las dos búsquedas trae nada** → **Respuesta** código `403`.
+   Una cuenta válida de FIAS sin contratos propios y sin entrada en Accesos no
+   tiene nada que ver aquí — no es un error, es que a esa persona no le toca
+   nada todavía.
+
+Esto es el motivo por el que **no hace falta mantener una lista de
+administradoras**: en cuanto un contrato trae su correo en la columna
+`correo`, esa persona ya puede iniciar sesión y verlo. `Accesos` solo cubre
+las excepciones — alguien que debe ver todo, o toda una área más allá de lo
+que tiene asignado a su nombre.
+
+### 6.3 Responder
+
+**Respuesta**, código 200:
+
+```json
+{
+  "alcance": "@{if(equals(variables('esTodas'), true), 'todas', if(equals(variables('esArea'), true), 'area', 'ac'))}",
+  "area": "@{variables('areaEncontrada')}",
+  "contratos": @{body('Obtener_elementos_de_Contratos')?['value']}
+}
+```
+
+(Ajusta los nombres de variable/acción a como te haya quedado el flujo — lo
+importante es que `contratos` sea siempre un arreglo, aunque esté vacío, y que
+`alcance` sea uno de los tres valores exactos que espera `bienes/index.html`,
+`clm/index.html` y `crm/index.html`: `'todas'`, `'area'` o `'ac'`.)
+
+### 6.4 Pegar la URL
+
+En `clm/index.html` **y** `crm/index.html`:
+
+```js
+const API_MIS_CONTRATOS_URL = '';   // URL del disparador de este flujo — la misma en las dos
+```
+
+Es el mismo flujo para ambas: el CLM y el CRM piden exactamente lo mismo, cada
+uno pinta la respuesta a su manera.
+
+---
+
 ## Si la parte 4 se complica
 
 Interpretar el token dentro de un flujo (4.2–4.4) es la pieza más técnica de toda
@@ -310,8 +437,10 @@ existe en SharePoint — el mismo que usa cualquier sitio con carpetas privadas.
 |---|---|
 | El botón de Microsoft no aparece | `MSAL_CONFIG.clientId` o `.authority` siguen vacíos |
 | «AADSTS500011» al iniciar sesión | El URI de redirección (3.1) no coincide exactamente con la URL de la página |
-| «AADSTS65001» o pantalla de consentimiento atascada | Falta el consentimiento del administrador para `Bienes.Leer` (Entra admin center → Permisos de API → Conceder consentimiento) |
-| El login funciona pero «no pude consultar tus bienes» | `API_MIS_BIENES_URL` vacío, o el flujo de la parte 4 no está publicado |
-| Login correcto pero «no está en la lista de accesos» | Falta agregar ese correo en la lista `Accesos` (parte 1.2) — es el comportamiento esperado, no un error |
-| El flujo de consulta da 401 | La seguridad del disparador (4.1) no quedó en «Cualquier usuario de mi inquilino», o el scope pedido no coincide con `MSAL_API_SCOPE` |
-| Alguien ve bienes de un área que no es la suya | Revisa la lista `Accesos` primero — es la causa más probable y la más fácil de arreglar |
+| «AADSTS65001» o pantalla de consentimiento atascada | Falta el consentimiento del administrador para `Bienes.Leer`/`Contratos.Leer` (Entra admin center → Permisos de API → Conceder consentimiento) |
+| El login funciona pero «no pude consultar tus bienes/contratos» | `API_MIS_BIENES_URL`/`API_MIS_CONTRATOS_URL` vacío, o el flujo correspondiente (parte 4 o 6) no está publicado |
+| Login correcto pero «no está en la lista de accesos» (bienes) | Falta agregar ese correo en la lista `Accesos`, columna Bienes (parte 1.2) — es el comportamiento esperado, no un error |
+| Login correcto pero «no tiene contratos ni acceso registrado» | Ni tiene contratos con su correo en la columna `correo` de `Contratos`, ni una entrada en `Accesos` columna Contratos — revisa que el correo esté bien escrito en ambos lados |
+| El flujo de consulta da 401 | La seguridad del disparador (4.1/6.1) no quedó en «Cualquier usuario de mi inquilino», o el scope pedido no coincide con `MSAL_API_SCOPE` de esa herramienta |
+| Alguien ve bienes o contratos que no son suyos | Revisa la lista `Accesos` primero — es la causa más probable y la más fácil de arreglar |
+| CLM/CRM: «AADSTS9002326» (cross-origin token redemption) | El URI de redirección de `clm/` o `crm/` no está registrado como tipo **SPA** — revisa 3.1 |
