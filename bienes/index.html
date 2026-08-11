@@ -222,13 +222,13 @@ var FLOW_BIENES_URL = '';
    aparece y la herramienta sigue sirviendo para registrar bienes y para
    que la administradora abra su .xlsx a mano. */
 var MSAL_CONFIG = {
-  clientId: '',                                    // Application (client) ID de la app registrada
-  authority: '',                                    // 'https://login.microsoftonline.com/<tenant-id-o-dominio>'
+  clientId: 'f92458ed-0ad6-4f2a-882e-4c897b2ce53a',
+  authority: 'https://login.microsoftonline.com/5e23e4af-237d-4d97-bf6e-dca808015787',
   redirectUri: window.location.origin + window.location.pathname
 };
 // Recurso para el que se pide el token que llega al flujo protegido.
 // Ver CONECTAR.md parte 3.4: es la misma app registrada, expuesta como API.
-var MSAL_API_SCOPE = '';   // algo como 'api://<client-id>/Bienes.Leer'
+var MSAL_API_SCOPE = 'api://f92458ed-0ad6-4f2a-882e-4c897b2ce53a/Bienes.Leer';
 
 // Flujo protegido con Azure AD: recibe el token, mira quién llama (nunca lo
 // que el navegador diga de sí mismo) y devuelve solo lo que le toca ver.
