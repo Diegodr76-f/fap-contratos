@@ -85,6 +85,45 @@ Sin esto va de una en una (unos 10 minutos); con esto baja a uno o dos.
 
 ## 4. Mapear las columnas
 
+### Antes: dejar en texto las columnas de fecha y número
+
+En el Excel ahora todo es texto, pero la lista tiene columnas que SharePoint
+tipó como *Fecha* y *Número* al adivinar del archivo viejo. **El selector de
+contenido dinámico filtra por tipo**: en esas columnas no va a ofrecer los
+valores del Excel, y no hay cómo mapearlas.
+
+La solución más corta es dejar esas columnas en texto. En la lista, para cada
+una: pasa el mouse por el título → flechita → **Editar columna** → **Tipo** →
+**Una línea de texto** → Guardar.
+
+Son **nueve**:
+
+| Fechas | Números |
+|---|---|
+| FECHA DE COMPRA (DD/MM/AAA) | CANTIDAD |
+| INICIO SEGURO | VALOR DEL BIEN(INC.IMP) |
+| FIN SEGURO | Vida útil estimada (AÑOS) |
+| INICIO GARANTIA (FECHA) | |
+| FIN DE GARANTIA (FECHA) | |
+| Fecha de baja (SI APLICA) | |
+
+(Las seis de depreciación no hace falta tocarlas: se dejan vacías, ver la nota
+al final de esta sección.)
+
+Que queden como texto no le quita nada a la herramienta: ella lee las fechas en
+formato `AAAA-MM-DD` y convierte los números al abrirlas. Ordenar y filtrar
+dentro de SharePoint sí funciona distinto con texto, pero el orden y los
+filtros de verdad se usan en la herramienta, no en la lista.
+
+> **Si prefieres no tocar los tipos**, la alternativa es escribir una expresión
+> en cada una de esas nueve columnas en vez de arrastrar el contenido dinámico.
+> Por ejemplo, para la fecha de compra:
+> `item()?['FECHA DE COMPRA (DD/MM/AAA)']`, y para el valor:
+> `float(item()?['VALOR DEL BIEN(INC.IMP)'])`. Funciona, pero son nueve
+> expresiones escritas a mano y un error de tecleo no se nota hasta que corre.
+
+### El mapeo
+
 En **«Crear elemento»** aparecen las columnas de la lista. A cada una se le
 asigna el contenido dinámico del **mismo nombre** — por eso conviene ir en
 orden, es mecánico: buscas el nombre en el panel de contenido dinámico y lo
