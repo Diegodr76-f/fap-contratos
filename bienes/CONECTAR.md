@@ -53,7 +53,8 @@ Excel, se llena con una columna calculada una sola vez; de ahí en adelante, el
 flujo de ingreso ya la manda calculada (`_sigla`, ver parte 2).
 
 > No hace falta migrar `ESTADO DE GARANTIA` ni `Código QR`: la herramienta calcula
-> el primero sola y el segundo nunca funcionó (ver `MATRIZ.md`, sección 6).
+> el primero sola, y el segundo lo dibuja ella misma en el navegador —el de la
+> columna del Excel nunca funcionó (ver `MATRIZ.md`, sección 6).
 
 ### 1.2 La lista «Accesos»
 

@@ -281,10 +281,14 @@ Otros tres detalles que no son alertas pero conviene saber:
   control*. Inflan el conteo, y las dos de «PLAYAS» son uno de los 13 pares
   repetidos. Conviene borrarlas.
 
-- **El código QR nunca funcionó.** Las 1.260 filas tienen `#VALUE!` en esa columna:
-  la fórmula usa `IMAGE()`, que la versión de Excel del equipo no reconoce. Además
-  llama a un servicio externo (`api.qrserver.com`), que en la red institucional
-  suele estar bloqueado.
+- **El código QR nunca funcionó en el Excel** (las 1.260 filas tienen `#VALUE!`
+  en esa columna): la fórmula usa `IMAGE()`, que la versión de Excel del equipo
+  no reconoce, y además llama a un servicio externo (`api.qrserver.com`) que en
+  la red institucional suele estar bloqueado. **La herramienta lo reemplaza por
+  uno que sí funciona**: lo dibuja en el propio navegador (librería vendorizada,
+  sin llamar a ningún servicio), en la ficha de cada bien — con botones para
+  descargarlo o imprimir la etiqueta. Codifica solo el código del bien, no todos
+  los datos: un QR más corto se escanea mejor en una etiqueta chica.
 - **50 bienes tienen `S/S` como número de serie** y otros cinco dicen `SIN NUMERO`.
   No es un error —hay bienes sin serie— pero conviene que se escriba siempre igual;
   el formulario sugiere `S/N`.

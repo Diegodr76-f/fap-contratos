@@ -15,6 +15,13 @@
      razón que PizZip (nada de CDNs externos que las redes institucionales bloqueen).
      Una sola copia canónica en clm/vendor/, compartida por CLM, CRM y bienes. -->
 <script src="../clm/vendor/msal-browser.min.js"></script>
+<!-- Código QR de la etiqueta de cada bien: se genera aquí mismo, en el navegador.
+     La fórmula del Excel (=IMAGE(...)) nunca funcionó -depende de una versión de
+     Excel que no todos tienen y de un servicio externo casi siempre bloqueado en
+     la red de la institución (ver MATRIZ.md, sección 6). Esta librería no llama
+     a ningún servicio: dibuja el QR con matemática pura, así que funciona sin
+     internet y sin que importe qué Excel tenga cada quien. -->
+<script src="../clm/vendor/qrcode.js"></script>
 <style>
   :root{
     --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
@@ -167,12 +174,22 @@
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;letter-spacing:.6px}
   .copyrow{display:flex;align-items:center;gap:8px}
   .print-only{display:none}
+  .qrbox{background:#fff;border:1px solid var(--line2);border-radius:12px;padding:14px;display:flex;gap:14px;align-items:center}
+  .qrbox svg{flex:0 0 auto;width:96px;height:96px}
+  .qrbox .t{font-size:11px;color:var(--muted);line-height:1.5}
+  .etiqueta{display:none}
   @media print{
-    aside.side,.topbar,.noprint{display:none!important}
+    aside.side,.topbar,.noprint,#modal .box>*{display:none!important}
     .content{padding:0;max-width:none}
     .panel{border:0;padding:0}
     body{background:#fff;font-size:11px}
     .print-only{display:block}
+    #modal .modal{position:static;background:none;display:block;padding:0}
+    #modal .box{position:static;max-width:none;box-shadow:none;padding:0}
+    #modal .box>.etiqueta{display:flex!important;flex-direction:column;align-items:center;gap:6px;padding:18px;text-align:center}
+    .etiqueta svg{width:150px;height:150px}
+    .etiqueta .cod{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;font-weight:700}
+    .etiqueta .desc{font-size:11px;color:#444;max-width:220px}
   }
 </style>
 </head>
@@ -1443,6 +1460,17 @@ function vistaEnviados(){
 }
 
 /* ---------- ficha de un bien ---------- */
+// QR real del bien, dibujado en el navegador (ver nota en el <head> sobre por
+// qué reemplaza a la fórmula =IMAGE(...) del Excel, que nunca funcionó).
+// Codifica solo el código: un QR más corto escanea mejor en una etiqueta chica
+// que uno con todos los datos encima, y el código alcanza para buscar el resto
+// aquí mismo. 'M' tolera que la etiqueta se manche o se raye un poco.
+function qrSvg(texto, cellSize){
+  var qr = qrcode(0, 'M');
+  qr.addData(texto);
+  qr.make();
+  return qr.createSvgTag({cellSize: cellSize||4, margin:2});
+}
 function abrirFicha(cod){
   var b=S.bienes.filter(function(x){return x.codigo===cod;})[0]; if(!b) return;
   var al=alertasDe(b);
@@ -1454,6 +1482,16 @@ function abrirFicha(cod){
       '<button class="iconbtn" id="cerrar" style="font-size:18px">✕</button></div>'+
     (al.length?'<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">'+
       al.map(function(a){return '<span class="badge '+a.cls+'">'+esc(a.t)+'</span>';}).join('')+'</div>':'')+
+    '<div class="qrbox" style="margin-top:14px">'+qrSvg(b.codigo,4)+
+      '<div class="t"><b>Etiqueta del bien.</b> Se genera aquí mismo, sin internet — '+
+      'imprímela y pégala en el bien; al escanearla se lee el código.<br>'+
+      '<button class="btn line sm noprint" id="qrDescargar" style="margin-top:8px">Descargar QR</button> '+
+      '<button class="btn line sm noprint" id="qrImprimir" style="margin-top:8px">Imprimir etiqueta</button></div>'+
+    '</div>'+
+    '<div class="etiqueta">'+qrSvg(b.codigo,6)+
+      '<div class="cod">'+esc(b.codigo)+'</div>'+
+      '<div class="desc">'+esc(b.descripcion)+(b.marca?' · '+esc(b.marca):'')+(b.modelo?' '+esc(b.modelo):'')+'</div>'+
+    '</div>'+
     '<dl class="dl">'+
       '<dt>Detalle</dt><dd>'+esc(b.detalle||'—')+'</dd>'+
       '<dt>Marca / modelo / serie</dt><dd>'+esc([b.marca,b.modelo,b.serie].filter(Boolean).join(' · ')||'—')+'</dd>'+
@@ -1476,8 +1514,33 @@ function abrirFicha(cod){
   '</div></div>';
   $('#cerrar').addEventListener('click', cerrarModal);
   $('#mwrap').addEventListener('click', function(e){ if(e.target.id==='mwrap') cerrarModal(); });
+  $('#qrImprimir').addEventListener('click', function(){ window.print(); });
+  $('#qrDescargar').addEventListener('click', function(){ descargarQR(b.codigo); });
 }
 function cerrarModal(){ $('#modal').innerHTML=''; }
+// El QR se dibuja como SVG (nítido a cualquier tamaño); para descargarlo como
+// archivo se pasa una vez por un <canvas> y se exporta a PNG, que es el formato
+// que cualquier editor de etiquetas sabe abrir.
+function descargarQR(codigo){
+  var svg = qrSvg(codigo, 10);
+  var img = new Image();
+  var blob = new Blob([svg], {type:'image/svg+xml'});
+  var url = URL.createObjectURL(blob);
+  img.onload = function(){
+    var cv = document.createElement('canvas');
+    cv.width = img.width; cv.height = img.height;
+    cv.getContext('2d').drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    cv.toBlob(function(pngBlob){
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(pngBlob);
+      a.download = 'QR_' + codigo.replace(/[^\w-]+/g,'_') + '.png';
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
+    });
+  };
+  img.src = url;
+}
 
 /* ---------- CSV ---------- */
 var CSV_COLS=[
