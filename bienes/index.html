@@ -227,7 +227,7 @@
 // Si se deja vacía (''), la herramienta funciona igual: calcula todo y
 // permite descargar la fila, pero no la envía. No necesita frase ni login:
 // solo escribe, nunca devuelve datos de nadie.
-var FLOW_BIENES_URL = '';
+var FLOW_BIENES_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/10/workflows/1fcaa33f545a4660829fe6440e9372c4/triggers/manual/paths/invoke?api-version=1';
 
 /* Inicio de sesión con la cuenta de Microsoft (Entra ID) de FIAS. Reemplaza
    al sistema de frases: quien entra aquí demuestra ser un empleado real, y
@@ -396,6 +396,19 @@ async function msalEntrar(){
 }
 function msalSalir(){
   if(msalApp && msalCuenta) msalApp.logoutRedirect({ account: msalCuenta });
+}
+// Llama a un flujo protegido con Azure AD. Si la herramienta tiene MSAL
+// configurado, pide el token antes de mandar (silencioso si ya inició
+// sesión; si no, abre la ventanita de Microsoft en ese momento — pasa sobre
+// todo con «Registrar un bien» sin haber iniciado sesión antes). Si MSAL no
+// está configurado todavía, manda sin token, igual que antes de protegerlo.
+async function fetchFlow(url, body){
+  var headers = {'Content-Type':'application/json'};
+  if(msalListo()){
+    try{ headers.Authorization = 'Bearer '+(await msalToken()); }
+    catch(e){ throw new Error('login'); }
+  }
+  return fetch(url, {method:'POST', headers:headers, body:JSON.stringify(body)});
 }
 // Token para llamar al flujo protegido. Silencioso si la sesión sigue viva
 // (no vuelve a pedir contraseña); solo abre ventana si de verdad hace falta.
@@ -995,12 +1008,14 @@ async function enviar(){
     toast('Registro guardado y descargado. Falta configurar el flujo para que llegue solo a la matriz.', 5200);
   }else{
     try{
-      var r = await fetch(FLOW_BIENES_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(fila)});
+      var r = await fetchFlow(FLOW_BIENES_URL, fila);
       if(!r.ok) throw new Error('HTTP '+r.status);
       toast('Listo. El bien '+(fila.codigo||'')+' entró a la matriz y ya le avisamos a la administradora.', 5000);
     }catch(e){
       var cola=lsGet(LS_COLA,[]); cola.push(fila); lsSet(LS_COLA,cola);
-      toast('Guardado sin conexión. Se enviará solo la próxima vez que abras la herramienta.', 5000);
+      toast(e && e.message==='login'
+        ? 'Necesitamos que inicies sesión con tu cuenta de FIAS para registrar el bien. Inténtalo de nuevo.'
+        : 'Guardado sin conexión. Se enviará solo la próxima vez que abras la herramienta.', 5000);
     }
   }
   var sigla=S.form.sigla;
@@ -1016,7 +1031,7 @@ async function vaciarCola(){
   var fallan=[];
   for(var i=0;i<cola.length;i++){
     try{
-      var r=await fetch(FLOW_BIENES_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cola[i])});
+      var r=await fetchFlow(FLOW_BIENES_URL, cola[i]);
       if(!r.ok) throw new Error();
     }catch(e){ fallan.push(cola[i]); }
   }

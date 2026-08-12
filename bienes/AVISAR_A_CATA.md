@@ -197,6 +197,15 @@ var FLOW_BIENES_URL = '';
 
 entre las comillas.
 
+> **Por qué ahora pide iniciar sesión al registrar.** Como en el paso 1.2 se
+> protegió el flujo para que solo entre gente de FIAS, la herramienta necesita
+> demostrar quién eres antes de escribir en la matriz — igual que un banco te
+> pide clave antes de una transferencia. Si ya iniciaste sesión con Microsoft
+> antes (por ejemplo para ver tus bienes), no notas nada, es automático. Si
+> entraste directo a «Registrar un bien» sin iniciar sesión, al apretar
+> «Enviar» se abre la ventanita de Microsoft para que confirmes tu cuenta esa
+> única vez.
+
 ---
 
 ## Flujo 2 — la ronda diaria
