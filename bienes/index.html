@@ -834,6 +834,12 @@ async function boot(){
 }
 
 async function continuarConSesion(){
+  // Mientras el flujo de «obtener mis bienes» no exista, la sesión igual
+  // sirve: ya sabemos quién entró y su correo viaja con cada registro. Lo
+  // único que falta es el área, que la persona elige a mano porque todavía
+  // no hay a quién preguntársela. Sin este atajo el arranque llamaba a una
+  // URL vacía, recibía la página HTML y reventaba con «... is not valid JSON».
+  if(!API_MIS_BIENES_URL){ entrar('form', null, []); return; }
   try{
     var r = await pedirMisBienes();
     entrar(r.rol, r.sigla, r.bienes);
@@ -851,13 +857,10 @@ function pantallaAcceso(msg){
       '<div class="glogo">FAP</div>'+
       '<h1>Bienes del FAP</h1>'+
       '<p>Activos fijos y bienes de control de las áreas protegidas.<br>'+
-        'Si vas a <b>registrar un bien nuevo</b>, entra directo. Si además quieres '+
-        '<b>ver los bienes de tu área</b>, inicia sesión con tu cuenta de FIAS.</p>'+
+        'Entra con tu cuenta de FIAS para <b>registrar un bien</b> y ver los de tu área.</p>'+
       (msg?'<div class="note err" style="margin:0 0 14px">'+esc(msg)+'</div>':'')+
-      '<button type="button" class="btn big" id="gForm" style="width:100%">Registrar un bien</button>'+
       (conLogin
-        ? '<div class="or">o entra con tu cuenta</div>'+
-          '<button type="button" class="btn line" id="gMs" style="width:100%">'+
+        ? '<button type="button" class="btn big" id="gMs" style="width:100%">'+
             '<svg width="16" height="16" viewBox="0 0 21 21" style="flex:0 0 auto"><rect width="9" height="9" x="1" y="1" fill="#F25022"/><rect width="9" height="9" x="11" y="1" fill="#7FBA00"/><rect width="9" height="9" x="1" y="11" fill="#00A4EF"/><rect width="9" height="9" x="11" y="11" fill="#FFB900"/></svg>'+
             ' Iniciar sesión con Microsoft</button>'
         : '<p style="margin:16px 0 0;font-size:11.5px;color:#9AA0B2">El inicio de sesión con la cuenta de FIAS todavía no está configurado '+
@@ -871,7 +874,6 @@ function pantallaAcceso(msg){
       '<input type="file" id="gFile" accept=".xlsx" style="display:none">'+
     '</form>';
   document.body.appendChild(g);
-  $('#gForm',g).addEventListener('click', function(){ g.remove(); entrar('form',null,[]); });
   $('#gXlsx',g).addEventListener('click', function(e){ e.preventDefault(); $('#gFile',g).click(); });
   $('#gFile',g).addEventListener('change', function(e){
     var file=e.target.files[0]; if(!file) return;
@@ -992,6 +994,11 @@ function filaMatriz(){
     foto: f.foto.trim(),
     // Metadatos del envío (no son columnas de la matriz; sirven al flujo).
     _hoja: c.hoja, _sigla: c.sigla, _area: c.area,
+    // Quién registró. El flujo no se fía de esto (lee la identidad verificada
+    // del encabezado de Azure AD), pero sirve para el correo a la
+    // administradora y para rastrear quién ingresó cada bien.
+    _correo: (msalCuenta && (msalCuenta.username||'')) || '',
+    _usuario: (msalCuenta && (msalCuenta.name||'')) || '',
     _enviado: new Date().toISOString(),
     _id: (c.codigo||'sin-codigo')+'|'+Date.now()
   };
@@ -1135,6 +1142,18 @@ function vistaRegistrar(){
     : '<select id="f-sigla"><option value="">— elige el área —</option>'+
         AREAS.map(function(a){ return opt(a.s, f.sigla, a.n); }).join('')+'</select>';
 
+  /* Con sesión iniciada pero sin el flujo de accesos, el área todavía se
+     elige a mano. Se avisa para que no parezca que cualquiera puede
+     registrar en cualquier área a propósito: es algo pendiente, no el
+     diseño final. */
+  var avisoArea = (S.rol==='form' && msalCuenta)
+    ? '<div class="note warn" style="margin:0 0 14px">'+
+        '<b>Entraste como '+esc(msalCuenta.username||msalCuenta.name||'tu cuenta')+'.</b> '+
+        'Por ahora tienes que elegir tu área a mano: falta conectar la lista de accesos '+
+        '(<b>Accesos</b> en SharePoint) que dice qué área le toca a cada quien. '+
+        'Cuando esté, el área se llenará sola y no se podrá cambiar.</div>'
+    : '';
+
   var tiposSel = '<select id="f-tipoContable"><option value="">— elige —</option>'+
     TIPOS.map(function(t){ return opt(t.c, f.tipoContable, t.c); }).join('')+'</select>';
   var tipoAyuda = f.tipoContable && TIPO_IX[f.tipoContable]
@@ -1158,6 +1177,7 @@ function vistaRegistrar(){
 
   return ''+
   '<div class="panel">'+
+    avisoArea+
     '<div class="ptitle">Un bien nuevo, en un minuto</div>'+
     '<p class="psub">La matriz nacional tiene 44 columnas. Aquí llenas <b>12</b>: el resto '+
       '—código, hoja, vida útil, depreciación, datos de la póliza, estado de la garantía— se calcula solo '+
