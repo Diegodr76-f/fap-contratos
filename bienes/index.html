@@ -1009,6 +1009,16 @@ async function enviar(){
   }else{
     try{
       var r = await fetchFlow(FLOW_BIENES_URL, fila);
+      // 401/403 no es falta de internet: el flujo rechazó la identidad.
+      // Encolarlo sería mentir — reintentaría para siempre sin arreglarse
+      // solo. El registro igual queda en «Lo que envié», no se pierde.
+      if(r.status===401 || r.status===403){
+        toast(msalListo()
+          ? 'Tu cuenta inició sesión pero el flujo no la aceptó. Avísale a la administradora de bienes.'
+          : 'Para registrar hace falta iniciar sesión, y eso solo funciona con la herramienta publicada en su dirección web — no abriendo el archivo descargado.', 7000);
+        S.vista='enviados'; render();
+        return;
+      }
       if(!r.ok) throw new Error('HTTP '+r.status);
       toast('Listo. El bien '+(fila.codigo||'')+' entró a la matriz y ya le avisamos a la administradora.', 5000);
     }catch(e){
