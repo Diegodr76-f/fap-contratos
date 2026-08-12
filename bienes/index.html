@@ -227,7 +227,15 @@
 // Si se deja vacía (''), la herramienta funciona igual: calcula todo y
 // permite descargar la fila, pero no la envía. No necesita frase ni login:
 // solo escribe, nunca devuelve datos de nadie.
-var FLOW_BIENES_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/10/workflows/1fcaa33f545a4660829fe6440e9372c4/triggers/manual/paths/invoke?api-version=1';
+/* TEMPORAL — este flujo está sin protección de Azure AD («Cualquier persona»)
+   porque el permiso de Power Automate espera el consentimiento de un
+   administrador (ver PARA_IT.md). La firma `sig` de esta URL es su única
+   llave, y como el navegador la descarga, queda a la vista de cualquiera que
+   mire el código de la página. El daño posible es acotado: solo escribe,
+   nunca devuelve datos — a lo sumo filas basura y correos de más a la
+   administradora. EN CUANTO IT APRUEBE: volver el disparador a «Cualquier
+   usuario de mi inquilino» y reemplazar esta URL por la nueva (sin `sig`). */
+var FLOW_BIENES_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/10/workflows/1fcaa33f545a4660829fe6440e9372c4/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=dQ6SuFoKkMAGwBl4sCIUwN9PHWMFmcegEP9akunAhoE';
 
 /* Inicio de sesión con la cuenta de Microsoft (Entra ID) de FIAS. Reemplaza
    al sistema de frases: quien entra aquí demuestra ser un empleado real, y
