@@ -439,7 +439,10 @@ async function pedirMisBienes(){
   if(r.status===403) throw new Error('Tu cuenta inició sesión, pero no está en la lista de accesos. Pídele a la administradora de bienes que te agregue.');
   if(!r.ok) throw new Error('No pude consultar tus bienes (HTTP '+r.status+').');
   var d = await r.json();
-  return { rol: d.rol==='cata'?'cata':'area', sigla: d.sigla||null, bienes: (d.bienes||[]).map(normalizaBien) };
+  // El flujo manda las filas tal cual salen del Excel (columnas con el
+  // encabezado original) — bienDesdeFilaFlow las reconoce por título, igual
+  // que al abrir el Excel local, así el flujo no tiene que renombrar nada.
+  return { rol: d.rol==='cata'?'cata':'area', sigla: d.sigla||null, bienes: (d.bienes||[]).map(bienDesdeFilaFlow) };
 }
 
 /* ================= HELPERS ================= */
@@ -733,6 +736,38 @@ function mapearEncabezados(fila){
     }
   });
   return mapa;
+}
+
+/* Lo mismo que mapearEncabezados, pero para una fila que ya llega como
+   objeto {ENCABEZADO: valor} — que es justo lo que devuelve la acción
+   «Enumerar filas presentes en una tabla» de Power Automate. Así el flujo
+   de «obtener mis bienes» no tiene que renombrar cada columna a mano: basta
+   con devolver las filas tal cual salen del Excel, y esta función las
+   reconoce igual que reconoce el Excel local. */
+function mapearEncabezadosObjeto(o){
+  var claves=Object.keys(o||{}), mapa={}, usados={};
+  claves.forEach(function(clave){
+    var h=normEncabezado(clave);
+    if(!h) return;
+    for(var k=0;k<MAPA_COLS.length;k++){
+      var campo=MAPA_COLS[k][1];
+      if(usados[campo]) continue;
+      if(MAPA_COLS[k][0].test(h)){ mapa[campo]=clave; usados[campo]=1; return; }
+    }
+  });
+  return mapa;
+}
+function bienDesdeFilaFlow(o){
+  var mapa=mapearEncabezadosObjeto(o), out={};
+  Object.keys(mapa).forEach(function(campo){
+    var v=o[mapa[campo]];
+    out[campo] = CAMPOS_FECHA[campo] ? aFechaISO(v) : (v==null?'':v);
+  });
+  if(out.tipoUnico){
+    out.tipoSeguros = out.tipoSeguros || out.tipoUnico;
+    out.tipoContable = out.tipoContable || out.tipoUnico;
+  }
+  return normalizaBien(out);
 }
 
 function leerXlsx(buf){
