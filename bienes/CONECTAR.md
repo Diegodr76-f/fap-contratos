@@ -7,6 +7,12 @@ una frase compartida. No hace falta Power Apps ni ninguna licencia nueva — tod
 lo de aquí viene incluido en un Microsoft 365 que ya tiene SharePoint, Outlook y
 Power Automate, que es lo que este proyecto ya usa.
 
+> **Ojo con la parte 1.** Esa parte crea una Lista de SharePoint para los
+> bienes, y **eso ya no es el plan**: la matriz se queda en el Excel. Empieza
+> por [`AVISAR_A_CATA.md`](AVISAR_A_CATA.md) y vuelve aquí para el login
+> (parte 3), la lectura por área (parte 4) y todo lo de contratos (partes 5
+> y 6), que siguen valiendo igual.
+
 Las partes 1 a 4 son de **bienes**; las partes 5 y 6 son de **contratos**
 (CLM/CRM) y reutilizan la **misma app de Entra ID** de la parte 3 — no hay que
 registrar una segunda. Todo lo arma quien administre esa cuenta de Microsoft 365

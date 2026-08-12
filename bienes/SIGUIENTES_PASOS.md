@@ -1,143 +1,99 @@
 # Siguientes pasos
 
-Esta es la lista de lo que falta, en orden, escrita para retomarla en
-cualquier momento aunque haya pasado tiempo. Cada paso dice **qué hacer** y
-**en qué documento están los detalles**.
+Lista de lo que falta, en orden, escrita para retomarla en cualquier momento.
+
+**Cambió el plan y quedó más corto.** Antes había que pasar 1.256 bienes a
+una Lista de SharePoint, y esa migración fue la que se atascó. Ahora la
+matriz **se queda en el Excel** y encima se le montan los flujos que avisan a
+Cata. No hay nada que migrar.
 
 Ya está hecho: el login con Microsoft, la herramienta de bienes, el CLM con
-Bienes integrado adentro, el código QR, y la limpieza del Excel histórico
-(`MATRIZ_BIENES_TODO_TEXTO.xlsx`). Lo que falta es todo lo relacionado con
-**SharePoint** (donde vive la información) y los **flujos de Power Automate**
-(que conectan SharePoint con la herramienta).
+Bienes integrado adentro, el código QR, la corrección del Excel nuevo, y la
+lectura del archivo desde la herramienta (funciona hoy, sin flujos ni
+SharePoint: botón «Abre tu matriz .xlsx» en la pantalla de acceso).
 
 ---
 
-## 1. Terminar de pasar los 502 activos fijos
+## 1. Probar la herramienta con el archivo corregido
 
-Si ya guardaste y corriste el flujo: abre la lista `Activos FAP` en
-SharePoint y cuenta las filas (arriba a la izquierda suele decir cuántas
-hay).
+Es lo primero porque no depende de nadie ni de ningún permiso, y sirve para
+ver de una vez si el camino va bien.
 
-- **Si dice 502** → listo, pasa al paso 2.
-- **Si dice menos** → algo falló en algunas filas. En Power Automate, abre el
-  flujo → pestaña **«Ejecuciones»** (*Run history*) → clic en la ejecución →
-  busca las repeticiones del «Aplicar a cada uno» marcadas en rojo. Cada una
-  dice qué fila y por qué falló (normalmente es una columna que quedó con el
-  tipo equivocado — revisa la tabla de las 9 columnas en
-  [`MIGRAR.md`](MIGRAR.md), sección «Antes: dejar en texto…»).
-- **Si no has corrido el flujo todavía** → sigue
-  [`MIGRAR.md`](MIGRAR.md) desde el principio.
+1. Abre `bienes/index.html`.
+2. En la pantalla de acceso, botón para abrir la matriz `.xlsx`.
+3. Elige `MATRIZ_CONTROL_INVENTARIO_FIAS.xlsx`.
 
-## 2. Repetir lo mismo para los 754 bienes de control
+Debe mostrar el panel con los bienes, el valor en libros recalculado a hoy, y
+los QR al abrir cada ficha. El archivo no se sube a ningún lado.
 
-Es el mismo flujo, cambiando la tabla de origen (`TBienescontrol` en vez de
-`TActivos`) y el destino (una lista nueva, que hay que crear primero igual
-que se creó `Activos FAP`). Todos los detalles están en
-[`MIGRAR.md`](MIGRAR.md), sección **6. Repetir para bienes de control**.
+## 2. Subir el Excel corregido a SharePoint
 
-Al final debe decir **754**.
+A un **sitio de equipo**, no a tu OneDrive personal — si queda en tu carpeta
+personal, los flujos de los demás dependen de que tu cuenta siga activa.
 
-## 3. Revisar dónde vive la lista de SharePoint
+Si todavía no hay sitio de equipo, se puede empezar en el personal y moverlo
+después; solo hay que volver a apuntar los flujos.
 
-Ahora mismo la lista está guardada en tu OneDrive personal
-(`fiasec-my.sharepoint.com/personal/administrativofap_fias_org_ec`), no en un
-sitio de equipo. Esto puede traer problemas después, porque:
+## 3. Armar el flujo que escribe el bien nuevo y avisa a Cata
 
-- Si algún día cambias de computador, de cuenta, o sales de FIAS, esa lista
-  podría quedar inaccesible para los demás.
-- Los flujos de Power Automate que use Cata, la Unidad Operativa o Fernanda
-  necesitan poder leer esa lista — y una carpeta personal depende de que tu
-  cuenta siga activa y con los permisos bien puestos.
+Todo el paso a paso está en [`AVISAR_A_CATA.md`](AVISAR_A_CATA.md), flujo 1.
 
-**Recomendación:** mover (o crear de una vez, si aún no lo hiciste) las
-listas dentro de un **sitio de equipo** de SharePoint (por ejemplo uno
-llamado "FAP" o "Bienes"), no en tu OneDrive personal. Si ya migraste los
-datos a tu OneDrive, se pueden copiar las listas a un sitio de equipo después
-sin perder nada — solo hay que actualizar la dirección del sitio en los
-pasos 4 y 5 de este documento y en los flujos ya creados.
+Al terminar te da una URL. Se pega en `bienes/index.html`, en la línea
+`var FLOW_BIENES_URL = '';`, entre las comillas.
 
-Si no tienes claro cómo crear un sitio de equipo, es un paso para retomar
-con ayuda cuando haya tiempo — no bloquea los pasos 1 y 2 de arriba.
+Desde ese momento el circuito ya sirve: la AC llena el formulario → la fila
+entra sola al Excel → a Cata le llega el correo. **Eso es lo que se pidió al
+principio de todo**, y no necesita nada de lo que sigue.
 
-## 4. Crear la lista «Accesos»
+## 4. Armar la ronda diaria
 
-Es una lista simple de SharePoint con quién puede ver qué. Dos columnas:
+[`AVISAR_A_CATA.md`](AVISAR_A_CATA.md), flujo 2. Avisa a Cata si alguien
+editó el archivo a mano, sin pasar por el formulario. Es un flujo de cuatro
+pasos.
+
+## 5. Crear la lista «Accesos»
+
+Una lista de SharePoint con dos columnas:
 
 | Columna | Tipo | Ejemplo |
 |---|---|---|
 | Correo | Una línea de texto | `jperez@fias.org.ec` |
 | Área | Una línea de texto | `FIAS` o `TODAS` |
 
-- Cada AC (administradora/administrador de contrato) tiene una fila con su
-  correo y el nombre de su área (el mismo texto que usa la columna `sigla`
-  en la matriz de bienes).
-- Quienes deben ver **todo** (Unidad Operativa, Cata, tú, Fernanda) llevan
-  `TODAS` en la columna Área.
+- Cada AC lleva una fila con su correo y su área — el mismo texto que va en
+  la columna `ÁREA (AC)` del Excel.
+- Unidad Operativa, Cata, tú y Fernanda llevan `TODAS`.
 
-**Falta:** los correos de Cata y de Fernanda. Sin esos dos correos no se
-puede terminar de llenar esta lista. Pídelos y agrégalos como filas con
-`TODAS`.
+**Pendiente:** los correos de Cata y de Fernanda. Sin esos dos no se puede
+terminar de llenar.
 
-Esta misma lista sirve después tanto para bienes como para contratos (CLM) —
-no hay que duplicarla.
+Esta misma lista sirve después para contratos (CLM), no hay que duplicarla.
 
-## 5. Crear el flujo protegido «obtener mis bienes»
+## 6. Flujo de lectura: que cada AC vea solo lo suyo
 
-Este es el flujo que la herramienta llama cada vez que alguien inicia
-sesión: recibe quién entró, busca su correo en la lista «Accesos», y
-devuelve solo los bienes de su área (o todos, si su área dice `TODAS`).
+[`CONECTAR.md`](CONECTAR.md), parte 4, con el cambio que está explicado en
+[`AVISAR_A_CATA.md`](AVISAR_A_CATA.md): se lee del Excel con «Enumerar filas
+presentes en una tabla» (con **paginación activada**, umbral 5000) en vez de
+una Lista.
 
-Instrucciones completas, paso a paso, en [`CONECTAR.md`](CONECTAR.md),
-**parte 4** (incluye cómo proteger el flujo con la cuenta de Microsoft y
-cómo leer el correo de quien inició sesión).
+La URL que resulte se pega en `bienes/index.html`:
+`var API_MIS_BIENES_URL = '';`
 
-Cuando termines, el flujo te da una dirección web (URL). Esa dirección se
-pega en `bienes/index.html`, buscando la línea:
+## 7. Lo mismo para contratos
 
-```js
-const API_MIS_BIENES_URL = '';
-```
+[`CONECTAR.md`](CONECTAR.md), partes 5 y 6. Reutiliza la misma aplicación de
+Microsoft que ya creaste, agregando el permiso `Contratos.Leer`. La URL va en
+`clm/index.html` y `crm/index.html`, en `API_MIS_CONTRATOS_URL`.
 
-y poniéndola entre las comillas.
+## 8. Publicar
 
-## 6. Crear la lista «Contratos» y el flujo «obtener mis contratos»
-
-Mismo patrón que bienes, pero para el CLM. Instrucciones en
-[`CONECTAR.md`](CONECTAR.md), **partes 5 y 6**. Reutiliza la misma
-aplicación de Microsoft (Entra ID) que ya creaste, solo agregando el permiso
-`Contratos.Leer`.
-
-La URL que te da ese flujo se pega en `clm/index.html` y `crm/index.html`,
-en la línea:
-
-```js
-const API_MIS_CONTRATOS_URL = '';
-```
-
-## 7. Limpieza final en SharePoint (cuando haya tiempo, no urgente)
-
-- Columna **`DESCRIPCIÓN(ADICIONAL)`**: cambiarla a *varias líneas de texto*
-  (hay 37 bienes con descripciones largas que una columna de una línea
-  corta).
-- Columna **`Código QR`**: se puede borrar, no se usa — la herramienta genera
-  el QR sola en el navegador.
-- **5 fechas** quedaron vacías porque eran ilegibles en el archivo original
-  (`31/12/202`, `31/07/206`, `5/11/206`, `27/08/219`, `04/0-2020`). Toca
-  corregirlas a mano revisando el documento físico o la factura de cada
-  bien, si se puede encontrar.
-
-## 8. Ver la herramienta funcionando
-
-Una vez estén listos los pasos 5 y 6 (las dos URLs pegadas), la herramienta
-queda funcionando de verdad: entras con tu cuenta de Microsoft y ves tus
-bienes y tus contratos según tu área. Ese es el momento de probarla en
-serio, con tu usuario y si es posible con el de alguna AC, antes de avisarle
-a Cata y al resto del equipo que ya pueden usarla.
+Cuando el paso 3 esté andando, vale la pena publicar el sitio para que las
+AC entren desde el navegador en vez de abrir archivos. Con los pasos 6 y 7
+listos, cada quien entra con su cuenta de Microsoft y ve solo lo de su área.
 
 ---
 
-### Orden recomendado
+### Si tienes poco tiempo
 
-Si quieres ir de a poco: **1 → 2 → 4 (pide los correos ya) → 3 → 5 → 6 → 8 →
-7**. Los pasos 1 y 2 son los más urgentes porque son los datos históricos;
-el 3 puede resolverse en paralelo mientras esperas los correos del paso 4.
+Los pasos **1, 2 y 3** son los que dan resultado visible: el formulario
+funcionando y Cata enterándose. Los demás son mejoras encima de eso.

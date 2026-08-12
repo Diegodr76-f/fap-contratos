@@ -638,8 +638,76 @@ function aFechaISO(v){
   if(/^\d+(\.\d+)?$/.test(s)) return serialAFecha(parseFloat(s));
   return '';
 }
-// Columnas de la matriz que son fechas (H, X, Y, AC, AD, AN, en base 0).
-var COLS_FECHA = {7:1, 23:1, 24:1, 28:1, 29:1, 39:1};
+/* Las columnas se reconocen por el TÍTULO, no por la posición.
+   La matriz vieja tenía 44 columnas y la nueva 42, en otro orden y con
+   "TIPO DE BIEN" fusionado en una sola. Leer por posición obligaba a
+   reescribir esto cada vez que alguien mueve o agrega una columna; leer por
+   título hace que las dos versiones —y las que vengan— entren igual. */
+function normEncabezado(s){
+  return String(s||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')   // quita tildes
+    .toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();  // y puntuación/saltos
+}
+/* Orden importante: el primer patrón que calce se queda con la columna.
+   ASEGURADORA va antes que ASEGURADO porque si no, se lo lleva el genérico. */
+var MAPA_COLS = [
+  [/^CODIGO/,                    'codigo'],
+  [/^DESCRIPCION ADICIONAL/,     'detalle'],
+  [/^DESCRIPCION/,               'descripcion'],
+  [/^CANTIDAD/,                  'cantidad'],
+  [/^TIPO DE BIEN SEGUROS/,      'tipoSeguros'],
+  [/^TIPO DE BIEN SISTEMA/,      'tipoContable'],
+  [/^TIPO DE BIEN$/,             'tipoUnico'],
+  [/^PROYECTO/,                  'proyecto'],
+  [/^FECHA DE COMPRA/,           'fechaCompra'],
+  [/^DONANTE/,                   'donante'],
+  [/^PROVEEDOR/,                 'proveedor'],
+  [/^RUC/,                       'ruc'],
+  [/^FACTURA DIGITAL/,           'facturaLink'],
+  [/^N FACTURA|ACTA DE DON/,     'factura'],
+  [/^VALOR DEL BIEN/,            'valor'],
+  [/^MARCA/,                     'marca'],
+  [/^MODELO/,                    'modelo'],
+  [/^NUMERO DE SERIE/,           'serie'],
+  [/^CEDULA/,                    'cedula'],
+  [/^NOMBRES Y APELLIDOS/,       'custodio'],
+  [/^INSTITUCION/,               'institucion'],
+  [/^UBICACION/,                 'ubicacion'],
+  [/^ACTA ENTREGA/,              'acta'],
+  [/^ASEGURADORA/,               'aseguradora'],
+  [/^ASEGURADO/,                 'asegurado'],
+  [/^INICIO SEGURO/,             'inicioSeguro'],
+  [/^FIN SEGURO/,                'finSeguro'],
+  [/^NRO DE POLIZA|^N DE POLIZA|^POLIZA/, 'poliza'],
+  [/^GARANTIA TECNICA/,          'garantia'],
+  [/^INICIO GARANTIA/,           'inicioGarantia'],
+  [/^FIN DE GARANTIA/,           'finGarantia'],
+  [/^ESTADO FISICO/,             'estadoFisico'],
+  [/^VIDA UTIL/,                 'vida'],
+  [/^FECHA DE BAJA/,             'fechaBaja'],
+  [/^MOTIVO DE BAJA/,            'motivoBaja'],
+  [/^OBSERVACIONES/,             'observaciones'],
+  [/^FOTOGRAFIA/,                'foto'],
+  [/^AREA|^SIGLA/,               'sigla']
+];
+// Estos campos guardan fechas: se convierten a AAAA-MM-DD al leerlos.
+var CAMPOS_FECHA = {fechaCompra:1, inicioSeguro:1, finSeguro:1,
+                    inicioGarantia:1, finGarantia:1, fechaBaja:1};
+
+/* Devuelve {campo: índice de columna} para una fila de encabezados. */
+function mapearEncabezados(fila){
+  var mapa={}, usados={};
+  (fila||[]).forEach(function(celda, i){
+    var h=normEncabezado(celda);
+    if(!h) return;
+    for(var k=0;k<MAPA_COLS.length;k++){
+      var campo=MAPA_COLS[k][1];
+      if(usados[campo]) continue;
+      if(MAPA_COLS[k][0].test(h)){ mapa[campo]=i; usados[campo]=1; return; }
+    }
+  });
+  return mapa;
+}
 
 function leerXlsx(buf){
   var zip = new PizZip(buf);
@@ -687,28 +755,52 @@ function leerXlsx(buf){
     return out;
   }
 
+  /* Se recorren TODAS las hojas y se toman las que tengan una fila de
+     encabezados con CODIGO y DESCRIPCIÓN. Así entra igual la matriz vieja
+     (hojas «Activos» y «Bienes control») que la nueva, donde la hoja lleva
+     el nombre del área («FIAS»). */
   var bienes=[];
   hojas.forEach(function(h){
+    var filas=filasDe(h.path);
+    if(!filas.length) return;
+
+    // El encabezado casi siempre es la fila 1, pero se busca por si acaso.
+    var iCab=-1, mapa=null;
+    for(var i=0; i<Math.min(filas.length,10); i++){
+      var m=mapearEncabezados(filas[i]);
+      if(m.codigo!=null && m.descripcion!=null){ iCab=i; mapa=m; break; }
+    }
+    if(iCab<0) return;   // no es una hoja de bienes (índices, notas, etc.)
+
     var esControl=/control/i.test(h.nombre);
     var esActivo=/activo/i.test(h.nombre);
-    if(!esControl && !esActivo) return;
-    var filas=filasDe(h.path);
-    filas.slice(1).forEach(function(f){
-      if(!f || f[0]==null || String(f[0]).trim()==='') return;
-      var g=function(i){ var v=f[i]; return v==null?'':v; };
-      var gf=function(i){ return COLS_FECHA[i] ? aFechaISO(f[i]) : ''; };
-      bienes.push(normalizaBien({
-        codigo:g(0), descripcion:g(1), detalle:g(2), cantidad:g(3),
-        tipoSeguros:g(4), tipoContable:g(5), proyecto:g(6), fechaCompra:gf(7),
-        donante:g(8), proveedor:g(9), ruc:g(10), factura:g(11), facturaLink:g(12),
-        valor:g(13), marca:g(14), modelo:g(15), serie:g(16), cedula:g(17),
-        custodio:g(18), institucion:g(19), ubicacion:g(20), acta:g(21),
-        asegurado:g(22), inicioSeguro:gf(23), finSeguro:gf(24), aseguradora:g(25), poliza:g(26),
-        garantia:g(27), inicioGarantia:gf(28), finGarantia:gf(29),
-        estadoFisico:g(31), vida:g(32),
-        fechaBaja:gf(39), motivoBaja:g(40), observaciones:g(41), foto:g(42),
-        hoja: esControl ? 'Bienes control' : 'Activos'
-      }));
+
+    filas.slice(iCab+1).forEach(function(f){
+      if(!f) return;
+      var cod=f[mapa.codigo];
+      if(cod==null || String(cod).trim()==='') return;
+      // La plantilla trae una fila de ejemplo que no es un bien real.
+      if(/^ingrese sus datos/i.test(String(cod).trim())) return;
+
+      var g=function(campo){
+        var i=mapa[campo]; if(i==null) return '';
+        var v=f[i]; return v==null?'':v;
+      };
+      var gf=function(campo){ return mapa[campo]==null ? '' : aFechaISO(f[mapa[campo]]); };
+
+      var o={};
+      Object.keys(mapa).forEach(function(campo){
+        o[campo] = CAMPOS_FECHA[campo] ? gf(campo) : g(campo);
+      });
+      // La matriz nueva tiene un solo «TIPO DE BIEN»; la vieja lo traía
+      // separado en seguros y contable. Se rellenan los dos con lo que haya.
+      if(o.tipoUnico){
+        o.tipoSeguros = o.tipoSeguros || o.tipoUnico;
+        o.tipoContable = o.tipoContable || o.tipoUnico;
+      }
+      // Si la hoja no dice de qué grupo es, normalizaBien lo decide por el valor.
+      o.hoja = esControl ? 'Bienes control' : (esActivo ? 'Activos' : '');
+      bienes.push(normalizaBien(o));
     });
   });
   return marcaDuplicados(bienes);
@@ -775,7 +867,7 @@ function pantallaAcceso(msg){
       var lista;
       try{
         lista=leerXlsx(fr.result);
-        if(!lista.length) throw new Error('No encontré filas en las hojas «Activos» y «Bienes control».');
+        if(!lista.length) throw new Error('No encontré ninguna hoja con columnas CODIGO y DESCRIPCIÓN.');
       }catch(err){
         g.remove(); pantallaAcceso('No pude leer el archivo: '+(err.message||'formato inesperado.')); return;
       }
@@ -1669,7 +1761,7 @@ function enlazar(){
     fr.onload=function(){
       try{
         var lista=leerXlsx(fr.result);
-        if(!lista.length) throw new Error('No encontré filas en las hojas «Activos» y «Bienes control».');
+        if(!lista.length) throw new Error('No encontré ninguna hoja con columnas CODIGO y DESCRIPCIÓN.');
         S.bienes=lista; S.fuente='excel';
         if(!vistosSet()) marcarTodoVisto(lista.map(function(b){return b.codigo;}));
         S.vista='panel'; render();
