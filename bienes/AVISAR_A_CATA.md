@@ -56,7 +56,25 @@ Sin esto, cualquiera con el enlace podría escribir en la matriz.
 Así solo entra gente con cuenta `@fias.org.ec`, y el flujo además sabe
 **quién** fue.
 
-### 1.3 Elegir a qué hoja va
+### 1.3 Enseñarle al flujo qué datos le van a llegar
+
+**Sin este paso el panel de «contenido dinámico» aparece vacío** y no hay nada
+que elegir en los pasos siguientes. El disparador HTTP no adivina la forma de
+lo que recibe: hay que mostrársela una vez.
+
+1. En la cajita del disparador, clic en **«Usar carga de muestra para generar
+   el esquema»** (*Use sample payload to generate schema*).
+2. Se abre un cuadro de texto. Pega ahí **todo** el contenido del archivo
+   [`muestra-bien.json`](muestra-bien.json) que está en esta misma carpeta.
+3. **Listo** / **Done**.
+
+Power Automate lee ese ejemplo y a partir de ahí ya conoce los 46 campos.
+Desde este momento el panel de contenido dinámico los ofrece todos.
+
+> El ejemplo es un bien inventado; solo sirve para que Power Automate aprenda
+> los nombres y los tipos de cada campo. No se guarda en ningún lado.
+
+### 1.4 Elegir a qué hoja va
 
 La matriz tiene dos hojas y un bien va a una o a la otra según su valor. La
 herramienta ya lo decidió y lo manda en el campo `_hoja`, así que el flujo
@@ -71,7 +89,7 @@ solo tiene que obedecer.
 Quedan dos ramas: **«En caso afirmativo»** (activos fijos) y **«En caso
 contrario»** (bienes de control).
 
-### 1.4 Escribir la fila en el Excel
+### 1.5 Escribir la fila en el Excel
 
 Dentro de **cada** rama: **Agregar una acción** → **«Agregar una fila a una
 tabla»** (Excel Online para empresas).
@@ -137,7 +155,7 @@ solo: `ESTADO DE GARANTIA`, las cuatro de `Depreciación`, `Valor residual` y
 > párate en la celda de arriba, copia, y pega en la de abajo una sola vez:
 > Excel entiende el patrón y desde ahí lo hace solo.
 
-### 1.5 Avisarle a Cata
+### 1.6 Avisarle a Cata
 
 Debajo de la condición (ya fuera de las dos ramas): **+ Nuevo paso** →
 **«Enviar un correo electrónico (V2)»** (Office 365 Outlook).
@@ -161,13 +179,13 @@ Ya está en la matriz, en la última fila. Falta revisarlo.
 
 (Las palabras en minúscula son contenido dinámico del disparador, no texto.)
 
-### 1.6 Devolver respuesta
+### 1.7 Devolver respuesta
 
 **+ Nuevo paso** → **«Respuesta»** → **Código de estado** `200`. Sin esto la
 herramienta se queda esperando y muestra error aunque el bien sí haya
 entrado.
 
-### 1.7 Conectar la herramienta
+### 1.8 Conectar la herramienta
 
 **Guardar**. El disparador ahora muestra una **URL HTTP POST**. Cópiala y
 pégala en `bienes/index.html`, en la línea:
