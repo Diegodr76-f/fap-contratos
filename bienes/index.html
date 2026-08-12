@@ -1033,7 +1033,8 @@ function calculado(){
     codigo: codigo, sigla: sigla, area: areaNombre(sigla),
     tipo: t, vida: vida, hoja: hoja, valor: valor, dep: dep,
     tipoSeguros: t?t.seg:'', estadoGarantia: estadoGarantia(f.garantia, f.finGarantia),
-    codigoAutomatico: puedeCodigo && !f.codigoManual
+    codigoAutomatico: puedeCodigo && !f.codigoManual,
+    codigoAutomaticoPosible: puedeCodigo
   };
 }
 function validar(){
@@ -1383,12 +1384,18 @@ function tarjetaAutomatica(c){
       it('Aseguradora', f.asegurado==='SI'?esc(POLIZA.aseguradora):'N/A')+
       it('Póliza', f.asegurado==='SI'?esc(POLIZA.nro)+' · hasta '+fdate(POLIZA.fin):'N/A')+
     '</div>'+
-    (c.codigoAutomatico
-      ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">El código es el siguiente libre de tu área. '+
-        '<a href="#" id="codman">Poner otro a mano</a>.</div>'
-      : (f.codigoManual
-        ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">Código escrito a mano. <a href="#" id="codauto">Volver al automático</a>.</div>'
-        : ''))+
+    (f.codigoManual
+      ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">Código escrito a mano. '+
+        (c.codigoAutomaticoPosible?'<a href="#" id="codauto">Volver al automático</a>.':'')+'</div>'
+      : (c.codigoAutomatico
+        ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">El código es el siguiente libre de tu área. '+
+          '<a href="#" id="codman">Poner otro a mano</a>.</div>'
+        // Sin sesión con la lista completa (falta el permiso de IT, o se
+        // entró sin iniciar sesión) no se puede calcular el siguiente
+        // número con seguridad — pero eso no debe dejar a la persona sin
+        // forma de escribirlo si prefiere no dejarlo para después.
+        : '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">'+
+          '<a href="#" id="codman">Escribir el código a mano</a> (opcional — si no, lo asigna la administradora).</div>'))+
   '</div>';
 }
 
