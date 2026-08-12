@@ -167,6 +167,7 @@ Debajo de la condición (ya fuera de las dos ramas): **+ Nuevo paso** →
 ```
 Se registró un bien nuevo desde la herramienta.
 
+Tipo:        _hoja
 Código:      codigo
 Descripción: descripcion
 Área:        _area
