@@ -195,9 +195,39 @@ const MSAL_CONFIG = { clientId: '', authority: '', redirectUri: window.location.
 const MSAL_API_SCOPE = '';   // api://<client-id>/Contratos.Leer
 ```
 
-Con esto el botón de login ya funciona en las tres y pide la sesión de
-Microsoft — lo único que falta es que cada una tenga a quién preguntarle los
-datos: la parte 4 para bienes, la parte 6 para contratos.
+Con esto el botón de login ya funciona en las tres.
+
+### 3.5 Permiso para llamar a los flujos protegidos (importante, no te lo saltes)
+
+Esto se descubrió probando: **el token de `MSAL_API_SCOPE` (el de arriba) no
+sirve para llamar a un disparador de Power Automate protegido con «Cualquier
+usuario de mi inquilino»**. Ese candado de Power Automate no revisa nuestra
+propia app — pide un token específico del servicio de Power Automate. Sin
+esto, la llamada se rechaza **antes** de llegar al flujo (no aparece ni en
+«Ejecuciones»), así que no hay nada que depurar del lado del flujo — el
+arreglo es este permiso.
+
+1. En el mismo registro de la app (`Bienes FAP` / `CLM FAP`) → **Permisos de
+   API** → **Agregar un permiso**.
+2. **APIs que usa mi organización** → busca **`Power Automate`** (a veces
+   aparece como *Microsoft Flow Service*).
+3. **Permisos delegados** → marca la casilla **`User`** (es el permiso de
+   `user_impersonation`, «actuar en nombre del usuario que inició sesión») →
+   **Agregar permisos**.
+4. Clic en **«Conceder consentimiento de administrador para [tu organización]»**.
+   - Si el botón está deshabilitado o no aparece, necesitas que alguien con
+     rol de administrador en Microsoft 365 (de IT) haga este único clic — no
+     hace falta que haga nada más de esta guía, solo este botón.
+
+Con eso, en el código, el token para llamar flujos protegidos se pide con:
+
+```js
+var MSAL_FLOW_SCOPE = 'https://service.flow.microsoft.com//user_impersonation';
+```
+
+(la doble barra antes de `user_impersonation` es correcta, así lo pide
+Microsoft — no es un error de tipeo). Esta constante es la misma en las tres
+herramientas, no cambia por scope de bienes/contratos como `MSAL_API_SCOPE`.
 
 ---
 
