@@ -467,9 +467,11 @@ async function pedirMisBienes(){
   catch(e){
     // Casi siempre es AADSTS65001: el permiso «Power Automate → User» del
     // registro de la app todavía no tiene el consentimiento de administrador.
-    throw new Error('Falta que un administrador de Microsoft 365 autorice el permiso de Power Automate. '+
-      'Mientras tanto puedes registrar bienes normalmente, eligiendo tu área a mano. '+
-      'Lo que hay que pedirle a IT está en el archivo PARA_IT.md.');
+    // Se marca aparte porque NO es un «no te toca ver nada»: la sesión es
+    // buena y la persona debe poder entrar a registrar igual.
+    var err = new Error('Falta el permiso de Power Automate (ver PARA_IT.md).');
+    err.sinPermisoDeFlujo = true;
+    throw err;
   }
   var r = await fetch(API_MIS_BIENES_URL, { headers: { Authorization: 'Bearer '+token } });
   if(r.status===403) throw new Error('Tu cuenta inició sesión, pero no está en la lista de accesos. Pídele a la administradora de bienes que te agregue.');
@@ -928,6 +930,10 @@ async function continuarConSesion(){
     var r = await pedirMisBienes();
     entrar(r.rol, r.sigla, r.bienes);
   }catch(err){
+    // Si lo que falta es el permiso de Power Automate, la sesión igual vale:
+    // se entra a registrar eligiendo el área a mano. Devolver a la puerta
+    // sería contradecir el propio aviso, que dice que sí se puede registrar.
+    if(err && err.sinPermisoDeFlujo){ entrar('form', null, []); return; }
     pantallaAcceso(err && err.message ? err.message : 'No pude cargar tus bienes.');
   }
 }
@@ -1233,9 +1239,10 @@ function vistaRegistrar(){
   var avisoArea = (S.rol==='form' && msalCuenta)
     ? '<div class="note warn" style="margin:0 0 14px">'+
         '<b>Entraste como '+esc(msalCuenta.username||msalCuenta.name||'tu cuenta')+'.</b> '+
-        'Por ahora tienes que elegir tu área a mano: falta conectar la lista de accesos '+
-        '(<b>Accesos</b> en SharePoint) que dice qué área le toca a cada quien. '+
-        'Cuando esté, el área se llenará sola y no se podrá cambiar.</div>'
+        'Puedes registrar bienes con normalidad; lo que se envíe queda a tu nombre. '+
+        'Por ahora eliges tu área a mano porque falta que un administrador de '+
+        'Microsoft 365 autorice un permiso (está pedido, ver <b>PARA_IT.md</b>). '+
+        'Cuando lo aprueben, el área se llenará sola y no se podrá cambiar.</div>'
     : '';
 
   var tiposSel = '<select id="f-tipoContable"><option value="">— elige —</option>'+
