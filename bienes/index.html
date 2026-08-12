@@ -390,8 +390,21 @@ async function msalIniciar(){
 }
 async function msalEntrar(){
   await msalIniciar();
-  var r = await msalApp.loginPopup({ scopes: ['User.Read'] });
-  msalCuenta = r.account;
+  try{
+    var r = await msalApp.loginPopup({ scopes: ['User.Read'] });
+    msalCuenta = r.account;
+  }catch(err){
+    // «interaction_in_progress»: un inicio de sesión anterior se cerró a
+    // medias (la persona cerró la ventanita de Microsoft, cambió de página,
+    // etc.) y dejó puesto el candado que evita cruzar dos a la vez. MSAL no
+    // lo suelta solo, así que se suelta a mano y se reintenta una vez.
+    if(!(err && err.errorCode==='interaction_in_progress')) throw err;
+    Object.keys(sessionStorage).forEach(function(k){
+      if(k.indexOf('interaction.status')>-1) sessionStorage.removeItem(k);
+    });
+    var r2 = await msalApp.loginPopup({ scopes: ['User.Read'] });
+    msalCuenta = r2.account;
+  }
   return msalCuenta;
 }
 function msalSalir(){
