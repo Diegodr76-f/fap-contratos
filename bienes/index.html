@@ -422,11 +422,17 @@ function msalSalir(){
 // sesión; si no, abre la ventanita de Microsoft en ese momento — pasa sobre
 // todo con «Registrar un bien» sin haber iniciado sesión antes). Si MSAL no
 // está configurado todavía, manda sin token, igual que antes de protegerlo.
+// El token aquí es OPCIONAL a propósito. El flujo de alta solo escribe,
+// nunca devuelve datos de nadie, así que puede vivir sin protección de Azure
+// AD (su URL ya trae una firma larga que hace de secreto). Si el token se
+// puede conseguir, va — y si no (porque falta el consentimiento de
+// administrador del permiso de Power Automate), se manda igual en vez de
+// dejar a la persona sin poder registrar nada.
 async function fetchFlow(url, body){
   var headers = {'Content-Type':'application/json'};
   if(msalListo()){
-    try{ headers.Authorization = 'Bearer '+(await msalToken(MSAL_FLOW_SCOPE)); }
-    catch(e){ throw new Error('login'); }
+    var t = await msalToken(MSAL_FLOW_SCOPE, true);
+    if(t) headers.Authorization = 'Bearer '+t;
   }
   return fetch(url, {method:'POST', headers:headers, body:JSON.stringify(body)});
 }
@@ -434,17 +440,29 @@ async function fetchFlow(url, body){
 // viva (no vuelve a pedir contraseña); solo abre ventana si de verdad hace
 // falta. Recibe el scope porque no es el mismo para todo: MSAL_FLOW_SCOPE
 // para los disparadores de Power Automate, MSAL_API_SCOPE si alguna vez
-// hay una API propia detrás.
-async function msalToken(scope){
+// hay una API propia detrás. Con opcional=true devuelve null en vez de
+// reventar cuando el permiso todavía no está consentido.
+async function msalToken(scope, opcional){
   var req = { scopes: [scope || MSAL_API_SCOPE], account: msalCuenta };
   try{ return (await msalApp.acquireTokenSilent(req)).accessToken; }
-  catch(e){ return (await msalApp.acquireTokenPopup(req)).accessToken; }
+  catch(e){
+    try{ return (await msalApp.acquireTokenPopup(req)).accessToken; }
+    catch(e2){ if(opcional) return null; throw e2; }
+  }
 }
 // Pide al flujo protegido los bienes que le tocan a quien inició sesión.
 // El servidor devuelve YA decidido el rol y el área: este archivo no
 // vuelve a decidirlo, solo pinta lo que le llega.
 async function pedirMisBienes(){
-  var token = await msalToken(MSAL_FLOW_SCOPE);
+  var token;
+  try{ token = await msalToken(MSAL_FLOW_SCOPE); }
+  catch(e){
+    // Casi siempre es AADSTS65001: el permiso «Power Automate → User» del
+    // registro de la app todavía no tiene el consentimiento de administrador.
+    throw new Error('Falta que un administrador de Microsoft 365 autorice el permiso de Power Automate. '+
+      'Mientras tanto puedes registrar bienes normalmente, eligiendo tu área a mano. '+
+      'Lo que hay que pedirle a IT está en el archivo PARA_IT.md.');
+  }
   var r = await fetch(API_MIS_BIENES_URL, { headers: { Authorization: 'Bearer '+token } });
   if(r.status===403) throw new Error('Tu cuenta inició sesión, pero no está en la lista de accesos. Pídele a la administradora de bienes que te agregue.');
   if(!r.ok) throw new Error('No pude consultar tus bienes (HTTP '+r.status+').');
