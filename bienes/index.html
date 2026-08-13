@@ -376,6 +376,11 @@ var TIPOS = [
   {c:'OTRO', vida:10, suf:'OT', seg:'OTRO', ej:'algo que no está en la lista'}
 ];
 var TIPO_IX = (function(){ var m={}; TIPOS.forEach(function(t){m[t.c]=t;}); return m; })();
+// La letra final del código (EC, EO, MA, ME, VH, OT) sale de aquí — se
+// construye sola a partir de TIPOS para no tener que mantenerla aparte.
+// Cata pidió verla siempre a la vista, para no tener que preguntar qué
+// significa cada sigla.
+var LEYENDA_SUFIJOS = TIPOS.map(function(t){ return t.suf+' = '+t.c; }).join(' · ');
 
 var DONANTES = ['KFW','ECUADOR AZUL','BEZOS / CI','PLUSPETROL','AMAZONÍA NORTE','CI / LUNDIN GOLD','FIAS','FAP','OTRO'];
 var INSTITUCIONES = [
@@ -1020,7 +1025,12 @@ function nuevoFormulario(){
     cedula:'', custodio:'', institucion:'MAE', institucionOtro:'', ubicacion:'',
     acta:'', foto:'', estadoFisico:'NUEVO',
     garantia:'NO', inicioGarantia:'', finGarantia:'',
-    asegurado:'SI', observaciones:'', codigoManual:''
+    asegurado:'SI', observaciones:'', codigoManual:'',
+    // Por defecto se usa la póliza vigente (POLIZA, más abajo). Si FIAS
+    // cambia de aseguradora antes de que alguien actualice esa constante
+    // en el código, "polizaOtra" deja escribir la nueva a mano — mismo
+    // patrón que "OTRO" en tipo/donante/institución.
+    polizaOtra:false, polizaAseguradora:'', polizaNro:'', polizaInicio:'', polizaFin:''
   };
   S.errores={};
 }
@@ -1030,6 +1040,15 @@ function nuevoFormulario(){
 // cada campo (tipo de bien, donante, institución).
 function resolverOtro(valor, texto){
   return (valor==='OTRO' && (texto||'').trim()) ? texto.trim().toUpperCase() : valor;
+}
+// La póliza vigente (POLIZA) se usa siempre, salvo que la persona haya
+// activado "usar otra póliza" y escrito una distinta.
+function polizaActual(f){
+  return f.polizaOtra
+    ? { aseguradora: (f.polizaAseguradora||'').trim().toUpperCase() || POLIZA.aseguradora,
+        nro: (f.polizaNro||'').trim() || POLIZA.nro,
+        inicio: f.polizaInicio || POLIZA.inicio, fin: f.polizaFin || POLIZA.fin }
+    : POLIZA;
 }
 // Todo lo que la herramienta calcula sola a partir de los 12 campos.
 function calculado(){
@@ -1050,6 +1069,13 @@ function calculado(){
   // escribió la persona.
   var tipoContableReal = resolverOtro(f.tipoContable, f.tipoContableOtro);
   var tipoSegurosReal = (f.tipoContable==='OTRO') ? tipoContableReal : (t?t.seg:'');
+  // Cata pidió que se avise si el código ya está ocupado — el cálculo
+  // automático no puede fallar en esto (nunca repite lo que ya vio), pero
+  // uno escrito a mano, o una propuesta hecha sin la lista completa, sí
+  // puede chocar con un bien real. Solo tiene sentido revisarlo cuando SÍ
+  // hay bienes cargados para comparar.
+  var codigoOcupado = !!(codigo && S.bienes.length &&
+    S.bienes.some(function(b){ return norm(b.codigo)===norm(codigo); }));
   return {
     codigo: codigo, sigla: sigla, area: areaNombre(sigla),
     tipo: t, vida: vida, hoja: hoja, valor: valor, dep: dep,
@@ -1058,11 +1084,13 @@ function calculado(){
     institucion: resolverOtro(f.institucion, f.institucionOtro),
     estadoGarantia: estadoGarantia(f.garantia, f.finGarantia),
     codigoAutomatico: puedeCodigo && !f.codigoManual,
-    codigoAutomaticoPosible: puedeCodigo
+    codigoAutomaticoPosible: puedeCodigo,
+    codigoOcupado: codigoOcupado
   };
 }
 function validar(){
   var f=S.form, e={};
+  if(calculado().codigoOcupado) e.codigo='Ese código ya existe en la matriz.';
   if(!f.sigla) e.sigla='Elige el área.';
   if(!f.descripcion.trim()) e.descripcion='Escribe qué es el bien.';
   if(!f.tipoContable) e.tipoContable='Elige el tipo de bien.';
@@ -1087,7 +1115,7 @@ function validar(){
 }
 // La fila tal como cae en la matriz: las 44 columnas, en orden.
 function filaMatriz(){
-  var f=S.form, c=calculado();
+  var f=S.form, c=calculado(), pz=polizaActual(f);
   return {
     codigo: c.codigo, descripcion: f.descripcion.trim().toUpperCase(), detalle: f.detalle.trim(),
     cantidad: Number(f.cantidad)||1, tipoSeguros: c.tipoSeguros, tipoContable: c.tipoContable,
@@ -1098,9 +1126,9 @@ function filaMatriz(){
     cedula: f.cedula.trim(), custodio: f.custodio.trim().toUpperCase(),
     institucion: c.institucion, ubicacion: f.ubicacion.trim(), acta: f.acta.trim(),
     asegurado: f.asegurado,
-    inicioSeguro: f.asegurado==='SI'?POLIZA.inicio:'', finSeguro: f.asegurado==='SI'?POLIZA.fin:'',
-    aseguradora: f.asegurado==='SI'?POLIZA.aseguradora:'N/A',
-    poliza: f.asegurado==='SI'?POLIZA.nro:'N/A',
+    inicioSeguro: f.asegurado==='SI'?pz.inicio:'', finSeguro: f.asegurado==='SI'?pz.fin:'',
+    aseguradora: f.asegurado==='SI'?pz.aseguradora:'N/A',
+    poliza: f.asegurado==='SI'?pz.nro:'N/A',
     garantia: f.garantia, inicioGarantia: f.inicioGarantia, finGarantia: f.finGarantia,
     estadoGarantia: c.estadoGarantia, estadoFisico: f.estadoFisico,
     vida: c.vida,
@@ -1123,7 +1151,11 @@ function filaMatriz(){
 }
 
 async function enviar(){
-  if(!validar()){ render(); toast('Faltan datos. Mira los campos en rojo.'); return; }
+  if(!validar()){
+    render();
+    toast(S.errores.codigo || 'Faltan datos. Mira los campos en rojo.');
+    return;
+  }
   var fila=filaMatriz();
   S.enviados.unshift(fila); if(S.enviados.length>200) S.enviados.length=200;
   lsSet(LS_ENVIADOS, S.enviados);
@@ -1261,7 +1293,7 @@ function datalist(id, valores){
   return '<datalist id="'+id+'">'+out.slice(0,400).map(function(v){return '<option value="'+esc(v)+'">';}).join('')+'</datalist>';
 }
 function vistaRegistrar(){
-  var f=S.form, c=calculado();
+  var f=S.form, c=calculado(), pz=polizaActual(f);
   var areasSel = (S.rol==='area')
     ? '<input class="f" value="'+esc(areaNombre(S.sigla))+'" disabled style="width:100%">'
     : '<select id="f-sigla"><option value="">— elige el área —</option>'+
@@ -1372,7 +1404,22 @@ function vistaRegistrar(){
     '<div class="grid">'+
       '<div class="fld s3">'+campo('asegurado','¿Va al seguro?',
         '<select id="f-asegurado">'+opt('SI',f.asegurado,'Sí')+opt('NO',f.asegurado,'No')+'</select>', false,
-        f.asegurado==='SI' ? 'Entra a la póliza '+esc(POLIZA.nro)+' de '+esc(POLIZA.aseguradora)+', vigente hasta el '+fdate(POLIZA.fin)+'.' : 'Quedará marcado como no asegurado y saldrá en las alertas.')+'</div>'+
+        f.asegurado==='SI'
+          ? (f.polizaOtra
+              ? 'Vas a guardar una póliza distinta a la vigente. <a href="#" id="polizavolver">Volver a la vigente</a>.'
+              : 'Entra a la póliza '+esc(pz.nro)+' de '+esc(pz.aseguradora)+', vigente hasta el '+fdate(pz.fin)+'. '+
+                '<a href="#" id="polizaotra">¿Cambió la aseguradora? Usar otra</a>.')
+          : 'Quedará marcado como no asegurado y saldrá en las alertas.')+'</div>'+
+      (f.asegurado==='SI' && f.polizaOtra
+        ? '<div class="fld s3">'+campo('polizaAseguradora','Aseguradora',
+            '<input id="f-polizaAseguradora" value="'+esc(f.polizaAseguradora)+'" placeholder="'+esc(POLIZA.aseguradora)+'">')+'</div>'+
+          '<div class="fld s3">'+campo('polizaNro','N.º de póliza',
+            '<input id="f-polizaNro" value="'+esc(f.polizaNro)+'" placeholder="'+esc(POLIZA.nro)+'">')+'</div>'+
+          '<div class="fld s3">'+campo('polizaInicio','Inicio de vigencia',
+            '<input id="f-polizaInicio" type="date" value="'+esc(f.polizaInicio||POLIZA.inicio)+'">')+'</div>'+
+          '<div class="fld s3">'+campo('polizaFin','Fin de vigencia',
+            '<input id="f-polizaFin" type="date" value="'+esc(f.polizaFin||POLIZA.fin)+'">')+'</div>'
+        : '')+
       '<div class="fld s3">'+campo('garantia','¿Tiene garantía técnica?',
         '<select id="f-garantia">'+opt('SI',f.garantia,'Sí')+opt('NO',f.garantia,'No')+opt('N/A',f.garantia,'No aplica')+'</select>')+'</div>'+
       (f.garantia==='SI'
@@ -1393,10 +1440,11 @@ function vistaRegistrar(){
 }
 
 function tarjetaAutomatica(c){
-  var d=c.dep, f=S.form;
+  var d=c.dep, f=S.form, pz=polizaActual(f);
   var it=function(k,v,cls){ return '<div class="ai"><div class="k">'+esc(k)+'</div><div class="v '+(cls||'')+'">'+v+'</div></div>'; };
   var codigoHtml = c.codigo
-    ? '<span class="mono">'+esc(c.codigo)+'</span>'
+    ? '<span class="mono" style="'+(c.codigoOcupado?'color:var(--red)':'')+'">'+esc(c.codigo)+'</span>'+
+      (c.codigoOcupado?'<div style="color:var(--red);font-weight:700;font-size:11.5px;margin-top:3px">⚠ Ese código ya existe en la matriz — elige otro.</div>':'')
     : '<span class="v mut" style="font-size:12.5px">falta área o tipo</span>';
   return '<div class="auto" style="margin-top:20px">'+
     '<h4>Lo que la herramienta llena por ti</h4>'+
@@ -1416,8 +1464,8 @@ function tarjetaAutomatica(c){
       it('Depreciación acumulada', d?money(d.acumulada):'<span class="mut">—</span>')+
       it('Valor en libros hoy', d?money(d.residual):'<span class="mut">—</span>')+
       it('Estado de la garantía', esc(c.estadoGarantia))+
-      it('Aseguradora', f.asegurado==='SI'?esc(POLIZA.aseguradora):'N/A')+
-      it('Póliza', f.asegurado==='SI'?esc(POLIZA.nro)+' · hasta '+fdate(POLIZA.fin):'N/A')+
+      it('Aseguradora', f.asegurado==='SI'?esc(pz.aseguradora):'N/A')+
+      it('Póliza', f.asegurado==='SI'?esc(pz.nro)+' · hasta '+fdate(pz.fin):'N/A')+
     '</div>'+
     (f.codigoManual
       ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">Código escrito a mano. '+
@@ -1435,6 +1483,8 @@ function tarjetaAutomatica(c){
           '<a href="#" id="codman">Poner otro a mano</a>.</div>'
         : '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">'+
           '<a href="#" id="codman">Escribir el código a mano</a> (opcional — si no, lo asigna la administradora).</div>'))+
+    '<div style="margin-top:8px;font-size:11px;color:var(--muted)">'+
+      '<b>Qué significa la última letra del código:</b> '+esc(LEYENDA_SUFIJOS)+'.</div>'+
   '</div>';
 }
 
@@ -1891,6 +1941,24 @@ function enlazar(){
     if(v!=null){ S.form.codigoManual=v.trim(); render(); }
   });
   bind('#codauto','click', function(e){ e.preventDefault(); S.form.codigoManual=''; render(); });
+  bind('#polizaotra','click', function(e){
+    e.preventDefault();
+    var pz=polizaActual(S.form);
+    S.form.polizaOtra=true;
+    // Se precarga con la vigente para que sea más fácil corregir un dato
+    // (por ejemplo solo la fecha de fin) que escribir los cuatro desde cero.
+    if(!S.form.polizaAseguradora) S.form.polizaAseguradora=pz.aseguradora;
+    if(!S.form.polizaNro) S.form.polizaNro=pz.nro;
+    if(!S.form.polizaInicio) S.form.polizaInicio=pz.inicio;
+    if(!S.form.polizaFin) S.form.polizaFin=pz.fin;
+    render();
+  });
+  bind('#polizavolver','click', function(e){
+    e.preventDefault();
+    S.form.polizaOtra=false;
+    S.form.polizaAseguradora=''; S.form.polizaNro=''; S.form.polizaInicio=''; S.form.polizaFin='';
+    render();
+  });
 
   /* ---- listado ---- */
   bind('#q','input', function(e){
