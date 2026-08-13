@@ -1324,7 +1324,7 @@ function vistaRegistrar(){
     '<div class="secline"><span class="n">2</span><span class="t">Cómo se compró</span><span class="l"></span></div>'+
     '<div class="grid">'+
       '<div class="fld s3">'+campo('valor','Valor con IVA',
-        '<input id="f-valor" type="number" min="0" step="0.01" value="'+esc(f.valor)+'" placeholder="1265.60" class="'+(S.errores.valor?'bad':'')+'">', true)+'</div>'+
+        '<input id="f-valor" type="text" inputmode="decimal" value="'+esc(f.valor)+'" placeholder="1265.60" class="'+(S.errores.valor?'bad':'')+'">', true)+'</div>'+
       '<div class="fld s3">'+campo('fechaCompra','Fecha de compra',
         '<input id="f-fechaCompra" type="date" max="'+todayISO()+'" value="'+esc(f.fechaCompra)+'" class="'+(S.errores.fechaCompra?'bad':'')+'">', true)+'</div>'+
       '<div class="fld s3">'+campo('donante','Donante','<select id="f-donante">'+DONANTES.map(function(d){return opt(d,f.donante);}).join('')+'</select>')+'</div>'+
@@ -1858,8 +1858,20 @@ function enlazar(){
       // Solo se vuelve a dibujar cuando el cambio mueve los cálculos.
       if(['sigla','tipoContable','donante','institucion','valor','fechaCompra','garantia','finGarantia','asegurado','inicioGarantia'].indexOf(k)>=0){
         var pos=document.activeElement && document.activeElement.id;
+        // render() reconstruye el HTML entero, así que el <input> en el que
+        // se está escribiendo se destruye y se crea uno nuevo — sin esto el
+        // cursor no vuelve a donde estaba, sino al lugar que el navegador
+        // decida (con type=number, a veces al medio), y cada letra que se
+        // escribe parece meterse en la posición equivocada.
+        var cursor = (el.selectionStart!=null) ? el.selectionStart : null;
         render();
-        var again=pos?$('#'+pos):null; if(again && again.focus) again.focus();
+        var again=pos?$('#'+pos):null;
+        if(again && again.focus){
+          again.focus();
+          if(cursor!=null && again.setSelectionRange){
+            try{ again.setSelectionRange(cursor, cursor); }catch(e){}
+          }
+        }
       }
     });
   });
