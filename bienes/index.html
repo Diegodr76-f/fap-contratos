@@ -369,7 +369,11 @@ var TIPOS = [
   {c:'MUEBLES Y ENSERES',            vida:10, suf:'ME', seg:'MUEBLES Y ENSERES',
    ej:'escritorio, silla, archivador, mesa, anaquel, cocina, refrigeradora'},
   {c:'VEHÍCULOS',                    vida:5,  suf:'VH', seg:'VEHÍCULO',
-   ej:'camioneta, motocicleta, cuadrón, embarcación'}
+   ej:'camioneta, motocicleta, cuadrón, embarcación'},
+  // Vida útil de 10 años como valor por defecto razonable — cuando se
+  // elige, se pide escribir de qué se trata y ese texto reemplaza a "OTRO"
+  // en la matriz (ver filaMatriz).
+  {c:'OTRO', vida:10, suf:'OT', seg:'OTRO', ej:'algo que no está en la lista'}
 ];
 var TIPO_IX = (function(){ var m={}; TIPOS.forEach(function(t){m[t.c]=t;}); return m; })();
 
@@ -380,7 +384,7 @@ var INSTITUCIONES = [
   'MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 1','MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 3',
   'MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 4','MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 6',
   'MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 7','MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 8',
-  'MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 9','FIAS'
+  'MINISTERIO DEL AMBIENTE-DIRECCION ZONAL 9','FIAS','OTRO'
 ];
 var ESTADOS_FIS = ['NUEVO','BUENO','REGULAR','MALO'];
 
@@ -1010,15 +1014,22 @@ function entrar(rol, sigla, bienes){
 function nuevoFormulario(){
   S.form = {
     sigla: S.sigla || '',
-    descripcion:'', detalle:'', tipoContable:'', valor:'', fechaCompra: todayISO(),
-    donante:'KFW', proveedor:'', ruc:'', factura:'', facturaLink:'',
+    descripcion:'', detalle:'', tipoContable:'', tipoContableOtro:'', valor:'', fechaCompra: todayISO(),
+    donante:'KFW', donanteOtro:'', proveedor:'', ruc:'', factura:'', facturaLink:'',
     marca:'', modelo:'', serie:'', cantidad:1,
-    cedula:'', custodio:'', institucion:'MAE', ubicacion:'',
+    cedula:'', custodio:'', institucion:'MAE', institucionOtro:'', ubicacion:'',
     acta:'', foto:'', estadoFisico:'NUEVO',
     garantia:'NO', inicioGarantia:'', finGarantia:'',
     asegurado:'SI', observaciones:'', codigoManual:''
   };
   S.errores={};
+}
+// "OTRO" es una opción de la lista, no un dato real: cuando se elige, lo que
+// va a la matriz es el texto que la persona escribe al lado, no la palabra
+// "OTRO". Esta función resuelve eso en un solo lugar para no repetirlo en
+// cada campo (tipo de bien, donante, institución).
+function resolverOtro(valor, texto){
+  return (valor==='OTRO' && (texto||'').trim()) ? texto.trim().toUpperCase() : valor;
 }
 // Todo lo que la herramienta calcula sola a partir de los 12 campos.
 function calculado(){
@@ -1029,10 +1040,18 @@ function calculado(){
   var puedeCodigo = !!(sigla && t && (S.rol!=='form'));
   var codigo = f.codigoManual ? f.codigoManual
              : (puedeCodigo ? proximoCodigo(sigla, t.suf, S.bienes) : '');
+  // El tipo para el seguro sigue la tabla (10 años, sufijo OT) mientras se
+  // elige "Otro", pero el nombre que se muestra y se guarda es el que
+  // escribió la persona.
+  var tipoContableReal = resolverOtro(f.tipoContable, f.tipoContableOtro);
+  var tipoSegurosReal = (f.tipoContable==='OTRO') ? tipoContableReal : (t?t.seg:'');
   return {
     codigo: codigo, sigla: sigla, area: areaNombre(sigla),
     tipo: t, vida: vida, hoja: hoja, valor: valor, dep: dep,
-    tipoSeguros: t?t.seg:'', estadoGarantia: estadoGarantia(f.garantia, f.finGarantia),
+    tipoContable: tipoContableReal, tipoSeguros: tipoSegurosReal,
+    donante: resolverOtro(f.donante, f.donanteOtro),
+    institucion: resolverOtro(f.institucion, f.institucionOtro),
+    estadoGarantia: estadoGarantia(f.garantia, f.finGarantia),
     codigoAutomatico: puedeCodigo && !f.codigoManual,
     codigoAutomaticoPosible: puedeCodigo
   };
@@ -1042,6 +1061,9 @@ function validar(){
   if(!f.sigla) e.sigla='Elige el área.';
   if(!f.descripcion.trim()) e.descripcion='Escribe qué es el bien.';
   if(!f.tipoContable) e.tipoContable='Elige el tipo de bien.';
+  else if(f.tipoContable==='OTRO' && !f.tipoContableOtro.trim()) e.tipoContableOtro='Escribe de qué tipo de bien se trata.';
+  if(f.donante==='OTRO' && !f.donanteOtro.trim()) e.donanteOtro='Escribe cuál.';
+  if(f.institucion==='OTRO' && !f.institucionOtro.trim()) e.institucionOtro='Escribe cuál.';
   if(!(Number(f.valor)>0)) e.valor='Escribe el valor con IVA.';
   if(!f.fechaCompra) e.fechaCompra='Falta la fecha de compra.';
   else if(dias(f.fechaCompra)>0) e.fechaCompra='La fecha de compra no puede ser futura.';
@@ -1063,13 +1085,13 @@ function filaMatriz(){
   var f=S.form, c=calculado();
   return {
     codigo: c.codigo, descripcion: f.descripcion.trim().toUpperCase(), detalle: f.detalle.trim(),
-    cantidad: Number(f.cantidad)||1, tipoSeguros: c.tipoSeguros, tipoContable: f.tipoContable,
-    proyecto:'FAP', fechaCompra: f.fechaCompra, donante: f.donante,
+    cantidad: Number(f.cantidad)||1, tipoSeguros: c.tipoSeguros, tipoContable: c.tipoContable,
+    proyecto:'FAP', fechaCompra: f.fechaCompra, donante: c.donante,
     proveedor: f.proveedor.trim(), ruc: f.ruc.trim(), factura: f.factura.trim(),
     facturaLink: f.facturaLink.trim(), valor: Number(f.valor)||0,
     marca: f.marca.trim(), modelo: f.modelo.trim(), serie: f.serie.trim(),
     cedula: f.cedula.trim(), custodio: f.custodio.trim().toUpperCase(),
-    institucion: f.institucion, ubicacion: f.ubicacion.trim(), acta: f.acta.trim(),
+    institucion: c.institucion, ubicacion: f.ubicacion.trim(), acta: f.acta.trim(),
     asegurado: f.asegurado,
     inicioSeguro: f.asegurado==='SI'?POLIZA.inicio:'', finSeguro: f.asegurado==='SI'?POLIZA.fin:'',
     aseguradora: f.asegurado==='SI'?POLIZA.aseguradora:'N/A',
@@ -1220,6 +1242,13 @@ function campo(id,label,html,req,hint){
     (err?'<div class="hint" style="color:var(--red);font-weight:600">'+esc(err)+'</div>'
         :(hint?'<div class="hint">'+hint+'</div>':''));
 }
+// La caja de texto que aparece al lado de un <select> cuando alguien elige
+// "OTRO" — se repite igual en tipo de bien, donante e institución.
+function campoOtro(idOtro, seleccionado, valor, placeholder){
+  if(seleccionado!=='OTRO') return '';
+  return '<div class="fld s3">'+campo(idOtro,'Escribe cuál',
+    '<input id="f-'+idOtro+'" value="'+esc(valor)+'" placeholder="'+esc(placeholder||'')+'" class="'+(S.errores[idOtro]?'bad':'')+'">', true)+'</div>';
+}
 function datalist(id, valores){
   var vistos={}, out=[];
   valores.forEach(function(v){ v=String(v||'').trim(); if(v && !vistos[norm(v)]){ vistos[norm(v)]=1; out.push(v); } });
@@ -1282,6 +1311,7 @@ function vistaRegistrar(){
         '<input id="f-descripcion" list="dl-desc" value="'+esc(f.descripcion)+'" placeholder="COMPUTADOR PORTÁTIL" class="'+(S.errores.descripcion?'bad':'')+'">'+
         datalist('dl-desc', descripciones), true, 'El nombre corto y genérico del bien.')+'</div>'+
       '<div class="fld s4">'+campo('tipoContable','Tipo de bien', tiposSel, true, tipoAyuda)+'</div>'+
+      campoOtro('tipoContableOtro', f.tipoContable, f.tipoContableOtro, 'Ej.: HERRAMIENTA MENOR')+
       '<div class="fld s12">'+campo('detalle','Detalle',
         '<textarea id="f-detalle" placeholder="Laptop DELL INSPIRON 3511, Core i5, 16 GB RAM, SSD 512 GB">'+esc(f.detalle)+'</textarea>',
         false, 'Marca, características, color: lo que sirva para reconocerlo en una revisión física.')+'</div>'+
@@ -1298,6 +1328,7 @@ function vistaRegistrar(){
       '<div class="fld s3">'+campo('fechaCompra','Fecha de compra',
         '<input id="f-fechaCompra" type="date" max="'+todayISO()+'" value="'+esc(f.fechaCompra)+'" class="'+(S.errores.fechaCompra?'bad':'')+'">', true)+'</div>'+
       '<div class="fld s3">'+campo('donante','Donante','<select id="f-donante">'+DONANTES.map(function(d){return opt(d,f.donante);}).join('')+'</select>')+'</div>'+
+      campoOtro('donanteOtro', f.donante, f.donanteOtro, 'Ej.: GEF')+
       '<div class="fld s3">'+campo('factura','N.º de factura',
         '<input id="f-factura" value="'+esc(f.factura)+'" placeholder="001-100-000000158" class="'+(S.errores.factura?'bad':'')+'">', true,
         'O el número del acta de donación.')+'</div>'+
@@ -1320,6 +1351,7 @@ function vistaRegistrar(){
         '<input id="f-custodio" list="dl-cust" value="'+esc(f.custodio)+'" class="'+(S.errores.custodio?'bad':'')+'">'+
         datalist('dl-cust', S.bienes.map(function(b){return b.custodio;})), true)+'</div>'+
       '<div class="fld s4">'+campo('institucion','Institución','<select id="f-institucion">'+INSTITUCIONES.map(function(i){return opt(i,f.institucion);}).join('')+'</select>')+'</div>'+
+      campoOtro('institucionOtro', f.institucion, f.institucionOtro, 'Ej.: GAD MUNICIPAL')+
       '<div class="fld">'+campo('ubicacion','Ubicación exacta',
         '<input id="f-ubicacion" list="dl-ubi" value="'+esc(f.ubicacion)+'" placeholder="Oficina administrativa / Guardianía…" class="'+(S.errores.ubicacion?'bad':'')+'">'+datalist('dl-ubi',ubicaciones), true,
         'Dónde está físicamente. Las opciones son las que ya usa tu área.')+'</div>'+
@@ -1824,7 +1856,7 @@ function enlazar(){
       if(k==='cedula' && /^\d{10}$/.test(el.value.trim())) autocompletarCustodio(el.value.trim());
       if(k==='garantia' && el.value==='SI' && !S.form.inicioGarantia) S.form.inicioGarantia=S.form.fechaCompra;
       // Solo se vuelve a dibujar cuando el cambio mueve los cálculos.
-      if(['sigla','tipoContable','valor','fechaCompra','garantia','finGarantia','asegurado','inicioGarantia'].indexOf(k)>=0){
+      if(['sigla','tipoContable','donante','institucion','valor','fechaCompra','garantia','finGarantia','asegurado','inicioGarantia'].indexOf(k)>=0){
         var pos=document.activeElement && document.activeElement.id;
         render();
         var again=pos?$('#'+pos):null; if(again && again.focus) again.focus();
