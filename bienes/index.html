@@ -376,6 +376,11 @@ var TIPOS = [
   {c:'OTRO', vida:10, suf:'OT', seg:'OTRO', ej:'algo que no está en la lista'}
 ];
 var TIPO_IX = (function(){ var m={}; TIPOS.forEach(function(t){m[t.c]=t;}); return m; })();
+// La letra final del código (EC, EO, MA, ME, VH, OT) sale de aquí — se
+// construye sola a partir de TIPOS para no tener que mantenerla aparte.
+// Cata pidió verla siempre a la vista, para no tener que preguntar qué
+// significa cada sigla.
+var LEYENDA_SUFIJOS = TIPOS.map(function(t){ return t.suf+' = '+t.c; }).join(' · ');
 
 var DONANTES = ['KFW','ECUADOR AZUL','BEZOS / CI','PLUSPETROL','AMAZONÍA NORTE','CI / LUNDIN GOLD','FIAS','FAP','OTRO'];
 var INSTITUCIONES = [
@@ -1064,6 +1069,13 @@ function calculado(){
   // escribió la persona.
   var tipoContableReal = resolverOtro(f.tipoContable, f.tipoContableOtro);
   var tipoSegurosReal = (f.tipoContable==='OTRO') ? tipoContableReal : (t?t.seg:'');
+  // Cata pidió que se avise si el código ya está ocupado — el cálculo
+  // automático no puede fallar en esto (nunca repite lo que ya vio), pero
+  // uno escrito a mano, o una propuesta hecha sin la lista completa, sí
+  // puede chocar con un bien real. Solo tiene sentido revisarlo cuando SÍ
+  // hay bienes cargados para comparar.
+  var codigoOcupado = !!(codigo && S.bienes.length &&
+    S.bienes.some(function(b){ return norm(b.codigo)===norm(codigo); }));
   return {
     codigo: codigo, sigla: sigla, area: areaNombre(sigla),
     tipo: t, vida: vida, hoja: hoja, valor: valor, dep: dep,
@@ -1072,11 +1084,13 @@ function calculado(){
     institucion: resolverOtro(f.institucion, f.institucionOtro),
     estadoGarantia: estadoGarantia(f.garantia, f.finGarantia),
     codigoAutomatico: puedeCodigo && !f.codigoManual,
-    codigoAutomaticoPosible: puedeCodigo
+    codigoAutomaticoPosible: puedeCodigo,
+    codigoOcupado: codigoOcupado
   };
 }
 function validar(){
   var f=S.form, e={};
+  if(calculado().codigoOcupado) e.codigo='Ese código ya existe en la matriz.';
   if(!f.sigla) e.sigla='Elige el área.';
   if(!f.descripcion.trim()) e.descripcion='Escribe qué es el bien.';
   if(!f.tipoContable) e.tipoContable='Elige el tipo de bien.';
@@ -1137,7 +1151,11 @@ function filaMatriz(){
 }
 
 async function enviar(){
-  if(!validar()){ render(); toast('Faltan datos. Mira los campos en rojo.'); return; }
+  if(!validar()){
+    render();
+    toast(S.errores.codigo || 'Faltan datos. Mira los campos en rojo.');
+    return;
+  }
   var fila=filaMatriz();
   S.enviados.unshift(fila); if(S.enviados.length>200) S.enviados.length=200;
   lsSet(LS_ENVIADOS, S.enviados);
@@ -1425,7 +1443,8 @@ function tarjetaAutomatica(c){
   var d=c.dep, f=S.form, pz=polizaActual(f);
   var it=function(k,v,cls){ return '<div class="ai"><div class="k">'+esc(k)+'</div><div class="v '+(cls||'')+'">'+v+'</div></div>'; };
   var codigoHtml = c.codigo
-    ? '<span class="mono">'+esc(c.codigo)+'</span>'
+    ? '<span class="mono" style="'+(c.codigoOcupado?'color:var(--red)':'')+'">'+esc(c.codigo)+'</span>'+
+      (c.codigoOcupado?'<div style="color:var(--red);font-weight:700;font-size:11.5px;margin-top:3px">⚠ Ese código ya existe en la matriz — elige otro.</div>':'')
     : '<span class="v mut" style="font-size:12.5px">falta área o tipo</span>';
   return '<div class="auto" style="margin-top:20px">'+
     '<h4>Lo que la herramienta llena por ti</h4>'+
@@ -1464,6 +1483,8 @@ function tarjetaAutomatica(c){
           '<a href="#" id="codman">Poner otro a mano</a>.</div>'
         : '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">'+
           '<a href="#" id="codman">Escribir el código a mano</a> (opcional — si no, lo asigna la administradora).</div>'))+
+    '<div style="margin-top:8px;font-size:11px;color:var(--muted)">'+
+      '<b>Qué significa la última letra del código:</b> '+esc(LEYENDA_SUFIJOS)+'.</div>'+
   '</div>';
 }
 
