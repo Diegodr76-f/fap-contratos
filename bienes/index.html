@@ -1037,7 +1037,12 @@ function calculado(){
   var sigla=f.sigla||'';
   var hoja=hojaDe(valor), vida=t?t.vida:null;
   var dep = (t && valor) ? depreciacion(valor, vida, f.fechaCompra) : null;
-  var puedeCodigo = !!(sigla && t && (S.rol!=='form'));
+  // Sin la lista completa de bienes (modo formulario, sin la lista de
+  // Accesos todavía) esto puede proponer un número que ya esté ocupado —
+  // por eso se muestra como propuesta a confirmar, no como un dato ya
+  // decidido (ver el aviso en tarjetaAutomatica). Es mejor una propuesta
+  // para revisar que dejarlo en blanco.
+  var puedeCodigo = !!(sigla && t);
   var codigo = f.codigoManual ? f.codigoManual
              : (puedeCodigo ? proximoCodigo(sigla, t.suf, S.bienes) : '');
   // El tipo para el seguro sigue la tabla (10 años, sufijo OT) mientras se
@@ -1392,9 +1397,7 @@ function tarjetaAutomatica(c){
   var it=function(k,v,cls){ return '<div class="ai"><div class="k">'+esc(k)+'</div><div class="v '+(cls||'')+'">'+v+'</div></div>'; };
   var codigoHtml = c.codigo
     ? '<span class="mono">'+esc(c.codigo)+'</span>'
-    : (S.rol==='form'
-        ? '<span class="v mut" style="font-size:12.5px">lo asigna la administradora</span>'
-        : '<span class="v mut" style="font-size:12.5px">falta área o tipo</span>');
+    : '<span class="v mut" style="font-size:12.5px">falta área o tipo</span>';
   return '<div class="auto" style="margin-top:20px">'+
     '<h4>Lo que la herramienta llena por ti</h4>'+
     '<p class="s">Estas 32 columnas de la matriz no se escriben: se calculan con lo de arriba. '+
@@ -1420,12 +1423,16 @@ function tarjetaAutomatica(c){
       ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">Código escrito a mano. '+
         (c.codigoAutomaticoPosible?'<a href="#" id="codauto">Volver al automático</a>.':'')+'</div>'
       : (c.codigoAutomatico
-        ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">El código es el siguiente libre de tu área. '+
+        // Con la lista real de bienes cargada (sesión con el flujo de
+        // consulta, o matriz .xlsx abierta a mano) el número es confiable.
+        // Sin ella (modo formulario, mientras IT aprueba el permiso) es
+        // solo una propuesta a partir de nada — se avisa para que se
+        // revise contra la matriz antes de darlo por bueno.
+        ? '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">'+
+          (S.bienes.length
+            ? 'El código es el siguiente libre de tu área. '
+            : '<b style="color:var(--amber)">Es una propuesta</b> — no tenemos la lista completa de bienes cargada, así que confírmalo contra la matriz antes de guardar. ')+
           '<a href="#" id="codman">Poner otro a mano</a>.</div>'
-        // Sin sesión con la lista completa (falta el permiso de IT, o se
-        // entró sin iniciar sesión) no se puede calcular el siguiente
-        // número con seguridad — pero eso no debe dejar a la persona sin
-        // forma de escribirlo si prefiere no dejarlo para después.
         : '<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">'+
           '<a href="#" id="codman">Escribir el código a mano</a> (opcional — si no, lo asigna la administradora).</div>'))+
   '</div>';
