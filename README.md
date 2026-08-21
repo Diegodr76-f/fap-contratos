@@ -153,30 +153,56 @@ publican, tampoco hay nada que robar aunque alguien la esquivara.
 El flujo responde `202` apenas recibe el JSON, así que la AC ve «Enviado» aunque después
 la acción **Crear archivo** (OneDrive) reviente dentro del «Aplicar a cada uno». El error
 típico es `BadRequest` con el texto *«No se puede abrir el archivo "https://…/<archivo>"»*
-y solo falla en algunas iteraciones: las de los archivos problemáticos.
+y solo falla en algunas iteraciones.
 
-Causas, en orden de frecuencia:
+**Ojo:** si al revisar la carpeta en OneDrive el archivo que aparece como fallido SÍ está
+ahí (todos con la misma hora de modificación), el problema no fue subir el contenido —
+la escritura funcionó — sino una **carrera entre dos ejecuciones del flujo sobre la misma
+carpeta**: la AC hizo doble clic en «Enviar», o reenvió el mismo proceso dos veces, y las
+dos ejecuciones intentaron crear el mismo archivo (o carpeta) al mismo tiempo; la que llega
+segunda encuentra el archivo/carpeta que la otra ya creó y `Crear archivo` responde 400 en
+vez de sobrescribir. Encaja con que solo fallan 1–2 de 9 iteraciones y con nombres que no
+tienen nada raro (`Respuesta Darwin Tello.pdf`).
+
+Otras causas posibles del mismo 400, cuando el archivo NO llegó a crearse:
 
 1. **El nombre del archivo.** SharePoint/OneDrive rechaza `" * : < > ? / \ |`, los nombres
    que empiezan o terminan en espacio o punto, y las rutas de más de ~400 caracteres.
 2. **Dos adjuntos con el mismo nombre** en el mismo envío (el segundo choca con el primero).
-3. **El peso.** Todo va en un solo JSON y en base64 (~33% más que el archivo real); un
-   adjunto muy grande hace que el contenido llegue cortado y el archivo no se pueda abrir.
+3. **El peso.** Todo va en un solo JSON y en base64 (~33% más que el archivo real); el
+   disparador HTTP admite ~100 MB de petición, así que un adjunto muy grande la hace fallar
+   antes de llegar a `Crear archivo`.
 4. **Archivos de 0 KB** (descargas a medias, accesos directos de OneDrive en vez del archivo).
 
-La app ya previene los cuatro casos antes de enviar: limpia el nombre, numera los repetidos
-(`informe.pdf`, `informe_2.pdf`), rechaza los vacíos y limita a `UO_MAX_ARCHIVOS` archivos,
-`UO_MAX_MB` cada uno y `UO_MAX_TOTAL_MB` en total (constantes en `generador/index.html`).
+La app ya previene los casos de nombre/peso/vacío antes de enviar: limpia el nombre, numera
+los repetidos (`informe.pdf`, `informe_2.pdf`), rechaza los vacíos y limita a
+`UO_MAX_ARCHIVOS` archivos / `UO_MAX_MB` por archivo / `UO_MAX_TOTAL_MB` por envío
+(constantes en `generador/index.html`).
 
-Del lado del flujo, conviene además:
+Eso no alcanza para el caso real de este incidente (carrera entre dos ejecuciones del
+flujo): con archivos ya subidos con éxito, el problema no está en lo que sale del
+navegador — el flujo respondió `202` al instante y La Mágica no tiene forma de ver lo que
+pasa después. **El arreglo va del lado del flujo, no de la app:**
 
+- Revisar en el historial de ejecuciones si hay **dos corridas casi simultáneas** para el
+  mismo `idEnvio`/proceso (doble clic, doble envío, o un reintento automático de Power
+  Automate sobre una ejecución que ya iba a mitad de camino).
 - Poner **concurrencia 1** en el «Aplicar a cada uno» (escribir en paralelo en la carpeta
-  recién creada provoca fallos intermitentes).
-- Configurar una **directiva de reintentos** en «Crear archivo».
-- Decidir qué pasa si el archivo **ya existe** (reenvío del mismo proceso): reemplazar o
-  renombrar, no dejar que falle.
-- Dejar que el flujo **avise por correo a la AC** con el nombre del archivo que falló; hoy
-  el error solo se ve entrando al historial de ejecuciones.
+  provoca justo este tipo de fallo intermitente).
+- Decidir qué hace `Crear archivo` si el archivo **ya existe**: la acción tiene una opción
+  para reemplazar en vez de fallar — conviene activarla, porque un reenvío del mismo
+  proceso (intencional o por doble clic) siempre va a chocar con lo ya subido.
+- Configurar una **directiva de reintentos** en `Crear archivo` además de lo anterior.
+- **Configurar "Ejecutar después" en las acciones posteriores al "Aplicar a cada uno"**
+  (obtener metadatos, crear vínculo, crear tarea, enviar correo) para que corran también
+  si el bucle terminó *con errores*, no solo si terminó en éxito. Hoy, si una sola
+  iteración falla, el bucle completo queda en `ActionFailed` y Power Automate NO ejecuta
+  ninguna de esas acciones — es decir, aunque los archivos sí se suban, no se genera el
+  vínculo, no se crea la tarea y **no se envía el correo** a la Unidad Operativa. La AC ve
+  «✓ Enviado» del lado de La Mágica y cree que el expediente quedó notificado, cuando en
+  realidad nadie del otro lado se enteró. Esto es más urgente que las otras causas: aunque
+  se resuelva la carrera de "Crear archivo", cualquier otro fallo aislado en el bucle va a
+  seguir dejando el proceso en silencio si esto no se corrige.
 
 ## URL pública
 
