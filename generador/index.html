@@ -996,7 +996,50 @@ var FLOW_DOCS_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environmen
 
 // Mapea el tipo de proceso de La Mágica a las opciones del Forms actual de envío.
 function uoTipoForms(){ return D().tipoProceso==='Comparación de precios' ? 'Comparación de precios' : 'Contratación directa'; }
-function uoCarpeta(){ var ar=A(); return metaSafe((ar.siglas||'AP')+'_'+codigoProceso()+'_'+(cur()?cur().nombre:'')); }
+// Límites del envío. El flujo recibe TODO en un solo JSON (los archivos van en
+// base64, que pesa ~33% más que el archivo real), así que un adjunto enorme rompe
+// la petición o llega cortado y la acción «Crear archivo» responde 400.
+var UO_MAX_ARCHIVOS=10, UO_MAX_MB=25, UO_MAX_TOTAL_MB=45;
+// Carpeta destino. El código del proceso YA empieza con las siglas del área
+// (RVSMCP-2026-062), por eso no se vuelven a anteponer: antes salía
+// «RVSMCP_RVSMCP-2026-062_...». Se recorta para no pasarse del límite de ruta.
+function uoCarpeta(){
+  var ar=A(), sg=ar.siglas||'AP', cp=codigoProceso();
+  var base = (cp && cp!=='\u2014') ? (cp.indexOf(sg)===0 ? cp : sg+'_'+cp) : sg;
+  var n=metaSafe(base+'_'+(cur()?cur().nombre:''));
+  return n.length>100 ? n.slice(0,100).replace(/[._]+$/,'') : n;
+}
+// Nombre de archivo que SharePoint/OneDrive acepta sin discutir. La acción
+// «Crear archivo» del flujo devuelve BadRequest 400 («No se puede abrir el
+// archivo …») cuando el nombre trae caracteres prohibidos, empieza o termina en
+// espacio o punto, o cuando la ruta completa se pasa de largo. Se limpia aquí,
+// antes de enviar, porque el flujo responde 202 al instante y la AC nunca ve el
+// error: aparece después, en la ejecución del flujo.
+function docSafe(nombre){
+  var s=String(nombre||'').replace(/[\u0000-\u001F\u007F]/g,'');
+  s=s.replace(/[\\/:*?"<>|#%{}~&]/g,'-').replace(/\s+/g,' ').trim();
+  var i=s.lastIndexOf('.'), base=(i>0?s.slice(0,i):s), ext=(i>0?s.slice(i+1):'');
+  base=base.replace(/^[.\s]+/,'').replace(/[.\s]+$/,'');
+  ext=ext.replace(/[^A-Za-z0-9]/g,'').slice(0,10).toLowerCase();
+  if(!base) base='archivo';
+  if(base.length>90) base=base.slice(0,90).replace(/[.\s]+$/,'');
+  return ext ? base+'.'+ext : base;
+}
+// Dos adjuntos con el mismo nombre chocan en la misma carpeta: el segundo falla.
+// Se numeran antes de salir (informe.pdf, informe_2.pdf…).
+function uoNombresUnicos(files){
+  var usados={}, out=[];
+  for(var i=0;i<files.length;i++){
+    var n=docSafe(files[i].name), k=n.toLowerCase();
+    if(usados[k]){
+      var p=n.lastIndexOf('.'), b=(p>0?n.slice(0,p):n), e=(p>0?n.slice(p):''), c=usados[k];
+      do{ c++; n=b+'_'+c+e; } while(usados[n.toLowerCase()]);
+      usados[k]=c; usados[n.toLowerCase()]=1;
+    } else usados[k]=1;
+    out.push(n);
+  }
+  return out;
+}
 function fileToB64(file){ return new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){ res(String(fr.result).split(',')[1]||''); }; fr.onerror=function(){ rej(fr.error||new Error('lectura')); }; fr.readAsDataURL(file); }); }
 
 function renderUnidad(){
@@ -1021,7 +1064,7 @@ function renderUnidad(){
      +"<div style='margin-top:16px'><label class='fl'>Observaciones (opcional)</label><textarea class='inp' id='uoObs' rows='2' placeholder='Notas para la Unidad Operativa'></textarea></div>"
      +"<div style='margin-top:16px'><label class='fl'>Adjunte los archivos del proceso</label>"
        +"<input type='file' id='uoFiles' multiple accept='.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,image/*,video/*,audio/*' style='display:block;width:100%;padding:10px;border:1.5px dashed #C7D0EC;border-radius:9px;background:#F7F8FC' onchange='uoListFiles()'>"
-       +"<div class='help'>Hasta 10 archivos, 100 MB cada uno. Word, Excel, PPT, PDF, imagen, video o audio.</div>"
+       +"<div class='help'>Hasta "+UO_MAX_ARCHIVOS+" archivos, "+UO_MAX_MB+" MB cada uno y "+UO_MAX_TOTAL_MB+" MB en total. Word, Excel, PPT, PDF, imagen, video o audio. Si un nombre trae caracteres que SharePoint no acepta, se corrige solo antes de enviar.</div>"
        +"<div id='uoFileList' style='margin-top:8px;font-size:13px'><span style='color:#9AA0B2'>Ning\u00fan archivo seleccionado.</span></div>"
      +"</div>"
      +"<div style='margin-top:14px;padding:10px 12px;border-radius:8px;background:#F7F9FD;border:1px dashed #DCE2F7;color:#00249C;font-weight:600;font-size:13px'>Carpeta sugerida en SharePoint/OneDrive: "+esc(uoCarpeta())+"</div>"
@@ -1035,9 +1078,17 @@ function uoListFiles(){
   if(!el||!box) return;
   var fs=el.files;
   if(!fs||!fs.length){ box.innerHTML="<span style='color:#9AA0B2'>Ning\u00fan archivo seleccionado.</span>"; return; }
-  var total=0,rows='';
-  for(var i=0;i<fs.length;i++){ total+=fs[i].size; rows+="<div style='display:flex;justify-content:space-between;gap:10px;padding:4px 0'><span style='color:#0B153F'>"+esc(fs[i].name)+"</span><span style='color:#9AA0B2'>"+(Math.round(fs[i].size/1024))+" KB</span></div>"; }
-  box.innerHTML=rows+"<div style='border-top:1px solid #EAEDF5;margin-top:6px;padding-top:6px;font-weight:700;color:#00249C'>"+fs.length+" archivo(s) \u00b7 "+(Math.round(total/1024/1024*10)/10)+" MB</div>";
+  var total=0,rows='',seguros=uoNombresUnicos(fs);
+  for(var i=0;i<fs.length;i++){
+    total+=fs[i].size;
+    var pesa=fs[i].size>UO_MAX_MB*1024*1024, vacio=fs[i].size===0;
+    var nota = vacio ? "<div style='color:#B23B3B;font-size:12px'>Est\u00e1 vac\u00edo (0 KB): el flujo no puede subirlo.</div>"
+             : pesa ? "<div style='color:#B23B3B;font-size:12px'>Supera los "+UO_MAX_MB+" MB.</div>"
+             : (seguros[i]!==fs[i].name ? "<div style='color:#B4690E;font-size:12px'>Se enviar\u00e1 como \u00ab"+esc(seguros[i])+"\u00bb.</div>" : "");
+    rows+="<div style='display:flex;justify-content:space-between;gap:10px;padding:4px 0'><span style='color:#0B153F'>"+esc(fs[i].name)+nota+"</span><span style='color:"+(pesa||vacio?'#B23B3B':'#9AA0B2')+";white-space:nowrap'>"+(Math.round(fs[i].size/1024))+" KB</span></div>";
+  }
+  var mb=Math.round(total/1024/1024*10)/10;
+  box.innerHTML=rows+"<div style='border-top:1px solid #EAEDF5;margin-top:6px;padding-top:6px;font-weight:700;color:"+(total>UO_MAX_TOTAL_MB*1024*1024?'#B23B3B':'#00249C')+"'>"+fs.length+" archivo(s) \u00b7 "+mb+" MB"+(total>UO_MAX_TOTAL_MB*1024*1024?" \u00b7 pasa el l\u00edmite de "+UO_MAX_TOTAL_MB+" MB":"")+"</div>";
 }
 
 function enviarUnidad(){
@@ -1046,8 +1097,14 @@ function enviarUnidad(){
   var filesEl=document.getElementById('uoFiles');
   var files=filesEl?filesEl.files:null;
   if(!files||!files.length){ setS('Adjunta al menos un archivo del proceso.','#B23B3B'); toast('Adjunta al menos un archivo del proceso.'); return; }
-  if(files.length>10){ setS('El l\u00edmite es de 10 archivos por env\u00edo.','#B23B3B'); toast('M\u00e1ximo 10 archivos.'); return; }
-  for(var k=0;k<files.length;k++){ if(files[k].size>100*1024*1024){ setS('El archivo \u00ab'+files[k].name+'\u00bb supera los 100 MB.','#B23B3B'); toast('Un archivo supera los 100 MB.'); return; } }
+  if(files.length>UO_MAX_ARCHIVOS){ setS('El l\u00edmite es de '+UO_MAX_ARCHIVOS+' archivos por env\u00edo.','#B23B3B'); toast('M\u00e1ximo '+UO_MAX_ARCHIVOS+' archivos.'); return; }
+  var pesoTotal=0;
+  for(var k=0;k<files.length;k++){
+    pesoTotal+=files[k].size;
+    if(files[k].size===0){ setS('El archivo \u00ab'+files[k].name+'\u00bb est\u00e1 vac\u00edo (0 KB). Vuelve a guardarlo o descargarlo y adj\u00fantalo de nuevo.','#B23B3B'); toast('Hay un archivo vac\u00edo.'); return; }
+    if(files[k].size>UO_MAX_MB*1024*1024){ setS('El archivo \u00ab'+files[k].name+'\u00bb supera los '+UO_MAX_MB+' MB. Comprime el PDF o s\u00fabelo directo a la carpeta del proceso.','#B23B3B'); toast('Un archivo supera los '+UO_MAX_MB+' MB.'); return; }
+  }
+  if(pesoTotal>UO_MAX_TOTAL_MB*1024*1024){ setS('Los adjuntos suman '+(Math.round(pesoTotal/1024/1024*10)/10)+' MB y el env\u00edo admite hasta '+UO_MAX_TOTAL_MB+' MB. Manda los pesados en un segundo env\u00edo.','#B23B3B'); toast('El env\u00edo pasa de '+UO_MAX_TOTAL_MB+' MB.'); return; }
   var val=function(id){ var e=document.getElementById(id); return e?String(e.value).trim():''; };
   var meta={
     idEnvio:(cur()?cur().id:'')+'|'+new Date().toISOString(),
@@ -1060,7 +1117,8 @@ function enviarUnidad(){
   };
   setS('Preparando '+files.length+' archivo(s)\u2026','#00249C');
   var arr=[]; for(var i=0;i<files.length;i++) arr.push(files[i]);
-  Promise.all(arr.map(function(fl){ return fileToB64(fl).then(function(b){ return {nombre:fl.name, tipo:fl.type||'application/octet-stream', tamanio:fl.size, contenido:b}; }); }))
+  var seguros=uoNombresUnicos(arr);
+  Promise.all(arr.map(function(fl,ix){ return fileToB64(fl).then(function(b){ return {nombre:seguros[ix], nombreOriginal:fl.name, tipo:fl.type||'application/octet-stream', tamanio:fl.size, contenido:b}; }); }))
   .then(function(archivos){
     var payload=Object.assign({},meta,{archivos:archivos});
     if(!FLOW_DOCS_URL){
@@ -1071,7 +1129,7 @@ function enviarUnidad(){
     }
     setS('Enviando a la Unidad Operativa\u2026','#00249C');
     fetch(FLOW_DOCS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return true; })
+      .then(function(r){ if(r.ok) return true; return r.text().catch(function(){return '';}).then(function(t){ throw new Error('HTTP '+r.status+(t?' \u00b7 '+String(t).slice(0,180):'')); }); })
       .then(function(){ setS('\u2713 Enviado a la Unidad Operativa. Se subieron '+archivos.length+' archivo(s) para su revisi\u00f3n.','#1E7A4D'); toast('Proceso enviado a la Unidad Operativa.'); })
       .catch(function(e){ setS('No se pudo enviar ('+((e&&e.message)||'error')+'). Revisa la URL del flujo o tu conexi\u00f3n e int\u00e9ntalo de nuevo.','#B23B3B'); toast('No se pudo enviar el proceso.'); });
   })
@@ -1120,7 +1178,7 @@ function recordHistorial(){
   c.cierreRegistrado=true; save();
   return e;
 }
-function metaSafe(s){return String(s||'').replace(/[\\/:*?"<>|\s]+/g,'_');}
+function metaSafe(s){return String(s||'').replace(/[\u0000-\u001F\u007F]/g,'').replace(/[\\/:*?"<>|#%{}~&\s]+/g,'_').replace(/^[._]+/,'').replace(/[._]+$/,'')||'sin_nombre';}
 function downloadBlob(text,filename,mime){
   var blob=new Blob([text],{type:mime||'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=filename;document.body.appendChild(a);a.click();

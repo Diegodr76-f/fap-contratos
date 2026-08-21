@@ -148,6 +148,36 @@ publican, tampoco hay nada que robar aunque alguien la esquivara.
   (subida de documentos a revisión). La URL de ese flujo se configura en la constante
   `FLOW_DOCS_URL` dentro de `generador/index.html`.
 
+### Cuando el envío a la Unidad Operativa falla en «Crear archivo» (BadRequest 400)
+
+El flujo responde `202` apenas recibe el JSON, así que la AC ve «Enviado» aunque después
+la acción **Crear archivo** (OneDrive) reviente dentro del «Aplicar a cada uno». El error
+típico es `BadRequest` con el texto *«No se puede abrir el archivo "https://…/<archivo>"»*
+y solo falla en algunas iteraciones: las de los archivos problemáticos.
+
+Causas, en orden de frecuencia:
+
+1. **El nombre del archivo.** SharePoint/OneDrive rechaza `" * : < > ? / \ |`, los nombres
+   que empiezan o terminan en espacio o punto, y las rutas de más de ~400 caracteres.
+2. **Dos adjuntos con el mismo nombre** en el mismo envío (el segundo choca con el primero).
+3. **El peso.** Todo va en un solo JSON y en base64 (~33% más que el archivo real); un
+   adjunto muy grande hace que el contenido llegue cortado y el archivo no se pueda abrir.
+4. **Archivos de 0 KB** (descargas a medias, accesos directos de OneDrive en vez del archivo).
+
+La app ya previene los cuatro casos antes de enviar: limpia el nombre, numera los repetidos
+(`informe.pdf`, `informe_2.pdf`), rechaza los vacíos y limita a `UO_MAX_ARCHIVOS` archivos,
+`UO_MAX_MB` cada uno y `UO_MAX_TOTAL_MB` en total (constantes en `generador/index.html`).
+
+Del lado del flujo, conviene además:
+
+- Poner **concurrencia 1** en el «Aplicar a cada uno» (escribir en paralelo en la carpeta
+  recién creada provoca fallos intermitentes).
+- Configurar una **directiva de reintentos** en «Crear archivo».
+- Decidir qué pasa si el archivo **ya existe** (reenvío del mismo proceso): reemplazar o
+  renombrar, no dejar que falle.
+- Dejar que el flujo **avise por correo a la AC** con el nombre del archivo que falló; hoy
+  el error solo se ve entrando al historial de ejecuciones.
+
 ## URL pública
 
 Cada herramienta tiene su propio enlace en GitHub Pages:
