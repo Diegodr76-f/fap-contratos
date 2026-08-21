@@ -1000,6 +1000,13 @@ function uoTipoForms(){ return D().tipoProceso==='Comparación de precios' ? 'Co
 // base64, que pesa ~33% más que el archivo real), así que un adjunto enorme rompe
 // la petición o llega cortado y la acción «Crear archivo» responde 400.
 var UO_MAX_ARCHIVOS=10, UO_MAX_MB=25, UO_MAX_TOTAL_MB=45;
+// El botón no se deshabilitaba mientras se preparaba y enviaba el proceso: un
+// segundo clic (impaciencia, o el propio doble clic) disparaba un segundo POST al
+// mismo flujo sobre la misma carpeta —ambas ejecuciones intentan crear los mismos
+// archivos casi al mismo instante y una de las dos pierde con BadRequest 400 en
+// «Crear archivo», aunque el contenido termine subido igual. El historial de
+// ejecuciones del flujo lo confirma: llegan en pares con el mismo minuto exacto.
+var UO_ENVIANDO=false;
 // Carpeta destino. El código del proceso YA empieza con las siglas del área
 // (RVSMCP-2026-062), por eso no se vuelven a anteponer: antes salía
 // «RVSMCP_RVSMCP-2026-062_...». Se recorta para no pasarse del límite de ruta.
@@ -1068,7 +1075,7 @@ function renderUnidad(){
        +"<div id='uoFileList' style='margin-top:8px;font-size:13px'><span style='color:#9AA0B2'>Ning\u00fan archivo seleccionado.</span></div>"
      +"</div>"
      +"<div style='margin-top:14px;padding:10px 12px;border-radius:8px;background:#F7F9FD;border:1px dashed #DCE2F7;color:#00249C;font-weight:600;font-size:13px'>Carpeta sugerida en SharePoint/OneDrive: "+esc(uoCarpeta())+"</div>"
-     +"<button onclick='enviarUnidad()' style='all:unset;cursor:pointer;box-sizing:border-box;width:100%;text-align:center;margin-top:18px;background:#00249C;color:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:10px'>Enviar a la Unidad Operativa</button>"
+     +"<button id='uoBtn' "+(UO_ENVIANDO?"disabled ":"")+"onclick='enviarUnidad()' style='all:unset;cursor:pointer;box-sizing:border-box;width:100%;text-align:center;margin-top:18px;background:"+(UO_ENVIANDO?'#A9B3D6':'#00249C')+";color:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:10px'>"+(UO_ENVIANDO?'Enviando\u2026':'Enviar a la Unidad Operativa')+"</button>"
      +"<p id='uoStatus' style='margin-top:12px;font-weight:700;color:#1E7A4D;font-size:14px' role='status' aria-live='polite'></p>"
    +"</div>";
 }
@@ -1092,8 +1099,10 @@ function uoListFiles(){
 }
 
 function enviarUnidad(){
+  if(UO_ENVIANDO){ toast('Ya se est\u00e1 enviando este proceso; espera a que termine.'); return; }
   var status=document.getElementById('uoStatus');
   var setS=function(t,color){ if(status){ status.textContent=t; status.style.color=color||'#1E7A4D'; } };
+  var lock=function(on){ UO_ENVIANDO=on; var btn=document.getElementById('uoBtn'); if(btn){ btn.disabled=on; btn.textContent=on?'Enviando\u2026':'Enviar a la Unidad Operativa'; btn.style.background=on?'#A9B3D6':'#00249C'; btn.style.cursor=on?'default':'pointer'; } };
   var filesEl=document.getElementById('uoFiles');
   var files=filesEl?filesEl.files:null;
   if(!files||!files.length){ setS('Adjunta al menos un archivo del proceso.','#B23B3B'); toast('Adjunta al menos un archivo del proceso.'); return; }
@@ -1115,6 +1124,7 @@ function enviarUnidad(){
     objeto:val('uoObjeto'), observaciones:val('uoObs'),
     nombreCarpeta:uoCarpeta(), fecha:new Date().toISOString()
   };
+  lock(true);
   setS('Preparando '+files.length+' archivo(s)\u2026','#00249C');
   var arr=[]; for(var i=0;i<files.length;i++) arr.push(files[i]);
   var seguros=uoNombresUnicos(arr);
@@ -1123,6 +1133,7 @@ function enviarUnidad(){
     var payload=Object.assign({},meta,{archivos:archivos});
     if(!FLOW_DOCS_URL){
       try{ console.log('Env\u00edo a Unidad Operativa (configura FLOW_DOCS_URL para subirlo):',payload); }catch(e){}
+      lock(false);
       setS('Env\u00edo preparado ('+archivos.length+' archivo(s)). Configura la URL del flujo (FLOW_DOCS_URL) para subirlo a la Unidad Operativa.','#B4690E');
       toast('Env\u00edo preparado. Falta configurar la URL del flujo.');
       return;
@@ -1130,10 +1141,11 @@ function enviarUnidad(){
     setS('Enviando a la Unidad Operativa\u2026','#00249C');
     fetch(FLOW_DOCS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
       .then(function(r){ if(r.ok) return true; return r.text().catch(function(){return '';}).then(function(t){ throw new Error('HTTP '+r.status+(t?' \u00b7 '+String(t).slice(0,180):'')); }); })
-      .then(function(){ setS('\u2713 Enviado a la Unidad Operativa. Se subieron '+archivos.length+' archivo(s) para su revisi\u00f3n.','#1E7A4D'); toast('Proceso enviado a la Unidad Operativa.'); })
-      .catch(function(e){ setS('No se pudo enviar ('+((e&&e.message)||'error')+'). Revisa la URL del flujo o tu conexi\u00f3n e int\u00e9ntalo de nuevo.','#B23B3B'); toast('No se pudo enviar el proceso.'); });
+      .then(function(){ setS('\u2713 Enviado a la Unidad Operativa. Se subieron '+archivos.length+' archivo(s) para su revisi\u00f3n. No lo reenv\u00edes: si falta algo, ll\u00e9gale a la carpeta \u00ab'+meta.nombreCarpeta+'\u00bb.','#1E7A4D'); toast('Proceso enviado a la Unidad Operativa.'); })
+      .catch(function(e){ setS('No se pudo enviar ('+((e&&e.message)||'error')+'). Revisa la URL del flujo o tu conexi\u00f3n e int\u00e9ntalo de nuevo.','#B23B3B'); toast('No se pudo enviar el proceso.'); })
+      .then(function(){ lock(false); });
   })
-  .catch(function(){ setS('No se pudieron leer los archivos adjuntos.','#B23B3B'); toast('No se pudieron leer los archivos.'); });
+  .catch(function(){ lock(false); setS('No se pudieron leer los archivos adjuntos.','#B23B3B'); toast('No se pudieron leer los archivos.'); });
 }
 
 //===================== HISTORIAL / REGISTRO CENTRAL =====================

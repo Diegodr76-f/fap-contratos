@@ -158,11 +158,19 @@ y solo falla en algunas iteraciones.
 **Ojo:** si al revisar la carpeta en OneDrive el archivo que aparece como fallido SÍ está
 ahí (todos con la misma hora de modificación), el problema no fue subir el contenido —
 la escritura funcionó — sino una **carrera entre dos ejecuciones del flujo sobre la misma
-carpeta**: la AC hizo doble clic en «Enviar», o reenvió el mismo proceso dos veces, y las
-dos ejecuciones intentaron crear el mismo archivo (o carpeta) al mismo tiempo; la que llega
-segunda encuentra el archivo/carpeta que la otra ya creó y `Crear archivo` responde 400 en
-vez de sobrescribir. Encaja con que solo fallan 1–2 de 9 iteraciones y con nombres que no
-tienen nada raro (`Respuesta Darwin Tello.pdf`).
+carpeta**: las dos intentaron crear el mismo archivo (o carpeta) casi al mismo tiempo y la
+que llega segunda encuentra lo que la otra ya creó; `Crear archivo` responde 400 en vez de
+sobrescribir. Encaja con que solo fallan 1–2 de 9 iteraciones y con nombres que no tienen
+nada raro (`Respuesta Darwin Tello.pdf`).
+
+Confirmado con el historial de ejecuciones del flujo: los envíos llegan **en pares con el
+mismo minuto exacto** (dos ejecuciones por cada proceso enviado). La causa está del lado
+del navegador, no del flujo: el botón «Enviar a la Unidad Operativa» no se deshabilitaba
+mientras se preparaban (fileToB64) y enviaban los archivos, así que un segundo clic —
+normal si la AC no ve reacción inmediata en un envío de varios PDFs — disparaba un segundo
+POST completo al mismo flujo. Ya corregido: el botón se deshabilita y cambia a
+«Enviando…» mientras el envío está en curso (`UO_ENVIANDO` en `generador/index.html`), así
+que un segundo clic ya no puede duplicar el envío.
 
 Otras causas posibles del mismo 400, cuando el archivo NO llegó a crearse:
 
@@ -179,19 +187,15 @@ los repetidos (`informe.pdf`, `informe_2.pdf`), rechaza los vacíos y limita a
 `UO_MAX_ARCHIVOS` archivos / `UO_MAX_MB` por archivo / `UO_MAX_TOTAL_MB` por envío
 (constantes en `generador/index.html`).
 
-Eso no alcanza para el caso real de este incidente (carrera entre dos ejecuciones del
-flujo): con archivos ya subidos con éxito, el problema no está en lo que sale del
-navegador — el flujo respondió `202` al instante y La Mágica no tiene forma de ver lo que
-pasa después. **El arreglo va del lado del flujo, no de la app:**
+El bloqueo del botón evita que el navegador *dispare* el segundo envío, pero no protege
+contra un reenvío deliberado del mismo proceso (dos personas, o la misma AC en otra
+pestaña) ni endurece el flujo en sí. Del lado del flujo conviene además:
 
-- Revisar en el historial de ejecuciones si hay **dos corridas casi simultáneas** para el
-  mismo `idEnvio`/proceso (doble clic, doble envío, o un reintento automático de Power
-  Automate sobre una ejecución que ya iba a mitad de camino).
 - Poner **concurrencia 1** en el «Aplicar a cada uno» (escribir en paralelo en la carpeta
-  provoca justo este tipo de fallo intermitente).
+  provoca justo este tipo de fallo intermitente si igual llegan dos ejecuciones).
 - Decidir qué hace `Crear archivo` si el archivo **ya existe**: la acción tiene una opción
-  para reemplazar en vez de fallar — conviene activarla, porque un reenvío del mismo
-  proceso (intencional o por doble clic) siempre va a chocar con lo ya subido.
+  para reemplazar en vez de fallar — conviene activarla, porque cualquier reenvío del
+  mismo proceso siempre va a chocar con lo ya subido.
 - Configurar una **directiva de reintentos** en `Crear archivo` además de lo anterior.
 - **Configurar "Ejecutar después" en las acciones posteriores al "Aplicar a cada uno"**
   (obtener metadatos, crear vínculo, crear tarea, enviar correo) para que corran también
