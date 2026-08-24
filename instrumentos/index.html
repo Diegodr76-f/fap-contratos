@@ -13670,55 +13670,96 @@ const store = {
    Si IndexedDB no está disponible o falla (abierto como file://, navegador
    viejo, cuota también llena ahí), todo sigue guardándose inline como antes:
    nunca queda peor que el comportamiento previo. */
-let idbDB = null, idbOK = true;
+let idbDB = null, idbOK = true, idbAbriendo = null;
+/* Blobs cuya copia en IndexedDB está CONFIRMADA. Solo esos se pueden quitar de
+   localStorage sin riesgo de perderlos. */
+const blobsEnIdb = new Set();
+/* Cada operación se resuelve UNA sola vez: el temporizador de respaldo tiene
+   que quedarse callado si la operación real ya respondió. Con Promise.race a
+   secas el temporizador seguía corriendo igual y, aunque la base hubiera
+   abierto bien, a los 2 s marcaba idbOK=false y todo volvía a guardarse
+   inline en localStorage — o sea la cuota se llenaba igual que antes. */
+function unaVez(fn, ms, valorSiTarda){
+  return new Promise((resolve) => {
+    let listo = false;
+    const acabar = (v) => { if(listo) return; listo = true; resolve(v); };
+    const t = setTimeout(() => acabar(valorSiTarda), ms);
+    try { fn((v) => { clearTimeout(t); acabar(v); }); }
+    catch(e){ clearTimeout(t); acabar(valorSiTarda); }
+  });
+}
 function idbAbrir(){
   if(idbDB) return Promise.resolve(idbDB);
   if(!idbOK) return Promise.resolve(null);
-  return Promise.race([
-    new Promise((resolve) => {
-      if(!window.indexedDB){ idbOK = false; resolve(null); return; }
-      let req;
-      try { req = indexedDB.open('fap_gen_blobs', 1); } catch(e){ idbOK = false; resolve(null); return; }
-      req.onupgradeneeded = () => { try{ req.result.createObjectStore('blobs'); }catch(e){} };
-      req.onsuccess = () => { idbDB = req.result; resolve(idbDB); };
-      req.onerror = () => { idbOK = false; resolve(null); };
-      req.onblocked = () => { idbOK = false; resolve(null); };
-    }),
-    new Promise((resolve) => setTimeout(() => { idbOK = false; resolve(null); }, 2000))
-  ]);
+  // Una sola apertura aunque llamen en paralelo (hidratarBlobsPesados pide
+  // varios blobs a la vez): abrir la misma base N veces se estorba a sí mismo.
+  if(idbAbriendo) return idbAbriendo;
+  idbAbriendo = unaVez((listo) => {
+    if(!window.indexedDB) return listo(null);
+    const req = indexedDB.open('fap_gen_blobs', 1);
+    req.onupgradeneeded = () => { try{ req.result.createObjectStore('blobs'); }catch(e){} };
+    req.onsuccess = () => { idbDB = req.result; listo(idbDB); };
+    req.onerror = () => listo(null);
+    req.onblocked = () => listo(null);
+  }, 8000, null).then((db) => {
+    if(!db) idbOK = false;
+    idbAbriendo = null;
+    return db;
+  });
+  return idbAbriendo;
 }
 async function idbSet(k, v){
   const db = await idbAbrir(); if(!db) return false;
-  return Promise.race([
-    new Promise((resolve) => {
-      try{
-        const tx = db.transaction('blobs', 'readwrite');
-        tx.objectStore('blobs').put(v, k);
-        tx.oncomplete = () => resolve(true);
-        tx.onerror = () => resolve(false);
-      }catch(e){ resolve(false); }
-    }),
-    new Promise((resolve) => setTimeout(() => resolve(false), 4000))
-  ]);
+  return unaVez((listo) => {
+    const tx = db.transaction('blobs', 'readwrite');
+    tx.objectStore('blobs').put(v, k);
+    tx.oncomplete = () => listo(true);
+    tx.onerror = () => listo(false);
+    tx.onabort = () => listo(false);
+  }, 15000, false);
 }
 async function idbGet(k){
   const db = await idbAbrir(); if(!db) return undefined;
-  return Promise.race([
-    new Promise((resolve) => {
-      try{
-        const req = db.transaction('blobs', 'readonly').objectStore('blobs').get(k);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => resolve(undefined);
-      }catch(e){ resolve(undefined); }
-    }),
-    new Promise((resolve) => setTimeout(() => resolve(undefined), 4000))
-  ]);
+  return unaVez((listo) => {
+    const req = db.transaction('blobs', 'readonly').objectStore('blobs').get(k);
+    req.onsuccess = () => listo(req.result);
+    req.onerror = () => listo(undefined);
+  }, 15000, undefined);
 }
 function idbDelete(k){
   idbAbrir().then((db) => {
     if(!db) return;
     try{ db.transaction('blobs', 'readwrite').objectStore('blobs').delete(k); }catch(e){}
   });
+}
+/* Por defecto el navegador considera estos datos «desechables»: si el disco se
+   llena puede borrarlos sin avisar. Esto le pide que los trate como
+   persistentes. En Chrome se concede solo si el sitio está «instalado» o es de
+   uso frecuente; si lo niega no pasa nada malo, solo no gana la protección. */
+async function pedirAlmacenamientoPersistente(){
+  try{
+    if(!navigator.storage || !navigator.storage.persist) return null;
+    if(await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  }catch(e){ return null; }
+}
+/* Cuánto espacio ocupa hoy la biblioteca y cuánto queda, para poder avisar
+   ANTES de que se llene en vez de cuando ya falló un guardado. */
+async function usoDeAlmacenamiento(){
+  // OJO: localStorage guarda en UTF-16, o sea 2 bytes por carácter. Contar
+  // caracteres subestima el consumo a la mitad y el aviso llegaba tarde: una
+  // biblioteca de 3,2 millones de caracteres ocupa 6,4 MB contra el tope de ~5.
+  let lsBytes = 0;
+  try{ for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); lsBytes += 2 * (k.length + (localStorage.getItem(k)||'').length); } }catch(e){}
+  let usage = null, quota = null, persistente = null;
+  try{
+    if(navigator.storage && navigator.storage.estimate){
+      const est = await navigator.storage.estimate();
+      usage = est.usage; quota = est.quota;
+    }
+    if(navigator.storage && navigator.storage.persisted) persistente = await navigator.storage.persisted();
+  }catch(e){}
+  return { lsBytes, lsTope: 5 * 1024 * 1024, usage, quota, persistente, idbOK };
 }
 
 /* ============ Utilidades ============ */
@@ -14411,6 +14452,9 @@ async function cargar(){
   // almacenamiento ya está lleno esa edición podría ni guardarse.
   const hayBlobsSinMigrar = plantillas.some(x => x.tipo === 'docx' && x.archivoB64) || !!membrete.docx;
   await hidratarBlobsPesados();
+  // Con el almacenamiento ya lleno, el primer guardado tiene que salir liviano
+  // o falla: por eso los blobs se empujan a IndexedDB (y se espera) ANTES.
+  if(hayBlobsSinMigrar) await precargarBlobsAIdb();
   if(!p || !cl || !vr || !co || enriquecido || migradoCarpetas || (idbOK && hayBlobsSinMigrar)) guardar();
 }
 /* Trae de vuelta a memoria los .docx que guardar() dejó en IndexedDB (marcados
@@ -14422,22 +14466,28 @@ async function hidratarBlobsPesados(){
       const b = await idbGet('pl_' + p.id);
       // Si por lo que sea IndexedDB no respondió, se deja la marca puesta
       // para reintentarlo en la próxima carga, en vez de darla por perdida.
-      if(b){ p.archivoB64 = b; delete p.archivoEnIdb; }
+      // Al recuperarlo queda confirmado que está a salvo ahí: sin esto, el
+      // siguiente guardado lo volvería a escribir inline en localStorage.
+      if(b){ p.archivoB64 = b; delete p.archivoEnIdb; blobsEnIdb.add(p.id); }
     }
   }));
   if(!membrete.docx && membrete.docxEnIdb){
     const b = await idbGet('membrete_docx');
-    if(b){ membrete.docx = b; delete membrete.docxEnIdb; }
+    if(b){ membrete.docx = b; delete membrete.docxEnIdb; blobsEnIdb.add('membrete'); }
   }
 }
 function guardar(){
   // Los .docx pesados (plantillas Word y el papel membretado) se guardan
   // aparte en IndexedDB; en localStorage solo queda su metadata + una marca.
   // Si IndexedDB no está disponible se guardan inline, igual que siempre.
+  // Solo se saca de localStorage un .docx cuya copia en IndexedDB está
+  // CONFIRMADA (blobsEnIdb). Antes se lanzaba el guardado sin esperar y ya se
+  // quitaba el archivo: si esa escritura fallaba, el Word quedaba solo en
+  // memoria y se perdía al recargar.
   const plantillasLigeras = plantillas.map(p => {
     if(p.tipo !== 'docx' || !p.archivoB64) return p;
-    idbSet('pl_' + p.id, p.archivoB64);
-    if(!idbOK) return p;
+    respaldarBlob('pl_' + p.id, p.id, p.archivoB64);
+    if(!blobsEnIdb.has(p.id)) return p;
     const { archivoB64, ...resto } = p;
     return { ...resto, archivoEnIdb: true };
   });
@@ -14452,11 +14502,39 @@ function guardar(){
   store.set('fap_gen_variables_v2', JSON.stringify(variablesRepo));
   let membreteGuardar = membrete;
   if(membrete.docx){
-    idbSet('membrete_docx', membrete.docx);
-    if(idbOK) membreteGuardar = { ...membrete, docx: '', docxEnIdb: true };
+    respaldarBlob('membrete_docx', 'membrete', membrete.docx);
+    if(blobsEnIdb.has('membrete')) membreteGuardar = { ...membrete, docx: '', docxEnIdb: true };
   }
   store.set('fap_gen_membrete', JSON.stringify(membreteGuardar));
   store.set('fap_gen_concordancias', JSON.stringify(concordancias));
+}
+/* Manda un blob a IndexedDB y, cuando se confirma, vuelve a guardar para que
+   esta vez sí salga de localStorage. Así el primer guardado nunca arriesga el
+   archivo, y en cuanto está a salvo el espacio se libera solo. */
+function respaldarBlob(clave, marca, valor){
+  if(!idbOK || blobsEnIdb.has(marca)) return;
+  idbSet(clave, valor).then((ok) => {
+    if(ok && !blobsEnIdb.has(marca)){ blobsEnIdb.add(marca); reguardarPronto(); }
+  });
+}
+let tReguardar = null;
+function reguardarPronto(){ clearTimeout(tReguardar); tReguardar = setTimeout(guardar, 60); }
+/* Deja el blob a salvo en IndexedDB y solo entonces guarda, para que el
+   guardado ya salga liviano. Se usa al subir un .docx o el papel membretado:
+   son los momentos en que entra de golpe el contenido más pesado. */
+async function guardarTrasRespaldar(marca, clave, valor){
+  if(idbOK && await idbSet(clave, valor)) blobsEnIdb.add(marca);
+  guardar();
+}
+/* Antes del primer guardado, empuja a IndexedDB lo que esté inline y ESPERA.
+   Es lo que permite que, con el almacenamiento ya lleno, el primer guardado
+   escriba la versión liviana y libere espacio en vez de fallar. */
+async function precargarBlobsAIdb(){
+  if(!idbOK) return;
+  await Promise.all(plantillas.filter(p => p.tipo === 'docx' && p.archivoB64).map(async (p) => {
+    if(await idbSet('pl_' + p.id, p.archivoB64)) blobsEnIdb.add(p.id);
+  }));
+  if(membrete.docx && await idbSet('membrete_docx', membrete.docx)) blobsEnIdb.add('membrete');
 }
 /* Primer arranque con este modelo de carpetas: cada "categoría" plana que ya
    existía (Actas, Contratos, Importadas de Word…) se vuelve una carpeta raíz,
@@ -16004,7 +16082,11 @@ function crearPlantillaDesdeDocx(ev){
     catch(e){ alert('El archivo no parece un .docx válido.'); ev.target.value=''; return; }
     const nombre = file.name.replace(/\.docx$/i,'').replace(/[_-]+/g,' ').trim() || 'Plantilla Word';
     const p = { id: uid(), nombre, carpetaId: null, descripcion: '', actualizado: hoy(), tipo:'docx', archivoB64: b64 };
-    plantillas.unshift(p); guardar();
+    plantillas.unshift(p);
+    // El .docx va primero a IndexedDB y SE ESPERA: así el guardado que sigue ya
+    // escribe la versión liviana. Sin esto, el primer guardado metía el archivo
+    // entero en localStorage y podía llenar la cuota justo al subir la plantilla.
+    guardarTrasRespaldar(p.id, 'pl_' + p.id, b64);
     seleccion = p.id; datosForm = {}; condForm = {}; listasForm = {}; tabActual = 'editar';
     renderCats(); renderLista(); renderTabs(); renderContenido();
   };
@@ -16025,7 +16107,10 @@ function subirVersionDocx(ev){
     try{ new PizZip(b64ABytes(b64)); }
     catch(e){ alert('El archivo no parece un .docx válido.'); ev.target.value=''; return; }
     p.archivoB64 = b64; delete p.seedKey; delete cacheEstructura[p.id];
-    p.actualizado = hoy(); guardar(); renderContenido();
+    // La versión nueva reemplaza a la anterior en IndexedDB antes de guardar.
+    blobsEnIdb.delete(p.id);
+    p.actualizado = hoy();
+    guardarTrasRespaldar(p.id, 'pl_' + p.id, b64).then(renderContenido);
   };
   reader.readAsDataURL(file);
   ev.target.value = '';
@@ -16561,8 +16646,10 @@ function cargarPapelDocx(ev){
   reader.onload = () => {
     const b64 = String(reader.result).split(',')[1] || '';
     membrete.docx = b64; membrete.docxNombre = file.name.replace(/\.docx$/i,'');
-    papelLogosCache = null; guardar();
-    abrirMembrete();   // re-render del modal con el nuevo papel
+    papelLogosCache = null;
+    blobsEnIdb.delete('membrete');
+    guardarTrasRespaldar('membrete', 'membrete_docx', b64)
+      .then(() => abrirMembrete());   // re-render del modal con el nuevo papel
   };
   reader.readAsDataURL(file);
   ev.target.value = '';
@@ -17978,7 +18065,36 @@ document.addEventListener('selectionchange', () => {
   renderLista();
   renderContenido();
   cargarRegistro();
+  pedirAlmacenamientoPersistente();
+  avisarSiAlmacenamientoApretado();
 })();
+/* Avisa CUANDO SE ESTÁ LLENANDO, no cuando ya falló un guardado: el aviso de
+   cuota llena llega tarde, con cambios ya perdidos. Aquí se mira el uso real
+   y se avisa con margen, recomendando la única acción que de verdad protege:
+   exportar la biblioteca. */
+async function avisarSiAlmacenamientoApretado(){
+  const u = await usoDeAlmacenamiento();
+  const av = document.getElementById('aviso-storage');
+  if(!av) return;
+  const mb = (n) => (n / 1024 / 1024).toFixed(1) + ' MB';
+  const pctLS = u.lsBytes / u.lsTope;
+  // Si IndexedDB no está disponible, todo el peso cae en localStorage (~5 MB)
+  // y el margen se acaba rápido: ahí el aviso importa mucho más.
+  if(!u.idbOK && pctLS > 0.6){
+    av.style.display = 'block';
+    av.innerHTML = `⚠ <b>Poco espacio de guardado</b> (${mb(u.lsBytes)} de ~5 MB usados, y este navegador no permite el almacén grande). Haz <b>Exportar biblioteca</b> y elimina plantillas Word que no uses.`;
+    return;
+  }
+  if(pctLS > 0.8){
+    av.style.display = 'block';
+    av.innerHTML = `⚠ <b>El guardado rápido está casi lleno</b> (${mb(u.lsBytes)} de ~5 MB). Haz <b>Exportar biblioteca</b> como respaldo; si el aviso persiste, avísame para revisar qué lo está ocupando.`;
+    return;
+  }
+  if(u.usage && u.quota && u.usage / u.quota > 0.85){
+    av.style.display = 'block';
+    av.innerHTML = `⚠ <b>Queda poco espacio en el navegador</b> (${mb(u.usage)} de ${mb(u.quota)}). Haz <b>Exportar biblioteca</b> y libera espacio en el disco.`;
+  }
+}
 
 </script>
 </body>
