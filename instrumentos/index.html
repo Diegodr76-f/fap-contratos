@@ -13659,6 +13659,68 @@ const store = {
   }
 };
 
+/* ============ Blobs pesados (IndexedDB) ============
+   localStorage tiene un tope de unos 5-10 MB por origen; una biblioteca con
+   varias plantillas Word (cada .docx en base64, con logos y membretes) lo
+   llena rápido, y a partir de ahí los cambios dejan de guardarse EN SILENCIO
+   más allá del aviso de arriba. IndexedDB no tiene ese techo (cientos de MB,
+   ligado al disco disponible), así que los .docx pesados —cada plantilla
+   Word y el papel membretado— se guardan ahí; lo liviano (metadatos,
+   cláusulas, variables…) se queda en localStorage como siempre.
+   Si IndexedDB no está disponible o falla (abierto como file://, navegador
+   viejo, cuota también llena ahí), todo sigue guardándose inline como antes:
+   nunca queda peor que el comportamiento previo. */
+let idbDB = null, idbOK = true;
+function idbAbrir(){
+  if(idbDB) return Promise.resolve(idbDB);
+  if(!idbOK) return Promise.resolve(null);
+  return Promise.race([
+    new Promise((resolve) => {
+      if(!window.indexedDB){ idbOK = false; resolve(null); return; }
+      let req;
+      try { req = indexedDB.open('fap_gen_blobs', 1); } catch(e){ idbOK = false; resolve(null); return; }
+      req.onupgradeneeded = () => { try{ req.result.createObjectStore('blobs'); }catch(e){} };
+      req.onsuccess = () => { idbDB = req.result; resolve(idbDB); };
+      req.onerror = () => { idbOK = false; resolve(null); };
+      req.onblocked = () => { idbOK = false; resolve(null); };
+    }),
+    new Promise((resolve) => setTimeout(() => { idbOK = false; resolve(null); }, 2000))
+  ]);
+}
+async function idbSet(k, v){
+  const db = await idbAbrir(); if(!db) return false;
+  return Promise.race([
+    new Promise((resolve) => {
+      try{
+        const tx = db.transaction('blobs', 'readwrite');
+        tx.objectStore('blobs').put(v, k);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      }catch(e){ resolve(false); }
+    }),
+    new Promise((resolve) => setTimeout(() => resolve(false), 4000))
+  ]);
+}
+async function idbGet(k){
+  const db = await idbAbrir(); if(!db) return undefined;
+  return Promise.race([
+    new Promise((resolve) => {
+      try{
+        const req = db.transaction('blobs', 'readonly').objectStore('blobs').get(k);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(undefined);
+      }catch(e){ resolve(undefined); }
+    }),
+    new Promise((resolve) => setTimeout(() => resolve(undefined), 4000))
+  ]);
+}
+function idbDelete(k){
+  idbAbrir().then((db) => {
+    if(!db) return;
+    try{ db.transaction('blobs', 'readwrite').objectStore('blobs').delete(k); }catch(e){}
+  });
+}
+
 /* ============ Utilidades ============ */
 const uid = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const hoy = () => new Date().toISOString().slice(0,10);
@@ -14284,7 +14346,13 @@ let varianteSel = null;
 let insertTarget = null;
 let repoFiltro = '';
 
-function cargar(){
+async function cargar(){
+  // Resuelve si IndexedDB funciona ANTES de que nada llame a guardar(): esa
+  // llamada decide si un .docx se puede sacar de localStorage confiando en
+  // que ya quedó a salvo en IndexedDB, y si idbOK todavía no se sabe con
+  // certeza (sigue en su valor inicial) se arriesgaría a perderlo sin que
+  // haya quedado guardado en ningún lado.
+  await idbAbrir();
   // Claves _v2: las semillas cambiaron a los nombres canónicos del Catálogo de
   // Tags FAP, así que se re-siembran aunque exista una biblioteca anterior.
   const p = store.get('fap_gen_plantillas_v2');
@@ -14337,10 +14405,43 @@ function cargar(){
   // colapsadas por defecto para que un árbol grande no se vuelva inmanejable.
   abiertasPl = new Set(carpetas.filter(f => !f.padreId).map(f => f.id));
   abiertasCl = new Set(carpetasClausulas.filter(f => !f.padreId).map(f => f.id));
-  if(!p || !cl || !vr || !co || enriquecido || migradoCarpetas) guardar();
+  // Si algún .docx quedó en localStorage con el formato de antes de moverlos a
+  // IndexedDB (archivoB64/docx inline, sin la marca ...EnIdb), este es el
+  // momento de sacarlo de ahí: no esperar a la próxima edición, porque si el
+  // almacenamiento ya está lleno esa edición podría ni guardarse.
+  const hayBlobsSinMigrar = plantillas.some(x => x.tipo === 'docx' && x.archivoB64) || !!membrete.docx;
+  await hidratarBlobsPesados();
+  if(!p || !cl || !vr || !co || enriquecido || migradoCarpetas || (idbOK && hayBlobsSinMigrar)) guardar();
+}
+/* Trae de vuelta a memoria los .docx que guardar() dejó en IndexedDB (marcados
+   con archivoEnIdb/docxEnIdb) para que el resto del código los use exactamente
+   igual que siempre — nada más que lee p.archivoB64 o membrete.docx cambia. */
+async function hidratarBlobsPesados(){
+  await Promise.all(plantillas.map(async p => {
+    if(p.tipo === 'docx' && !p.archivoB64 && p.archivoEnIdb){
+      const b = await idbGet('pl_' + p.id);
+      // Si por lo que sea IndexedDB no respondió, se deja la marca puesta
+      // para reintentarlo en la próxima carga, en vez de darla por perdida.
+      if(b){ p.archivoB64 = b; delete p.archivoEnIdb; }
+    }
+  }));
+  if(!membrete.docx && membrete.docxEnIdb){
+    const b = await idbGet('membrete_docx');
+    if(b){ membrete.docx = b; delete membrete.docxEnIdb; }
+  }
 }
 function guardar(){
-  store.set('fap_gen_plantillas_v2', JSON.stringify(plantillas));
+  // Los .docx pesados (plantillas Word y el papel membretado) se guardan
+  // aparte en IndexedDB; en localStorage solo queda su metadata + una marca.
+  // Si IndexedDB no está disponible se guardan inline, igual que siempre.
+  const plantillasLigeras = plantillas.map(p => {
+    if(p.tipo !== 'docx' || !p.archivoB64) return p;
+    idbSet('pl_' + p.id, p.archivoB64);
+    if(!idbOK) return p;
+    const { archivoB64, ...resto } = p;
+    return { ...resto, archivoEnIdb: true };
+  });
+  store.set('fap_gen_plantillas_v2', JSON.stringify(plantillasLigeras));
   store.set('fap_gen_carpetas_v1', JSON.stringify(carpetas));
   store.set('fap_gen_historial', JSON.stringify(historial));
   store.set('fap_gen_contrapartes', JSON.stringify(contrapartes));
@@ -14349,7 +14450,12 @@ function guardar(){
   store.set('fap_gen_clausulas_v2', JSON.stringify(clausulas));
   store.set('fap_gen_carpetas_cl_v1', JSON.stringify(carpetasClausulas));
   store.set('fap_gen_variables_v2', JSON.stringify(variablesRepo));
-  store.set('fap_gen_membrete', JSON.stringify(membrete));
+  let membreteGuardar = membrete;
+  if(membrete.docx){
+    idbSet('membrete_docx', membrete.docx);
+    if(idbOK) membreteGuardar = { ...membrete, docx: '', docxEnIdb: true };
+  }
+  store.set('fap_gen_membrete', JSON.stringify(membreteGuardar));
   store.set('fap_gen_concordancias', JSON.stringify(concordancias));
 }
 /* Primer arranque con este modelo de carpetas: cada "categoría" plana que ya
@@ -17702,6 +17808,7 @@ function eliminarPlantilla(){
   const p = plActual(); if(!p) return;
   if(!confirm(`¿Eliminar la plantilla «${p.nombre}»? Esta acción no se puede deshacer.`)) return;
   plantillas = plantillas.filter(x => x.id !== p.id);
+  if(p.tipo === 'docx') idbDelete('pl_' + p.id);   // que no quede el .docx huérfano en IndexedDB
   seleccion = null; guardar();
   renderCats(); renderLista(); renderContenido();
 }
@@ -17798,6 +17905,9 @@ function importarBiblioteca(ev){
             data.concordancias.forEach(g => { if(!cnom.has(g.nombre)){ g.id = uid(); concordancias.push(g); registrarTagsConcordancia(g); } });
           }
         } else {
+          // Reemplazo total: los .docx de la biblioteca vieja quedarían
+          // huérfanos en IndexedDB si no se limpian antes de perder sus ids.
+          plantillas.forEach(x => { if(x.tipo === 'docx') idbDelete('pl_' + x.id); });
           plantillas = data.plantillas;
           // Exportaciones anteriores a la v6 no traen el árbol de carpetas: se
           // reconstruye a partir de las categorías si las hay, y sanearCarpetas()
@@ -17861,12 +17971,14 @@ document.addEventListener('selectionchange', () => {
 });
 
 /* ============ Inicio ============ */
-cargar();
-if(store.get('fap_gen_aside_oculto') === '1') document.body.classList.add('aside-oculto');
-renderCats();
-renderLista();
-renderContenido();
-cargarRegistro();
+(async () => {
+  await cargar();   // espera a traer de vuelta los .docx guardados en IndexedDB
+  if(store.get('fap_gen_aside_oculto') === '1') document.body.classList.add('aside-oculto');
+  renderCats();
+  renderLista();
+  renderContenido();
+  cargarRegistro();
+})();
 
 </script>
 </body>
