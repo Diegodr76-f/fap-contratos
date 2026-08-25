@@ -1404,6 +1404,7 @@ async function generarActaWord(){
       m1nom:mName(0), m2nom:mName(1), m3nom:mName(2), m4nom:mName(3),
       votM:votM.map(miembroDatos), sinVoto:sinVoto.map(miembroDatos),
       provs: ofs.map(o=>({razon:o.nombre||'', fof:o.fechaEntrega||'', hof:o.horaEntrega||''})),
+      docsGate: S.docModo!=='puntos',
       docs: S.docModo==='puntos' ? [] : reqDocList().map((r,i)=>({formulario:'Formulario '+(i+1), detalle:r.nombre.replace(/^Formulario\s*\d+\s*[—-]\s*/,''), res:(docsOf.gatesDoc||{})[r.id]===true?'cumple':(docsOf.gatesDoc||{})[r.id]===false?'no cumple':'—'})),
       tecOfs: ofs.map(o=>({razon:o.nombre||'', rows:filas(o), t1:memTot(o,0),t2:memTot(o,1),t3:memTot(o,2),t4:memTot(o,3),
         tecMax:fNum(tecMaxTotal()), tecProm:fNum(o._tec||0),
