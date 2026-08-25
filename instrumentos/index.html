@@ -13644,9 +13644,20 @@ let storageOK = true;
 try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); }
 catch(e){ storageOK = false; document.getElementById('aviso-storage').style.display='block'; }
 let avisoQuotaDado = false;
+/* Cuando IndexedDB está disponible, la biblioteca entera vive ahí y
+   localStorage no se usa. Importa porque localStorage es un espacio de ~5 MB
+   COMPARTIDO por todas las páginas del mismo sitio: La Mágica sola guarda sus
+   15 plantillas Word (~3,6 MB) en ese mismo cajón, así que aunque esta
+   herramienta esté ordenada, entre las dos lo llenaban. En IndexedDB hay
+   cientos de MB y cada quien cabe de sobra. */
+let usarIdbParaTodo = false;
 const store = {
-  get(k){ try { return storageOK ? localStorage.getItem(k) : (memStore[k]||null); } catch(e){ return memStore[k]||null; } },
+  get(k){
+    if(usarIdbParaTodo) return (k in memStore) ? memStore[k] : null;
+    try { return storageOK ? localStorage.getItem(k) : (memStore[k]||null); } catch(e){ return memStore[k]||null; }
+  },
   set(k,v){
+    if(usarIdbParaTodo){ memStore[k] = v; programarGuardadoIdb(); return; }
     try { if(storageOK) localStorage.setItem(k,v); else memStore[k]=v; }
     catch(e){
       // Cuota llena (demasiadas plantillas Word en base64): sin este aviso el
@@ -13731,6 +13742,45 @@ function idbDelete(k){
     if(!db) return;
     try{ db.transaction('blobs', 'readwrite').objectStore('blobs').delete(k); }catch(e){}
   });
+}
+/* Pasa toda la biblioteca a IndexedDB y libera el espacio compartido de
+   localStorage. Se llama al arrancar, antes de leer nada. */
+async function prepararAlmacen(){
+  const db = await idbAbrir();
+  if(!db) return;                       // sin IndexedDB: todo sigue como siempre
+  const guardado = await idbGet('estado');
+  if(guardado && typeof guardado === 'object'){
+    Object.assign(memStore, guardado);
+  } else {
+    // Primera vez con este modo: se toma lo que haya en localStorage.
+    try{
+      for(let i = 0; i < localStorage.length; i++){
+        const k = localStorage.key(i);
+        if(k && k.startsWith('fap_gen_')) memStore[k] = localStorage.getItem(k);
+      }
+    }catch(e){}
+  }
+  usarIdbParaTodo = true;
+  programarGuardadoIdb();
+}
+let tGuardadoIdb = null;
+function programarGuardadoIdb(){
+  clearTimeout(tGuardadoIdb);
+  tGuardadoIdb = setTimeout(async () => {
+    // Solo se sueltan las claves de localStorage cuando la copia en IndexedDB
+    // está CONFIRMADA; si falla, se quedan donde estaban.
+    if(await idbSet('estado', { ...memStore })) soltarClavesDeLocalStorage();
+  }, 200);
+}
+function soltarClavesDeLocalStorage(){
+  try{
+    const claves = [];
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith('fap_gen_')) claves.push(k);
+    }
+    claves.forEach(k => localStorage.removeItem(k));
+  }catch(e){}
 }
 /* Por defecto el navegador considera estos datos «desechables»: si el disco se
    llena puede borrarlos sin avisar. Esto le pide que los trate como
@@ -14388,12 +14438,12 @@ let insertTarget = null;
 let repoFiltro = '';
 
 async function cargar(){
-  // Resuelve si IndexedDB funciona ANTES de que nada llame a guardar(): esa
-  // llamada decide si un .docx se puede sacar de localStorage confiando en
-  // que ya quedó a salvo en IndexedDB, y si idbOK todavía no se sabe con
-  // certeza (sigue en su valor inicial) se arriesgaría a perderlo sin que
-  // haya quedado guardado en ningún lado.
-  await idbAbrir();
+  // Deja el almacén listo ANTES de leer nada: decide si se usa IndexedDB
+  // (y trae de ahí la biblioteca) o si todo sigue en localStorage. También
+  // resuelve idbOK antes de que nada llame a guardar(), porque ese guardado
+  // decide si un .docx se puede sacar de localStorage confiando en que ya
+  // quedó a salvo en IndexedDB.
+  await prepararAlmacen();
   // Claves _v2: las semillas cambiaron a los nombres canónicos del Catálogo de
   // Tags FAP, así que se re-siembran aunque exista una biblioteca anterior.
   const p = store.get('fap_gen_plantillas_v2');
@@ -18066,7 +18116,10 @@ document.addEventListener('selectionchange', () => {
   renderContenido();
   cargarRegistro();
   pedirAlmacenamientoPersistente();
-  avisarSiAlmacenamientoApretado();
+  // Tras el guardado diferido, que es el que libera localStorage: si no, se
+  // mediría el espacio de antes de la limpieza y el aviso saldría con un
+  // número que ya no es cierto.
+  setTimeout(avisarSiAlmacenamientoApretado, 900);
 })();
 /* Avisa CUANDO SE ESTÁ LLENANDO, no cuando ya falló un guardado: el aviso de
    cuota llena llega tarde, con cambios ya perdidos. Aquí se mira el uso real
@@ -18085,7 +18138,11 @@ async function avisarSiAlmacenamientoApretado(){
     av.innerHTML = `⚠ <b>Poco espacio de guardado</b> (${mb(u.lsBytes)} de ~5 MB usados, y este navegador no permite el almacén grande). Haz <b>Exportar biblioteca</b> y elimina plantillas Word que no uses.`;
     return;
   }
-  if(pctLS > 0.8){
+  // Con IndexedDB en uso, esta herramienta NO ocupa localStorage: lo que haya
+  // ahí es de otra página del mismo sitio (La Mágica guarda ahí sus plantillas
+  // Word). No es problema de esta herramienta ni hay nada que borrar aquí, así
+  // que no se avisa nada: sería una alarma por espacio ajeno, en cada carga.
+  if(!usarIdbParaTodo && pctLS > 0.8){
     av.style.display = 'block';
     av.innerHTML = `⚠ <b>El guardado rápido está casi lleno</b> (${mb(u.lsBytes)} de ~5 MB). Haz <b>Exportar biblioteca</b> como respaldo; si el aviso persiste, avísame para revisar qué lo está ocupando.`;
     return;
