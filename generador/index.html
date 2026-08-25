@@ -66,19 +66,36 @@ function dataDef(){return{
 var ST = { nav:'guia', step:0, cfg:Object.assign({},CFG_DEF), exps:[], curId:null, tpls:{} };
 
 function save(){ try{ localStorage.setItem('fap_v3', JSON.stringify({cfg:ST.cfg,exps:ST.exps,curId:ST.curId})); }catch(e){} }
-function saveTpls(){ try{ localStorage.setItem('fap_tpls', JSON.stringify(ST.tpls)); }catch(e){ toast('No se pudo guardar la plantilla (espacio del navegador lleno).'); } }
+// Solo se guardan las plantillas PROPIAS de la AC (las que subió o reemplazó).
+// Las del seed ya vienen dentro de este mismo archivo y load() las vuelve a
+// poner en cada arranque, así que copiarlas a localStorage era duplicar ~3,5 MB
+// de un espacio de ~5 MB que además se comparte con las otras páginas del
+// sitio: se llenaba solo, y de ahí en adelante no se podía guardar nada más.
+// Borrar una plantilla del seed sigue siendo efímero, igual que antes: load()
+// la repone en la siguiente carga (comportamiento que ya existía).
+function tplsPropias(){
+  var seed=(window.__SEED__&&__SEED__.tpls)||{}, propias={};
+  for(var k in ST.tpls){ if(ST.tpls.hasOwnProperty(k) && ST.tpls[k]!==seed[k]) propias[k]=ST.tpls[k]; }
+  return propias;
+}
+function saveTpls(){ try{ localStorage.setItem('fap_tpls', JSON.stringify(tplsPropias())); }catch(e){ toast('No se pudo guardar la plantilla (espacio del navegador lleno).'); } }
 function load(){
   var hadV3=false,hadTpls=false;
   try{ var r=localStorage.getItem('fap_v3'); if(r){hadV3=true; var o=JSON.parse(r); ST.cfg=Object.assign({},CFG_DEF,o.cfg||{}); ST.exps=o.exps||[]; ST.curId=o.curId||null;} }catch(e){}
   try{ var t=localStorage.getItem('fap_tpls'); if(t){hadTpls=true; ST.tpls=JSON.parse(t)||{};} }catch(e){ ST.tpls={}; }
   if(window.__SEED__){ try{
     if(__SEED__.tpls){
-      if(!hadTpls){ ST.tpls=__SEED__.tpls; saveTpls(); }
+      // COPIA, no referencia: si se asigna el objeto del seed tal cual, subir una
+      // plantilla muta el propio __SEED__ y deja de distinguirse de él, con lo que
+      // la plantilla de la AC no se guardaría y se perdería al recargar.
+      if(!hadTpls){ ST.tpls={}; for(var ks in __SEED__.tpls){ if(__SEED__.tpls.hasOwnProperty(ks)) ST.tpls[ks]=__SEED__.tpls[ks]; } }
       else { // ya hay plantillas guardadas: agrega solo las que falten (ej. nuevas del director), sin pisar las que la AC ya cargó
-        var chg=false;
-        for(var k in __SEED__.tpls){ if(__SEED__.tpls.hasOwnProperty(k) && !ST.tpls[k]){ ST.tpls[k]=__SEED__.tpls[k]; chg=true; } }
-        if(chg) saveTpls();
+        for(var k in __SEED__.tpls){ if(__SEED__.tpls.hasOwnProperty(k) && !ST.tpls[k]) ST.tpls[k]=__SEED__.tpls[k]; }
       }
+      // Siempre se re-guarda dejando solo las propias: para quien ya venía con
+      // el seed duplicado en localStorage, esta llamada es la que libera el
+      // espacio sin que la AC tenga que hacer nada.
+      saveTpls();
     }
     if(!hadV3 && __SEED__.cfg){ST.cfg=Object.assign({},CFG_DEF,__SEED__.cfg); save();}
   }catch(e){} }
