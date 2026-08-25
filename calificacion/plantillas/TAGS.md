@@ -57,7 +57,11 @@ Bucles:
 - **Quórum / firmas** — `{#votM}{nombre}{cargo}{rol}{/votM}` (voz y voto) y
   `{#sinVoto}{nombre}{cargo}{rol}{/sinVoto}` (voz sin voto y Secretaría).
 - **Ofertas recibidas** — `{#provs}{razon}{fof}{hof}{/provs}` (`{fof}` fecha, `{hof}` hora).
-- **Matriz de documentos** — `{#docs}{formulario}{detalle}{res}{/docs}`.
+- **Matriz de documentos** — `{#docs}{formulario}{detalle}{res}{/docs}`. Solo se envían filas
+  cuando el proceso califica los documentos como Cumple/No cumple (panel 2, selector
+  "Documentos habilitantes"). Si se eligió "Con puntaje", `docs` llega vacío — el encabezado
+  fijo "Matriz Cumple o No cumple — entrega de documentos" queda en la plantilla pero sin
+  filas; si molesta visualmente, hay que quitar ese título a mano en Word para ese caso.
 - **Evaluación técnica por oferente** (bloque) — `{#tecOfs}` … `{razon}`, tabla con
   `{#rows}{criterio}{max}{n1}{n2}{n3}{n4}{promedio}{/rows}`, fila total `{t1}{t2}{t3}{t4}`
   `{tecMax}` `{tecProm}`, y `{resultadoTec}` … `{/tecOfs}`.
