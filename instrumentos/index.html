@@ -13772,6 +13772,17 @@ function programarGuardadoIdb(){
     if(await idbSet('estado', { ...memStore })) soltarClavesDeLocalStorage();
   }, 200);
 }
+/* El guardado se difiere 200 ms para no escribir en cada tecla; cerrar la
+   pestaña dentro de esa ventana perdería ese último cambio. Al ocultarse la
+   página se vuelca de inmediato: es el momento que los navegadores garantizan
+   (beforeunload ya no sirve para trabajo asíncrono). */
+function volcarAlmacenAhora(){
+  if(!usarIdbParaTodo) return;
+  clearTimeout(tGuardadoIdb);
+  idbSet('estado', { ...memStore });
+}
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') volcarAlmacenAhora(); });
+window.addEventListener('pagehide', volcarAlmacenAhora);
 function soltarClavesDeLocalStorage(){
   try{
     const claves = [];

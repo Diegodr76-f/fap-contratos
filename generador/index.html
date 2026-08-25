@@ -65,7 +65,107 @@ function dataDef(){return{
 
 var ST = { nav:'guia', step:0, cfg:Object.assign({},CFG_DEF), exps:[], curId:null, tpls:{} };
 
-function save(){ try{ localStorage.setItem('fap_v3', JSON.stringify({cfg:ST.cfg,exps:ST.exps,curId:ST.curId})); }catch(e){} }
+/* ===== Almacenamiento sin techo =====
+   localStorage da ~5 MB por sitio, COMPARTIDOS con las demás páginas. Con eso,
+   los expedientes y el historial acaban topando: es cuestión de tiempo, no de
+   si pasa. IndexedDB no tiene ese límite (cientos de MB), así que todo se
+   guarda ahí y localStorage queda solo como respaldo.
+   Si IndexedDB no está disponible o falla —navegador viejo, modo privado,
+   cualquier cosa—, se sigue usando localStorage exactamente como hasta ahora:
+   nunca queda peor que antes. */
+var MEM = {}, USAR_IDB = false, IDB = null, TGUARDA = null;
+var CLAVES = ['fap_v3','fap_tpls','fap_historial','fap_pendientes'];
+function idbAbrir(){
+  return new Promise(function(res){
+    if(!window.indexedDB) return res(null);
+    var listo=false, fin=function(v){ if(!listo){ listo=true; res(v); } };
+    var t=setTimeout(function(){ fin(null); }, 6000);
+    try{
+      var rq=indexedDB.open('fap_magica',1);
+      rq.onupgradeneeded=function(){ try{ rq.result.createObjectStore('kv'); }catch(e){} };
+      rq.onsuccess=function(){ clearTimeout(t); IDB=rq.result; fin(IDB); };
+      rq.onerror=function(){ clearTimeout(t); fin(null); };
+      rq.onblocked=function(){ clearTimeout(t); fin(null); };
+    }catch(e){ clearTimeout(t); fin(null); }
+  });
+}
+function idbLeer(){
+  return new Promise(function(res){
+    if(!IDB) return res(null);
+    var listo=false, fin=function(v){ if(!listo){ listo=true; res(v); } };
+    var t=setTimeout(function(){ fin(null); }, 6000);
+    try{
+      var rq=IDB.transaction('kv','readonly').objectStore('kv').get('estado');
+      rq.onsuccess=function(){ clearTimeout(t); fin(rq.result||null); };
+      rq.onerror=function(){ clearTimeout(t); fin(null); };
+    }catch(e){ clearTimeout(t); fin(null); }
+  });
+}
+function idbEscribir(obj){
+  return new Promise(function(res){
+    if(!IDB) return res(false);
+    var listo=false, fin=function(v){ if(!listo){ listo=true; res(v); } };
+    var t=setTimeout(function(){ fin(false); }, 10000);
+    try{
+      var tx=IDB.transaction('kv','readwrite');
+      tx.objectStore('kv').put(obj,'estado');
+      tx.oncomplete=function(){ clearTimeout(t); fin(true); };
+      tx.onerror=function(){ clearTimeout(t); fin(false); };
+      tx.onabort=function(){ clearTimeout(t); fin(false); };
+    }catch(e){ clearTimeout(t); fin(false); }
+  });
+}
+function prepararAlmacen(){
+  return idbAbrir().then(function(db){
+    if(!db) return;                       // sin IndexedDB: todo sigue igual que antes
+    return idbLeer().then(function(guardado){
+      if(guardado && typeof guardado==='object'){ for(var k in guardado) if(guardado.hasOwnProperty(k)) MEM[k]=guardado[k]; }
+      else { // primera vez: se toma lo que ya hubiera en localStorage
+        for(var i=0;i<CLAVES.length;i++){ try{ var v=localStorage.getItem(CLAVES[i]); if(v!==null) MEM[CLAVES[i]]=v; }catch(e){} }
+      }
+      USAR_IDB = true;
+      guardarPronto();
+    });
+  }).catch(function(){});
+}
+function guardarPronto(){
+  clearTimeout(TGUARDA);
+  TGUARDA = setTimeout(function(){
+    var copia={}; for(var k in MEM) if(MEM.hasOwnProperty(k)) copia[k]=MEM[k];
+    idbEscribir(copia).then(function(ok){
+      // Las claves se sueltan de localStorage solo con la copia CONFIRMADA
+      if(ok){ for(var i=0;i<CLAVES.length;i++){ try{ localStorage.removeItem(CLAVES[i]); }catch(e){} } }
+    });
+  }, 250);
+}
+// El guardado se difiere 250 ms para no escribir en cada tecla; si la AC cierra
+// la pestaña dentro de esa ventana, ese último cambio se perdería. Al ocultarse
+// la página se vuelca de inmediato, que es el momento que los navegadores
+// garantizan (beforeunload ya no sirve para trabajo asíncrono).
+function flushAlmacen(){
+  if(!USAR_IDB) return;
+  clearTimeout(TGUARDA);
+  var copia={}; for(var k in MEM) if(MEM.hasOwnProperty(k)) copia[k]=MEM[k];
+  idbEscribir(copia);
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') flushAlmacen(); });
+window.addEventListener('pagehide', flushAlmacen);
+function lsGet(k){
+  if(USAR_IDB) return (k in MEM) ? MEM[k] : null;
+  try{ return localStorage.getItem(k); }catch(e){ return (k in MEM)?MEM[k]:null; }
+}
+// Devuelve true si quedó guardado. Antes varios sitios ignoraban el fallo y la
+// AC perdía el trabajo sin enterarse; ahora quien llama puede avisar.
+function lsSet(k,v){
+  if(USAR_IDB){ MEM[k]=v; guardarPronto(); return true; }
+  try{ localStorage.setItem(k,v); return true; }catch(e){ MEM[k]=v; return false; }
+}
+// El guardado de los expedientes fallaba EN SILENCIO (catch vacío): la AC
+// seguía trabajando creyendo que estaba guardado y lo perdía al cerrar.
+function save(){
+  if(!lsSet('fap_v3', JSON.stringify({cfg:ST.cfg,exps:ST.exps,curId:ST.curId})))
+    toast('⚠ No se pudo guardar el proceso (espacio del navegador lleno). Exporta lo que tengas antes de cerrar.');
+}
 // Solo se guardan las plantillas PROPIAS de la AC (las que subió o reemplazó).
 // Las del seed ya vienen dentro de este mismo archivo y load() las vuelve a
 // poner en cada arranque, así que copiarlas a localStorage era duplicar ~3,5 MB
@@ -78,11 +178,11 @@ function tplsPropias(){
   for(var k in ST.tpls){ if(ST.tpls.hasOwnProperty(k) && ST.tpls[k]!==seed[k]) propias[k]=ST.tpls[k]; }
   return propias;
 }
-function saveTpls(){ try{ localStorage.setItem('fap_tpls', JSON.stringify(tplsPropias())); }catch(e){ toast('No se pudo guardar la plantilla (espacio del navegador lleno).'); } }
+function saveTpls(){ if(!lsSet('fap_tpls', JSON.stringify(tplsPropias()))) toast('No se pudo guardar la plantilla (espacio del navegador lleno).'); }
 function load(){
   var hadV3=false,hadTpls=false;
-  try{ var r=localStorage.getItem('fap_v3'); if(r){hadV3=true; var o=JSON.parse(r); ST.cfg=Object.assign({},CFG_DEF,o.cfg||{}); ST.exps=o.exps||[]; ST.curId=o.curId||null;} }catch(e){}
-  try{ var t=localStorage.getItem('fap_tpls'); if(t){hadTpls=true; ST.tpls=JSON.parse(t)||{};} }catch(e){ ST.tpls={}; }
+  try{ var r=lsGet('fap_v3'); if(r){hadV3=true; var o=JSON.parse(r); ST.cfg=Object.assign({},CFG_DEF,o.cfg||{}); ST.exps=o.exps||[]; ST.curId=o.curId||null;} }catch(e){}
+  try{ var t=lsGet('fap_tpls'); if(t){hadTpls=true; ST.tpls=JSON.parse(t)||{};} }catch(e){ ST.tpls={}; }
   if(window.__SEED__){ try{
     if(__SEED__.tpls){
       // COPIA, no referencia: si se asigna el objeto del seed tal cual, subir una
@@ -1063,8 +1163,8 @@ function enviarUnidad(){
 //===================== HISTORIAL / REGISTRO CENTRAL =====================
 // Fuente de verdad local (offline). Se persiste aparte del estado de expedientes.
 var HIST={area:'', desde:'', hasta:''};
-function loadHistorial(){try{var r=localStorage.getItem('fap_historial');return r?(JSON.parse(r)||[]):[];}catch(e){return [];}}
-function saveHistorial(h){try{localStorage.setItem('fap_historial',JSON.stringify(h));}catch(e){toast('No se pudo guardar el historial (espacio del navegador lleno).');}}
+function loadHistorial(){try{var r=lsGet('fap_historial');return r?(JSON.parse(r)||[]):[];}catch(e){return [];}}
+function saveHistorial(h){ if(!lsSet('fap_historial',JSON.stringify(h))) toast('No se pudo guardar el historial (espacio del navegador lleno).'); }
 // Documento de cierre real por tipo de proceso:
 //  · Servicio                 -> Informe de satisfacción (id 'recep', plantilla 10)
 //  · Bien (activo fijo/control)-> Entrega al área         (id 'entrega', plantilla 9 o 13)
@@ -1142,8 +1242,8 @@ function registroPayload(e){
     monto: e.monto||0
   };
 }
-function loadPendientes(){try{var r=localStorage.getItem('fap_pendientes');return r?(JSON.parse(r)||[]):[];}catch(e){return [];}}
-function savePendientes(p){try{localStorage.setItem('fap_pendientes',JSON.stringify(p));}catch(e){}}
+function loadPendientes(){try{var r=lsGet('fap_pendientes');return r?(JSON.parse(r)||[]):[];}catch(e){return [];}}
+function savePendientes(p){ lsSet('fap_pendientes',JSON.stringify(p)); }
 function encolarPendiente(payload){var p=loadPendientes();if(p.length<1000){p.push(payload);savePendientes(p);}}
 function postFlow(payload){
   return fetch(FLOW_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
@@ -1266,7 +1366,8 @@ function addArea(){ST.cfg.areas=areasList();ST.cfg.areas.push({id:'a'+Date.now()
 function delArea(i){var list=areasList();if(list.length<=1){toast('Debe quedar al menos un área.');return;}var a=list[i];if(!a)return;if(!confirm('¿Eliminar el área «'+(a.ap||'sin nombre')+'»? Los procesos que la usaban tomarán la primera área disponible.'))return;list.splice(i,1);save();render();}
 
 //===================== INIT =====================
-load();
-render();
+// Se prepara el almacén (IndexedDB) ANTES de leer nada; si no está disponible,
+// prepararAlmacen() no hace nada y load() lee de localStorage como siempre.
+prepararAlmacen().then(function(){ load(); render(); });
 </script>
 </body></html>
