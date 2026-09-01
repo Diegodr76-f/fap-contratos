@@ -132,6 +132,26 @@ ese navegador); sin ella nadie que encuentre el link ve nada. No es cifrado real
 no una caja fuerte—, pero cumple su función: nadie entra sin la frase, y como las tareas nunca se
 publican, tampoco hay nada que robar aunque alguien la esquivara.
 
+## Plan de renovaciones 2027
+
+**[`plan/PLAN_RENOVACIONES_2027.md`](plan/PLAN_RENOVACIONES_2027.md)** es el plan para renovar o
+volver a contratar, antes de que termine 2026, los servicios recurrentes de las áreas protegidas.
+Nace de una regla del FIAS: un contrato **se renueva una sola vez**, así que 89 de los 128
+contratos activos ya agotaron su cupo y para 2027 tienen que salir como procesos nuevos —más
+lentos y con comisión de calificación—. El plan clasifica cada contrato por su vía (renovación,
+selección directa por excepción o comparación de precios), fija la antelación mínima de la
+solicitud (45 días; 60 en comparación de precios) y reparte los 128 procesos en 13 semanas con un
+cupo de 10, para no repetir el atasco de enero de 2026 (52 % de los envíos del año en un mes, cola
+de 60 procesos, 64 días de mediana de servicio prestado sin contrato firmado).
+
+El anexo operativo —maestro contrato por contrato, calendario, carga por administradora y los 20
+correos de consulta ya redactados— **no se versiona**: el repositorio es público y lleva datos de
+contratos. Se regenera cuando se necesita:
+
+```bash
+python3 scripts/plan_renovaciones.py <Sistema_Alertas_Contratos_FIAS.xlsx> <carpeta_salida>
+```
+
 ## Estructura
 
 - **`/centro/`** — Centro de mando diario, herramienta personal (independiente del resto).

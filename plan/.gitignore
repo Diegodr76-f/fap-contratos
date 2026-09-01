@@ -1,0 +1,6 @@
+# El anexo y los correos llevan números de contrato, proveedores, montos,
+# nombres y correos de las administradoras. El repositorio es público y la
+# política del proyecto es no publicar datos de contratos en claro:
+# se generan con scripts/plan_renovaciones.py y se comparten por fuera.
+Anexo_Renovaciones_*.xlsx
+correos/
