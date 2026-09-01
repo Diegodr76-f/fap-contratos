@@ -134,23 +134,25 @@ publican, tampoco hay nada que robar aunque alguien la esquivara.
 
 ## Plan de renovaciones 2027
 
-**[`plan/PLAN_RENOVACIONES_2027.md`](plan/PLAN_RENOVACIONES_2027.md)** es el plan para dejar listos,
-antes de que termine 2026, los expedientes precontractuales de los servicios recurrentes de las
-áreas protegidas. Nace de una regla del FIAS: un contrato **se renueva una sola vez**, así que 89
-de los 128 contratos activos ya agotaron su cupo y para 2027 tienen que salir como procesos nuevos,
-más lentos y con comisión de calificación.
+**[`plan/PLAN_RENOVACIONES_2027.md`](plan/PLAN_RENOVACIONES_2027.md)** responde, contrato por
+contrato, la pregunta que ordena el año: **¿se puede renovar, o hay que hacer un nuevo proceso
+administrativo?** El FIAS permite renovar una sola vez, así que de los 128 contratos activos de
+servicios recurrentes de áreas protegidas **39 se pueden renovar y 89 no**: esos salen por
+contratación directa, con el criterio de proveedor calificado y recurrencia del servicio.
 
-La meta es el expediente, no la firma: **sin el PAG aprobado no se puede suscribir**, y es el PAG
-el que fija el presupuesto de cada área. Lo que el plan garantiza es que el día que salga el PAG no
-quede ningún documento por hacer. Por eso separa los documentos que no necesitan el monto (bloque 1,
-septiembre a diciembre) de los que sí (bloque 2), clasifica cada contrato por su vía —renovación,
-selección directa por excepción o comparación de precios—, reparte los 128 expedientes en 13
-semanas con un cupo de 10, y proyecta cuántos contratos quedarían firmados a tiempo según la fecha
-en que se apruebe el PAG. Incluye además ocho medidas para bajar los tiempos de revisión, desde
-consolidar instrumentos hasta modelos de contrato pre-aprobados por categoría.
+La meta es el expediente, no la firma. **El PAG se aprueba en promedio hasta el 15 de enero**, y
+sin PAG no se puede suscribir ni pedir una cotización en firme, porque es el PAG el que fija el
+presupuesto de cada área. Por eso el plan separa los documentos que no necesitan el monto (bloque
+1, septiembre a diciembre) de los que sí (bloque 2), reparte los 128 expedientes en 13 semanas con
+un cupo de 10 —el orden no adelanta la firma, pero define el puesto en la fila del 15 de enero en
+adelante— y trae ocho medidas para bajar el tiempo de revisión.
 
-El anexo operativo —maestro contrato por contrato, calendario, carga por administradora,
-instrumentos consolidables, proyección de firma y los 20 correos de consulta ya redactados— **no se
+La simulación, calibrada contra los tiempos reales de 2026, estima cuándo saldría firmado cada
+contrato: con el plan y 13 firmas semanales, la última firma pasa de junio a marzo y la
+retroactividad mediana de 80 a 42 días.
+
+El anexo operativo —maestro contrato por contrato, calendario, carga por administradora, la
+simulación y los 20 correos de consulta ya redactados, cada uno con sus dos listas— **no se
 versiona**: el repositorio es público y lleva datos de contratos. Se regenera cuando se necesita:
 
 ```bash
