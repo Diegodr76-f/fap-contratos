@@ -215,5 +215,14 @@ solo ve un bloque cifrado ilegible.
 - **Rotar la frase:** cambia el valor de `DATA_KEY`, vuelve a cifrar las copias embebidas y avisa la nueva
   frase al equipo.
 
-> Alcance: la frase es compartida por el equipo (no es login por persona). Protege los datos *publicados*
-> de aquí en adelante; el historial de git anterior a esta protección aún contiene versiones en claro.
+> Alcance: la frase es compartida por el equipo (no es login por persona), así que protege contra
+> quien encuentre los archivos, no contra quien tenga la frase.
+>
+> **Historial:** revisado el 2 de septiembre de 2026 commit por commit — ningún commit del
+> repositorio contiene datos de contratos en claro, ni en `contratos_export.json` ni en las copias
+> embebidas. La advertencia anterior sobre versiones en claro en el historial estaba desactualizada.
+>
+> **El punto débil real** es otro: el bloque cifrado es público, así que se puede atacar por fuerza
+> bruta sin conexión y sin que nadie se entere. Los 250 000 ciclos de PBKDF2 encarecen cada intento,
+> pero no salvan una frase corta o predecible. La frase debe ser larga —cuatro o cinco palabras al
+> azar— y conviene rotarla cuando alguien deja el equipo.

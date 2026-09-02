@@ -125,7 +125,7 @@ la primera. Con eso:
 
 - **Nadie transcribe nada.** La AC hace clic, responde cinco preguntas y la fila aparece sola.
 - **No hay ambigüedad de emparejamiento.** El número de contrato viaja en el enlace; no depende de
-  que alguien escriba bien `FIAS-FAP-2026-137`.
+  que alguien escriba bien el número de contrato completo sin una errata.
 - **Se puede medir la cobertura.** En cualquier momento se sabe qué porcentaje del portafolio está
   confirmado y quién falta, sin abrir 20 correos.
 - **No necesita a IT.** Ni conectores premium, ni disparadores HTTP, ni consentimiento de
