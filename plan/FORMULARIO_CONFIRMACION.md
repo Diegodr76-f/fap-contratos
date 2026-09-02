@@ -11,39 +11,62 @@ y sin pedirle nada a IT: **Microsoft Forms, con un enlace propio por contrato**.
 
 | Opción | ¿Sirve con el plan básico? | Por qué se descartó / se eligió |
 |---|---|---|
-| **Forms con enlace prellenado por contrato** | **Sí** | Elegida. Forms viene en el plan; el enlace lleva el número de contrato ya escrito, así que la AC nunca lo teclea y el cruce es exacto |
+| **Forms con enlace prellenado por contrato** | **Sí** | Elegida. Forms viene en el plan; el enlace lleva el número de contrato ya escrito, así que la AC nunca lo teclea y el cruce es exacto. El contexto para decidir —monto del año con adendas, proveedor, vencimiento— va en el propio correo, junto al botón |
 | Microsoft Lists con las 128 filas cargadas | Sí | Buena alternativa si prefieren editar en rejilla. Pero no hay permisos por fila sin premium: todos pueden editar todo |
 | Excel compartido en Teams | Sí | Funciona, pero se rompe: la gente inserta filas, pega formatos y pierde las validaciones |
-| Flujo con disparador HTTP, como los actuales | **No** | Es el que topó con el permiso `service.flow.microsoft.com` y quedó esperando a IT |
+| Página propia en el CLM que escriba por flujo | Sí, técnicamente | Descartada **por plazo**, no por técnica: la ventana de confirmación se cierra en septiembre y no da tiempo a construirla, probarla y enseñarla a 20 personas. La pantalla con contexto se resuelve en el correo |
 | Power Apps / Dataverse | **No** | Premium |
 
 ---
 
-## 1. Crear el formulario
+## 1. Crear los dos formularios
 
-En **forms.office.com → Nuevo formulario**, título *Confirmación de contratos 2027 · FAP*.
+Son **dos**, no uno, y la razón es de fondo: al contrato renovable hay que preguntarle si renueva o
+se va a proceso nuevo; al que ya agotó su cupo, si va por contratación directa o por comparación de
+precios. La ramificación de Forms solo funciona sobre preguntas del propio formulario, y el tipo de
+contrato llega pre-rellenado como texto — así que separarlos es lo único que consigue que cada
+administradora vea únicamente la pregunta que le toca. El correo ya trae las dos listas separadas,
+así que cada botón apunta a su formulario.
 
-Estas once preguntas, **en este orden** (las cuatro primeras las rellena el enlace, la AC no las
-escribe):
+**Las cinco primeras preguntas son iguales en los dos** y las rellena el enlace: la AC no escribe
+ninguna. Conviene ponerles de descripción *«Ya viene rellenado, no lo cambies»*.
 
-| # | Pregunta | Tipo | Opciones | Obligatoria |
-|---|---|---|---|---|
-| 1 | Número de contrato | Texto | — | Sí |
-| 2 | Área protegida | Texto | — | Sí |
-| 3 | Detalle del servicio | Texto | — | No |
-| 4 | Administradora de contrato | Texto | — | No |
-| 5 | ¿Qué corresponde para 2027? | Texto | — | No |
-| 6 | ¿El área necesita mantener este servicio en 2027? | Opción | `Sí, continúa` · `Sí, pero con cambios` · `No, no se requiere` | Sí |
-| 7 | Si continúa, ¿con el mismo proveedor? | Opción | `Sí, el mismo` · `No, hay que cambiar` · `Todavía no se sabe` | No |
-| 8 | Consumo ejecutado 2026 (USD) | Número | — | No |
-| 9 | Monto estimado para 2027 (USD) | Número | — | No |
-| 10 | ¿Este contrato tiene cláusula de renovación? | Opción | `Sí` · `No` · `No lo sé` | No |
-| 11 | Observaciones | Texto largo | — | No |
+| # | Pregunta | Tipo |
+|---|---|---|
+| 1 | Número de contrato | Texto (obligatoria) |
+| 2 | Área protegida | Texto |
+| 3 | Detalle del servicio | Texto |
+| 4 | Administradora de contrato | Texto |
+| 5 | ¿Qué corresponde para 2027? | Texto |
 
-Las preguntas 1 a 5 son las que viajan en el enlace. Conviene ponerles como descripción
-*«Ya viene rellenado, no lo cambies»*.
+### Formulario A — «Renovaciones 2027» (39 contratos)
 
-**Configuración** (⋯ → Configuración):
+| # | Pregunta | Tipo | Opciones |
+|---|---|---|---|
+| 6 | ¿El área necesita mantener este servicio en 2027? | Opción, obligatoria | `Sí, continúa` · `No, ya no se requiere` · `Todavía no se sabe` |
+| 7 | Si continúa, ¿cómo se tramita en 2027? | Opción | `Renovación con el mismo proveedor` · `Proceso nuevo: quiero cambiar de proveedor` |
+| 8 | ¿El contrato original tiene cláusula de renovación? | Opción | `Sí` · `No` · `No lo sé` |
+| 9 | Monto estimado para 2027 (USD) | Número | — |
+| 10 | Observaciones | Texto largo | — |
+
+En la descripción de la 7: *«La renovación solo procede si el contrato original tiene cláusula de
+renovación, y solo se puede usar una vez.»*
+
+### Formulario B — «Procesos nuevos 2027» (89 contratos)
+
+| # | Pregunta | Tipo | Opciones |
+|---|---|---|---|
+| 6 | ¿El área necesita mantener este servicio en 2027? | Opción, obligatoria | `Sí, continúa` · `No, ya no se requiere` · `Todavía no se sabe` |
+| 7 | Si continúa, ¿cómo se tramita en 2027? | Opción | `Contratación directa con el mismo proveedor` · `Comparación de precios: cambio de proveedor` |
+| 8 | Monto estimado para 2027 (USD) | Número | — |
+| 9 | Observaciones | Texto largo | — |
+
+En la descripción de la 7, la advertencia que pediste, con todas sus letras: *«La contratación
+directa se sostiene en que el proveedor ya está calificado y el servicio es recurrente. Si eliges
+comparación de precios hay que invitar a un mínimo de tres proveedores y convocar a la Comisión de
+Calificación: son 40 días de tramitación en vez de 21.»*
+
+**Configuración de los dos** (⋯ → Configuración):
 
 - **Solo pueden responder las personas de mi organización** y **registrar el nombre** — así cada
   respuesta trae el correo de quien la envió y no hay que preguntarlo.
@@ -52,8 +75,8 @@ Las preguntas 1 a 5 son las que viajan en el enlace. Conviene ponerles como desc
 
 ## 2. Sacar el enlace de pre-relleno
 
-En el formulario, **Recopilar respuestas → obtener un vínculo para rellenar previamente las
-respuestas** (en algunas versiones está bajo *Compartir*). Se abre el formulario en blanco: escribe
+En **cada uno de los dos formularios**, **Recopilar respuestas → obtener un vínculo para rellenar
+previamente las respuestas** (en algunas versiones está bajo *Compartir*). Se abre el formulario en blanco: escribe
 en cada campo, **exactamente estas palabras**, sin espacios ni acentos:
 
 | Pregunta | Qué escribir |
@@ -77,7 +100,9 @@ https://forms.office.com/Pages/ResponsePage.aspx?id=XXXX&r1a2b3c=NROCONTRATO&r4d
 ## 3. Generar los correos con un botón por contrato
 
 ```bash
-python3 scripts/plan_renovaciones.py <Sistema_Alertas.xlsx> <salida> --form "<la URL que copiaste>"
+python3 scripts/plan_renovaciones.py <Sistema_Alertas.xlsx> <salida> \
+    --form-renovacion "<URL del formulario A>" \
+    --form-nuevo      "<URL del formulario B>"
 ```
 
 Escribe `correos/<Administradora>.txt` y `correos/<Administradora>.html`. **Envía el HTML**: cada
@@ -107,15 +132,16 @@ Así el libro queda vivo y no hay que descargar nada. Si el libro vive en la mis
 ## 5. Cruzar las respuestas con el plan
 
 ```bash
-python3 scripts/plan_renovaciones.py <Sistema_Alertas.xlsx> <salida> --respuestas <respuestas.xlsx>
+python3 scripts/plan_renovaciones.py <Sistema_Alertas.xlsx> <salida> \
+    --respuestas <respuestas_renovaciones.xlsx> <respuestas_nuevos.xlsx>
 ```
 
 El script reconoce las columnas por el texto de la pregunta —así que sobreviven los cambios de
 redacción— y se queda con la última respuesta de cada contrato, para que una corrección mande sobre
 la primera. Con eso:
 
-- El **Maestro** gana seis columnas: si respondió, si continúa, consumo 2026, monto 2027, cláusula
-  de renovación y observaciones.
+- El **Maestro** gana las columnas de respuesta: si respondió, si continúa, la vía que eligió,
+  consumo 2026, monto 2027, cláusula de renovación y observaciones.
 - Aparece la hoja **Respuestas**: por administradora, cuántos contratos confirmó, cuántos le
   faltan y cuántos no continúan.
 - En pantalla sale la lista de pendientes, ordenada por quién debe más — que es exactamente lo que

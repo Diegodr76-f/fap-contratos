@@ -125,6 +125,9 @@ def clasificar(filas):
             "area": d["Área Protegida"],
             "categoria": cat,
             "monto": float(d["Monto (incluido IVA)"] or 0),
+            # «Valor o plazo total» trae el monto ya sumadas las adendas de valor.
+            # En las adendas de plazo repite el monto original, así que nunca queda por debajo.
+            "monto_total": float(d["Valor o plazo total "] or d["Monto (incluido IVA)"] or 0),
             "fin": fin,
             "inicio27": inicio27,
             "grupo": grupo_firma(inicio27),
@@ -239,8 +242,16 @@ TOKENS_FORM = {
 }
 
 
-def enlace_form(plantilla, x):
-    """Enlace de Forms con los datos del contrato ya rellenados."""
+def enlace_form(plantillas, x):
+    """Enlace de Forms con los datos del contrato ya rellenados.
+
+    `plantillas` es un diccionario {tipo: url}. Son dos formularios distintos
+    porque la pregunta que sigue no es la misma: al renovable se le pregunta si
+    renueva o va a proceso nuevo, y al de proceso nuevo si va por contratación
+    directa o por comparación de precios. La ramificación de Forms solo funciona
+    sobre preguntas de opción del propio formulario, así que separarlos es lo que
+    permite que cada AC vea únicamente la pregunta que le toca."""
+    plantilla = (plantillas or {}).get(x["tipo"], "")
     if not plantilla:
         return ""
     url = plantilla
@@ -253,7 +264,8 @@ def enlace_form(plantilla, x):
 # de la pregunta, para que sobreviva a que alguien reescriba el enunciado.
 COLUMNAS_RESPUESTA = {
     "nro": ["número de contrato", "numero de contrato", "n.º de contrato"],
-    "continua": ["mantener este servicio", "continúa", "continua"],
+    "continua": ["mantener este servicio"],
+    "via_elegida": ["se tramita"],
     "proveedor": ["mismo proveedor"],
     "consumo": ["consumo ejecutado"],
     "monto27": ["monto estimado"],
@@ -300,6 +312,7 @@ def cruzar(universo, respuestas):
         r = respuestas.get(str(x["nro"]).strip().upper())
         x["respondido"] = "Sí" if r else "Sin responder"
         x["continua"] = (r or {}).get("continua") or ""
+        x["via_elegida"] = (r or {}).get("via_elegida") or ""
         x["consumo26"] = (r or {}).get("consumo")
         x["monto27"] = (r or {}).get("monto27")
         x["clausula"] = (r or {}).get("clausula") or ""
@@ -336,6 +349,7 @@ CAMPOS = [
     ("area", "Área protegida", 34),
     ("categoria", "Categoría", 16),
     ("monto", "Monto 2026 (USD)", 15),
+    ("monto_total", "Monto total con adendas (USD)", 24),
     ("tipo2026", "Tipo 2026", 12),
     ("tipo", "Para 2027", 15),
     ("modalidad", "Modalidad y causal", 46),
@@ -352,6 +366,7 @@ CAMPOS = [
 CAMPOS_RESPUESTA = [
     ("respondido", "¿Respondió?", 13),
     ("continua", "¿Continúa en 2027?", 26),
+    ("via_elegida", "Vía que eligió la AC", 40),
     ("consumo26", "Consumo ejecutado 2026", 22),
     ("monto27", "Monto estimado 2027", 20),
     ("clausula", "¿Tiene cláusula de renovación?", 28),
@@ -382,7 +397,7 @@ def _fila(ws, r, x, cols=None):
             v = v.isoformat()
         c = ws.cell(row=r, column=i, value=v)
         c.alignment = Alignment(vertical="top", wrap_text=(i in (2, 3, 8, 14)))
-        if k == "monto":
+        if k in ("monto", "monto_total"):
             c.number_format = '#,##0.00'
         c.fill = PatternFill("solid", fgColor=COL[x["tipo"]])
 
@@ -624,7 +639,7 @@ BLOQUE_2 = {
 }
 
 
-def escribir_correos(universo, carpeta, plantilla_form="", firma="Unidad Legal · FAP"):
+def escribir_correos(universo, carpeta, plantillas_form=None, firma="Unidad Legal · FAP"):
     """Un correo por administradora, en texto y en HTML.
 
     El HTML es el que conviene enviar: lleva el botón «Confirmar» de cada
@@ -651,10 +666,12 @@ def escribir_correos(universo, carpeta, plantilla_form="", firma="Unidad Legal �
             titulo, nota = ENCABEZADOS[tipo]
             filas, filas_html = [], []
             for y in v:
-                enlace = enlace_form(plantilla_form, y)
+                enlace = enlace_form(plantillas_form, y)
                 det = (y["detalle"][:52] + "..") if len(y["detalle"]) > 54 else y["detalle"]
+                extra = " (incluye adenda)" if y["monto_total"] > y["monto"] + 0.5 else ""
                 fila = (f"  · {y['nro']}  {det}\n"
                         f"      {y['area']}\n"
+                        f"      USD {y['monto_total']:,.2f} este año{extra} · {y['proveedor']}\n"
                         f"      vence {dl(y['fin'])} · el sucesor arranca el {dl(y['inicio27'])}"
                         f" · expediente la semana del {dl(y['semana'])}")
                 if enlace:
@@ -678,7 +695,7 @@ def escribir_correos(universo, carpeta, plantilla_form="", firma="Unidad Legal �
         with open(os.path.join(carpeta, base + ".txt"), "w", encoding="utf-8") as f:
             f.write(CUERPO.format(listas="\n".join(listas), **datos))
         with open(os.path.join(carpeta, base + ".html"), "w", encoding="utf-8") as f:
-            f.write(_correo_html(listas_html, bool(plantilla_form), **datos))
+            f.write(_correo_html(listas_html, bool(plantillas_form), **datos))
     return len(porac)
 
 
@@ -770,12 +787,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     ap.add_argument("alertas", help="Sistema_Alertas_Contratos_FIAS.xlsx")
     ap.add_argument("salida", nargs="?", default=".", help="carpeta donde escribir")
-    ap.add_argument("--form", default="", metavar="URL",
-                    help="enlace de Microsoft Forms para rellenar previamente, con las palabras "
-                         "NROCONTRATO, AREAPROTEGIDA, DETALLESERVICIO, ADMINISTRADORA y TIPO2027 "
-                         "escritas en sus campos. Ver plan/FORMULARIO_CONFIRMACION.md")
-    ap.add_argument("--respuestas", default="", metavar="XLSX",
-                    help="Excel de respuestas del formulario, para cruzarlo con el plan")
+    ap.add_argument("--form-renovacion", default="", metavar="URL",
+                    help="enlace de pre-relleno del formulario de RENOVACIONES")
+    ap.add_argument("--form-nuevo", default="", metavar="URL",
+                    help="enlace de pre-relleno del formulario de PROCESOS NUEVOS. Los dos llevan "
+                         "las palabras NROCONTRATO, AREAPROTEGIDA, DETALLESERVICIO, ADMINISTRADORA "
+                         "y TIPO2027 escritas en sus campos; ver plan/FORMULARIO_CONFIRMACION.md")
+    ap.add_argument("--respuestas", default=[], nargs="+", metavar="XLSX",
+                    help="Excel(es) de respuestas, uno por formulario, para cruzarlos con el plan")
     a = ap.parse_args()
     os.makedirs(a.salida, exist_ok=True)
 
@@ -783,12 +802,14 @@ def main():
     programar(universo)
 
     respuestas = {}
-    if a.respuestas:
-        respuestas = leer_respuestas(a.respuestas)
+    for ruta in a.respuestas:
+        respuestas.update(leer_respuestas(ruta))
+    if respuestas:
         cruzar(universo, respuestas)
 
     anexo = escribir_xlsx(universo, fuera, os.path.join(a.salida, "Anexo_Renovaciones_2027_FAP.xlsx"))
-    n = escribir_correos(universo, os.path.join(a.salida, "correos"), a.form)
+    formularios = {RENOVACION: a.form_renovacion, NUEVO: a.form_nuevo}
+    n = escribir_correos(universo, os.path.join(a.salida, "correos"), formularios)
 
     tc = Counter(x["tipo"] for x in universo)
     gc = Counter(x["grupo"] for x in universo)
@@ -804,10 +825,12 @@ def main():
         print(f"   {cap} firmas/sem · con plan: mediana {p1['mediana']} d, última firma {p1['ultima']}"
               f"  ·  sin plan: mediana {p0['mediana']} d, última firma {p0['ultima']}")
 
-    if a.form:
-        print(f"correos con enlace de confirmación por contrato: {len(universo)} enlaces")
+    con = sum(1 for x in universo if enlace_form(formularios, x))
+    if con:
+        print(f"correos con enlace de confirmación: {con} de {len(universo)} contratos")
     else:
-        print("correos SIN enlace de confirmación (pásale --form para incluirlos)")
+        print("correos SIN enlace de confirmación "
+              "(pásale --form-renovacion y --form-nuevo para incluirlos)")
 
     if respuestas:
         resp = sum(1 for x in universo if x["respondido"] == "Sí")
