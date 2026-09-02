@@ -90,6 +90,15 @@ semana en que le toca ingresar el expediente. Ya están redactados: `correos/<Ad
 servicio en 2027 — incluido decir cuáles *no*, que es la única forma de no tramitar lo que no se
 va a usar.
 
+**Y se le pide por formulario, no por correo.** Cada contrato lleva en el correo su propio botón
+*Confirmar*, que abre un Microsoft Forms con el número de contrato, el área y el detalle ya
+rellenados; la AC solo responde si continúa, si sigue el mismo proveedor y cuánto consumió este
+año. Las respuestas caen solas en un Excel y el script las cruza con el plan, así que nadie
+transcribe nada y en cualquier momento se sabe qué porcentaje del portafolio está confirmado y
+quién falta. Todo con el Microsoft 365 básico: sin conectores premium, sin disparador HTTP y sin
+pedirle nada a IT. El montaje está en
+**[`plan/FORMULARIO_CONFIRMACION.md`](FORMULARIO_CONFIRMACION.md)**.
+
 Lo del monto se le advierte, pero para más adelante: cuando toque cotizar, la base es el **consumo
 ejecutado de 2026**, no el presupuesto del contrato vigente. De las 13 adendas firmadas este año,
 11 fueron aumentos de valor por consumo subestimado; ese trabajo reingresa a la unidad 107 días
@@ -337,7 +346,12 @@ Produce, **fuera del repositorio**:
 - `Anexo_Renovaciones_2027_FAP.xlsx` — resumen, maestro de los 128 expedientes, calendario, carga
   por administradora, una hoja por administradora, la simulación de firma y los que quedan fuera
   de la campaña.
-- `correos/<Administradora>.txt` — los 20 correos de la Fase 1, con sus dos listas.
+- `correos/<Administradora>.txt` y `.html` — los 20 correos de la Fase 1, con sus dos listas. El
+  HTML es el que se envía: lleva el botón *Confirmar* de cada contrato.
+
+Con `--form "<URL>"` los correos incluyen el enlace de confirmación de cada contrato, y con
+`--respuestas <xlsx>` el anexo se cruza con lo que hayan contestado las administradoras
+(ver [`FORMULARIO_CONFIRMACION.md`](FORMULARIO_CONFIRMACION.md)).
 
 Los parámetros —cupo semanal, fecha del PAG, días tras el PAG, base y pendiente del modelo de
 tiempos, primera semana, objetos no recurrentes— están al inicio del script. Si la revisión legal

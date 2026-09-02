@@ -21,7 +21,7 @@ Escribe (fuera del repositorio, porque llevan datos de contratos y correos):
     Anexo_Renovaciones_2027_FAP.xlsx   maestro + una hoja por AC + calendario + simulación
     correos/<AC>.txt                   el correo de consulta ya redactado
 """
-import sys, os, datetime, re, unicodedata
+import sys, os, datetime, re, unicodedata, argparse, html, urllib.parse
 from collections import Counter, defaultdict
 
 import openpyxl
@@ -219,6 +219,113 @@ def simular_sin_plan(universo, capacidad, pag=PAG):
     return resumen_simulacion(firmar(preparar(ps), capacidad, pag))
 
 
+
+# ------------------------------------------------- formulario de confirmación
+# Las respuestas de las administradoras se recogen con Microsoft Forms, que está
+# en el plan básico y no necesita conectores premium. Cada contrato lleva su
+# propio enlace con los datos ya rellenados, así la AC nunca escribe un número de
+# contrato y las respuestas se pueden cruzar sin ambigüedad. El paso a paso para
+# crear el formulario está en plan/FORMULARIO_CONFIRMACION.md.
+#
+# En el enlace de ejemplo que entrega Forms («obtener vínculo para rellenar
+# previamente las respuestas»), estas palabras se escriben tal cual en cada
+# campo; el script las reemplaza por los datos de cada contrato.
+TOKENS_FORM = {
+    "NROCONTRATO": "nro",
+    "AREAPROTEGIDA": "area",
+    "DETALLESERVICIO": "detalle",
+    "ADMINISTRADORA": "ac",
+    "TIPO2027": "tipo",
+}
+
+
+def enlace_form(plantilla, x):
+    """Enlace de Forms con los datos del contrato ya rellenados."""
+    if not plantilla:
+        return ""
+    url = plantilla
+    for token, campo in TOKENS_FORM.items():
+        url = url.replace(token, urllib.parse.quote(str(x.get(campo) or ""), safe=""))
+    return url
+
+
+# Cómo se reconocen las columnas del Excel de respuestas: por un trozo del texto
+# de la pregunta, para que sobreviva a que alguien reescriba el enunciado.
+COLUMNAS_RESPUESTA = {
+    "nro": ["número de contrato", "numero de contrato", "n.º de contrato"],
+    "continua": ["mantener este servicio", "continúa", "continua"],
+    "proveedor": ["mismo proveedor"],
+    "consumo": ["consumo ejecutado"],
+    "monto27": ["monto estimado"],
+    "clausula": ["cláusula de renovación", "clausula de renovacion"],
+    "obs": ["observaciones"],
+}
+
+
+def leer_respuestas(xlsx):
+    """Lee el Excel que alimenta Forms y devuelve {n.º de contrato: respuesta}.
+
+    Se queda con la última respuesta de cada contrato: si una AC corrige, la
+    corrección manda."""
+    wb = openpyxl.load_workbook(xlsx, data_only=True, read_only=True)
+    ws = wb.worksheets[0]
+    filas = list(ws.iter_rows(values_only=True))
+    wb.close()
+    if not filas:
+        return {}
+    hdr = [norm(c) for c in filas[0]]
+    idx = {}
+    for campo, pistas in COLUMNAS_RESPUESTA.items():
+        for i, h in enumerate(hdr):
+            if any(norm(p) in h for p in pistas):
+                idx[campo] = i
+                break
+    if "nro" not in idx:
+        sys.exit("ERROR: el Excel de respuestas no tiene una columna con el número de contrato.")
+
+    out = {}
+    for r in filas[1:]:
+        nro = r[idx["nro"]]
+        if not nro:
+            continue
+        out[str(nro).strip().upper()] = {
+            campo: (r[i] if i < len(r) else None) for campo, i in idx.items()
+        }
+    return out
+
+
+def cruzar(universo, respuestas):
+    """Marca cada contrato con lo que respondió su administradora."""
+    for x in universo:
+        r = respuestas.get(str(x["nro"]).strip().upper())
+        x["respondido"] = "Sí" if r else "Sin responder"
+        x["continua"] = (r or {}).get("continua") or ""
+        x["consumo26"] = (r or {}).get("consumo")
+        x["monto27"] = (r or {}).get("monto27")
+        x["clausula"] = (r or {}).get("clausula") or ""
+        x["observaciones"] = (r or {}).get("obs") or ""
+    return universo
+
+
+def informe_respuestas(universo):
+    """Quién respondió, quién no, y qué se cae del plan."""
+    porac = defaultdict(list)
+    for x in universo:
+        porac[x["ac"]].append(x)
+    filas = []
+    for ac, g in sorted(porac.items()):
+        resp = [y for y in g if y["respondido"] == "Sí"]
+        baja = [y for y in resp if norm(y["continua"]).startswith("no")]
+        filas.append({
+            "ac": ac, "correo": g[0]["correo"], "total": len(g),
+            "respondidos": len(resp), "pendientes": len(g) - len(resp),
+            "no_continuan": len(baja),
+            "monto_confirmado": sum(float(y["monto27"] or y["monto"] or 0)
+                                    for y in resp if not norm(y["continua"]).startswith("no")),
+        })
+    return filas
+
+
 # ------------------------------------------------------------------- salidas
 AZUL = "00249C"
 COL = {RENOVACION: "E4F2E9", NUEVO: "FAF0DE"}
@@ -241,6 +348,22 @@ CAMPOS = [
     ("ac", "Administrador/a", 20),
 ]
 
+# Columnas que solo aparecen cuando se cruzó el Excel de respuestas de Forms.
+CAMPOS_RESPUESTA = [
+    ("respondido", "¿Respondió?", 13),
+    ("continua", "¿Continúa en 2027?", 26),
+    ("consumo26", "Consumo ejecutado 2026", 22),
+    ("monto27", "Monto estimado 2027", 20),
+    ("clausula", "¿Tiene cláusula de renovación?", 28),
+    ("observaciones", "Observaciones de la AC", 46),
+]
+
+
+def campos(universo):
+    """El maestro crece con las respuestas solo si ya las hay."""
+    hay = any("respondido" in x for x in universo)
+    return CAMPOS + (CAMPOS_RESPUESTA if hay else [])
+
 
 def _cab(ws, fila, titulos, anchos):
     for i, (t, a) in enumerate(zip(titulos, anchos), start=1):
@@ -252,8 +375,8 @@ def _cab(ws, fila, titulos, anchos):
     ws.freeze_panes = ws.cell(row=fila + 1, column=1)
 
 
-def _fila(ws, r, x):
-    for i, (k, _, _) in enumerate(CAMPOS, start=1):
+def _fila(ws, r, x, cols=None):
+    for i, (k, _, _) in enumerate(cols or CAMPOS, start=1):
         v = x.get(k)
         if isinstance(v, datetime.date):
             v = v.isoformat()
@@ -303,10 +426,11 @@ def escribir_xlsx(universo, fuera, destino):
             c.number_format = '#,##0.00'
 
     # --- Maestro
+    cols = campos(universo)
     ws = wb.create_sheet("Maestro")
-    _cab(ws, 1, [t for _, t, _ in CAMPOS], [a for _, _, a in CAMPOS])
+    _cab(ws, 1, [t for _, t, _ in cols], [a for _, _, a in cols])
     for i, x in enumerate(sorted(universo, key=lambda y: (y["semana"], y["tipo"], y["nro"])), start=2):
-        _fila(ws, i, x)
+        _fila(ws, i, x, cols)
 
     # --- Calendario
     ws = wb.create_sheet("Calendario")
@@ -385,9 +509,30 @@ def escribir_xlsx(universo, fuera, destino):
         c = Counter(y["tipo"] for y in g)
         ws["A1"] = f"{ac} · {len(g)} contratos · {c[RENOVACION]} se renuevan · {c[NUEVO]} van por proceso nuevo"
         ws["A1"].font = Font(bold=True, size=12, color=AZUL)
-        _cab(ws, 3, [t for _, t, _ in CAMPOS], [a for _, _, a in CAMPOS])
+        _cab(ws, 3, [t for _, t, _ in cols], [a for _, _, a in cols])
         for i, x in enumerate(sorted(g, key=lambda y: (y["tipo"], y["semana"])), start=4):
-            _fila(ws, i, x)
+            _fila(ws, i, x, cols)
+
+    # --- Respuestas de las administradoras
+    if any("respondido" in x for x in universo):
+        ws = wb.create_sheet("Respuestas")
+        ws["A1"] = "Confirmación de las administradoras"
+        ws["A1"].font = Font(bold=True, size=12, color=AZUL)
+        ws["A2"] = ("Leído del Excel que alimenta Microsoft Forms. Cada contrato tiene su enlace "
+                    "propio, así que las respuestas se cruzan por número de contrato, sin ambigüedad.")
+        ws["A2"].font = Font(size=10, color="6B7180")
+        _cab(ws, 4, ["Administrador/a", "Correo", "Contratos", "Respondidos", "Pendientes",
+                     "No continúan", "Monto confirmado 2027 (USD)"],
+             [24, 26, 11, 12, 12, 13, 26])
+        for i, f in enumerate(informe_respuestas(universo), start=5):
+            vals = [f["ac"], f["correo"], f["total"], f["respondidos"], f["pendientes"],
+                    f["no_continuan"], round(f["monto_confirmado"], 2)]
+            for j, v in enumerate(vals, start=1):
+                c = ws.cell(row=i, column=j, value=v)
+                if j == 7:
+                    c.number_format = '#,##0.00'
+                if j == 5 and v:
+                    c.font = Font(bold=True, color="A33A3A")
 
     # --- Fuera de la campaña
     ws = wb.create_sheet("Fuera de la campaña")
@@ -479,7 +624,12 @@ BLOQUE_2 = {
 }
 
 
-def escribir_correos(universo, carpeta, firma="Unidad Legal · FAP"):
+def escribir_correos(universo, carpeta, plantilla_form="", firma="Unidad Legal · FAP"):
+    """Un correo por administradora, en texto y en HTML.
+
+    El HTML es el que conviene enviar: lleva el botón «Confirmar» de cada
+    contrato, que abre el formulario con los datos ya rellenados. Se abre en el
+    navegador, se copia con Ctrl+A / Ctrl+C y se pega en Outlook."""
     os.makedirs(carpeta, exist_ok=True)
     porac = defaultdict(list)
     for x in universo:
@@ -491,50 +641,154 @@ def escribir_correos(universo, carpeta, firma="Unidad Legal · FAP"):
         docs = min(y["docs_listos"] for y in g)
         areas = sorted({y["area"] for y in g})
         area_corta = areas[0] if len(areas) == 1 else f"tus {len(areas)} áreas protegidas"
+        c = Counter(y["tipo"] for y in g)
 
-        listas = []
+        listas, listas_html = [], []
         for tipo in (RENOVACION, NUEVO):
             v = sorted([y for y in g if y["tipo"] == tipo], key=lambda y: y["semana"])
             if not v:
                 continue
             titulo, nota = ENCABEZADOS[tipo]
-            filas = []
+            filas, filas_html = [], []
             for y in v:
+                enlace = enlace_form(plantilla_form, y)
                 det = (y["detalle"][:52] + "..") if len(y["detalle"]) > 54 else y["detalle"]
-                filas.append(f"  · {y['nro']}  {det}\n"
-                             f"      {y['area']}\n"
-                             f"      vence {dl(y['fin'])} · el sucesor arranca el {dl(y['inicio27'])}"
-                             f" · expediente la semana del {dl(y['semana'])}")
+                fila = (f"  · {y['nro']}  {det}\n"
+                        f"      {y['area']}\n"
+                        f"      vence {dl(y['fin'])} · el sucesor arranca el {dl(y['inicio27'])}"
+                        f" · expediente la semana del {dl(y['semana'])}")
+                if enlace:
+                    fila += f"\n      Confirmar: {enlace}"
+                filas.append(fila)
+                filas_html.append(_fila_html(y, enlace, tipo))
             listas.append(titulo.format(n=len(v)) + "\n" + nota + "\n\n" + "\n".join(filas) + "\n")
+            listas_html.append(_lista_html(titulo.format(n=len(v)), nota, filas_html, tipo))
 
-        c = Counter(y["tipo"] for y in g)
         bloques = []
         for fuente in (BLOQUE_1, BLOQUE_2):
             bloques.append("\n\n".join(
                 fuente[t].format(n=plural(c[t], "contrato", "contratos"))
                 for t in (RENOVACION, NUEVO) if c[t]))
 
-        txt = CUERPO.format(area_corta=area_corta, ac=ac, n=len(g),
-                            listas="\n".join(listas), responde=dl(responde),
-                            bloque1=bloques[0], bloque2=bloques[1],
-                            semana=dl(primera), docs=dl(docs), cupo=CUPO_SEMANAL, firma=firma)
-        with open(os.path.join(carpeta, re.sub(r"[^\w]+", "_", str(ac)) + ".txt"), "w", encoding="utf-8") as f:
-            f.write(txt)
+        datos = dict(area_corta=area_corta, ac=ac, n=len(g), responde=dl(responde),
+                     bloque1=bloques[0], bloque2=bloques[1], semana=dl(primera),
+                     docs=dl(docs), cupo=CUPO_SEMANAL, firma=firma)
+        base = re.sub(r"[^\w]+", "_", str(ac))
+
+        with open(os.path.join(carpeta, base + ".txt"), "w", encoding="utf-8") as f:
+            f.write(CUERPO.format(listas="\n".join(listas), **datos))
+        with open(os.path.join(carpeta, base + ".html"), "w", encoding="utf-8") as f:
+            f.write(_correo_html(listas_html, bool(plantilla_form), **datos))
     return len(porac)
 
 
-def main():
-    if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    xlsx = sys.argv[1]
-    salida = sys.argv[2] if len(sys.argv) > 2 else "."
-    os.makedirs(salida, exist_ok=True)
+# ---- versión HTML del correo, para pegar en Outlook con los enlaces vivos ----
+COLOR = {RENOVACION: ("#14603D", "#E4F2E9"), NUEVO: ("#8A5210", "#FAF0DE")}
 
-    universo, fuera = clasificar(leer(xlsx))
+
+def _fila_html(y, enlace, tipo):
+    tinta, fondo = COLOR[tipo]
+    boton = ("" if not enlace else
+             f'<a href="{html.escape(enlace, quote=True)}" '
+             f'style="display:inline-block;background:#00249C;color:#ffffff;text-decoration:none;'
+             f'font-weight:700;font-size:13px;padding:8px 14px;border-radius:7px;white-space:nowrap">'
+             f'Confirmar</a>')
+    return (
+        f'<tr>'
+        f'<td style="padding:12px 14px;border-bottom:1px solid #E2E6F2;vertical-align:top">'
+        f'<div style="font-weight:700;color:#0B153F;font-size:14px">{html.escape(y["nro"])}</div>'
+        f'<div style="color:#252A3D;font-size:14px;margin-top:2px">{html.escape(y["detalle"])}</div>'
+        f'<div style="color:#5A6072;font-size:13px;margin-top:4px">{html.escape(str(y["area"]))}</div>'
+        f'<div style="color:#5A6072;font-size:13px;margin-top:4px">'
+        f'Vence el {dl(y["fin"])} · el sucesor arranca el {dl(y["inicio27"])} · '
+        f'expediente la semana del {dl(y["semana"])}</div>'
+        f'</td>'
+        f'<td style="padding:12px 14px;border-bottom:1px solid #E2E6F2;vertical-align:top;'
+        f'text-align:right">{boton}</td>'
+        f'</tr>')
+
+
+def _lista_html(titulo, nota, filas, tipo):
+    tinta, fondo = COLOR[tipo]
+    return (
+        f'<div style="margin:26px 0 0">'
+        f'<div style="background:{fondo};color:{tinta};font-weight:700;font-size:13px;'
+        f'letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;border-radius:8px 8px 0 0">'
+        f'{html.escape(titulo)}</div>'
+        f'<div style="border:1px solid #E2E6F2;border-top:none;border-radius:0 0 8px 8px">'
+        f'<div style="padding:12px 14px;color:#5A6072;font-size:13.5px;line-height:1.5;'
+        f'border-bottom:1px solid #E2E6F2">{html.escape(nota)}</div>'
+        f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" '
+        f'style="border-collapse:collapse">{"".join(filas)}</table>'
+        f'</div></div>')
+
+
+def _correo_html(listas_html, con_form, ac, n, responde, bloque1, bloque2,
+                 semana, docs, cupo, firma, area_corta):
+    def parrafo(t, color="#252A3D"):
+        return (f'<p style="margin:0 0 14px;color:{color};font-size:15px;line-height:1.6">'
+                f'{t}</p>')
+    pedido = ('pulsar <b>Confirmar</b> en cada contrato y responder las cinco preguntas del '
+              'formulario: si el servicio continúa en 2027, si sigue el mismo proveedor y '
+              'cuánto se consumió realmente este año. Toma menos de un minuto por contrato.'
+              if con_form else
+              'confirmar contrato por contrato si el área necesita mantener el servicio en 2027.')
+    bloques = "".join(
+        f'<div style="margin:10px 0 0;padding:14px 16px;background:#F5F6FB;border-radius:8px;'
+        f'color:#252A3D;font-size:14.5px;line-height:1.6">{html.escape(b).replace(chr(10)*2, "<br><br>")}</div>'
+        for b in (bloque1, bloque2) if b)
+    return (
+        '<div style="font-family:Segoe UI,Calibri,Arial,sans-serif;max-width:720px;color:#252A3D">'
+        + parrafo(f'Estimada/o {html.escape(str(ac))}:')
+        + parrafo('Estamos armando el plan de contratación 2027 del FAP. La regla del FIAS es que '
+                  'un contrato se renueva <b>una sola vez</b>: no hay renovación sobre renovación. '
+                  f'Revisé tus {n} contratos vigentes y este es el resultado.')
+        + "".join(listas_html)
+        + '<div style="height:26px"></div>'
+        + parrafo('La meta es llegar a fin de año con todos los expedientes hechos y revisados. La '
+                  'firma es otra cosa: el PAG se aprueba en promedio hasta el 15 de enero, y sin PAG '
+                  'no se puede suscribir ni pedir una cotización en firme, porque es el PAG el que '
+                  'fija tu presupuesto. Lo que sí depende de nosotros es que el día que salga no '
+                  'quede ningún documento pendiente — y que tu expediente esté adelante en la fila, '
+                  'no atrás.')
+        + parrafo(f'<b>Antes del {html.escape(responde)}</b>, te pido {pedido}')
+        + parrafo('<b>Ahora, sin esperar al PAG:</b>') + bloques
+        + '<div style="height:16px"></div>'
+        + parrafo(f'Tu primer lote entra la semana del {html.escape(semana)} y tus documentos deben '
+                  f'estar listos el {html.escape(docs)}. Esa semana la Unidad Operativa recibe hasta '
+                  f'{cupo} expedientes de todo el FAP, así que llegar tarde a tu semana significa '
+                  'esperar a la siguiente.')
+        + parrafo('El expediente se envía por el formulario de procesos administrativos, como '
+                  'siempre. Los que llegan por correo no entran a la cola.', "#5A6072")
+        + parrafo(f'Gracias,<br>{html.escape(firma)}')
+        + '</div>')
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Plan de renovaciones y procesos nuevos FAP 2027.",
+        formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
+    ap.add_argument("alertas", help="Sistema_Alertas_Contratos_FIAS.xlsx")
+    ap.add_argument("salida", nargs="?", default=".", help="carpeta donde escribir")
+    ap.add_argument("--form", default="", metavar="URL",
+                    help="enlace de Microsoft Forms para rellenar previamente, con las palabras "
+                         "NROCONTRATO, AREAPROTEGIDA, DETALLESERVICIO, ADMINISTRADORA y TIPO2027 "
+                         "escritas en sus campos. Ver plan/FORMULARIO_CONFIRMACION.md")
+    ap.add_argument("--respuestas", default="", metavar="XLSX",
+                    help="Excel de respuestas del formulario, para cruzarlo con el plan")
+    a = ap.parse_args()
+    os.makedirs(a.salida, exist_ok=True)
+
+    universo, fuera = clasificar(leer(a.alertas))
     programar(universo)
 
-    anexo = escribir_xlsx(universo, fuera, os.path.join(salida, "Anexo_Renovaciones_2027_FAP.xlsx"))
-    n = escribir_correos(universo, os.path.join(salida, "correos"))
+    respuestas = {}
+    if a.respuestas:
+        respuestas = leer_respuestas(a.respuestas)
+        cruzar(universo, respuestas)
+
+    anexo = escribir_xlsx(universo, fuera, os.path.join(a.salida, "Anexo_Renovaciones_2027_FAP.xlsx"))
+    n = escribir_correos(universo, os.path.join(a.salida, "correos"), a.form)
 
     tc = Counter(x["tipo"] for x in universo)
     gc = Counter(x["grupo"] for x in universo)
@@ -545,12 +799,29 @@ def main():
     print(f"ingreso: {len(set(x['semana'] for x in universo))} semanas · cupo {CUPO_SEMANAL}/semana")
     print(f"simulación de firma con el PAG el {PAG.isoformat()}:")
     for cap in (9, 13):
-        a = simular(universo, cap)
-        b = simular_sin_plan(universo, cap)
-        print(f"   {cap} firmas/sem · con plan: mediana {a['mediana']} d, última firma {a['ultima']}"
-              f"  ·  sin plan: mediana {b['mediana']} d, última firma {b['ultima']}")
+        p1 = simular(universo, cap)
+        p0 = simular_sin_plan(universo, cap)
+        print(f"   {cap} firmas/sem · con plan: mediana {p1['mediana']} d, última firma {p1['ultima']}"
+              f"  ·  sin plan: mediana {p0['mediana']} d, última firma {p0['ultima']}")
+
+    if a.form:
+        print(f"correos con enlace de confirmación por contrato: {len(universo)} enlaces")
+    else:
+        print("correos SIN enlace de confirmación (pásale --form para incluirlos)")
+
+    if respuestas:
+        resp = sum(1 for x in universo if x["respondido"] == "Sí")
+        baja = sum(1 for x in universo if norm(x["continua"]).startswith("no"))
+        print(f"respuestas: {resp} de {len(universo)} contratos confirmados · "
+              f"{baja} no continúan en 2027")
+        pend = [f for f in informe_respuestas(universo) if f["pendientes"]]
+        if pend:
+            print("pendientes por administradora:")
+            for f in sorted(pend, key=lambda z: -z["pendientes"]):
+                print(f"   {f['ac']:<22} {f['pendientes']:>2} de {f['total']}")
+
     print(f"anexo: {anexo}")
-    print(f"correos redactados: {n}")
+    print(f"correos redactados: {n} (.txt y .html)")
 
 
 if __name__ == "__main__":

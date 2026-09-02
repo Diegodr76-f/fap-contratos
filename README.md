@@ -151,9 +151,15 @@ La simulación, calibrada contra los tiempos reales de 2026, estima cuándo sald
 contrato: con el plan y 13 firmas semanales, la última firma pasa de junio a marzo y la
 retroactividad mediana de 80 a 42 días.
 
+Las administradoras responden por **Microsoft Forms**, con un enlace por contrato que ya lleva el
+número, el área y el detalle rellenados: las respuestas caen solas en un Excel y el script las
+cruza con el plan, sin transcribir nada. Funciona con el Microsoft 365 básico —sin conectores
+premium, sin disparador HTTP y sin permisos de IT— y el montaje está en
+**[`plan/FORMULARIO_CONFIRMACION.md`](plan/FORMULARIO_CONFIRMACION.md)**.
+
 El anexo operativo —maestro contrato por contrato, calendario, carga por administradora, la
-simulación y los 20 correos de consulta ya redactados, cada uno con sus dos listas— **no se
-versiona**: el repositorio es público y lleva datos de contratos. Se regenera cuando se necesita:
+simulación y los 20 correos de consulta ya redactados, cada uno con sus dos listas y sus botones de
+confirmación— **no se versiona**: el repositorio es público y lleva datos de contratos. Se regenera cuando se necesita:
 
 ```bash
 python3 scripts/plan_renovaciones.py <Sistema_Alertas_Contratos_FIAS.xlsx> <carpeta_salida>
