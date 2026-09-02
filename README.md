@@ -132,6 +132,59 @@ ese navegador); sin ella nadie que encuentre el link ve nada. No es cifrado real
 no una caja fuerte—, pero cumple su función: nadie entra sin la frase, y como las tareas nunca se
 publican, tampoco hay nada que robar aunque alguien la esquivara.
 
+## Confirmación de renovaciones — la pantalla de las administradoras
+
+**`/renovaciones/index.html`** es donde cada administrador/a contador/a entra, elige su nombre y ve
+**sus contratos vigentes desplegados**, cada uno con su monto del año (adendas incluidas), el
+proveedor y la fecha en que arrancaría el contrato de 2027. Para cada contrato responde una sola
+pregunta, la que corresponde:
+
+- **Si se puede renovar** — porque el contrato de 2026 se firmó como nuevo: *¿renuevas con el mismo
+  proveedor, cambias de proveedor, o el área ya no necesita el servicio?*
+- **Si necesita proceso nuevo** — porque ya renovó y el cupo está agotado: *¿contratación directa
+  con el mismo proveedor, o comparación de precios?* Al elegir comparación aparece en pantalla lo
+  que exige esa vía: mínimo tres invitaciones y Comisión de Calificación.
+
+Lee la **misma base cifrada** que el CRM y el CLM (`crm/contratos_export.json`, que el robot diario
+regenera), con la misma frase de acceso, así que no hay una segunda lista que mantener. Las
+decisiones se guardan solas en el navegador mientras trabaja —puede cerrar y volver— y salen por
+dos vías: **descargando un CSV** que responde por correo, o **enviándose a Power Automate** si se
+configura `FLOW_URL` en el archivo. Sin flujo configurado la pantalla funciona igual: el CSV no
+depende de nada.
+
+## Plan de renovaciones 2027
+
+**[`plan/PLAN_RENOVACIONES_2027.md`](plan/PLAN_RENOVACIONES_2027.md)** responde, contrato por
+contrato, la pregunta que ordena el año: **¿se puede renovar, o hay que hacer un nuevo proceso
+administrativo?** El FIAS permite renovar una sola vez, así que de los 128 contratos activos de
+servicios recurrentes de áreas protegidas **39 se pueden renovar y 89 no**: esos salen por
+contratación directa, con el criterio de proveedor calificado y recurrencia del servicio.
+
+La meta es el expediente, no la firma. **El PAG se aprueba en promedio hasta el 15 de enero**, y
+sin PAG no se puede suscribir ni pedir una cotización en firme, porque es el PAG el que fija el
+presupuesto de cada área. Por eso el plan separa los documentos que no necesitan el monto (bloque
+1, septiembre a diciembre) de los que sí (bloque 2), reparte los 128 expedientes en 13 semanas con
+un cupo de 10 —el orden no adelanta la firma, pero define el puesto en la fila del 15 de enero en
+adelante— y trae ocho medidas para bajar el tiempo de revisión.
+
+La simulación, calibrada contra los tiempos reales de 2026, estima cuándo saldría firmado cada
+contrato: con el plan y 13 firmas semanales, la última firma pasa de junio a marzo y la
+retroactividad mediana de 80 a 42 días.
+
+Las administradoras responden por **Microsoft Forms**, con un enlace por contrato que ya lleva el
+número, el área y el detalle rellenados: las respuestas caen solas en un Excel y el script las
+cruza con el plan, sin transcribir nada. Funciona con el Microsoft 365 básico —sin conectores
+premium, sin disparador HTTP y sin permisos de IT— y el montaje está en
+**[`plan/FORMULARIO_CONFIRMACION.md`](plan/FORMULARIO_CONFIRMACION.md)**.
+
+El anexo operativo —maestro contrato por contrato, calendario, carga por administradora, la
+simulación y los 20 correos de consulta ya redactados, cada uno con sus dos listas y sus botones de
+confirmación— **no se versiona**: el repositorio es público y lleva datos de contratos. Se regenera cuando se necesita:
+
+```bash
+python3 scripts/plan_renovaciones.py <Sistema_Alertas_Contratos_FIAS.xlsx> <carpeta_salida>
+```
+
 ## Estructura
 
 - **`/centro/`** — Centro de mando diario, herramienta personal (independiente del resto).
@@ -153,6 +206,7 @@ publican, tampoco hay nada que robar aunque alguien la esquivara.
 Cada herramienta tiene su propio enlace en GitHub Pages:
 
 - **CLM (plataforma unificada):** https://[tu-usuario].github.io/fap-contratos/clm/
+- Confirmación de renovaciones 2027 (para las ACs): https://[tu-usuario].github.io/fap-contratos/renovaciones/
 - Calificador de Ofertas: https://[tu-usuario].github.io/fap-contratos/calificacion/
 - CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
 - La Mágica: https://[tu-usuario].github.io/fap-contratos/generador/
@@ -182,5 +236,14 @@ solo ve un bloque cifrado ilegible.
 - **Rotar la frase:** cambia el valor de `DATA_KEY`, vuelve a cifrar las copias embebidas y avisa la nueva
   frase al equipo.
 
-> Alcance: la frase es compartida por el equipo (no es login por persona). Protege los datos *publicados*
-> de aquí en adelante; el historial de git anterior a esta protección aún contiene versiones en claro.
+> Alcance: la frase es compartida por el equipo (no es login por persona), así que protege contra
+> quien encuentre los archivos, no contra quien tenga la frase.
+>
+> **Historial:** revisado el 2 de septiembre de 2026 commit por commit — ningún commit del
+> repositorio contiene datos de contratos en claro, ni en `contratos_export.json` ni en las copias
+> embebidas. La advertencia anterior sobre versiones en claro en el historial estaba desactualizada.
+>
+> **El punto débil real** es otro: el bloque cifrado es público, así que se puede atacar por fuerza
+> bruta sin conexión y sin que nadie se entere. Los 250 000 ciclos de PBKDF2 encarecen cada intento,
+> pero no salvan una frase corta o predecible. La frase debe ser larga —cuatro o cinco palabras al
+> azar— y conviene rotarla cuando alguien deja el equipo.
