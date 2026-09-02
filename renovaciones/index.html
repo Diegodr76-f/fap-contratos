@@ -267,7 +267,7 @@ var OPCIONES = {
     {id:'directa',  t:'Sí, contratación directa con el mismo proveedor',
      s:'Proveedor calificado y recurrencia del servicio, motivado en el informe de justificación.'},
     {id:'comparar', t:'No — quiero comparación de precios',
-     s:'Mínimo 3 invitaciones y Comisión de Calificación: 40 días de trámite en vez de 21.'},
+     s:'Mínimo 3 invitaciones y Comisión de Calificación.'},
     {id:'terminar', t:'No — el área ya no necesita este servicio',
      s:'No se tramita nada y libera capacidad para el resto.'}
   ]
@@ -362,7 +362,7 @@ function tarjeta(c){
   var mt = montoTotal(c), hayAdenda = mt > (Number(c.monto)||0) + 0.5;
   var clase = 'contrato' + (r.decision ? (r.decision==='terminar' ? ' baja' : ' decidido') : '');
   var aviso = (r.decision === 'comparar')
-    ? '<div class="aviso">Con comparación de precios tienes que invitar a un mínimo de tres proveedores de la base del FAP y convocar a la Comisión de Calificación. La mediana de trámite en 2026 fue de 40 días, contra 21 de la contratación directa.</div>'
+    ? '<div class="aviso">Con comparación de precios tienes que invitar a un mínimo de tres proveedores de la base del FAP y convocar a la Comisión de Calificación.</div>'
     : (r.decision === 'cambiar'
       ? '<div class="aviso">Al cambiar de proveedor deja de ser renovación: se tramita como proceso nuevo, con solicitud de inicio e informe de justificación.</div>'
       : '');
