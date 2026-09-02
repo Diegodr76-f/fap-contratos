@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Renovaciones 2027 — Confirma tus contratos · FAP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B153F; --texto:#252A3D; --tenue:#5A6072; --debil:#8B92A6;
+    --azul:#00249C; --azul-claro:#EEF1FB; --papel:#F4F6FB; --tarjeta:#FFFFFF;
+    --linea:#E2E6F2; --linea-fuerte:#C8CFE4;
+    --ren:#1E7A4D; --ren-bg:#E4F2E9;
+    --nue:#B4690E; --nue-bg:#FAF0DE;
+    --rojo:#B23B3B; --rojo-bg:#FBEDED;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--papel); color:var(--texto);
+    font-family:'Titillium Web',system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .env{max-width:940px;margin:0 auto;padding:0 18px 120px}
+
+  header{background:var(--tarjeta);border-bottom:1px solid var(--linea)}
+  header .env{display:flex;align-items:center;gap:14px;padding-top:14px;padding-bottom:14px}
+  .logo{width:40px;height:40px;border-radius:10px;background:var(--azul);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 auto}
+  .tit{font-weight:700;font-size:15px;color:var(--ink);line-height:1.15}
+  .sub{font-size:12.5px;color:var(--tenue)}
+  .cambiar{all:unset;cursor:pointer;margin-left:auto;color:var(--azul);font-weight:600;font-size:13px;white-space:nowrap}
+  .cambiar:focus-visible{outline:2px solid var(--azul);outline-offset:3px;border-radius:4px}
+
+  h1{font-size:26px;font-weight:700;color:var(--ink);margin:26px 0 8px;letter-spacing:-.3px}
+  .lead{color:var(--tenue);font-size:15.5px;margin:0 0 22px;max-width:62ch}
+
+  .card{background:var(--tarjeta);border:1px solid var(--linea);border-radius:14px;padding:20px}
+
+  /* Selector de administradora */
+  .picker{max-width:460px;margin:40px auto}
+  .picker h1{margin-top:0}
+  select,input,textarea{font-family:inherit;font-size:15px}
+  .inp{width:100%;border:1.5px solid var(--linea-fuerte);border-radius:10px;
+    padding:11px 13px;color:var(--ink);background:var(--tarjeta);outline:none}
+  .inp:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(0,36,156,.10)}
+  .btn{all:unset;cursor:pointer;display:block;text-align:center;background:var(--azul);
+    color:#fff;font-weight:700;padding:12px;border-radius:10px;margin-top:14px}
+  .btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .btn[disabled]{background:var(--linea-fuerte);cursor:not-allowed}
+
+  /* Barra de avance */
+  .avance{position:sticky;top:0;z-index:20;background:var(--papel);
+    padding:12px 0 10px;border-bottom:1px solid var(--linea);margin-bottom:20px}
+  .avance .fila{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .avance b{font-size:15px;color:var(--ink)}
+  .barra{flex:1;min-width:120px;height:8px;border-radius:99px;background:var(--linea);overflow:hidden}
+  .barra i{display:block;height:100%;background:var(--ren);transition:width .3s}
+
+  /* Grupos */
+  .grupo{margin:30px 0 0}
+  .grupo-tit{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .chip{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    padding:4px 11px;border-radius:99px}
+  .chip.ren{color:var(--ren);background:var(--ren-bg)}
+  .chip.nue{color:var(--nue);background:var(--nue-bg)}
+  .grupo-nota{font-size:13.5px;color:var(--tenue);margin:0 0 14px;max-width:70ch;line-height:1.5}
+
+  /* Tarjeta de contrato */
+  .contrato{background:var(--tarjeta);border:1px solid var(--linea);border-radius:14px;
+    padding:16px 18px;margin-bottom:12px;border-left:4px solid var(--linea-fuerte)}
+  .contrato.decidido{border-left-color:var(--ren)}
+  .contrato.baja{border-left-color:var(--rojo)}
+  .nro{font-weight:700;color:var(--ink);font-size:13.5px;font-variant-numeric:tabular-nums}
+  .det{color:var(--texto);font-size:15px;margin-top:2px}
+  .meta{color:var(--tenue);font-size:13px;margin-top:6px}
+  .plata{color:var(--ink);font-weight:700}
+  .adenda{color:var(--nue);font-weight:600}
+  .sello{display:inline-flex;align-items:center;gap:7px;margin-top:10px;font-size:12.5px;
+    font-weight:700;padding:5px 11px;border-radius:99px;background:var(--ren-bg);color:var(--ren)}
+  .sello.baja{background:var(--rojo-bg);color:var(--rojo)}
+
+  .pregunta{font-size:13.5px;font-weight:700;color:var(--ink);margin:16px 0 8px}
+  .ops{display:flex;flex-direction:column;gap:7px}
+  .op{all:unset;cursor:pointer;display:flex;gap:10px;align-items:flex-start;
+    border:1.5px solid var(--linea);border-radius:10px;padding:10px 13px;font-size:14px;color:var(--texto)}
+  .op:hover{background:var(--azul-claro)}
+  .op:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+  .op .marca{width:17px;height:17px;border-radius:50%;border:2px solid var(--linea-fuerte);
+    flex:0 0 auto;margin-top:2px}
+  .op[aria-pressed="true"]{border-color:var(--azul);background:var(--azul-claro);color:var(--azul);font-weight:600}
+  .op[aria-pressed="true"] .marca{border-color:var(--azul);background:var(--azul);
+    box-shadow:inset 0 0 0 3px #fff}
+  .op small{display:block;font-weight:400;color:var(--tenue);font-size:12.5px;margin-top:2px}
+  .op[aria-pressed="true"] small{color:var(--azul)}
+
+  .aviso{background:var(--nue-bg);color:#7A4A0B;border-radius:9px;padding:10px 13px;
+    font-size:13px;line-height:1.5;margin-top:9px}
+  .extras{display:grid;grid-template-columns:200px 1fr;gap:12px;margin-top:14px}
+  @media(max-width:640px){.extras{grid-template-columns:1fr}}
+  label.fl{display:block;font-size:12.5px;font-weight:700;color:var(--tenue);margin-bottom:5px}
+
+  /* Pie fijo */
+  .pie{position:fixed;left:0;right:0;bottom:0;background:var(--tarjeta);
+    border-top:1px solid var(--linea);box-shadow:0 -6px 24px rgba(11,21,63,.07);z-index:30}
+  .pie .env{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:12px;padding-bottom:12px}
+  .pie .estado{font-size:13.5px;color:var(--tenue);flex:1;min-width:180px}
+  .pie button{all:unset;cursor:pointer;font-weight:700;font-size:14px;padding:11px 18px;border-radius:10px}
+  .pie .prim{background:var(--azul);color:#fff}
+  .pie .sec{background:var(--azul-claro);color:var(--azul)}
+  .pie button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .pie button[disabled]{background:var(--linea);color:var(--debil);cursor:not-allowed}
+
+  .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);background:var(--ink);
+    color:#fff;padding:12px 20px;border-radius:11px;font-weight:600;font-size:14px;
+    opacity:0;transition:.25s;z-index:99;pointer-events:none;max-width:88vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+  .vacio{color:var(--tenue);text-align:center;padding:50px 20px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header><div class="env">
+  <div class="logo">FAP</div>
+  <div>
+    <div class="tit">Renovaciones 2027</div>
+    <div class="sub" id="sub">Fondo de Áreas Protegidas · FIAS</div>
+  </div>
+  <button class="cambiar" id="cambiar" style="display:none">Cambiar administrador/a</button>
+</div></header>
+
+<main class="env" id="app">
+  <div class="vacio">Cargando contratos…</div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =======================================================================
+   Confirmación de renovaciones 2027
+
+   Cada administrador/a contador/a entra, elige su nombre, ve sus contratos
+   vigentes desplegados y dice, contrato por contrato, qué hace en 2027.
+
+   Lee la MISMA base cifrada que el CRM y el CLM (crm/contratos_export.json,
+   que el robot diario regenera), así que no hay una segunda lista que
+   mantener ni datos publicados en claro.
+
+   Las decisiones se guardan en el navegador mientras se trabaja y salen de
+   dos maneras, para no depender de que exista un flujo:
+     · si FLOW_URL está configurada, se envían a Power Automate y de ahí a
+       la tabla de Excel en línea;
+     · siempre se pueden descargar como CSV y responder el correo con él.
+   ===================================================================== */
+
+// Pega aquí la URL del flujo de Power Automate («cuando se recibe una
+// solicitud HTTP») cuando exista. Mientras esté vacía, la pantalla funciona
+// igual y las respuestas salen por CSV.
+var FLOW_URL = '';
+
+var DATA_URL = '../crm/contratos_export.json';
+var LS_PASS  = 'fap_data_key';      // la misma frase que el CRM y el CLM
+var LS_YO    = 'fap_ren27_ac';
+var LS_RESP  = 'fap_ren27_respuestas';
+
+// Objetos que no son servicio recurrente: van por su propio proceso.
+var NO_RECURRENTES = ['Consultoría', 'Adquisición de equipos de campo'];
+
+var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+             'septiembre','octubre','noviembre','diciembre'];
+
+/* ---------------------------------------------------------------- utilidades */
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function money(n){return 'USD ' + (Number(n)||0).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fechaLarga(iso){
+  if(!iso) return '—';
+  var p = String(iso).slice(0,10).split('-');
+  if(p.length!==3) return iso;
+  return Number(p[2]) + ' de ' + MESES[Number(p[1])-1] + ' de ' + p[0];
+}
+function diaSiguiente(iso){
+  if(!iso) return null;
+  var d = new Date(String(iso).slice(0,10) + 'T00:00:00Z');
+  if(isNaN(d)) return null;
+  d.setUTCDate(d.getUTCDate()+1);
+  return d.toISOString().slice(0,10);
+}
+function toast(m){
+  var t=document.getElementById('toast');
+  t.textContent=m; t.classList.add('show');
+  clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove('show');},2600);
+}
+
+/* ------------------------------------------------- descifrado (igual que el CLM) */
+function esCifrado(o){ return !!(o && typeof o==='object' && o.fap_enc); }
+async function descifrar(env, pass){
+  var b = function(s){ return Uint8Array.from(atob(s), function(c){return c.charCodeAt(0);}); };
+  var base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  var key = await crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt:b(env.salt), iterations: env.iter||250000, hash:'SHA-256'},
+    base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+  var pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b(env.iv)}, key, b(env.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function pedirFrase(msg){
+  return new Promise(function(resolve){
+    var w=document.createElement('div');
+    w.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#F4F6FB,#E8EDFB);padding:24px';
+    w.innerHTML='<form style="background:#fff;border:1px solid #E3E8F5;border-radius:18px;padding:30px;max-width:420px;width:100%;box-shadow:0 18px 50px rgba(11,21,63,.12)">'
+      +'<div style="width:48px;height:48px;border-radius:12px;background:#00249C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:14px">🔒</div>'
+      +'<h1 style="font-size:21px;font-weight:700;margin:0 0 6px;color:#0B153F">Acceso protegido</h1>'
+      +'<p style="margin:0 0 16px;color:#5A6484;font-size:14px;line-height:1.5">Esta pantalla maneja información de contratos. Ingresa la <b>frase de acceso</b> del equipo — la misma del CRM y el CLM.</p>'
+      +(msg?'<div style="background:#FDECEC;color:#B3261E;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:12px">'+esc(msg)+'</div>':'')
+      +'<input type="password" autocomplete="current-password" placeholder="Frase de acceso" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #D6DCEC;border-radius:11px;font-size:15px;outline:none">'
+      +'<button type="submit" style="all:unset;cursor:pointer;display:block;text-align:center;width:100%;box-sizing:border-box;margin-top:14px;padding:12px;background:#00249C;color:#fff;border-radius:11px;font-weight:700;font-size:15px">Entrar</button>'
+      +'</form>';
+    var i=w.querySelector('input');
+    w.querySelector('form').addEventListener('submit',function(e){
+      e.preventDefault();
+      var v=i.value.trim(); if(v){ w.remove(); resolve(v); }
+    });
+    document.body.appendChild(w); i.focus();
+  });
+}
+async function abrir(env){
+  var pass = localStorage.getItem(LS_PASS) || '', msg='';
+  for(;;){
+    if(pass){
+      try{ var d = await descifrar(env, pass); localStorage.setItem(LS_PASS, pass); return d; }
+      catch(e){ localStorage.removeItem(LS_PASS); msg='Frase incorrecta. Inténtalo de nuevo.'; }
+    }
+    pass = await pedirFrase(msg);
+  }
+}
+
+/* ------------------------------------------------------------------ estado */
+var CONTRATOS = [];   // solo los del universo de la campaña
+var YO = null;        // administrador/a elegido
+var R = {};           // respuestas: {nro: {decision, monto27, obs, fecha}}
+
+function cargarResp(){ try{ R = JSON.parse(localStorage.getItem(LS_RESP)||'{}')||{}; }catch(e){ R={}; } }
+function guardarResp(){ try{ localStorage.setItem(LS_RESP, JSON.stringify(R)); }catch(e){ toast('No se pudo guardar en este navegador.'); } }
+
+function esRenovable(c){
+  return c.tipo === 'Nuevo' && NO_RECURRENTES.indexOf(c.cat) === -1;
+}
+function montoTotal(c){
+  var t = Number(c.montoTotal), m = Number(c.monto)||0;
+  return (isFinite(t) && t > m) ? t : m;
+}
+function mios(){ return CONTRATOS.filter(function(c){ return c.ac === YO; }); }
+
+/* --------------------------------------------------------------- decisiones */
+// Cada opción dice qué pasa en 2027 y, cuando toca, advierte del costo.
+var OPCIONES = {
+  renovable: [
+    {id:'renovar',  t:'Sí, renovar con el mismo proveedor',
+     s:'Es su única renovación: para 2028 tendrá que salir como proceso nuevo.'},
+    {id:'cambiar',  t:'No renovar — el servicio sigue, pero con otro proveedor',
+     s:'Entonces es un proceso nuevo, no una renovación.'},
+    {id:'terminar', t:'No — el área ya no necesita este servicio',
+     s:'No se tramita nada y libera capacidad para el resto.'}
+  ],
+  nuevo: [
+    {id:'directa',  t:'Sí, contratación directa con el mismo proveedor',
+     s:'Proveedor calificado y recurrencia del servicio, motivado en el informe de justificación.'},
+    {id:'comparar', t:'No — quiero comparación de precios',
+     s:'Mínimo 3 invitaciones y Comisión de Calificación: 40 días de trámite en vez de 21.'},
+    {id:'terminar', t:'No — el área ya no necesita este servicio',
+     s:'No se tramita nada y libera capacidad para el resto.'}
+  ]
+};
+var ETIQUETA = {
+  renovar:'Renovación con el mismo proveedor',
+  cambiar:'Proceso nuevo — cambio de proveedor',
+  directa:'Contratación directa con el mismo proveedor',
+  comparar:'Comparación de precios',
+  terminar:'No continúa en 2027'
+};
+
+/* ------------------------------------------------------------------ pantalla */
+function render(){
+  var app = document.getElementById('app');
+  document.getElementById('cambiar').style.display = YO ? '' : 'none';
+  document.getElementById('sub').textContent = YO ? YO : 'Fondo de Áreas Protegidas · FIAS';
+
+  if(!YO){ app.innerHTML = vistaPicker(); enlazarPicker(); pintarPie(false); return; }
+
+  var lista = mios();
+  if(!lista.length){
+    app.innerHTML = '<div class="vacio">No hay contratos vigentes a tu nombre en la base. '
+      + 'Si crees que es un error, avisa a la Unidad Legal.</div>';
+    pintarPie(false); return;
+  }
+  var ren = lista.filter(esRenovable), nue = lista.filter(function(c){return !esRenovable(c);});
+  ren.sort(porFecha); nue.sort(porFecha);
+
+  app.innerHTML =
+      vistaAvance(lista)
+    + (ren.length ? bloque('ren','Se pueden renovar', ren.length,
+        'El contrato de 2026 se firmó como nuevo, así que conserva su única renovación.', ren) : '')
+    + (nue.length ? bloque('nue','Necesitan un nuevo proceso administrativo', nue.length,
+        'El contrato de 2026 ya era una renovación y el FIAS solo permite renovar una vez: el cupo está agotado.', nue) : '');
+
+  enlazarTarjetas();
+  pintarPie(true);
+}
+function porFecha(a,b){ return String(a.fin||'').localeCompare(String(b.fin||'')); }
+
+function vistaPicker(){
+  var acs = {};
+  CONTRATOS.forEach(function(c){ if(c.ac) acs[c.ac] = (acs[c.ac]||0)+1; });
+  var nombres = Object.keys(acs).sort(function(a,b){return a.localeCompare(b,'es');});
+  return '<div class="picker card">'
+    + '<h1>¿Quién eres?</h1>'
+    + '<p class="lead">Elige tu nombre para ver tus contratos vigentes y decidir qué pasa con cada uno en 2027.</p>'
+    + '<label class="fl" for="selac">Administrador/a de contrato</label>'
+    + '<select class="inp" id="selac"><option value="">— elige tu nombre —</option>'
+    + nombres.map(function(n){
+        return '<option value="'+esc(n)+'">'+esc(n)+' · '+acs[n]+' contrato'+(acs[n]===1?'':'s')+'</option>';
+      }).join('')
+    + '</select>'
+    + '<button class="btn" id="entrar" disabled>Ver mis contratos</button>'
+    + '</div>';
+}
+function enlazarPicker(){
+  var sel = document.getElementById('selac'), btn = document.getElementById('entrar');
+  sel.addEventListener('change', function(){ btn.disabled = !sel.value; });
+  btn.addEventListener('click', function(){
+    if(!sel.value) return;
+    YO = sel.value;
+    try{ localStorage.setItem(LS_YO, YO); }catch(e){}
+    render(); window.scrollTo(0,0);
+  });
+}
+
+function vistaAvance(lista){
+  var hechos = lista.filter(function(c){ return R[c.nro] && R[c.nro].decision; }).length;
+  var pct = lista.length ? Math.round(hechos/lista.length*100) : 0;
+  return '<h1>Tus contratos vigentes</h1>'
+    + '<p class="lead">Para cada uno, dime qué corresponde hacer en 2027. Se va guardando solo: '
+    + 'puedes cerrar y volver más tarde sin perder nada.</p>'
+    + '<div class="avance"><div class="fila">'
+    + '<b>'+hechos+' de '+lista.length+' decididos</b>'
+    + '<span class="barra"><i style="width:'+pct+'%"></i></span>'
+    + '</div></div>';
+}
+
+function bloque(clase, titulo, n, nota, arr){
+  return '<section class="grupo">'
+    + '<div class="grupo-tit"><span class="chip '+clase+'">'+esc(titulo)+' · '+n+'</span></div>'
+    + '<p class="grupo-nota">'+esc(nota)+'</p>'
+    + arr.map(tarjeta).join('')
+    + '</section>';
+}
+
+function tarjeta(c){
+  var r = R[c.nro] || {};
+  var ops = esRenovable(c) ? OPCIONES.renovable : OPCIONES.nuevo;
+  var mt = montoTotal(c), hayAdenda = mt > (Number(c.monto)||0) + 0.5;
+  var clase = 'contrato' + (r.decision ? (r.decision==='terminar' ? ' baja' : ' decidido') : '');
+  var aviso = (r.decision === 'comparar')
+    ? '<div class="aviso">Con comparación de precios tienes que invitar a un mínimo de tres proveedores de la base del FAP y convocar a la Comisión de Calificación. La mediana de trámite en 2026 fue de 40 días, contra 21 de la contratación directa.</div>'
+    : (r.decision === 'cambiar'
+      ? '<div class="aviso">Al cambiar de proveedor deja de ser renovación: se tramita como proceso nuevo, con solicitud de inicio e informe de justificación.</div>'
+      : '');
+
+  return '<article class="'+clase+'" data-nro="'+esc(c.nro)+'">'
+    + '<div class="nro">'+esc(c.nro)+'</div>'
+    + '<div class="det">'+esc(c.detalle)+'</div>'
+    + '<div class="meta">'+esc(c.area)+'</div>'
+    + '<div class="meta"><span class="plata">'+money(mt)+'</span> este año'
+      + (hayAdenda ? ' <span class="adenda">(incluye adenda)</span>' : '')
+      + (c.proveedor ? ' · ' + esc(c.proveedor) : '') + '</div>'
+    + '<div class="meta">Vence el '+fechaLarga(c.fin)
+      + ' · el contrato de 2027 arrancaría el '+fechaLarga(diaSiguiente(c.fin))+'</div>'
+    + (r.decision
+        ? '<div class="sello'+(r.decision==='terminar'?' baja':'')+'">'
+          + (r.decision==='terminar' ? '✕' : '✓') + ' ' + esc(ETIQUETA[r.decision]||'') + '</div>'
+        : '')
+    + '<div class="pregunta">'+(esRenovable(c)
+        ? '¿Renuevas este contrato para 2027?'
+        : '¿Vas por contratación directa con el mismo proveedor?')+'</div>'
+    + '<div class="ops">'
+    + ops.map(function(o){
+        var on = r.decision === o.id;
+        return '<button type="button" class="op" data-op="'+o.id+'" aria-pressed="'+(on?'true':'false')+'">'
+          + '<span class="marca"></span><span>'+esc(o.t)+'<small>'+esc(o.s)+'</small></span></button>';
+      }).join('')
+    + '</div>'
+    + aviso
+    + (r.decision && r.decision !== 'terminar'
+        ? '<div class="extras">'
+          + '<div><label class="fl">Monto estimado 2027</label>'
+          + '<input class="inp" type="number" step="0.01" min="0" data-campo="monto27" '
+          + 'value="'+esc(r.monto27!=null ? r.monto27 : mt.toFixed(2))+'"></div>'
+          + '<div><label class="fl">Observaciones (opcional)</label>'
+          + '<input class="inp" type="text" data-campo="obs" placeholder="Lo que la Unidad Legal deba saber" '
+          + 'value="'+esc(r.obs||'')+'"></div>'
+          + '</div>'
+        : '')
+    + '</article>';
+}
+
+function enlazarTarjetas(){
+  document.querySelectorAll('.contrato').forEach(function(el){
+    var nro = el.dataset.nro;
+    el.querySelectorAll('.op').forEach(function(b){
+      b.addEventListener('click', function(){
+        var prev = R[nro] || {};
+        R[nro] = {
+          decision: b.dataset.op,
+          monto27: prev.monto27,
+          obs: prev.obs,
+          fecha: new Date().toISOString()
+        };
+        guardarResp();
+        render();
+        // deja la tarjeta a la vista tras redibujar
+        var v = document.querySelector('.contrato[data-nro="'+CSS.escape(nro)+'"]');
+        if(v) v.scrollIntoView({block:'center', behavior:'auto'});
+      });
+    });
+    el.querySelectorAll('[data-campo]').forEach(function(inp){
+      inp.addEventListener('change', function(){
+        if(!R[nro]) return;
+        R[nro][inp.dataset.campo] = inp.value;
+        R[nro].fecha = new Date().toISOString();
+        guardarResp();
+      });
+    });
+  });
+}
+
+/* ----------------------------------------------------------------- salida */
+function filasResp(){
+  return mios().filter(function(c){ return R[c.nro] && R[c.nro].decision; }).map(function(c){
+    var r = R[c.nro];
+    return {
+      nro: c.nro, detalle: c.detalle, area: c.area, categoria: c.cat,
+      proveedor: c.proveedor, montoTotal2026: montoTotal(c),
+      vence: c.fin, tipo2026: c.tipo,
+      renovable: esRenovable(c) ? 'Sí' : 'No',
+      decision: ETIQUETA[r.decision] || r.decision,
+      continua: r.decision === 'terminar' ? 'No' : 'Sí',
+      monto2027: r.monto27 || '',
+      observaciones: r.obs || '',
+      ac: c.ac, correoAC: c.correo || '',
+      respondido: r.fecha
+    };
+  });
+}
+function csv(){
+  var filas = filasResp();
+  if(!filas.length) return '';
+  var cols = Object.keys(filas[0]);
+  var q = function(v){ v = v==null?'':String(v); return '"'+v.replace(/"/g,'""')+'"'; };
+  return '﻿' + cols.join(';') + '\r\n'
+    + filas.map(function(f){ return cols.map(function(k){ return q(f[k]); }).join(';'); }).join('\r\n');
+}
+function descargar(){
+  var t = csv();
+  if(!t){ toast('Todavía no has decidido ningún contrato.'); return; }
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([t], {type:'text/csv;charset=utf-8'}));
+  a.download = 'Renovaciones2027_' + String(YO).replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g,'_') + '.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 200);
+  toast('Descargado. Responde el correo adjuntando ese archivo.');
+}
+async function enviar(btn){
+  var filas = filasResp();
+  if(!filas.length){ toast('Todavía no has decidido ningún contrato.'); return; }
+  if(!FLOW_URL){ descargar(); return; }
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try{
+    var res = await fetch(FLOW_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ ac: YO, enviado: new Date().toISOString(), respuestas: filas })
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    toast('Enviado. Gracias — la Unidad Legal ya tiene tus decisiones.');
+  }catch(e){
+    toast('No se pudo enviar. Descarga el archivo y respóndelo por correo.');
+    descargar();
+  }finally{
+    btn.disabled = false; btn.textContent = 'Enviar mis decisiones';
+  }
+}
+
+function pintarPie(mostrar){
+  var pie = document.getElementById('pie');
+  if(!mostrar){ if(pie) pie.remove(); return; }
+  if(!pie){
+    pie = document.createElement('div');
+    pie.className='pie'; pie.id='pie';
+    pie.innerHTML = '<div class="env">'
+      + '<div class="estado" id="pie-estado"></div>'
+      + '<button class="sec" id="pie-csv">Descargar CSV</button>'
+      + '<button class="prim" id="pie-enviar">Enviar mis decisiones</button>'
+      + '</div>';
+    document.body.appendChild(pie);
+    document.getElementById('pie-csv').addEventListener('click', descargar);
+    document.getElementById('pie-enviar').addEventListener('click', function(){ enviar(this); });
+  }
+  var lista = mios();
+  var hechos = lista.filter(function(c){ return R[c.nro] && R[c.nro].decision; }).length;
+  document.getElementById('pie-estado').textContent =
+    hechos === lista.length
+      ? 'Ya decidiste los ' + lista.length + '. Envía para que la Unidad Legal los reciba.'
+      : 'Te faltan ' + (lista.length - hechos) + ' de ' + lista.length + '. Puedes enviar lo que llevas y volver después.';
+}
+
+/* -------------------------------------------------------------------- arranque */
+document.getElementById('cambiar').addEventListener('click', function(){
+  YO = null; try{ localStorage.removeItem(LS_YO); }catch(e){}
+  render(); window.scrollTo(0,0);
+});
+
+(async function(){
+  cargarResp();
+  var app = document.getElementById('app');
+  var crudo;
+  try{
+    var r = await fetch(DATA_URL, {cache:'no-cache'});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    crudo = await r.json();
+  }catch(e){
+    app.innerHTML = '<div class="vacio">No se pudo cargar la base de contratos.<br>'
+      + 'Abre esta página desde el sitio del FAP (no como archivo suelto) y revisa tu conexión.</div>';
+    return;
+  }
+  var datos = esCifrado(crudo) ? await abrir(crudo) : crudo;
+
+  CONTRATOS = datos.filter(function(c){
+    return !c.cerrado && c.ac && NO_RECURRENTES.indexOf(c.cat) === -1;
+  });
+
+  var guardado = null;
+  try{ guardado = localStorage.getItem(LS_YO); }catch(e){}
+  if(guardado && CONTRATOS.some(function(c){ return c.ac === guardado; })) YO = guardado;
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -132,6 +132,26 @@ ese navegador); sin ella nadie que encuentre el link ve nada. No es cifrado real
 no una caja fuerte—, pero cumple su función: nadie entra sin la frase, y como las tareas nunca se
 publican, tampoco hay nada que robar aunque alguien la esquivara.
 
+## Confirmación de renovaciones — la pantalla de las administradoras
+
+**`/renovaciones/index.html`** es donde cada administrador/a contador/a entra, elige su nombre y ve
+**sus contratos vigentes desplegados**, cada uno con su monto del año (adendas incluidas), el
+proveedor y la fecha en que arrancaría el contrato de 2027. Para cada contrato responde una sola
+pregunta, la que corresponde:
+
+- **Si se puede renovar** — porque el contrato de 2026 se firmó como nuevo: *¿renuevas con el mismo
+  proveedor, cambias de proveedor, o el área ya no necesita el servicio?*
+- **Si necesita proceso nuevo** — porque ya renovó y el cupo está agotado: *¿contratación directa
+  con el mismo proveedor, o comparación de precios?* Al elegir comparación aparece en pantalla lo
+  que cuesta: mínimo tres invitaciones, Comisión de Calificación y 40 días de trámite en vez de 21.
+
+Lee la **misma base cifrada** que el CRM y el CLM (`crm/contratos_export.json`, que el robot diario
+regenera), con la misma frase de acceso, así que no hay una segunda lista que mantener. Las
+decisiones se guardan solas en el navegador mientras trabaja —puede cerrar y volver— y salen por
+dos vías: **descargando un CSV** que responde por correo, o **enviándose a Power Automate** si se
+configura `FLOW_URL` en el archivo. Sin flujo configurado la pantalla funciona igual: el CSV no
+depende de nada.
+
 ## Plan de renovaciones 2027
 
 **[`plan/PLAN_RENOVACIONES_2027.md`](plan/PLAN_RENOVACIONES_2027.md)** responde, contrato por
@@ -186,6 +206,7 @@ python3 scripts/plan_renovaciones.py <Sistema_Alertas_Contratos_FIAS.xlsx> <carp
 Cada herramienta tiene su propio enlace en GitHub Pages:
 
 - **CLM (plataforma unificada):** https://[tu-usuario].github.io/fap-contratos/clm/
+- Confirmación de renovaciones 2027 (para las ACs): https://[tu-usuario].github.io/fap-contratos/renovaciones/
 - Calificador de Ofertas: https://[tu-usuario].github.io/fap-contratos/calificacion/
 - CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
 - La Mágica: https://[tu-usuario].github.io/fap-contratos/generador/
