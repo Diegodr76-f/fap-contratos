@@ -177,7 +177,7 @@ function money(n){return 'USD ' + (Number(n)||0).toLocaleString('es-EC',{minimum
 function fechaLarga(iso){
   if(!iso) return '—';
   var p = String(iso).slice(0,10).split('-');
-  if(p.length!==3) return iso;
+  if(p.length!==3) return esc(iso);
   return Number(p[2]) + ' de ' + MESES[Number(p[1])-1] + ' de ' + p[0];
 }
 function diaSiguiente(iso){

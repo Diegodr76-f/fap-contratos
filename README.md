@@ -143,7 +143,7 @@ pregunta, la que corresponde:
   proveedor, cambias de proveedor, o el área ya no necesita el servicio?*
 - **Si necesita proceso nuevo** — porque ya renovó y el cupo está agotado: *¿contratación directa
   con el mismo proveedor, o comparación de precios?* Al elegir comparación aparece en pantalla lo
-  que cuesta: mínimo tres invitaciones, Comisión de Calificación y 40 días de trámite en vez de 21.
+  que exige esa vía: mínimo tres invitaciones y Comisión de Calificación.
 
 Lee la **misma base cifrada** que el CRM y el CLM (`crm/contratos_export.json`, que el robot diario
 regenera), con la misma frase de acceso, así que no hay una segunda lista que mantener. Las
