@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planificador adaptativo · FAP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B153F; --texto:#252A3D; --tenue:#5A6072; --debil:#8B92A6;
+    --azul:#00249C; --azul-claro:#EEF1FB; --papel:#F4F6FB; --tarjeta:#FFFFFF;
+    --linea:#E2E6F2; --linea-fuerte:#C8CFE4;
+    --ok:#1E7A4D; --ok-bg:#E4F2E9;
+    --alerta:#B4690E; --alerta-bg:#FAF0DE;
+    --critico:#B23B3B; --critico-bg:#FBEDED;
+    --sombra:0 1px 2px rgba(11,21,63,.05), 0 8px 24px -12px rgba(11,21,63,.14);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--papel); color:var(--texto);
+    font-family:'Titillium Web',system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .env{max-width:1180px; margin:0 auto; padding:0 22px}
+  @media(max-width:820px){ .env{padding:0 14px} }
+  main.env{padding-bottom:90px}
+  [hidden]{display:none !important}
+
+  /* ------------------------------------------------------------ cabecera */
+  header{background:var(--tarjeta); border-bottom:1px solid var(--linea);
+    position:sticky; top:0; z-index:40}
+  header .env{padding-top:12px}
+  .cab{display:flex; align-items:center; gap:13px; flex-wrap:wrap}
+  .logo{width:36px; height:36px; border-radius:9px; background:var(--azul); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:700; flex:0 0 auto;
+    font-size:13px; letter-spacing:.02em}
+  .cab-tit{min-width:0}
+  .cab-tit .eyebrow{font-size:10px; font-weight:700; letter-spacing:.13em;
+    text-transform:uppercase; color:var(--azul)}
+  .cab-tit b{display:block; font-size:15px; color:var(--ink); line-height:1.2;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:46vw}
+  .cab-acc{margin-left:auto; display:flex; align-items:center; gap:7px; flex-wrap:wrap}
+
+  .riel{display:flex; gap:4px; margin-top:11px; overflow-x:auto; padding-bottom:2px}
+  .paso{flex:1 1 0; min-width:104px; text-align:left; background:transparent; cursor:pointer;
+    font-family:inherit; border:none; border-bottom:3px solid var(--linea);
+    padding:7px 9px 8px; border-radius:7px 7px 0 0; position:relative;
+    transition:background .16s, border-color .16s}
+  .paso:hover{background:var(--azul-claro)}
+  .paso:focus-visible{outline:2px solid var(--azul); outline-offset:-2px}
+  .paso .pn{display:block; font-size:9.5px; font-weight:700; letter-spacing:.09em;
+    color:var(--debil); text-transform:uppercase}
+  .paso .pnom{display:block; font-size:13px; font-weight:700; color:var(--tenue); margin-top:2px;
+    line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .paso[data-est="cerrada"]{border-bottom-color:var(--ok)}
+  .paso[data-est="cerrada"] .pn{color:var(--ok)}
+  .paso[data-est="curso"]{border-bottom-color:var(--azul)}
+  .paso[data-est="curso"] .pn,.paso[data-est="curso"] .pnom{color:var(--azul)}
+  .paso[aria-current="page"]{background:var(--azul-claro)}
+  .paso[aria-current="page"] .pnom{color:var(--ink)}
+  .paso .aguja{position:absolute; top:5px; right:6px; width:6px; height:6px; border-radius:50%;
+    background:var(--critico)}
+
+  .pulso{display:flex; border-top:1px solid var(--linea)}
+  .pulso-i{flex:1 1 0; min-width:0; padding:8px 13px 9px; border-right:1px solid var(--linea);
+    display:flex; align-items:baseline; gap:7px; min-height:42px}
+  .pulso-i:first-child{padding-left:0}
+  .pulso-i:last-child{border-right:none}
+  .pulso-i b{font-size:18px; font-weight:700; color:var(--ink); line-height:1;
+    font-variant-numeric:tabular-nums; letter-spacing:-.02em; white-space:nowrap}
+  .pulso-i b.ok{color:var(--ok)} .pulso-i b.alerta{color:var(--alerta)}
+  .pulso-i b.critico{color:var(--critico)}
+  .pulso-i span{font-size:11px; color:var(--tenue); line-height:1.25; min-width:0;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  @media(max-width:820px){ .pulso{overflow-x:auto} .pulso-i{flex:0 0 auto} }
+
+  /* ---------------------------------------------------------- tipografía */
+  h1{font-size:clamp(23px,3.2vw,31px); line-height:1.11; font-weight:700; color:var(--ink);
+    margin:0; letter-spacing:-.022em; text-wrap:balance}
+  h2{font-size:19px; font-weight:700; color:var(--ink); margin:0; letter-spacing:-.012em}
+  h3.grupo{font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--debil); margin:22px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--linea)}
+  h3.grupo:first-of-type{margin-top:0}
+  section{padding-top:34px}
+  .sec-cab{display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; margin-bottom:5px}
+  .cuenta{font-size:11.5px; font-weight:700; color:var(--debil); font-variant-numeric:tabular-nums}
+  .sub{font-family:'Source Serif 4',Georgia,serif; font-size:15.5px; color:var(--tenue);
+    margin:0 0 17px; max-width:68ch; line-height:1.55}
+  .lead{font-family:'Source Serif 4',Georgia,serif; font-size:17px; color:var(--tenue);
+    max-width:66ch; line-height:1.55; margin:11px 0 0}
+
+  /* ------------------------------------------------------------- pantalla planes */
+  .portada{padding:44px 0 0}
+  .planes{display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px;
+    margin-top:24px}
+  .plan-c{background:var(--tarjeta); border:1px solid var(--linea); border-radius:13px;
+    padding:18px 20px; box-shadow:var(--sombra); cursor:pointer; text-align:left;
+    font-family:inherit; display:flex; flex-direction:column; gap:9px;
+    transition:border-color .16s, transform .16s}
+  .plan-c:hover{border-color:var(--azul); transform:translateY(-1px)}
+  .plan-c:focus-visible{outline:2px solid var(--azul); outline-offset:2px}
+  .plan-c .pt{font-size:16px; font-weight:700; color:var(--ink); line-height:1.28}
+  .plan-c .pd{font-size:13px; color:var(--tenue); line-height:1.45}
+  .plan-c .pm{display:flex; gap:7px; flex-wrap:wrap; align-items:center; margin-top:auto;
+    padding-top:9px; border-top:1px solid var(--linea); font-size:11.5px; color:var(--debil)}
+  .plan-c.nuevo{border-style:dashed; border-color:var(--linea-fuerte); box-shadow:none;
+    align-items:center; justify-content:center; text-align:center; color:var(--azul);
+    font-weight:700; min-height:132px}
+  .plan-c.nuevo:hover{background:var(--azul-claro)}
+
+  /* --------------------------------------------------------------- etapa */
+  .et-cab{padding:28px 0 0}
+  .et-eyebrow{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:6px}
+  .et-num{font-size:10.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--azul)}
+  .et-acc{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; align-items:center}
+
+  .estampa{font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+    padding:3px 9px; border-radius:99px; white-space:nowrap}
+  .estampa.cerrada{background:var(--ok-bg); color:var(--ok)}
+  .estampa.curso{background:var(--azul-claro); color:var(--azul)}
+  .estampa.pendiente{background:var(--linea); color:var(--tenue)}
+
+  .narra{background:var(--tarjeta); border:1px solid var(--linea); border-radius:13px;
+    padding:19px 22px; box-shadow:var(--sombra); margin-top:22px;
+    display:grid; gap:16px; grid-template-columns:1fr 1fr}
+  @media(max-width:800px){ .narra{grid-template-columns:1fr} }
+  .rot{font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--debil); margin-bottom:5px}
+  .narra p{margin:0; font-family:'Source Serif 4',Georgia,serif; font-size:15.5px; line-height:1.6}
+  .narra .dec p{font-family:inherit; font-size:14.5px}
+
+  /* -------------------------------------------------------------- avisos */
+  .avisos{display:grid; gap:8px; margin-top:20px}
+  .aviso{border-radius:11px; padding:12px 16px; font-size:13.5px; line-height:1.5;
+    display:flex; gap:10px; align-items:flex-start}
+  .aviso.alerta{background:var(--alerta-bg); color:var(--alerta)}
+  .aviso.critico{background:var(--critico-bg); color:var(--critico)}
+  .aviso.ok{background:var(--ok-bg); color:var(--ok)}
+  .aviso .ir{margin-left:auto; background:none; border:none; font-family:inherit; cursor:pointer;
+    font-weight:700; font-size:12.5px; color:inherit; text-decoration:underline;
+    white-space:nowrap; padding:0; flex:0 0 auto}
+  .vacio{color:var(--debil); font-size:14px; background:var(--tarjeta);
+    border:1px dashed var(--linea-fuerte); border-radius:12px; padding:24px 20px;
+    text-align:center; line-height:1.5}
+
+  /* ------------------------------------------------------------- señales */
+  .senales{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:13px}
+  .sen{background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px;
+    padding:16px 18px; box-shadow:var(--sombra); border-left:4px solid var(--linea-fuerte);
+    transition:border-left-color .25s}
+  .sen.ok{border-left-color:var(--ok)}
+  .sen.alerta{border-left-color:var(--alerta)}
+  .sen.critico{border-left-color:var(--critico)}
+  .sen-cab{display:flex; justify-content:space-between; align-items:flex-start; gap:10px}
+  .sen-nom{font-size:14.5px; font-weight:700; color:var(--ink); line-height:1.3}
+  .chip{font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    padding:4px 9px; border-radius:99px; white-space:nowrap; flex:0 0 auto;
+    background:var(--linea); color:var(--tenue); transition:background .2s,color .2s}
+  .chip.ok{background:var(--ok-bg); color:var(--ok)}
+  .chip.alerta{background:var(--alerta-bg); color:var(--alerta)}
+  .chip.critico{background:var(--critico-bg); color:var(--critico)}
+  .sen-cifras{display:flex; align-items:baseline; gap:8px; margin:12px 0 2px; flex-wrap:wrap}
+  .sen-val{font-size:27px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;
+    line-height:1; letter-spacing:-.022em}
+  .sen.espera .sen-val{color:var(--tenue)}
+  .sen-meta{font-size:12.5px; color:var(--tenue); font-variant-numeric:tabular-nums}
+  .tend{font-size:11.5px; font-weight:700; font-variant-numeric:tabular-nums;
+    padding:2px 7px; border-radius:99px; background:var(--papel); color:var(--tenue)}
+  .tend.sube{color:var(--ok)} .tend.baja{color:var(--critico)}
+
+  .escala{position:relative; height:8px; border-radius:99px; background:var(--linea);
+    overflow:visible; margin:12px 0 7px}
+  .escala i{display:block; height:100%; border-radius:99px; background:var(--linea-fuerte);
+    transition:width .4s cubic-bezier(.22,.7,.3,1), background .25s}
+  .escala i.ok{background:var(--ok)} .escala i.alerta{background:var(--alerta)}
+  .escala i.critico{background:var(--critico)}
+  .escala u{position:absolute; top:-3px; width:2px; height:14px; border-radius:2px}
+  .escala u.disp{background:var(--alerta)}
+  .escala u.nore{background:var(--critico)}
+  .escala-pie{display:flex; justify-content:space-between; font-size:10.5px; color:var(--debil);
+    font-variant-numeric:tabular-nums; margin-bottom:8px}
+
+  .chispa{display:block; width:100%; height:34px; margin:6px 0 4px}
+  .sen-nota{font-size:11.5px; color:var(--debil); line-height:1.42}
+  .sen-pie{display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:11px;
+    border-top:1px solid var(--linea); flex-wrap:wrap}
+  .sen-pie label{font-size:11.5px; font-weight:700; color:var(--tenue); white-space:nowrap}
+  .cadencia{font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:99px;
+    background:var(--papel); color:var(--debil); margin-left:auto; white-space:nowrap}
+  .cadencia.vencida{background:var(--alerta-bg); color:var(--alerta)}
+
+  /* --------------------------------------------------------------- rutas */
+  .rutas{display:flex; flex-direction:column; gap:12px}
+  .ruta{background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px;
+    padding:17px 19px; box-shadow:var(--sombra); transition:border-color .25s}
+  .ruta.armada{border-color:var(--alerta)}
+  .ruta.activada{border-color:var(--critico); box-shadow:0 0 0 3px var(--critico-bg), var(--sombra)}
+  .ruta.descartada{opacity:.55}
+  .ruta-cab{display:flex; justify-content:space-between; gap:12px; align-items:flex-start;
+    flex-wrap:wrap; margin-bottom:10px}
+  .ruta-nom{font-size:14.5px; font-weight:700; color:var(--ink); flex:1; min-width:220px;
+    line-height:1.35}
+  .ruta-cuerpo{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+  @media(max-width:720px){ .ruta-cuerpo{grid-template-columns:1fr} }
+  .ruta-cuerpo p{margin:0; font-size:14px; line-height:1.5; color:var(--texto)}
+  .ruta-cuerpo .si p{font-family:'Source Serif 4',Georgia,serif; font-size:14.5px}
+
+  .plazo{display:grid; grid-template-columns:auto 1fr; gap:5px 12px; margin-top:13px;
+    padding:12px 14px; background:var(--papel); border-radius:10px; font-size:12.5px;
+    align-items:center}
+  .plazo dt{color:var(--tenue); font-weight:700; white-space:nowrap}
+  .plazo dd{margin:0; color:var(--ink); font-variant-numeric:tabular-nums}
+  .plazo dd.urge{color:var(--alerta); font-weight:700}
+  .plazo dd.tarde{color:var(--critico); font-weight:700}
+  .ruta-pie{display:flex; align-items:center; gap:9px; margin-top:12px; padding-top:11px;
+    border-top:1px solid var(--linea); flex-wrap:wrap; font-size:12px; color:var(--debil)}
+  .lector b{font-variant-numeric:tabular-nums; color:var(--ink)}
+
+  /* --------------------------------------------------------------- hitos */
+  .tabla-caja{overflow-x:auto; border:1px solid var(--linea); border-radius:12px;
+    background:var(--tarjeta); box-shadow:var(--sombra)}
+  table{border-collapse:collapse; width:100%; min-width:640px; font-size:14px}
+  th{text-align:left; font-weight:700; font-size:10.5px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--tenue); padding:11px 14px;
+    border-bottom:1px solid var(--linea-fuerte); white-space:nowrap}
+  td{padding:9px 14px; border-bottom:1px solid var(--linea); vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr.hecho td.h-nom{color:var(--tenue)}
+  tbody tr.proximo{background:var(--azul-claro)}
+  td.h-nom{font-weight:600; color:var(--ink); min-width:210px}
+  td.h-nom .marcaprox{font-size:9.5px; font-weight:700; letter-spacing:.07em;
+    text-transform:uppercase; color:var(--azul); display:block; margin-bottom:2px}
+  .desvio{font-size:12px; font-variant-numeric:tabular-nums; font-weight:700}
+  .desvio.ok{color:var(--ok)} .desvio.alerta{color:var(--alerta)}
+  .desvio.critico{color:var(--critico)} .desvio.pend{color:var(--debil); font-weight:400}
+
+  /* ------------------------------------------------------------ bitácora */
+  .bitacora{background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px;
+    padding:18px 20px; box-shadow:var(--sombra)}
+  .entrada{padding:12px 0; border-bottom:1px solid var(--linea); display:flex; gap:13px;
+    align-items:flex-start}
+  .entrada:last-child{border-bottom:none; padding-bottom:0}
+  .entrada > div{flex:1; min-width:0}
+  .entrada .cuando{font-size:10.5px; font-weight:700; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--debil); margin-bottom:3px}
+  .entrada p{margin:0; font-family:'Source Serif 4',Georgia,serif; font-size:15.5px; line-height:1.55}
+  .entrada .auto{color:var(--azul)}
+
+  /* ------------------------------------------------------------ panel */
+  .panel-g{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:13px}
+  .pcol{background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px;
+    padding:16px 18px; box-shadow:var(--sombra)}
+  .pcol h4{margin:0 0 11px; font-size:12px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--debil)}
+  .plinea{display:flex; align-items:center; gap:9px; padding:7px 0;
+    border-bottom:1px solid var(--linea); font-size:13.5px}
+  .plinea:last-child{border-bottom:none}
+  .plinea .pn2{flex:1; min-width:0; color:var(--ink); overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap}
+  .plinea .pv{font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap}
+  .pdot{width:8px; height:8px; border-radius:50%; flex:0 0 auto; background:var(--linea-fuerte)}
+  .pdot.ok{background:var(--ok)} .pdot.alerta{background:var(--alerta)}
+  .pdot.critico{background:var(--critico)}
+
+  /* ------------------------------------------------------------ controles */
+  input,select,textarea{font-family:inherit; font-size:14px; color:var(--ink);
+    background:var(--tarjeta); border:1.5px solid var(--linea); border-radius:8px;
+    padding:7px 10px; outline:none; max-width:100%}
+  input:focus,select:focus,textarea:focus{border-color:var(--azul);
+    box-shadow:0 0 0 3px var(--azul-claro)}
+  input[type=number]{width:96px; font-variant-numeric:tabular-nums}
+  input[type=date]{font-variant-numeric:tabular-nums}
+  textarea{width:100%; resize:vertical; min-height:60px; line-height:1.5}
+  .edit{background:var(--papel); border:1px dashed var(--linea-fuerte); border-radius:10px;
+    padding:14px 15px; margin-top:13px; display:grid; gap:11px}
+  .campo{display:grid; gap:5px}
+  .campo label{font-size:11.5px; font-weight:700; color:var(--tenue)}
+  .fila-campos{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px}
+  .edit-pie{display:flex; justify-content:flex-end; gap:9px; padding-top:4px}
+
+  .btn{border:none; cursor:pointer; font-family:inherit; font-weight:700; font-size:13.5px;
+    padding:10px 17px; border-radius:9px; background:var(--azul); color:#fff}
+  .btn:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
+  .btn.sec{background:var(--azul-claro); color:var(--azul)}
+  .btn.mini{font-size:12px; padding:6px 12px}
+  .btn.borrar{background:transparent; color:var(--critico); padding:6px 9px}
+  .btn.borrar:hover{background:var(--critico-bg)}
+  .btn-add{width:100%; border:1.5px dashed var(--linea-fuerte); background:transparent;
+    color:var(--azul); padding:13px; border-radius:11px; cursor:pointer; font-family:inherit;
+    font-weight:700; font-size:13.5px; margin-top:13px}
+  .btn-add:hover{background:var(--azul-claro); border-color:var(--azul)}
+  .enlace{background:none; border:none; font-family:inherit; cursor:pointer; font-weight:700;
+    font-size:12.5px; color:var(--azul); text-decoration:underline; padding:0}
+  .interruptor{display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+    background:var(--papel); border:1.5px solid var(--linea); border-radius:9px;
+    padding:7px 11px; font-size:12.5px; font-weight:700; color:var(--tenue); white-space:nowrap}
+  .interruptor[aria-pressed="true"]{background:var(--azul-claro); border-color:var(--azul);
+    color:var(--azul)}
+  .interruptor:focus-visible{outline:2px solid var(--azul); outline-offset:2px}
+  .guardado{display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:11.5px;
+    color:var(--debil); white-space:nowrap}
+  .punto{width:7px; height:7px; border-radius:50%; background:var(--ok); flex:0 0 auto}
+
+  /* --------------------------------------------------------------- modal */
+  .velo{position:fixed; inset:0; background:rgba(11,21,63,.42); z-index:60; display:flex;
+    align-items:center; justify-content:center; padding:22px}
+  .modal{background:var(--tarjeta); border-radius:15px; padding:24px 26px; max-width:540px;
+    width:100%; box-shadow:0 24px 60px -18px rgba(11,21,63,.42); max-height:88vh; overflow:auto}
+  .modal h3{margin:0 0 6px; font-size:19px; color:var(--ink); letter-spacing:-.012em}
+  .modal p.md{margin:0 0 17px; font-size:14px; color:var(--tenue); line-height:1.5}
+  .modal .campo{margin-bottom:13px}
+  .modal-pie{display:flex; gap:9px; justify-content:flex-end; margin-top:19px; flex-wrap:wrap}
+  .opciones{display:grid; gap:9px; margin-bottom:6px}
+  .opcion{border:1.5px solid var(--linea); border-radius:11px; padding:13px 15px; cursor:pointer;
+    background:var(--tarjeta); text-align:left; font-family:inherit; display:block; width:100%}
+  .opcion:hover{border-color:var(--azul); background:var(--azul-claro)}
+  .opcion[aria-pressed="true"]{border-color:var(--azul); background:var(--azul-claro)}
+  .opcion b{display:block; font-size:14.5px; color:var(--ink); margin-bottom:3px}
+  .opcion span{display:block; font-size:12.5px; color:var(--tenue); line-height:1.45}
+
+  .aparece{animation:sube .26s cubic-bezier(.22,.7,.3,1) both}
+  @keyframes sube{from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
+  @media print{
+    header{position:static}
+    .cab-acc,.riel,.btn,.btn-add,.interruptor,.aviso .ir,.sen-pie,.velo{display:none !important}
+  }
+</style>
+</head>
+<body>
+
+<header hidden id="cab">
+  <div class="env">
+    <div class="cab">
+      <div class="logo">FAP</div>
+      <div class="cab-tit">
+        <div class="eyebrow">Planificador adaptativo</div>
+        <b id="cab-plan">—</b>
+      </div>
+      <div class="cab-acc">
+        <span class="guardado"><i class="punto"></i><span id="estado">Guardado</span></span>
+        <button class="interruptor" id="b-panel" aria-pressed="false">Panel</button>
+        <button class="interruptor" id="b-editar" aria-pressed="false">Editar</button>
+        <button class="interruptor" id="b-menu">Plan ▾</button>
+      </div>
+    </div>
+    <nav class="riel" id="riel" aria-label="Etapas"></nav>
+    <div class="pulso" id="pulso"></div>
+  </div>
+</header>
+
+<main class="env" id="app"></main>
+<div id="capa"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   Planificador adaptativo · FAP / FIAS
+   ------------------------------------------------------------------------
+   Herramienta de planificación por rutas adaptativas (Dynamic Adaptive
+   Policy Pathways, el método formal detrás del ciclo de adaptación de la
+   UICN). No tiene servidor: los planes viven en el navegador y se llevan
+   de un lado a otro como archivos JSON.
+
+   Vocabulario del método:
+     SEÑAL       lo que se mide para saber si el plan sigue sirviendo.
+     DISPARADOR  el valor en que hay que EMPEZAR a preparar la ruta alterna.
+     NO RETORNO  el valor en que la estrategia actual ya dejó de servir.
+     RUTA        a qué se cambia, y cuánto toma ponerla en marcha.
+   La regla que ordena todo: una señal solo sirve si avisa con el tiempo
+   suficiente para que la ruta alterna alcance a montarse.
+   ========================================================================= */
+
+var LLAVE = "fap_planificador_v1";
+var HOY = new Date().toISOString().slice(0,10);
+var MES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+/* ------------------------------------------------------------- utilería */
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+  .replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function num(v){var n=parseFloat(v); return isFinite(n)?n:0;}
+function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function fechaCorta(iso){
+  if(!iso) return "—";
+  var p=String(iso).slice(0,10).split("-");
+  if(p.length!==3) return esc(iso);
+  return Number(p[2])+" "+MES[Number(p[1])-1]+" "+p[0];
+}
+function dias(a,b){
+  if(!a||!b) return null;
+  return Math.round((new Date(a+"T00:00:00Z")-new Date(b+"T00:00:00Z"))/-86400000);
+}
+function masDias(iso,d){
+  var t=new Date(iso+"T00:00:00Z"); t.setUTCDate(t.getUTCDate()+Math.round(d));
+  return t.toISOString().slice(0,10);
+}
+function plural(n,s,p){return n+" "+(n===1?s:p);}
+
+/* ------------------------------------------------------- métodos base -- */
+var METODOS = {
+  adaptacion:{
+    nombre:"Ciclo de planificación adaptativa",
+    desc:"Seis etapas que no se recorren de corrido: se mide contra umbrales y se cambia de ruta cuando uno se cruza. Es el ciclo que usa la UICN para adaptación, formalizado como rutas adaptativas.",
+    etapas:[
+      {id:"delimitar",  n:"Etapa 1", nom:"Delimitar",   desc:"Qué entra en el ciclo, con qué datos y qué queda fuera."},
+      {id:"prever",     n:"Etapa 2", nom:"Prever",      desc:"Qué escenarios son plausibles y cómo se comportaría el plan en cada uno."},
+      {id:"identificar",n:"Etapa 3", nom:"Identificar", desc:"Qué puede desviar el plan y en qué punto exacto deja de servir."},
+      {id:"priorizar",  n:"Etapa 4", nom:"Priorizar",   desc:"Qué se atiende primero, por qué vía y con qué criterio de orden."},
+      {id:"implementar",n:"Etapa 5", nom:"Implementar", desc:"Ejecutar y medir contra los umbrales con la cadencia acordada."},
+      {id:"evaluar",    n:"Etapa 6", nom:"Evaluar",     desc:"Qué resultó, qué se aprendió y con qué se reabre el ciclo."}
+    ]
+  },
+  phva:{
+    nombre:"PHVA — mejora continua",
+    desc:"El ciclo de Deming, el más reconocible en gestión pública. Cuatro etapas y vuelta a empezar.",
+    etapas:[
+      {id:"planificar",n:"Etapa 1", nom:"Planificar", desc:"Qué problema se resuelve, con qué meta y con qué recursos."},
+      {id:"hacer",     n:"Etapa 2", nom:"Hacer",      desc:"Ejecutar lo planificado y registrar lo que pasa."},
+      {id:"verificar", n:"Etapa 3", nom:"Verificar",  desc:"Contrastar lo medido contra la meta y los umbrales."},
+      {id:"actuar",    n:"Etapa 4", nom:"Actuar",     desc:"Corregir, estandarizar lo que sirvió y reabrir el ciclo."}
+    ]
+  },
+  campana:{
+    nombre:"Campaña administrativa",
+    desc:"Para procesos con fecha de corte: se levanta la información, se decide, se produce y se cierra.",
+    etapas:[
+      {id:"alcance",  n:"Fase 1", nom:"Alcance",    desc:"Qué expedientes entran y bajo qué criterio."},
+      {id:"consulta", n:"Fase 2", nom:"Consulta",   desc:"Recoger las decisiones de quien tiene que decidir."},
+      {id:"produccion",n:"Fase 3",nom:"Producción", desc:"Generar y revisar los documentos."},
+      {id:"cierre",   n:"Fase 4", nom:"Cierre",     desc:"Suscribir, medir el resultado y dejar constancia."}
+    ]
+  },
+  libre:{
+    nombre:"Sin método",
+    desc:"Una sola etapa. Para planes que no siguen un ciclo formal.",
+    etapas:[{id:"unica", n:"", nom:"Plan", desc:"Todo el plan en una sola vista."}]
+  }
+};
+
+/* =============================================================== ALMACÉN */
+var BD = {planes:{}, activo:null};
+
+function cargar(){
+  try{
+    var t = localStorage.getItem(LLAVE);
+    if(t){ BD = JSON.parse(t); }
+  }catch(e){ BD = {planes:{}, activo:null}; }
+  if(!BD.planes) BD.planes = {};
+  if(!Object.keys(BD.planes).length){
+    var p = planSemilla();
+    BD.planes[p.id] = p;
+  }
+}
+var guardaPendiente = null;
+function guardar(){
+  var e = document.getElementById("estado");
+  if(e) e.textContent = "Guardando…";
+  clearTimeout(guardaPendiente);
+  guardaPendiente = setTimeout(function(){
+    try{
+      if(P) P.actualizado = new Date().toISOString();
+      localStorage.setItem(LLAVE, JSON.stringify(BD));
+      if(e) e.textContent = "Guardado";
+    }catch(err){
+      if(e) e.textContent = "No se pudo guardar";
+    }
+  }, 260);
+}
+
+var P = null;               /* plan activo */
+var VISTA = null;           /* etapa que se está viendo */
+var EDITANDO = false;
+var PANEL = false;
+
+function etapasDe(p){
+  return (p.etapas && p.etapas.length) ? p.etapas
+       : (METODOS[p.metodo] || METODOS.libre).etapas;
+}
+function idxEtapa(p, eid){
+  var r = -1;
+  etapasDe(p).forEach(function(e,k){ if(e.id===eid) r=k; });
+  return r;
+}
+function etapaObj(p, eid){ return etapasDe(p)[idxEtapa(p,eid)] || etapasDe(p)[0]; }
+function estadoEtapa(p, eid){
+  var a = idxEtapa(p, p.etapaActual), k = idxEtapa(p, eid);
+  if(k < a) return "cerrada";
+  if(k === a) return "curso";
+  return "pendiente";
+}
+function vistaActual(){
+  if(VISTA && idxEtapa(P, VISTA) >= 0) return VISTA;
+  return P.etapaActual || etapasDe(P)[0].id;
+}
+function buscar(col, i){
+  var r=null; (P[col]||[]).forEach(function(x){ if(x.id===i) r=x; }); return r;
+}
+
+function planNuevo(nombre, metodo){
+  var m = METODOS[metodo] || METODOS.libre;
+  var p = {
+    id: id(), nombre: nombre || "Plan sin nombre", descripcion: "",
+    metodo: metodo, etapas: JSON.parse(JSON.stringify(m.etapas)),
+    etapaActual: m.etapas[0].id, textos: {},
+    senales: [], rutas: [], hitos: [], bitacora: [],
+    creado: new Date().toISOString(), actualizado: new Date().toISOString()
+  };
+  m.etapas.forEach(function(e){ p.textos[e.id] = {resumen:"", decision:""}; });
+  p.bitacora.push({id:id(), fecha:HOY, auto:true,
+    texto:"Se crea el plan con el método «"+m.nombre+"»."});
+  return p;
+}
+
+/* ========================================================= CÁLCULOS DAPP */
+
+/* Una señal atraviesa tres zonas: en rumbo, disparador cruzado (hay que
+   empezar a preparar la ruta alterna) y punto de no retorno (la estrategia
+   actual ya no sirve). "espera" es antes de que abra su ventana de medición. */
+function estadoSenal(s){
+  if(s.desde && HOY < s.desde) return "espera";
+  var v = num(s.valor), disp = num(s.disparador), nore = num(s.noRetorno);
+  if(s.direccion === "menor"){
+    if(v < disp) return "ok";
+    if(v < nore) return "alerta";
+    return "critico";
+  }
+  if(v > disp) return "ok";
+  if(v > nore) return "alerta";
+  return "critico";
+}
+function nombreEstado(e){
+  return e==="ok" ? "En rumbo"
+       : e==="alerta" ? "Disparador cruzado"
+       : e==="critico" ? "Punto de no retorno" : "Sin evaluar";
+}
+function unidadTxt(s){
+  return s.unidad==="%" ? "%" : s.unidad==="d" ? " d"
+       : s.unidad ? " "+s.unidad : "";
+}
+function valorTxt(s){ return num(s.valor) + unidadTxt(s); }
+
+/* Posición de un valor en la escala meta ↔ no retorno, para pintar la barra
+   y las marcas de los umbrales sobre la misma regla. */
+function escalaSenal(s){
+  var meta = num(s.meta), nore = num(s.noRetorno), disp = num(s.disparador), v = num(s.valor);
+  var lo = Math.min(meta, nore, disp, v), hi = Math.max(meta, nore, disp, v);
+  if(hi === lo) hi = lo + 1;
+  var span = hi - lo;
+  var pos = function(x){ return Math.max(0, Math.min(100, Math.round((x - lo) / span * 100))); };
+  return {pos:pos, lo:lo, hi:hi, valor:pos(v), disp:pos(disp), nore:pos(nore), meta:pos(meta)};
+}
+
+/* Tendencia entre las dos últimas mediciones. */
+function tendencia(s){
+  var h = s.historial || [];
+  if(h.length < 2) return null;
+  var a = h[h.length-2], b = h[h.length-1];
+  var d = num(b.valor) - num(a.valor);
+  if(!d) return {d:0, txt:"sin cambio", cls:""};
+  var mejora = s.direccion === "menor" ? d < 0 : d > 0;
+  return {d:d, cls: mejora ? "sube" : "baja",
+          txt: (d > 0 ? "+" : "") + Math.round(d*100)/100 + unidadTxt(s)};
+}
+
+/* A este ritmo, ¿cuándo cruza el disparador? Es la pregunta que decide si
+   la señal avisa a tiempo o no. Regresión simple sobre el historial. */
+function proyeccion(s){
+  var h = (s.historial||[]).slice(-8);
+  if(h.length < 2) return null;
+  var a = h[0], b = h[h.length-1];
+  var dd = dias(a.fecha, b.fecha);
+  if(!dd) return null;
+  var pend = (num(b.valor) - num(a.valor)) / dd;
+  if(Math.abs(pend) < 1e-9) return null;
+  var faltan = (num(s.disparador) - num(b.valor)) / pend;
+  if(faltan <= 0 || faltan > 900) return null;
+  return {dias: Math.round(faltan), fecha: masDias(b.fecha, faltan)};
+}
+
+/* Cadencia: cada cuánto toca medir esta señal, y si ya está vencida. */
+function cadencia(s){
+  if(!s.cadencia) return null;
+  var ult = s.ultimaMedicion || (s.historial && s.historial.length
+            ? s.historial[s.historial.length-1].fecha : null);
+  if(!ult) return {vencida:true, txt:"nunca medida"};
+  var d = dias(ult, HOY);
+  var v = d > num(s.cadencia);
+  return {vencida:v, dias:d,
+          txt: v ? "sin medir hace "+plural(d,"día","días") : "medida hace "+plural(d,"día","días")};
+}
+
+/* Estado de una ruta alterna. Se arma sola leyendo su señal. */
+function estadoRuta(r){
+  if(r.estado === "descartada") return {v:"descartada", auto:false, lectura:""};
+  if(r.manual) return {v:r.estado||"latente", auto:false, lectura:""};
+  var s = r.senal ? buscar("senales", r.senal) : null;
+  if(!s) return {v:r.estado||"latente", auto:false, lectura:""};
+  var e = estadoSenal(s);
+  if(e === "espera")
+    return {v:"latente", auto:true,
+            lectura:"Lee <b>"+esc(s.nombre)+"</b>, que se empieza a evaluar el "+fechaCorta(s.desde)};
+  var lect = "Lee <b>"+esc(s.nombre)+"</b>: "+esc(valorTxt(s))
+           + " · disparador "+esc(s.disparador)+esc(unidadTxt(s))
+           + ", no retorno "+esc(s.noRetorno)+esc(unidadTxt(s));
+  return {v: e==="critico" ? "activada" : e==="alerta" ? "armada" : "latente",
+          auto:true, lectura:lect};
+}
+function nombreRuta(v){
+  return v==="latente" ? "Latente" : v==="armada" ? "Armada"
+       : v==="activada" ? "Activada" : "Descartada";
+}
+function chipRuta(v){
+  return v==="activada" ? "critico" : v==="armada" ? "alerta" : v==="descartada" ? "" : "ok";
+}
+
+/* El corazón del método: ¿queda tiempo para montar la ruta alterna?
+   Fecha límite para decidir = fecha en que la ruta debe estar operando
+   menos el tiempo que toma montarla. */
+function plazoRuta(r){
+  if(!r.fechaLimite) return null;
+  var prep = num(r.preparacionDias);
+  var limite = masDias(r.fechaLimite, -prep);
+  var restan = dias(HOY, limite);
+  var est = estadoRuta(r).v;
+  return {
+    limite: limite, restan: restan, prep: prep, operando: r.fechaLimite,
+    tarde: restan < 0 && est !== "activada" && est !== "descartada",
+    urge: restan >= 0 && restan <= 21 && est !== "activada" && est !== "descartada"
+  };
+}
+
+/* ¿Avisa a tiempo? Compara el cruce proyectado del disparador contra la
+   fecha límite para decidir. Si la señal cruza después, llega tarde. */
+function avisaATiempo(r){
+  var pl = plazoRuta(r);
+  if(!pl) return null;
+  var s = r.senal ? buscar("senales", r.senal) : null;
+  if(!s) return null;
+  var pr = proyeccion(s);
+  if(!pr) return null;
+  return {cruce: pr.fecha, limite: pl.limite, tarde: pr.fecha > pl.limite};
+}
+
+function proximoHito(){
+  var p = null;
+  (P.hitos||[]).forEach(function(h){
+    if(h.fechaReal || !h.fechaPlan) return;
+    if(!p || h.fechaPlan < p.fechaPlan) p = h;
+  });
+  return p;
+}
+function ordenar(){
+  (P.senales||[]).sort(function(a,b){ return num(a.orden)-num(b.orden); });
+  (P.rutas||[]).sort(function(a,b){ return num(a.orden)-num(b.orden); });
+  (P.hitos||[]).sort(function(a,b){
+    return String(a.fechaPlan||"").localeCompare(String(b.fechaPlan||"")); });
+}
+</script>
+<script>
+/* =========================================================== PLAN SEMILLA
+   Renovaciones FAP 2027, con las cifras agregadas del plan. El detalle
+   contrato por contrato no está aquí: el repositorio es público y esa
+   información se maneja por fuera, igual que en el resto del proyecto.  */
+function planSemilla(){
+  var m = METODOS.adaptacion;
+  var p = {
+    id:"fap-renovaciones-2027",
+    nombre:"Renovaciones FAP 2027",
+    descripcion:"Renovar o volver a contratar los 129 servicios recurrentes de las áreas protegidas antes de que la retroactividad se coma el primer trimestre.",
+    metodo:"adaptacion",
+    etapas: JSON.parse(JSON.stringify(m.etapas)),
+    etapaActual:"implementar",
+    creado:"2026-09-02T00:00:00Z", actualizado:"2026-09-03T00:00:00Z",
+    textos:{
+      delimitar:{
+        resumen:"Entran los 129 contratos de servicios recurrentes de las áreas protegidas: los vigentes menos tres que no son recurrentes por naturaleza —dos consultorías y una adquisición de equipos de campo—, más el contrato de comunicación suscrito en septiembre, que nace con posibilidad de renovación. Repartidos entre 20 administradoras contadoras, 16 de las cuales manejan más de un área.",
+        decision:"La clasificación es binaria y mecánica, no un criterio caso a caso: un contrato es renovable solo si su tipo es «Nuevo» y el servicio es recurrente. Todo lo demás necesita proceso administrativo nuevo, porque el FIAS permite renovar una sola vez y no hay renovación sobre renovación. Resultado: 40 renovables y 89 procesos nuevos. Se descartó consolidar instrumentos por área o por proveedor en este ciclo."},
+      prever:{
+        resumen:"El modelo de tiempos se calibró contra lo que efectivamente pasó en 2026: días de trámite = 15 + 0,3 × contratos en cola. Reproduce las medianas observadas —31 días una renovación, 21 una contratación directa, 40 una comparación de precios— y por eso sirve para proyectar 2027 en vez de suponerlo.",
+        decision:"La conclusión incómoda se acepta y se dice en voz alta: con el PAG aprobado a mediados de enero, la retroactividad no se elimina, se reduce aproximadamente a la mitad. El plan mueve la última firma de junio a marzo y la retroactividad mediana de 64 a unos 42 días, pero solo si la unidad sostiene 13 firmas por semana. Prometer cero retroactividad sería mentir."},
+      identificar:{
+        resumen:"Cinco rutas alternas, cada una con su disparador y su punto de no retorno definidos por anticipado. Se decide hoy en qué momento la estrategia deja de servir, para no tener que improvisar cuando ya no hay margen.",
+        decision:"Cada ruta queda enganchada a una señal y se arma sola cuando esa señal cruza el disparador. Además, cada una declara cuánto tarda en montarse: eso fija la fecha límite para decidir, que siempre es anterior a la fecha en que la ruta debe estar operando."},
+      priorizar:{
+        resumen:"La capacidad de firma es el recurso escaso: en 2026 fueron 5,4 instrumentos por semana de promedio anual, 8,8 sostenidos entre febrero y abril. Repartir esa capacidad por orden de llegada de las solicitudes es lo que produjo el atasco de enero.",
+        decision:"El orden lo manda la fecha en que arranca el servicio, no la fecha de la solicitud. El grupo que empieza el 1 de enero va primero porque cada día sin firma ya es retroactividad; el que empieza el 1 de febrero va segundo porque todavía alcanza a firmarse a tiempo. Los encuentros de planificación con las áreas se usan para confirmar ese orden, no para recogerlo."},
+      implementar:{
+        resumen:"La etapa operativa: sale el correo con la herramienta de confirmación, las administradoras deciden contrato por contrato, se cierran los presupuestos referenciales y se generan los expedientes precontractuales antes de que termine el año. Firmar depende del PAG, que no controlamos.",
+        decision:"Los documentos precontractuales se levantan sin esperar la firma del PAG. El PAG dice cuánto presupuesto hay y sin él no se firma, pero sí se puede tener el expediente listo para firmar el mismo día en que se apruebe. Eso es lo único de esta etapa que depende enteramente del FAP y por eso se mide sin excusas."},
+      evaluar:{
+        resumen:"Qué resultó de verdad: cuántos contratos quedaron suscritos, en qué fecha se firmó el último y cuántos días de servicio se prestaron antes de la firma. El número a batir es la retroactividad mediana de 2026: 64 días.",
+        decision:"Al cerrar esta etapa el ciclo no termina: vuelve a «Delimitar» con los contratos de 2028 y con lo aprendido escrito en la bitácora. Lo que se mida aquí define el alcance del ciclo siguiente."}
+    },
+    senales:[
+      {id:"cobertura", orden:1, etapa:"implementar", grupo:"Consulta",
+       nombre:"Cobertura de respuesta de las administradoras", unidad:"%", direccion:"mayor",
+       valor:0, meta:100, disparador:80, noRetorno:60, desde:"2026-10-02", cadencia:7,
+       nota:"Sobre los 129 contratos. Bajo 80 % se arma la extensión de plazo; bajo 60 % la Coordinación decide por defecto.",
+       historial:[]},
+      {id:"acs", orden:2, etapa:"implementar", grupo:"Consulta",
+       nombre:"Administradoras que respondieron", unidad:"", direccion:"mayor",
+       valor:0, meta:20, disparador:16, noRetorno:12, desde:"2026-10-02", cadencia:7,
+       nota:"De 20 administradoras contadoras. Las que faltan se escalan al responsable del área protegida.",
+       historial:[]},
+      {id:"presupuestos", orden:3, etapa:"implementar", grupo:"Presupuesto",
+       nombre:"Líneas de gasto con presupuesto cierto", unidad:"%", direccion:"mayor",
+       valor:0, meta:100, disparador:75, noRetorno:50, desde:"2026-11-16", cadencia:14,
+       nota:"Sin presupuesto referencial no se puede levantar el documento precontractual.",
+       historial:[]},
+      {id:"expedientes", orden:4, etapa:"implementar", grupo:"Producción",
+       nombre:"Expedientes precontractuales generados", unidad:"", direccion:"mayor",
+       valor:0, meta:129, disparador:100, noRetorno:70, desde:"2026-12-07", cadencia:7,
+       nota:"Meta a la primera semana de diciembre. Es lo único que depende enteramente del FAP.",
+       historial:[]},
+      {id:"suscritos", orden:5, etapa:"implementar", grupo:"Firma",
+       nombre:"Contratos suscritos", unidad:"", direccion:"mayor",
+       valor:0, meta:129, disparador:90, noRetorno:60, desde:"2027-01-08", cadencia:7,
+       nota:"Depende del PAG, que no controlamos.", historial:[]},
+      {id:"ritmofirma", orden:6, etapa:"implementar", grupo:"Capacidad",
+       nombre:"Instrumentos firmados por semana", unidad:"", direccion:"mayor",
+       valor:0, meta:13, disparador:9, noRetorno:6, desde:"2027-01-04", cadencia:7,
+       nota:"Referencia 2026: 5,4 de promedio anual, 8,8 sostenidos entre febrero y abril, 13 en la mejor semana.",
+       historial:[]},
+      {id:"retroactividad", orden:7, etapa:"evaluar", grupo:"Resultado",
+       nombre:"Retroactividad mediana", unidad:"d", direccion:"menor",
+       valor:64, meta:30, disparador:50, noRetorno:65, desde:"", cadencia:30,
+       nota:"Días de servicio prestado antes de la firma. En 2026 fue de 64 días: ese es el número a batir.",
+       historial:[{fecha:"2026-09-01", valor:64}]}
+    ],
+    rutas:[
+      {id:"r1", orden:1, etapa:"identificar", senal:"cobertura",
+       nombre:"Las administradoras no completan a tiempo",
+       condicion:"Al cerrar el plazo, la primera semana de octubre, la cobertura de respuesta está bajo el 80 % de los 129 contratos.",
+       accion:"Extender el plazo una semana y escalar al responsable de cada área protegida. Si la cobertura sigue bajo 60 %, la Coordinación decide por defecto —continuar con el mismo proveedor— para no bloquear el levantamiento de documentos.",
+       preparacionDias:7, fechaLimite:"2026-10-16", estado:"latente", manual:false},
+      {id:"r2", orden:2, etapa:"identificar", senal:"presupuestos",
+       nombre:"El presupuesto referencial no llega a tiempo",
+       condicion:"A fines de noviembre no hay certeza del presupuesto en más del 25 % de las líneas de gasto.",
+       accion:"Levantar los documentos precontractuales con el consumo ejecutado de 2026 como presupuesto referencial y ajustar el monto al pedir la cotización en firme, en vez de esperar sin producir nada.",
+       preparacionDias:10, fechaLimite:"2026-12-07", estado:"latente", manual:false},
+      {id:"r3", orden:3, etapa:"identificar", senal:"",
+       nombre:"El PAG se aprueba tarde",
+       condicion:"El PAG 2027 no está aprobado al 15 de enero, que es la fecha en que se aprueba en promedio.",
+       accion:"Priorizar la firma del grupo cuyo contrato arranca el 1 de febrero, que todavía llega a tiempo, y documentar formalmente la retroactividad del grupo que arrancó el 1 de enero, en vez de repartir la capacidad por orden de llegada.",
+       preparacionDias:5, fechaLimite:"2027-01-25", estado:"latente", manual:true},
+      {id:"r4", orden:4, etapa:"identificar", senal:"ritmofirma",
+       nombre:"La capacidad de firma no da",
+       condicion:"En enero el ritmo de firma cae por debajo de 9 instrumentos por semana.",
+       accion:"Activar los modelos de contrato pre-aprobados por categoría —la mayoría de los 129 son mantenimiento o combustible— y pasar a sesiones fijas de firma por lotes, para que la revisión sea verificación de campos variables y no redacción.",
+       preparacionDias:14, fechaLimite:"2027-02-01", estado:"latente", manual:false},
+      {id:"r5", orden:5, etapa:"identificar", senal:"",
+       nombre:"La causal de contratación directa no se sostiene",
+       condicion:"Más del 20 % de los 89 procesos nuevos no puede motivar la contratación directa por proveedor calificado y recurrencia del servicio.",
+       accion:"Preparar la comparación de precios anticipadamente para ese subconjunto: identificar los tres proveedores y conformar la Comisión de Calificación antes de diciembre.",
+       preparacionDias:45, fechaLimite:"2026-12-01", estado:"latente", manual:true}
+    ],
+    hitos:[
+      {id:"h1", etapa:"delimitar",  nombre:"Clasificación de los 129 contratos",            fechaPlan:"2026-09-01", fechaReal:"2026-09-01"},
+      {id:"h2", etapa:"implementar",nombre:"Correo con la herramienta a las administradoras",fechaPlan:"2026-09-21", fechaReal:""},
+      {id:"h3", etapa:"implementar",nombre:"Cierre del plazo de llenado",                    fechaPlan:"2026-10-02", fechaReal:""},
+      {id:"h4", etapa:"priorizar",  nombre:"Inicio de los encuentros de planificación",      fechaPlan:"2026-10-05", fechaReal:""},
+      {id:"h5", etapa:"priorizar",  nombre:"Encuentro de planificación",                     fechaPlan:"2026-11-10", fechaReal:""},
+      {id:"h6", etapa:"implementar",nombre:"Presupuesto referencial cierto por línea",       fechaPlan:"2026-11-16", fechaReal:""},
+      {id:"h7", etapa:"implementar",nombre:"Documentos precontractuales generados",          fechaPlan:"2026-12-07", fechaReal:""},
+      {id:"h8", etapa:"implementar",nombre:"Inicio de revisión y generación de contratos",   fechaPlan:"2026-12-09", fechaReal:""},
+      {id:"h9", etapa:"implementar",nombre:"Aprobación del PAG 2027",                        fechaPlan:"2027-01-08", fechaReal:""}
+    ],
+    bitacora:[
+      {id:"b1", fecha:"2026-09-02", auto:false,
+       texto:"Se abre el ciclo. La clasificación de los contratos de servicios recurrentes quedó cerrada. Se descartó consolidar instrumentos por ahora. La herramienta de confirmación para las administradoras quedó publicada y probada."},
+      {id:"b2", fecha:"2026-09-03", auto:false,
+       texto:"Corrección de alcance: son 129 contratos, no 128. El contrato de comunicación suscrito en septiembre nace con posibilidad de renovación, así que entra al ciclo del lado renovable. El corte queda en 40 renovables y 89 procesos nuevos."}
+    ]
+  };
+  return p;
+}
+</script>
+<script>
+/* ================================================================ PINTADO */
+
+function render(){
+  var cab = document.getElementById("cab");
+  var app = document.getElementById("app");
+  if(!P){
+    cab.hidden = true;
+    app.innerHTML = pantallaPlanes();
+    app.className = "env aparece";
+    return;
+  }
+  cab.hidden = false;
+  document.getElementById("cab-plan").textContent = P.nombre;
+  pintarRiel(); pintarPulso();
+  app.innerHTML = PANEL ? panelGeneral() : workspace(vistaActual());
+  app.className = "env aparece";
+  var be = document.getElementById("b-editar");
+  be.setAttribute("aria-pressed", EDITANDO ? "true" : "false");
+  be.textContent = EDITANDO ? "✓ Listo" : "Editar";
+  var bp = document.getElementById("b-panel");
+  bp.setAttribute("aria-pressed", PANEL ? "true" : "false");
+  pintarChispas();
+}
+
+/* -------------------------------------------------------- lista de planes */
+function pantallaPlanes(){
+  var ids = Object.keys(BD.planes);
+  return '<div class="portada">'
+    + '<div style="display:flex;align-items:center;gap:13px;margin-bottom:4px">'
+    + '<div class="logo">FAP</div>'
+    + '<div><div class="eyebrow" style="font-size:10px;font-weight:700;letter-spacing:.13em;'
+    + 'text-transform:uppercase;color:var(--azul)">Fondo de Áreas Protegidas · FIAS</div></div></div>'
+    + '<h1>Planificador adaptativo</h1>'
+    + '<p class="lead">Planificación por rutas alternas: se define de antemano qué se mide, en qué '
+    + 'valor hay que cambiar de estrategia y cuánto tarda el cambio en montarse. La herramienta '
+    + 'avisa cuando toca decidir, no cuando ya es tarde. Los planes viven en este navegador y se '
+    + 'llevan de un lado a otro como archivos.</p>'
+    + '<div class="planes">'
+    + ids.map(function(k){
+        var p = BD.planes[k];
+        var m = METODOS[p.metodo] || METODOS.libre;
+        var e = etapaObj(p, p.etapaActual);
+        var ns = (p.senales||[]).length, nr = (p.rutas||[]).length;
+        return '<button class="plan-c" data-abrir="'+esc(k)+'">'
+          + '<span class="pt">'+esc(p.nombre)+'</span>'
+          + '<span class="pd">'+esc((p.descripcion||"").slice(0,150))+'</span>'
+          + '<span class="pm"><span class="estampa curso">'+esc(e ? e.nom : "—")+'</span>'
+          + '<span>'+esc(m.nombre)+'</span><span>·</span>'
+          + '<span>'+ns+' señales · '+nr+' rutas</span></span></button>';
+      }).join("")
+    + '<button class="plan-c nuevo" data-nuevoplan="1">+ Plan nuevo</button>'
+    + '</div>'
+    + '<p style="margin-top:26px"><button class="enlace" data-importar="1">Abrir un plan desde un archivo JSON</button></p>'
+    + '</div>';
+}
+
+/* ------------------------------------------------------------------ riel */
+function pintarRiel(){
+  var v = vistaActual();
+  document.getElementById("riel").innerHTML = etapasDe(P).map(function(e){
+    var est = estadoEtapa(P, e.id);
+    var señal = (P.rutas||[]).filter(function(r){
+        return (r.etapa||"")===e.id && estadoRuta(r).v==="activada"; }).length
+      + (P.senales||[]).filter(function(s){
+        return (s.etapa||"")===e.id && estadoSenal(s)==="critico"; }).length;
+    return '<button class="paso" data-ir="'+esc(e.id)+'" data-est="'+est+'"'
+      + (e.id===v && !PANEL ? ' aria-current="page"' : '') + '>'
+      + (señal ? '<i class="aguja"></i>' : '')
+      + '<span class="pn">'+esc(e.n || "Etapa")+(est==="cerrada"?" ✓":"")+'</span>'
+      + '<span class="pnom">'+esc(e.nom)+'</span></button>';
+  }).join("");
+}
+
+/* ----------------------------------------------------------------- pulso */
+function pintarPulso(){
+  var fuera = (P.senales||[]).filter(function(s){
+    var e=estadoSenal(s); return e!=="ok" && e!=="espera"; }).length;
+  var armadas = (P.rutas||[]).filter(function(r){
+    var v=estadoRuta(r).v; return v==="armada"||v==="activada"; }).length;
+  var vencidas = (P.senales||[]).filter(function(s){
+    var c=cadencia(s); return c && c.vencida && estadoSenal(s)!=="espera"; }).length;
+  var ph = proximoHito();
+  var d = ph ? dias(HOY, ph.fechaPlan) : null;
+  var hechos = (P.hitos||[]).filter(function(h){ return !!h.fechaReal; }).length;
+
+  /* La decisión más próxima entre todas las rutas: el número que de verdad
+     manda, porque es el que se pasa sin que nadie se dé cuenta. */
+  var prox = null;
+  (P.rutas||[]).forEach(function(r){
+    var pl = plazoRuta(r);
+    if(!pl || pl.restan === null) return;
+    var est = estadoRuta(r).v;
+    if(est==="descartada" || est==="activada") return;
+    if(!prox || pl.restan < prox.pl.restan) prox = {r:r, pl:pl};
+  });
+
+  document.getElementById("pulso").innerHTML =
+      item(ph ? Math.abs(d)+" d" : "—", d===null ? "" : d<0?"critico":d<=7?"alerta":"ok",
+           ph ? (d<0 ? "de atraso · " : "para · ")+esc(ph.nombre) : "sin hitos pendientes")
+    + item(prox ? Math.abs(prox.pl.restan)+" d" : "—",
+           !prox ? "" : prox.pl.tarde ? "critico" : prox.pl.restan<=21 ? "alerta" : "ok",
+           prox ? (prox.pl.restan<0 ? "vencido para decidir · " : "para decidir · ")
+                  +esc(prox.r.nombre) : "sin plazos de decisión")
+    + item(fuera, fuera===0?"ok":fuera<=2?"alerta":"critico",
+           fuera===1?"señal fuera de rumbo":"señales fuera de rumbo")
+    + item(armadas, armadas===0?"ok":"alerta",
+           armadas===1?"ruta armada":"rutas armadas")
+    + item(vencidas, vencidas===0?"ok":"alerta",
+           vencidas===1?"señal sin medir":"señales sin medir")
+    + item(hechos+"/"+(P.hitos||[]).length, "", "hitos cumplidos");
+
+  function item(v, cls, txt){
+    return '<div class="pulso-i"><b class="'+cls+'">'+esc(v)+'</b><span>'+txt+'</span></div>';
+  }
+}
+
+/* ------------------------------------------------------------- workspace */
+function workspace(eid){
+  var e = etapaObj(P, eid), est = estadoEtapa(P, eid);
+  var t = (P.textos && P.textos[eid]) || {};
+  var k = idxEtapa(P, eid), etapas = etapasDe(P);
+  var sig = etapas[(k+1) % etapas.length];
+
+  var s = '<div class="et-cab"><div class="et-eyebrow">'
+    + (e.n ? '<span class="et-num">'+esc(e.n)+'</span>' : '')
+    + '<span class="estampa '+est+'">'
+    + (est==="cerrada"?"Cerrada":est==="curso"?"Etapa actual":"Pendiente")+'</span></div>'
+    + '<h1>'+esc(e.nom)+'</h1>'
+    + '<p class="lead">'+esc(e.desc||"")+'</p>'
+    + '<div class="et-acc">'
+    + (est==="curso"
+      ? '<button class="btn" data-cerrar="'+esc(eid)+'">'
+        + (k===etapas.length-1 ? "Cerrar el ciclo y volver a "+esc(sig.nom)
+                               : "Cerrar esta etapa y pasar a "+esc(sig.nom)) + '</button>'
+      : '<button class="enlace" data-actual="'+esc(eid)+'">Marcar esta etapa como la actual</button>')
+    + '</div></div>';
+
+  s += bloqueNarrativa(eid, t);
+  s += avisos(eid);
+  s += secSenales(eid);
+  s += secRutas(eid);
+  s += secHitos(eid);
+  if(k === etapas.length-1 || etapas.length === 1) s += secBitacora();
+  return s;
+}
+
+function bloqueNarrativa(eid, t){
+  return '<div class="narra">'
+    + '<div><div class="rot">Qué abarca</div>'
+    + (EDITANDO
+      ? '<textarea rows="6" data-txt="'+esc(eid)+'" data-campo="resumen">'+esc(t.resumen||"")+'</textarea>'
+      : '<p>'+esc(t.resumen||"Todavía sin redactar.")+'</p>') + '</div>'
+    + '<div class="dec"><div class="rot">Qué se decidió</div>'
+    + (EDITANDO
+      ? '<textarea rows="6" data-txt="'+esc(eid)+'" data-campo="decision">'+esc(t.decision||"")+'</textarea>'
+      : '<p>'+esc(t.decision||"Todavía sin decidir.")+'</p>') + '</div></div>';
+}
+
+/* Avisos: lo que exige una decisión ahora, ordenado por urgencia real. */
+function avisos(eid){
+  var a = [];
+  (P.rutas||[]).forEach(function(r){
+    var e = estadoRuta(r), pl = plazoRuta(r);
+    if(pl && pl.tarde){
+      a.push(['critico', '<b>Ya no alcanza a prepararse:</b> «'+esc(r.nombre)+'» necesita '
+        + plural(pl.prep,"día","días")+' para montarse y debía estar operando el '
+        + fechaCorta(pl.operando)+'. La fecha para decidir era el '+fechaCorta(pl.limite)+'.', r.etapa]);
+    }else if(pl && pl.urge){
+      a.push(['alerta', '<b>Quedan '+plural(pl.restan,"día","días")+' para decidir</b> sobre «'
+        + esc(r.nombre)+'»: montarla toma '+plural(pl.prep,"día","días")+'.', r.etapa]);
+    }
+    if(e.v==="activada"){
+      a.push(['critico', '<b>Ruta activada:</b> '+esc(r.nombre)+'. '+esc(r.accion), r.etapa]);
+    }else if(e.v==="armada"){
+      a.push(['alerta', '<b>Ruta armada:</b> '+esc(r.nombre)+'. El disparador se cruzó; toca empezar a prepararla.', r.etapa]);
+    }
+    var at = avisaATiempo(r);
+    if(at && at.tarde){
+      a.push(['alerta', '<b>La señal avisaría tarde:</b> a este ritmo «'+esc(r.nombre)
+        + '» cruza el disparador el '+fechaCorta(at.cruce)+', y la fecha para decidir es el '
+        + fechaCorta(at.limite)+'. Hay que medir más seguido o adelantar el disparador.', r.etapa]);
+    }
+  });
+  (P.senales||[]).forEach(function(s){
+    var c = cadencia(s);
+    if(c && c.vencida && estadoSenal(s)!=="espera"){
+      a.push(['alerta', '<b>'+esc(s.nombre)+'</b> se mide cada '+plural(num(s.cadencia),"día","días")
+        + ' y está '+esc(c.txt)+'.', s.etapa]);
+    }
+  });
+  if(!a.length) return "";
+  var orden = {critico:0, alerta:1, ok:2};
+  a.sort(function(x,y){ return orden[x[0]]-orden[y[0]]; });
+  return '<div class="avisos">' + a.slice(0,5).map(function(x){
+    return '<div class="aviso '+x[0]+'"><span>'+x[1]+'</span>'
+      + (x[2] && x[2]!==eid ? '<button class="ir" data-ir="'+esc(x[2])+'">Ver</button>' : '')
+      + '</div>';
+  }).join("") + '</div>';
+}
+
+/* --------------------------------------------------------------- señales */
+function secSenales(eid){
+  var lista = (P.senales||[]).filter(function(s){ return (s.etapa||"")===eid; });
+  if(!lista.length && !EDITANDO) return "";
+  var grupos = [], vistos = {};
+  lista.forEach(function(s){
+    var g = s.grupo || "Seguimiento";
+    if(!vistos[g]){ vistos[g]=[]; grupos.push(g); }
+    vistos[g].push(s);
+  });
+  var ok = lista.filter(function(s){ return estadoSenal(s)==="ok"; }).length;
+  var esp = lista.filter(function(s){ return estadoSenal(s)==="espera"; }).length;
+  return '<section><div class="sec-cab"><h2>Señales</h2><span class="cuenta">'
+    + (esp ? ok+" en rumbo · "+esp+" sin evaluar aún" : ok+" de "+lista.length+" en rumbo")
+    + '</span></div>'
+    + '<p class="sub">Lo que se mide para saber si el plan sigue sirviendo. Cada señal lleva su '
+    + 'disparador —el valor en que hay que empezar a preparar la ruta alterna— y su punto de no '
+    + 'retorno. Registra una medición y todo lo demás se recalcula.</p>'
+    + (lista.length ? grupos.map(function(g){
+        return '<h3 class="grupo">'+esc(g)+'</h3><div class="senales">'
+          + vistos[g].map(tarjetaSenal).join("") + '</div>';
+      }).join("") : '<div class="vacio">Esta etapa todavía no tiene señales.</div>')
+    + (EDITANDO ? '<button class="btn-add" data-nuevo="senales" data-etapa="'+esc(eid)+'">+ Agregar señal</button>' : '')
+    + '</section>';
+}
+
+function tarjetaSenal(s){
+  var est = estadoSenal(s), ec = escalaSenal(s), t = tendencia(s), c = cadencia(s), pr = proyeccion(s);
+  var menor = s.direccion === "menor";
+  return '<article class="sen '+est+'" id="sc-'+esc(s.id)+'">'
+    + '<div class="sen-cab"><div class="sen-nom">'+esc(s.nombre)+'</div>'
+    + '<span class="chip '+est+'">'+nombreEstado(est)+'</span></div>'
+    + '<div class="sen-cifras"><span class="sen-val">'+esc(valorTxt(s))+'</span>'
+    + '<span class="sen-meta">meta '+(menor?"≤ ":"")+esc(s.meta)+esc(unidadTxt(s))+'</span>'
+    + (t ? '<span class="tend '+t.cls+'">'+esc(t.txt)+'</span>' : '')
+    + '</div>'
+    + '<div class="escala"><i class="'+est+'" style="width:'+ec.valor+'%"></i>'
+    + '<u class="disp" style="left:calc('+ec.disp+'% - 1px)" title="Disparador"></u>'
+    + '<u class="nore" style="left:calc('+ec.nore+'% - 1px)" title="Punto de no retorno"></u></div>'
+    + '<div class="escala-pie"><span>disparador '+esc(s.disparador)+esc(unidadTxt(s))+'</span>'
+    + '<span>no retorno '+esc(s.noRetorno)+esc(unidadTxt(s))+'</span></div>'
+    + ((s.historial||[]).length>1
+      ? '<svg class="chispa" data-chispa="'+esc(s.id)+'" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"></svg>'
+      : '')
+    + '<div class="sen-nota">'
+    + (est==="espera" ? "Se evalúa contra los umbrales desde el "+fechaCorta(s.desde)+". " : "")
+    + esc(s.nota||"")
+    + (pr ? ' <b style="color:var(--alerta)">A este ritmo cruza el disparador el '
+            + fechaCorta(pr.fecha)+'.</b>' : '')
+    + '</div>'
+    + '<div class="sen-pie"><label for="mv-'+esc(s.id)+'">Medición</label>'
+    + '<input type="number" step="any" id="mv-'+esc(s.id)+'" value="'+esc(s.valor)+'" data-med="'+esc(s.id)+'">'
+    + '<button class="btn mini sec" data-registrar="'+esc(s.id)+'">Registrar</button>'
+    + (c ? '<span class="cadencia'+(c.vencida?" vencida":"")+'">'+esc(c.txt)+'</span>' : '')
+    + '</div>'
+    + (EDITANDO ? panelSenal(s) : "")
+    + '</article>';
+}
+
+function panelSenal(s){
+  return '<div class="edit"><div class="rot">Editar esta señal</div>'
+    + campo("senales", s.id, "nombre", "Nombre", s.nombre)
+    + '<div class="fila-campos">'
+    + campo("senales", s.id, "grupo", "Grupo", s.grupo||"")
+    + campoSel("senales", s.id, "etapa", "Etapa", s.etapa,
+        etapasDe(P).map(function(e){ return [e.id, e.nom]; }))
+    + '</div><div class="fila-campos">'
+    + campoNum("senales", s.id, "meta", "Meta", s.meta)
+    + campoNum("senales", s.id, "disparador", "Disparador", s.disparador)
+    + campoNum("senales", s.id, "noRetorno", "No retorno", s.noRetorno)
+    + campoNum("senales", s.id, "orden", "Orden", s.orden)
+    + '</div><div class="fila-campos">'
+    + campo("senales", s.id, "unidad", "Unidad (%, d, …)", s.unidad||"")
+    + campoSel("senales", s.id, "direccion", "Mejor cuando es", s.direccion,
+        [["mayor","mayor"],["menor","menor"]])
+    + campoNum("senales", s.id, "cadencia", "Medir cada (días)", s.cadencia)
+    + '</div>'
+    + '<div class="campo"><label>Se evalúa desde</label>'
+    + '<input type="date" data-col="senales" data-id="'+esc(s.id)+'" data-campo="desde" value="'+esc(s.desde||"")+'"></div>'
+    + campo("senales", s.id, "nota", "Nota", s.nota||"", 3)
+    + '<div class="edit-pie">'+btnBorrar("senales", s.id)+'</div></div>';
+}
+
+function pintarChispas(){
+  Array.prototype.forEach.call(document.querySelectorAll("[data-chispa]"), function(svg){
+    var s = buscar("senales", svg.getAttribute("data-chispa"));
+    if(!s) return;
+    var h = (s.historial||[]).slice(-14);
+    if(h.length < 2){ svg.innerHTML = ""; return; }
+    var vs = h.map(function(x){ return num(x.valor); });
+    var lo = Math.min.apply(null, vs), hi = Math.max.apply(null, vs);
+    if(hi === lo){ hi = lo + 1; lo = lo - 1; }
+    var W=100, H=30, pad=3;
+    var xy = vs.map(function(v,i){
+      return [pad + (i/(vs.length-1))*(W-2*pad),
+              H - pad - ((v-lo)/(hi-lo))*(H-2*pad)];
+    });
+    var est = estadoSenal(s);
+    var col = est==="ok" ? "var(--ok)" : est==="alerta" ? "var(--alerta)"
+            : est==="critico" ? "var(--critico)" : "var(--linea-fuerte)";
+    var linea = xy.map(function(p){ return p[0].toFixed(1)+","+p[1].toFixed(1); }).join(" ");
+    var area = linea + " " + xy[xy.length-1][0].toFixed(1)+","+H + " " + xy[0][0].toFixed(1)+","+H;
+    var fin = xy[xy.length-1];
+    svg.innerHTML =
+        '<polygon points="'+area+'" fill="'+col+'" opacity=".12"></polygon>'
+      + '<polyline points="'+linea+'" fill="none" stroke="'+col+'" stroke-width="1.6" '
+      + 'stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>'
+      + '<circle cx="'+fin[0].toFixed(1)+'" cy="'+fin[1].toFixed(1)+'" r="2.2" fill="'+col+'"></circle>';
+  });
+}
+
+/* ----------------------------------------------------------------- rutas */
+function secRutas(eid){
+  var lista = (P.rutas||[]).filter(function(r){ return (r.etapa||"")===eid; });
+  if(!lista.length && !EDITANDO) return "";
+  var act = lista.filter(function(r){
+    var v=estadoRuta(r).v; return v==="armada"||v==="activada"; }).length;
+  return '<section><div class="sec-cab"><h2>Rutas alternas</h2>'
+    + '<span class="cuenta">'+act+' de '+lista.length+' activas</span></div>'
+    + '<p class="sub">A qué se cambia cuando la estrategia actual deja de servir, y cuánto tarda '
+    + 'ese cambio en montarse. El tiempo de preparación es lo que fija la fecha límite para decidir: '
+    + 'siempre es anterior a la fecha en que la ruta debe estar operando.</p>'
+    + (lista.length ? '<div class="rutas">' + lista.map(tarjetaRuta).join("") + '</div>'
+                    : '<div class="vacio">Esta etapa todavía no tiene rutas alternas.</div>')
+    + (EDITANDO ? '<button class="btn-add" data-nuevo="rutas" data-etapa="'+esc(eid)+'">+ Agregar ruta</button>' : '')
+    + '</section>';
+}
+
+function tarjetaRuta(r){
+  var e = estadoRuta(r), pl = plazoRuta(r), at = avisaATiempo(r);
+  return '<article class="ruta '+e.v+'">'
+    + '<div class="ruta-cab"><div class="ruta-nom">'+esc(r.nombre)+'</div>'
+    + '<span class="chip '+chipRuta(e.v)+'">'+nombreRuta(e.v)+'</span></div>'
+    + '<div class="ruta-cuerpo">'
+    + '<div class="si"><div class="rot">Si se cruza el disparador</div><p>'+esc(r.condicion)+'</p></div>'
+    + '<div><div class="rot">Entonces se cambia a</div><p>'+esc(r.accion)+'</p></div></div>'
+    + (pl ? '<dl class="plazo">'
+        + '<dt>Debe estar operando</dt><dd>'+fechaCorta(pl.operando)+'</dd>'
+        + '<dt>Montarla toma</dt><dd>'+plural(pl.prep,"día","días")+'</dd>'
+        + '<dt>Fecha límite para decidir</dt><dd class="'+(pl.tarde?"tarde":pl.urge?"urge":"")+'">'
+        + fechaCorta(pl.limite)
+        + (pl.restan!==null ? ' · '+(pl.restan<0 ? "vencida hace "+plural(-pl.restan,"día","días")
+                                                 : "faltan "+plural(pl.restan,"día","días")) : '')
+        + '</dd>'
+        + (at ? '<dt>Aviso proyectado</dt><dd class="'+(at.tarde?"tarde":"")+'">'
+                + fechaCorta(at.cruce)+(at.tarde?" — llegaría tarde":" — a tiempo")+'</dd>' : '')
+        + '</dl>' : '')
+    + '<div class="ruta-pie">'
+    + (e.auto
+      ? '<span class="lector">'+e.lectura+'</span>'
+        + '<button class="enlace" data-manual="'+esc(r.id)+'" style="margin-left:auto">Fijar a mano</button>'
+      : '<label for="re-'+esc(r.id)+'">Estado</label>'
+        + '<select id="re-'+esc(r.id)+'" data-col="rutas" data-id="'+esc(r.id)+'" data-campo="estado">'
+        + [["latente","Latente"],["armada","Armada"],["activada","Activada"],["descartada","Descartada"]]
+            .map(function(o){
+              return '<option value="'+o[0]+'"'+(r.estado===o[0]?" selected":"")+'>'+o[1]+'</option>'; }).join("")
+        + '</select>'
+        + (r.senal ? '<button class="enlace" data-auto="'+esc(r.id)+'" style="margin-left:auto">Volver a automático</button>' : ''))
+    + '</div>'
+    + (EDITANDO ? panelRuta(r) : "")
+    + '</article>';
+}
+
+function panelRuta(r){
+  return '<div class="edit"><div class="rot">Editar esta ruta</div>'
+    + campo("rutas", r.id, "nombre", "Nombre", r.nombre)
+    + campo("rutas", r.id, "condicion", "Si se cruza el disparador", r.condicion, 3)
+    + campo("rutas", r.id, "accion", "Entonces se cambia a", r.accion, 4)
+    + '<div class="fila-campos">'
+    + campoSel("rutas", r.id, "senal", "Se arma leyendo", r.senal||"",
+        [["","nada — se fija a mano"]].concat((P.senales||[]).map(function(s){
+          return [s.id, s.nombre]; })))
+    + campoSel("rutas", r.id, "etapa", "Etapa", r.etapa,
+        etapasDe(P).map(function(e){ return [e.id, e.nom]; }))
+    + '</div><div class="fila-campos">'
+    + campoNum("rutas", r.id, "preparacionDias", "Días para montarla", r.preparacionDias)
+    + '<div class="campo"><label>Debe estar operando el</label>'
+    + '<input type="date" data-col="rutas" data-id="'+esc(r.id)+'" data-campo="fechaLimite" value="'+esc(r.fechaLimite||"")+'"></div>'
+    + campoNum("rutas", r.id, "orden", "Orden", r.orden)
+    + '</div>'
+    + '<div class="edit-pie">'+btnBorrar("rutas", r.id)+'</div></div>';
+}
+
+/* ----------------------------------------------------------------- hitos */
+function secHitos(eid){
+  var lista = (P.hitos||[]).filter(function(h){ return (h.etapa||"")===eid; });
+  if(!lista.length && !EDITANDO) return "";
+  var px = proximoHito();
+  var hechos = lista.filter(function(h){ return !!h.fechaReal; }).length;
+  return '<section><div class="sec-cab"><h2>Hitos</h2>'
+    + '<span class="cuenta">'+hechos+' de '+lista.length+' cumplidos</span></div>'
+    + '<p class="sub">Escribe la fecha real en cuanto ocurra: el desvío y el pulso de arriba se '
+    + 'recalculan al instante.</p>'
+    + (lista.length
+      ? '<div class="tabla-caja"><table><thead><tr><th>Hito</th><th>Planificado</th><th>Real</th>'
+        + '<th>Desvío</th>' + (EDITANDO?'<th></th>':'') + '</tr></thead><tbody>'
+        + lista.map(function(h){
+            var d = dias(h.fechaPlan, h.fechaReal);
+            var cls = d===null ? "pend" : d<=0 ? "ok" : d<=7 ? "alerta" : "critico";
+            var txt = d===null ? "pendiente" : d===0 ? "en fecha" : d>0 ? "+"+d+" d" : d+" d";
+            return '<tr class="'+(h.fechaReal?"hecho":"")+(px&&px.id===h.id?" proximo":"")+'">'
+              + '<td class="h-nom">'+(px&&px.id===h.id?'<span class="marcaprox">Próximo</span>':'')
+              + (EDITANDO
+                ? '<input type="text" style="width:100%" data-col="hitos" data-id="'+esc(h.id)+'" data-campo="nombre" value="'+esc(h.nombre)+'">'
+                : esc(h.nombre))
+              + '</td><td>'
+              + (EDITANDO
+                ? '<input type="date" data-col="hitos" data-id="'+esc(h.id)+'" data-campo="fechaPlan" value="'+esc(h.fechaPlan||"")+'">'
+                : fechaCorta(h.fechaPlan))
+              + '</td><td><input type="date" data-col="hitos" data-id="'+esc(h.id)+'" data-campo="fechaReal" value="'+esc(h.fechaReal||"")+'"></td>'
+              + '<td><span class="desvio '+cls+'">'+esc(txt)+'</span></td>'
+              + (EDITANDO ? '<td>'+btnBorrar("hitos", h.id)+'</td>' : '')
+              + '</tr>';
+          }).join("") + '</tbody></table></div>'
+      : '<div class="vacio">Esta etapa no tiene hitos propios.</div>')
+    + (EDITANDO ? '<button class="btn-add" data-nuevo="hitos" data-etapa="'+esc(eid)+'">+ Agregar hito</button>' : '')
+    + '</section>';
+}
+
+/* -------------------------------------------------------------- bitácora */
+function secBitacora(){
+  var e = (P.bitacora||[]).slice().sort(function(a,b){
+    return String(b.fecha||"").localeCompare(String(a.fecha||"")); });
+  return '<section><div class="sec-cab"><h2>Bitácora de iteración</h2>'
+    + '<span class="cuenta">'+plural(e.length,"entrada","entradas")+'</span></div>'
+    + '<p class="sub">Lo que se aprendió y lo que se cambió por eso. Es lo que hace que el ciclo sea '
+    + 'un ciclo y no un plan que se archiva. Cerrar una etapa deja aquí su propia entrada.</p>'
+    + '<div class="bitacora">'
+    + '<textarea id="nueva-nota" placeholder="Qué pasó, qué se decidió y por qué…" aria-label="Nueva entrada"></textarea>'
+    + '<div style="margin-top:11px"><button class="btn" id="add-nota">Agregar entrada</button></div>'
+    + (e.length ? '<div style="margin-top:8px">' + e.map(function(n){
+        return '<div class="entrada"><div><div class="cuando'+(n.auto?" auto":"")+'">'
+          + fechaCorta(n.fecha)+(n.auto?" · automática":"")+'</div>'
+          + (EDITANDO
+            ? '<textarea rows="3" data-col="bitacora" data-id="'+esc(n.id)+'" data-campo="texto">'+esc(n.texto)+'</textarea>'
+            : '<p>'+esc(n.texto)+'</p>')
+          + '</div>' + (EDITANDO ? btnBorrar("bitacora", n.id) : '') + '</div>';
+      }).join("") + '</div>' : '')
+    + '</div></section>';
+}
+
+/* ----------------------------------------------------------- panel general */
+function panelGeneral(){
+  var s = '<div class="et-cab"><h1>Panel general</h1>'
+    + '<p class="lead">Todo el plan de un vistazo: en qué está cada señal, qué rutas se movieron y '
+    + 'qué decisiones tienen fecha. Para leer una etapa completa, pulsa su nombre en el riel.</p></div>';
+  s += avisos("");
+  s += '<section><div class="sec-cab"><h2>Estado por etapa</h2></div><div class="panel-g">'
+    + etapasDe(P).map(function(e){
+        var ss = (P.senales||[]).filter(function(x){ return x.etapa===e.id; });
+        var rr = (P.rutas||[]).filter(function(x){ return x.etapa===e.id; });
+        var hh = (P.hitos||[]).filter(function(x){ return x.etapa===e.id; });
+        var est = estadoEtapa(P, e.id);
+        var cuerpo = ss.map(function(x){
+            var st = estadoSenal(x);
+            return '<div class="plinea"><i class="pdot '+st+'"></i>'
+              + '<span class="pn2">'+esc(x.nombre)+'</span>'
+              + '<span class="pv">'+esc(valorTxt(x))+'</span></div>';
+          }).join("")
+          + rr.map(function(x){
+            var v = estadoRuta(x).v;
+            return '<div class="plinea"><i class="pdot '+chipRuta(v)+'"></i>'
+              + '<span class="pn2">'+esc(x.nombre)+'</span>'
+              + '<span class="pv" style="font-size:11px;font-weight:700;color:var(--tenue)">'
+              + nombreRuta(v)+'</span></div>';
+          }).join("")
+          + hh.map(function(x){
+            var d = dias(x.fechaPlan, x.fechaReal);
+            return '<div class="plinea"><i class="pdot '
+              + (x.fechaReal ? (d<=0?"ok":d<=7?"alerta":"critico") : "") + '"></i>'
+              + '<span class="pn2">'+esc(x.nombre)+'</span>'
+              + '<span class="pv" style="font-size:11px;color:var(--tenue)">'
+              + fechaCorta(x.fechaReal||x.fechaPlan)+'</span></div>';
+          }).join("");
+        return '<div class="pcol"><h4>'+esc(e.n?e.n+" · ":"")+esc(e.nom)
+          + ' <span class="estampa '+est+'" style="margin-left:4px">'
+          + (est==="cerrada"?"cerrada":est==="curso"?"actual":"pendiente")+'</span></h4>'
+          + (cuerpo || '<div class="plinea" style="color:var(--debil)">Sin elementos.</div>')
+          + '</div>';
+      }).join("") + '</div></section>';
+  s += secBitacora();
+  return s;
+}
+
+/* ------------------------------------------------------- campos comunes */
+function campo(col, i, c, et, v, filas){
+  return '<div class="campo"><label>'+esc(et)+'</label>'
+    + (filas
+      ? '<textarea rows="'+filas+'" data-col="'+col+'" data-id="'+esc(i)+'" data-campo="'+c+'">'+esc(v)+'</textarea>'
+      : '<input type="text" data-col="'+col+'" data-id="'+esc(i)+'" data-campo="'+c+'" value="'+esc(v)+'">')
+    + '</div>';
+}
+function campoNum(col, i, c, et, v){
+  return '<div class="campo"><label>'+esc(et)+'</label>'
+    + '<input type="number" step="any" data-col="'+col+'" data-id="'+esc(i)+'" data-campo="'+c+'" value="'+esc(v)+'"></div>';
+}
+function campoSel(col, i, c, et, v, ops){
+  return '<div class="campo"><label>'+esc(et)+'</label>'
+    + '<select data-col="'+col+'" data-id="'+esc(i)+'" data-campo="'+c+'">'
+    + ops.map(function(o){
+        return '<option value="'+esc(o[0])+'"'+(String(v)===String(o[0])?" selected":"")+'>'
+          + esc(o[1])+'</option>'; }).join("")
+    + '</select></div>';
+}
+function btnBorrar(col, i){
+  return '<button class="btn borrar" data-borrar="'+col+'" data-id="'+esc(i)+'" title="Eliminar">✕ Eliminar</button>';
+}
+</script>
+<script>
+/* ================================================================ EVENTOS */
+
+function nuevoDe(col, etapa){
+  var i = id();
+  if(col==="senales") return {id:i, orden:(P.senales||[]).length+1, etapa:etapa,
+    grupo:"Seguimiento", nombre:"Señal nueva", unidad:"", direccion:"mayor",
+    valor:0, meta:100, disparador:80, noRetorno:60, desde:"", cadencia:7, nota:"", historial:[]};
+  if(col==="rutas") return {id:i, orden:(P.rutas||[]).length+1, etapa:etapa, senal:"",
+    nombre:"Ruta nueva", condicion:"", accion:"", preparacionDias:14, fechaLimite:"",
+    estado:"latente", manual:true};
+  if(col==="hitos") return {id:i, etapa:etapa, nombre:"Hito nuevo", fechaPlan:HOY, fechaReal:""};
+  return null;
+}
+
+function irA(eid){
+  VISTA = eid; PANEL = false;
+  render();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function abrirPlan(k){
+  P = BD.planes[k]; BD.activo = k; VISTA = null; PANEL = false; EDITANDO = false;
+  if(!P.textos) P.textos = {};
+  ordenar(); guardar(); render();
+  window.scrollTo({top:0});
+}
+
+document.addEventListener("click", function(ev){
+  var el = ev.target.closest(
+    "[data-abrir],[data-nuevoplan],[data-importar],[data-ir],[data-actual],[data-cerrar],"
+    + "[data-borrar],[data-nuevo],[data-manual],[data-auto],[data-registrar],[data-cmd],"
+    + "[data-metodo],#add-nota");
+  if(!el) return;
+
+  if(el.hasAttribute("data-abrir"))     return abrirPlan(el.getAttribute("data-abrir"));
+  if(el.hasAttribute("data-nuevoplan")) return modalNuevoPlan();
+  if(el.hasAttribute("data-importar"))  return importar();
+  if(el.hasAttribute("data-ir"))        return irA(el.getAttribute("data-ir"));
+  if(el.hasAttribute("data-cmd"))       return comando(el.getAttribute("data-cmd"));
+
+  if(el.hasAttribute("data-metodo")){
+    Array.prototype.forEach.call(document.querySelectorAll("[data-metodo]"), function(b){
+      b.setAttribute("aria-pressed", b===el ? "true" : "false"); });
+    return;
+  }
+
+  if(el.hasAttribute("data-actual")){
+    P.etapaActual = el.getAttribute("data-actual");
+    guardar(); render(); return;
+  }
+
+  if(el.hasAttribute("data-cerrar")){
+    var de = el.getAttribute("data-cerrar");
+    var etapas = etapasDe(P), k = idxEtapa(P, de);
+    var e = etapas[k], sig = etapas[(k+1) % etapas.length];
+    P.bitacora.push({id:id(), fecha:HOY, auto:true,
+      texto: (k === etapas.length-1)
+        ? "Se cierra el ciclo completo. Lo aprendido en «"+e.nom+"» redefine el alcance y el ciclo vuelve a empezar en «"+sig.nom+"»."
+        : "Se cierra "+(e.n?e.n+" · ":"")+e.nom+". El plan pasa a "+(sig.n?sig.n+" · ":"")+sig.nom+"."});
+    P.etapaActual = sig.id; VISTA = sig.id;
+    guardar(); render(); window.scrollTo({top:0, behavior:"smooth"});
+    return;
+  }
+
+  if(el.hasAttribute("data-manual") || el.hasAttribute("data-auto")){
+    var rid = el.getAttribute("data-manual") || el.getAttribute("data-auto");
+    var r = buscar("rutas", rid);
+    if(!r) return;
+    if(el.hasAttribute("data-manual")) r.estado = estadoRuta(r).v;
+    r.manual = el.hasAttribute("data-manual");
+    guardar(); render(); return;
+  }
+
+  if(el.hasAttribute("data-registrar")){
+    var s = buscar("senales", el.getAttribute("data-registrar"));
+    if(!s) return;
+    var inp = document.getElementById("mv-"+s.id);
+    var v = num(inp ? inp.value : s.valor);
+    s.valor = v;
+    s.historial = s.historial || [];
+    var ult = s.historial[s.historial.length-1];
+    if(ult && ult.fecha === HOY) ult.valor = v;
+    else s.historial.push({fecha:HOY, valor:v});
+    if(s.historial.length > 60) s.historial = s.historial.slice(-60);
+    s.ultimaMedicion = HOY;
+    guardar(); render(); return;
+  }
+
+  if(el.hasAttribute("data-borrar")){
+    var col = el.getAttribute("data-borrar"), bid = el.getAttribute("data-id");
+    P[col] = (P[col]||[]).filter(function(x){ return x.id !== bid; });
+    guardar(); render(); return;
+  }
+
+  if(el.hasAttribute("data-nuevo")){
+    var ncol = el.getAttribute("data-nuevo");
+    var obj = nuevoDe(ncol, el.getAttribute("data-etapa") || vistaActual());
+    if(!obj) return;
+    P[ncol] = P[ncol] || [];
+    P[ncol].push(obj); ordenar(); guardar(); render(); return;
+  }
+
+  if(el.id === "add-nota"){
+    var ta = document.getElementById("nueva-nota");
+    var txt = (ta.value||"").trim();
+    if(!txt) return;
+    P.bitacora.push({id:id(), fecha:HOY, auto:false, texto:txt});
+    ta.value = ""; guardar(); render();
+  }
+});
+
+/* Escribir actualiza en memoria y repinta lo derivado; al soltar, se guarda. */
+function aplicar(el){
+  var col = el.getAttribute("data-col");
+  if(col){
+    var o = buscar(col, el.getAttribute("data-id"));
+    if(!o) return null;
+    var c = el.getAttribute("data-campo");
+    var nums = {meta:1, disparador:1, noRetorno:1, valor:1, orden:1, cadencia:1, preparacionDias:1};
+    o[c] = nums[c] ? num(el.value) : el.value;
+    if(col === "rutas" && c === "estado") o.manual = true;
+    if(col === "rutas" && c === "senal")  o.manual = !el.value;
+    return o;
+  }
+  var t = el.getAttribute("data-txt");
+  if(t){
+    P.textos = P.textos || {};
+    P.textos[t] = P.textos[t] || {};
+    P.textos[t][el.getAttribute("data-campo")] = el.value;
+    return true;
+  }
+  return null;
+}
+document.addEventListener("input", function(ev){
+  var el = ev.target;
+  if(!el.getAttribute) return;
+  if(!el.getAttribute("data-col") && !el.getAttribute("data-txt")) return;
+  if(!aplicar(el)) return;
+  if(el.getAttribute("data-col")) { pintarPulso(); pintarRiel(); }
+});
+document.addEventListener("change", function(ev){
+  var el = ev.target;
+  if(!el.getAttribute) return;
+  if(!el.getAttribute("data-col") && !el.getAttribute("data-txt")) return;
+  if(!aplicar(el)) return;
+  guardar();
+  var c = el.getAttribute("data-campo");
+  /* Cambios que reordenan o recolorean toda la vista: se repinta entero. */
+  if(["etapa","senal","direccion","estado","orden","unidad","desde","fechaLimite"].indexOf(c) >= 0)
+    render();
+  else { pintarPulso(); pintarRiel(); }
+});
+
+document.getElementById("b-editar").addEventListener("click", function(){
+  EDITANDO = !EDITANDO; render();
+});
+document.getElementById("b-panel").addEventListener("click", function(){
+  PANEL = !PANEL; render(); window.scrollTo({top:0, behavior:"smooth"});
+});
+document.getElementById("b-menu").addEventListener("click", modalPlan);
+
+/* ================================================================= MODALES */
+function abrirModal(html){
+  document.getElementById("capa").innerHTML =
+    '<div class="velo" data-velo="1"><div class="modal" role="dialog" aria-modal="true">'+html+'</div></div>';
+}
+function cerrarModal(){ document.getElementById("capa").innerHTML = ""; }
+document.addEventListener("click", function(ev){
+  if(ev.target && ev.target.getAttribute && ev.target.getAttribute("data-velo")) cerrarModal();
+});
+document.addEventListener("keydown", function(ev){ if(ev.key === "Escape") cerrarModal(); });
+
+function modalNuevoPlan(){
+  abrirModal(
+    '<h3>Plan nuevo</h3>'
+    + '<p class="md">Elige el método: define las etapas por las que va a pasar el plan. Se pueden '
+    + 'renombrar después.</p>'
+    + '<div class="campo"><label for="np-nom">Nombre del plan</label>'
+    + '<input type="text" id="np-nom" placeholder="Ej.: Adquisiciones 2027"></div>'
+    + '<div class="opciones">'
+    + Object.keys(METODOS).map(function(k, i){
+        var m = METODOS[k];
+        return '<button class="opcion" data-metodo="'+k+'" aria-pressed="'+(i===0?"true":"false")+'">'
+          + '<b>'+esc(m.nombre)+'</b><span>'+esc(m.desc||"")+' · '
+          + plural(m.etapas.length,"etapa","etapas")+'</span></button>';
+      }).join("")
+    + '</div>'
+    + '<div class="modal-pie"><button class="btn sec" data-cmd="cerrar">Cancelar</button>'
+    + '<button class="btn" data-cmd="crear">Crear el plan</button></div>');
+  setTimeout(function(){ var n=document.getElementById("np-nom"); if(n) n.focus(); }, 40);
+}
+
+function modalPlan(){
+  abrirModal(
+    '<h3>'+esc(P.nombre)+'</h3>'
+    + '<p class="md">Los planes se guardan en este navegador. Para compartirlos, respaldarlos o '
+    + 'abrirlos en otra máquina, exporta el archivo JSON.</p>'
+    + '<div class="campo"><label for="pl-nom">Nombre</label>'
+    + '<input type="text" id="pl-nom" value="'+esc(P.nombre)+'"></div>'
+    + '<div class="campo"><label for="pl-desc">Descripción</label>'
+    + '<textarea id="pl-desc" rows="3">'+esc(P.descripcion||"")+'</textarea></div>'
+    + '<div class="opciones" style="margin-top:16px">'
+    + '<button class="opcion" data-cmd="json"><b>Exportar el plan (JSON)</b>'
+    + '<span>El plan completo con su historial de mediciones. Es el formato para respaldar, '
+    + 'compartir o versionar.</span></button>'
+    + '<button class="opcion" data-cmd="csv"><b>Exportar para Excel (CSV)</b>'
+    + '<span>Señales, rutas, hitos y bitácora en una tabla, para informes.</span></button>'
+    + '<button class="opcion" data-cmd="imprimir"><b>Imprimir o guardar en PDF</b>'
+    + '<span>Imprime la vista que tengas abierta. El panel general sirve como resumen ejecutivo.</span></button>'
+    + '<button class="opcion" data-cmd="duplicar"><b>Duplicar como plantilla</b>'
+    + '<span>Copia la estructura —etapas, señales, rutas— con las mediciones en cero, para el '
+    + 'ciclo siguiente o para otro caso.</span></button>'
+    + '<button class="opcion" data-cmd="lista"><b>Volver a la lista de planes</b><span></span></button>'
+    + '<button class="opcion" data-cmd="borrar" style="border-color:var(--critico-bg)">'
+    + '<b style="color:var(--critico)">Borrar este plan</b>'
+    + '<span>No se puede deshacer. Exporta el JSON antes si quieres conservarlo.</span></button>'
+    + '</div>'
+    + '<div class="modal-pie"><button class="btn sec" data-cmd="cerrar">Cerrar</button>'
+    + '<button class="btn" data-cmd="guardarplan">Guardar cambios</button></div>');
+}
+
+function comando(c){
+  if(c === "cerrar") return cerrarModal();
+
+  if(c === "crear"){
+    var n = (document.getElementById("np-nom").value || "").trim();
+    var sel = document.querySelector('[data-metodo][aria-pressed="true"]');
+    var met = sel ? sel.getAttribute("data-metodo") : "adaptacion";
+    var p = planNuevo(n || "Plan sin nombre", met);
+    BD.planes[p.id] = p; guardar(); cerrarModal(); abrirPlan(p.id); return;
+  }
+  if(c === "guardarplan"){
+    P.nombre = (document.getElementById("pl-nom").value || P.nombre).trim();
+    P.descripcion = document.getElementById("pl-desc").value;
+    guardar(); cerrarModal(); render(); return;
+  }
+  if(c === "lista"){ cerrarModal(); P = null; BD.activo = null; guardar(); render(); return; }
+  if(c === "json")  { cerrarModal(); bajar(JSON.stringify(P, null, 2),
+                        archivo(P.nombre)+".json", "application/json"); return; }
+  if(c === "csv")   { cerrarModal(); bajar(armarCSV(), archivo(P.nombre)+".csv",
+                        "text/csv;charset=utf-8"); return; }
+  if(c === "imprimir"){ cerrarModal(); setTimeout(function(){ window.print(); }, 120); return; }
+  if(c === "duplicar"){
+    var d = JSON.parse(JSON.stringify(P));
+    d.id = id(); d.nombre = P.nombre + " (copia)";
+    d.etapaActual = etapasDe(d)[0].id;
+    d.creado = new Date().toISOString();
+    (d.senales||[]).forEach(function(s){ s.valor = 0; s.historial = []; s.ultimaMedicion = ""; });
+    (d.rutas||[]).forEach(function(r){ r.estado = "latente"; });
+    (d.hitos||[]).forEach(function(h){ h.fechaReal = ""; });
+    d.bitacora = [{id:id(), fecha:HOY, auto:true,
+      texto:"Plan duplicado desde «"+P.nombre+"». Estructura conservada, mediciones en cero."}];
+    BD.planes[d.id] = d; guardar(); cerrarModal(); abrirPlan(d.id); return;
+  }
+  if(c === "borrar"){
+    if(!window.confirm("¿Borrar «"+P.nombre+"»? No se puede deshacer.")) return;
+    delete BD.planes[P.id]; P = null; BD.activo = null;
+    guardar(); cerrarModal(); render(); return;
+  }
+}
+
+/* ==================================================================== E/S */
+function archivo(n){
+  return String(n||"plan").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"").slice(0,60) || "plan";
+}
+function bajar(texto, nombre, tipo){
+  var b = new Blob([texto], {type:tipo});
+  var u = URL.createObjectURL(b);
+  var a = document.createElement("a");
+  a.href = u; a.download = nombre;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(u); }, 1500);
+}
+function importar(){
+  var f = document.createElement("input");
+  f.type = "file"; f.accept = "application/json,.json";
+  f.addEventListener("change", function(){
+    var file = f.files && f.files[0];
+    if(!file) return;
+    var lector = new FileReader();
+    lector.onload = function(){
+      try{
+        var p = JSON.parse(lector.result);
+        if(!p || !p.nombre || !Array.isArray(p.senales))
+          throw new Error("El archivo no tiene la forma de un plan.");
+        if(!p.id || BD.planes[p.id]) p.id = id();
+        p.textos = p.textos || {};
+        ["senales","rutas","hitos","bitacora"].forEach(function(k){
+          if(!Array.isArray(p[k])) p[k] = []; });
+        BD.planes[p.id] = p; guardar(); abrirPlan(p.id);
+      }catch(err){
+        window.alert("No se pudo abrir el archivo: " + err.message);
+      }
+    };
+    lector.readAsText(file);
+  });
+  f.click();
+}
+
+function csvC(v){
+  var t = String(v==null?"":v);
+  return /[";\n\r]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t;
+}
+function csvF(a){ return a.map(csvC).join(";"); }
+
+function armarCSV(){
+  var L = [];
+  L.push(csvF([P.nombre]));
+  L.push(csvF(["Metodo", (METODOS[P.metodo]||METODOS.libre).nombre]));
+  L.push(csvF(["Etapa actual", (etapaObj(P,P.etapaActual)||{}).nom || ""]));
+  L.push(csvF(["Exportado", HOY]));
+  L.push("");
+
+  L.push(csvF(["ETAPAS"]));
+  L.push(csvF(["Etapa","Estado","Que abarca","Que se decidio"]));
+  etapasDe(P).forEach(function(e){
+    var t = (P.textos||{})[e.id] || {};
+    L.push(csvF([(e.n?e.n+" - ":"")+e.nom, estadoEtapa(P,e.id), t.resumen||"", t.decision||""]));
+  });
+  L.push("");
+
+  L.push(csvF(["SENALES"]));
+  L.push(csvF(["Senal","Etapa","Grupo","Valor","Unidad","Meta","Disparador","No retorno",
+               "Mejor cuando es","Estado","Se evalua desde","Cadencia (dias)",
+               "Ultima medicion","Nota"]));
+  (P.senales||[]).forEach(function(s){
+    L.push(csvF([s.nombre, s.etapa, s.grupo, s.valor, s.unidad, s.meta, s.disparador,
+      s.noRetorno, s.direccion, nombreEstado(estadoSenal(s)), s.desde||"", s.cadencia||"",
+      s.ultimaMedicion||"", s.nota||""]));
+  });
+  L.push("");
+
+  L.push(csvF(["MEDICIONES"]));
+  L.push(csvF(["Senal","Fecha","Valor"]));
+  (P.senales||[]).forEach(function(s){
+    (s.historial||[]).forEach(function(h){ L.push(csvF([s.nombre, h.fecha, h.valor])); });
+  });
+  L.push("");
+
+  L.push(csvF(["RUTAS ALTERNAS"]));
+  L.push(csvF(["Ruta","Etapa","Estado","Se arma leyendo","Si se cruza el disparador",
+               "Entonces se cambia a","Dias para montarla","Debe operar el",
+               "Fecha limite para decidir","Dias restantes"]));
+  (P.rutas||[]).forEach(function(r){
+    var pl = plazoRuta(r), s = r.senal ? buscar("senales", r.senal) : null;
+    L.push(csvF([r.nombre, r.etapa, nombreRuta(estadoRuta(r).v), s ? s.nombre : "a mano",
+      r.condicion||"", r.accion||"", r.preparacionDias||"", r.fechaLimite||"",
+      pl ? pl.limite : "", pl && pl.restan!==null ? pl.restan : ""]));
+  });
+  L.push("");
+
+  L.push(csvF(["HITOS"]));
+  L.push(csvF(["Hito","Etapa","Planificado","Real","Desvio (dias)"]));
+  (P.hitos||[]).forEach(function(h){
+    var d = dias(h.fechaPlan, h.fechaReal);
+    L.push(csvF([h.nombre, h.etapa, h.fechaPlan||"", h.fechaReal||"", d===null?"pendiente":d]));
+  });
+  L.push("");
+
+  L.push(csvF(["BITACORA"]));
+  L.push(csvF(["Fecha","Origen","Entrada"]));
+  (P.bitacora||[]).slice().sort(function(a,b){
+    return String(b.fecha||"").localeCompare(String(a.fecha||"")); }).forEach(function(n){
+    L.push(csvF([n.fecha||"", n.auto?"automatica":"manual", n.texto||""]));
+  });
+
+  return "﻿" + L.join("\r\n") + "\r\n";
+}
+
+/* ================================================================ ARRANQUE */
+cargar();
+if(BD.activo && BD.planes[BD.activo]){ P = BD.planes[BD.activo]; if(!P.textos) P.textos = {}; ordenar(); }
+render();
+</script>
+</body>
+</html>

@@ -24,6 +24,12 @@ respuesta ya está determinada por lo que se firmó en 2026.
 | | **Total** | **128** | **497 630** |
 | Fuera de esta campaña | Objeto no recurrente: 2 consultorías y 1 adquisición de equipos, de nivel central | 3 | 131 678 |
 
+
+> **Actualización posterior al corte.** En septiembre se suscribió un contrato de
+> comunicación que nace con posibilidad de renovación, así que el universo pasó a **129
+> contratos: 40 renovables y 89 procesos nuevos**. La tabla de arriba conserva las cifras
+> del corte del 1 de septiembre; los montos no incluyen ese contrato.
+
 **La modalidad de los 89 procesos nuevos es contratación directa**, con el criterio de
 **proveedor calificado y recurrencia del servicio**: el mismo proveedor ya está evaluado, el
 servicio es continuo y en territorio son de los pocos que facturan y operan legalmente. Eso hay

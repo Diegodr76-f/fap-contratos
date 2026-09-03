@@ -159,6 +159,8 @@ contrato, la pregunta que ordena el año: **¿se puede renovar, o hay que hacer 
 administrativo?** El FIAS permite renovar una sola vez, así que de los 128 contratos activos de
 servicios recurrentes de áreas protegidas **39 se pueden renovar y 89 no**: esos salen por
 contratación directa, con el criterio de proveedor calificado y recurrencia del servicio.
+Después de ese corte se sumó un contrato de comunicación con posibilidad de renovación, así que
+el universo vigente es de **129 contratos: 40 renovables y 89 procesos nuevos**.
 
 La meta es el expediente, no la firma. **El PAG se aprueba en promedio hasta el 15 de enero**, y
 sin PAG no se puede suscribir ni pedir una cotización en firme, porque es el PAG el que fija el
@@ -185,8 +187,61 @@ confirmación— **no se versiona**: el repositorio es público y lleva datos de
 python3 scripts/plan_renovaciones.py <Sistema_Alertas_Contratos_FIAS.xlsx> <carpeta_salida>
 ```
 
+## Planificador adaptativo — planificar por rutas alternas
+
+**`/planificador/index.html`** es la herramienta general de planificación. Nace del plan de
+renovaciones 2027, pero no está atada a ese caso: maneja **varios planes**, con distintos métodos,
+y no depende de un Excel.
+
+Aplica el método de **rutas adaptativas** (*Dynamic Adaptive Policy Pathways*, la formalización
+del ciclo de adaptación que usa la UICN). La idea de fondo: un plan a un año no falla de golpe,
+se va desviando, y para no descubrirlo tarde hay que decidir **por anticipado** qué se mide, en
+qué valor se cambia de estrategia y cuánto tarda ese cambio en montarse.
+
+| Concepto | Qué es | Ejemplo en renovaciones 2027 |
+|---|---|---|
+| **Señal** | Lo que se mide para saber si el plan sigue sirviendo | Cobertura de respuesta de las administradoras |
+| **Disparador** | El valor en que hay que **empezar a preparar** la ruta alterna | Bajo 80 % |
+| **Punto de no retorno** | El valor en que la estrategia actual ya dejó de servir | Bajo 60 % |
+| **Ruta alterna** | A qué se cambia | Extender el plazo y escalar al responsable del área |
+| **Tiempo de preparación** | Cuánto tarda esa ruta en estar operando | 7 días |
+
+**Qué hace, que un Excel no hace:**
+
+- **Navega por etapa.** Se entra a una etapa y se ve solo lo suyo —su narrativa, sus señales, sus
+  hitos, sus alertas—, no las seis a la vez. El *Panel general* da la vista completa.
+- **Las rutas se arman solas.** Cada ruta queda enganchada a una señal: cuando esa señal cruza el
+  disparador la ruta pasa a *armada*, y al cruzar el no retorno a *activada*. Nadie tiene que
+  acordarse de revisarlas. Se pueden fijar a mano cuando hace falta.
+- **Calcula la fecha límite para decidir**, que es la fecha en que la ruta debe estar operando
+  menos su tiempo de preparación. Es el número que se pasa sin que nadie se dé cuenta: si una ruta
+  toma 45 días en montarse y debe operar el 1 de diciembre, la decisión se toma el 17 de octubre,
+  no en noviembre.
+- **Avisa cuando la señal avisaría tarde.** Con el historial de mediciones proyecta cuándo se
+  cruzaría el disparador; si esa fecha cae después de la fecha límite para decidir, lo dice: hay
+  que medir más seguido o adelantar el disparador.
+- **Reclama las mediciones vencidas.** Cada señal declara su cadencia y la herramienta marca las
+  que llevan demasiado sin medirse.
+- **Guarda el historial** de cada medición con su fecha, con tendencia y minigráfico.
+- **Cierra etapas** dejando la entrada automática en la bitácora, y al cerrar la última reabre el
+  ciclo.
+
+**Métodos que trae:** ciclo de planificación adaptativa (6 etapas), PHVA (4), campaña
+administrativa (4) y uno libre de una sola etapa. Las etapas se renombran y un plan se puede
+**duplicar como plantilla** —conserva estructura, pone las mediciones en cero— para el ciclo
+siguiente o para otro caso.
+
+**Dónde viven los datos:** en el navegador (`localStorage`), como el resto de las herramientas.
+No hay servidor. Para respaldar, compartir o abrir un plan en otra máquina se **exporta a JSON**;
+también exporta **CSV** para informes e imprime a PDF. Trae precargado el plan de **Renovaciones
+FAP 2027** con sus cifras agregadas; el detalle contrato por contrato no está aquí, por la misma
+razón que en el resto del repositorio.
+
 ## Estructura
 
+- **`/planificador/`** — Planificador adaptativo: planes por rutas alternas, con señales,
+  disparadores y tiempos de preparación. Independiente del resto; los planes se guardan en el
+  navegador y se exportan a JSON.
 - **`/centro/`** — Centro de mando diario, herramienta personal (independiente del resto).
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
   Se actualiza automáticamente cada día vía Power Automate, que sobrescribe `crm/contratos_export.json`
@@ -207,6 +262,7 @@ Cada herramienta tiene su propio enlace en GitHub Pages:
 
 - **CLM (plataforma unificada):** https://[tu-usuario].github.io/fap-contratos/clm/
 - Confirmación de renovaciones 2027 (para las ACs): https://[tu-usuario].github.io/fap-contratos/renovaciones/
+- Planificador adaptativo: https://[tu-usuario].github.io/fap-contratos/planificador/
 - Calificador de Ofertas: https://[tu-usuario].github.io/fap-contratos/calificacion/
 - CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
 - La Mágica: https://[tu-usuario].github.io/fap-contratos/generador/
