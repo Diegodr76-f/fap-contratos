@@ -670,15 +670,15 @@ function planSemilla(){
   var p = {
     id:"fap-renovaciones-2027",
     nombre:"Renovaciones FAP 2027",
-    descripcion:"Renovar o volver a contratar los 129 servicios recurrentes de las áreas protegidas antes de que la retroactividad se coma el primer trimestre.",
+    descripcion:"Renovar o volver a contratar los 130 servicios recurrentes —129 de áreas protegidas y el de comunicación de nivel central— antes de que la retroactividad se coma el primer trimestre.",
     metodo:"adaptacion",
     etapas: JSON.parse(JSON.stringify(m.etapas)),
     etapaActual:"implementar",
     creado:"2026-09-02T00:00:00Z", actualizado:"2026-09-03T00:00:00Z",
     textos:{
       delimitar:{
-        resumen:"Entran los 129 contratos de servicios recurrentes de las áreas protegidas: los vigentes menos tres que no son recurrentes por naturaleza —dos consultorías y una adquisición de equipos de campo—, más el contrato de comunicación suscrito en septiembre, que nace con posibilidad de renovación. Repartidos entre 20 administradoras contadoras, 16 de las cuales manejan más de un área.",
-        decision:"La clasificación es binaria y mecánica, no un criterio caso a caso: un contrato es renovable solo si su tipo es «Nuevo» y el servicio es recurrente. Todo lo demás necesita proceso administrativo nuevo, porque el FIAS permite renovar una sola vez y no hay renovación sobre renovación. Resultado: 40 renovables y 89 procesos nuevos. Se descartó consolidar instrumentos por área o por proveedor en este ciclo."},
+        resumen:"Entran los 130 contratos activos de servicios recurrentes: 129 de áreas protegidas (USD 512 359) más el de comunicación de la Unidad Operativa FAP (USD 6 450), que nace con posibilidad de renovación. Quedan fuera tres que no son recurrentes por naturaleza: dos consultorías y una adquisición de equipos de campo. Los de áreas protegidas se reparten entre 20 administradoras contadoras y 49 áreas, y 16 de esas administradoras manejan más de un área.",
+        decision:"La clasificación es binaria y mecánica, no un criterio caso a caso: un contrato es renovable solo si su tipo es «Nuevo» y el servicio es recurrente. Todo lo demás necesita proceso administrativo nuevo, porque el FIAS permite renovar una sola vez y no hay renovación sobre renovación. Resultado: 41 renovables y 89 procesos nuevos (40 y 89 si se cuentan solo los de áreas protegidas). Se descartó consolidar instrumentos por área o por proveedor en este ciclo."},
       prever:{
         resumen:"El modelo de tiempos se calibró contra lo que efectivamente pasó en 2026: días de trámite = 15 + 0,3 × contratos en cola. Reproduce las medianas observadas —31 días una renovación, 21 una contratación directa, 40 una comparación de precios— y por eso sirve para proyectar 2027 en vez de suponerlo.",
         decision:"La conclusión incómoda se acepta y se dice en voz alta: con el PAG aprobado a mediados de enero, la retroactividad no se elimina, se reduce aproximadamente a la mitad. El plan mueve la última firma de junio a marzo y la retroactividad mediana de 64 a unos 42 días, pero solo si la unidad sostiene 13 firmas por semana. Prometer cero retroactividad sería mentir."},
@@ -699,7 +699,7 @@ function planSemilla(){
       {id:"cobertura", orden:1, etapa:"implementar", grupo:"Consulta",
        nombre:"Cobertura de respuesta de las administradoras", unidad:"%", direccion:"mayor",
        valor:0, meta:100, disparador:80, noRetorno:60, desde:"2026-10-02", cadencia:7,
-       nota:"Sobre los 129 contratos. Bajo 80 % se arma la extensión de plazo; bajo 60 % la Coordinación decide por defecto.",
+       nota:"Sobre los 130 contratos. Bajo 80 % se arma la extensión de plazo; bajo 60 % la Coordinación decide por defecto.",
        historial:[]},
       {id:"acs", orden:2, etapa:"implementar", grupo:"Consulta",
        nombre:"Administradoras que respondieron", unidad:"", direccion:"mayor",
@@ -713,12 +713,12 @@ function planSemilla(){
        historial:[]},
       {id:"expedientes", orden:4, etapa:"implementar", grupo:"Producción",
        nombre:"Expedientes precontractuales generados", unidad:"", direccion:"mayor",
-       valor:0, meta:129, disparador:100, noRetorno:70, desde:"2026-12-07", cadencia:7,
+       valor:0, meta:130, disparador:100, noRetorno:70, desde:"2026-12-07", cadencia:7,
        nota:"Meta a la primera semana de diciembre. Es lo único que depende enteramente del FAP.",
        historial:[]},
       {id:"suscritos", orden:5, etapa:"implementar", grupo:"Firma",
        nombre:"Contratos suscritos", unidad:"", direccion:"mayor",
-       valor:0, meta:129, disparador:90, noRetorno:60, desde:"2027-01-08", cadencia:7,
+       valor:0, meta:130, disparador:90, noRetorno:60, desde:"2027-01-08", cadencia:7,
        nota:"Depende del PAG, que no controlamos.", historial:[]},
       {id:"ritmofirma", orden:6, etapa:"implementar", grupo:"Capacidad",
        nombre:"Instrumentos firmados por semana", unidad:"", direccion:"mayor",
@@ -734,7 +734,7 @@ function planSemilla(){
     rutas:[
       {id:"r1", orden:1, etapa:"identificar", senal:"cobertura",
        nombre:"Las administradoras no completan a tiempo",
-       condicion:"Al cerrar el plazo, la primera semana de octubre, la cobertura de respuesta está bajo el 80 % de los 129 contratos.",
+       condicion:"Al cerrar el plazo, la primera semana de octubre, la cobertura de respuesta está bajo el 80 % de los 130 contratos.",
        accion:"Extender el plazo una semana y escalar al responsable de cada área protegida. Si la cobertura sigue bajo 60 %, la Coordinación decide por defecto —continuar con el mismo proveedor— para no bloquear el levantamiento de documentos.",
        preparacionDias:7, fechaLimite:"2026-10-16", estado:"latente", manual:false},
       {id:"r2", orden:2, etapa:"identificar", senal:"presupuestos",
@@ -750,7 +750,7 @@ function planSemilla(){
       {id:"r4", orden:4, etapa:"identificar", senal:"ritmofirma",
        nombre:"La capacidad de firma no da",
        condicion:"En enero el ritmo de firma cae por debajo de 9 instrumentos por semana.",
-       accion:"Activar los modelos de contrato pre-aprobados por categoría —la mayoría de los 129 son mantenimiento o combustible— y pasar a sesiones fijas de firma por lotes, para que la revisión sea verificación de campos variables y no redacción.",
+       accion:"Activar los modelos de contrato pre-aprobados por categoría —105 de los 130 son mantenimiento o combustible— y pasar a sesiones fijas de firma por lotes, para que la revisión sea verificación de campos variables y no redacción.",
        preparacionDias:14, fechaLimite:"2027-02-01", estado:"latente", manual:false},
       {id:"r5", orden:5, etapa:"identificar", senal:"",
        nombre:"La causal de contratación directa no se sostiene",
@@ -759,7 +759,7 @@ function planSemilla(){
        preparacionDias:45, fechaLimite:"2026-12-01", estado:"latente", manual:true}
     ],
     hitos:[
-      {id:"h1", etapa:"delimitar",  nombre:"Clasificación de los 129 contratos",            fechaPlan:"2026-09-01", fechaReal:"2026-09-01"},
+      {id:"h1", etapa:"delimitar",  nombre:"Clasificación de los 130 contratos",            fechaPlan:"2026-09-01", fechaReal:"2026-09-01"},
       {id:"h2", etapa:"implementar",nombre:"Correo con la herramienta a las administradoras",fechaPlan:"2026-09-21", fechaReal:""},
       {id:"h3", etapa:"implementar",nombre:"Cierre del plazo de llenado",                    fechaPlan:"2026-10-02", fechaReal:""},
       {id:"h4", etapa:"priorizar",  nombre:"Inicio de los encuentros de planificación",      fechaPlan:"2026-10-05", fechaReal:""},
@@ -773,7 +773,7 @@ function planSemilla(){
       {id:"b1", fecha:"2026-09-02", auto:false,
        texto:"Se abre el ciclo. La clasificación de los contratos de servicios recurrentes quedó cerrada. Se descartó consolidar instrumentos por ahora. La herramienta de confirmación para las administradoras quedó publicada y probada."},
       {id:"b2", fecha:"2026-09-03", auto:false,
-       texto:"Corrección de alcance: son 129 contratos, no 128. El contrato de comunicación suscrito en septiembre nace con posibilidad de renovación, así que entra al ciclo del lado renovable. El corte queda en 40 renovables y 89 procesos nuevos."}
+       texto:"Corte contra el Sistema de Alertas actualizado: 130 contratos activos de servicios recurrentes, 41 renovables y 89 procesos nuevos, USD 518 809. De esos, 129 son de áreas protegidas (40 renovables + 89 nuevos, USD 512 359) y uno es la comunicadora de la Unidad Operativa FAP (USD 6 450), que nace con posibilidad de renovación. El universo de áreas protegidas creció de 128 a 129 por su cuenta, aparte de ese contrato."}
     ]
   };
   return p;

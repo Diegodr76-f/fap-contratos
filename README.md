@@ -159,8 +159,10 @@ contrato, la pregunta que ordena el año: **¿se puede renovar, o hay que hacer 
 administrativo?** El FIAS permite renovar una sola vez, así que de los 128 contratos activos de
 servicios recurrentes de áreas protegidas **39 se pueden renovar y 89 no**: esos salen por
 contratación directa, con el criterio de proveedor calificado y recurrencia del servicio.
-Después de ese corte se sumó un contrato de comunicación con posibilidad de renovación, así que
-el universo vigente es de **129 contratos: 40 renovables y 89 procesos nuevos**.
+Contra el Sistema de Alertas actualizado el universo vigente es de **130 contratos activos de
+servicios recurrentes: 41 renovables y 89 procesos nuevos**, USD 518 809. De esos, **129 son de
+áreas protegidas** (40 renovables y 89 nuevos, USD 512 359) y uno es el contrato de comunicación
+de la Unidad Operativa FAP, de nivel central, que nace con posibilidad de renovación.
 
 La meta es el expediente, no la firma. **El PAG se aprueba en promedio hasta el 15 de enero**, y
 sin PAG no se puede suscribir ni pedir una cotización en firme, porque es el PAG el que fija el
