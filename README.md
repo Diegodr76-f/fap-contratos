@@ -152,6 +152,23 @@ dos vías: **descargando un CSV** que responde por correo, o **enviándose a Pow
 configura `FLOW_URL` en el archivo. Sin flujo configurado la pantalla funciona igual: el CSV no
 depende de nada.
 
+### Prioridad por fecha de arranque
+
+La pantalla ordena los contratos por **cuándo arranca el servicio de 2027**, no por tipo de proceso,
+porque esa es la fecha que decide cuánta retroactividad se acumula mientras el expediente espera:
+
+| Grupo | Contratos | Qué significa |
+|---|---:|---|
+| **Arranca en enero** | 77 | El servicio empieza el 1 de enero: desde ese día hay retroactividad si el contrato no está firmado. Van primero. |
+| **Arranca en febrero** | 50 | Empieza el 1 de febrero. Todavía alcanza a firmarse a tiempo si el expediente está listo en diciembre. |
+| **Arranca más adelante** | 3 | El contrato vigente sigue unos meses más. Cola normal. |
+
+Cada administradora ve **cuántos de los suyos** caen en cada grupo, con un aviso arriba si tiene
+contratos de enero, y puede filtrar con un clic para trabajar solo ese bloque. Cada tarjeta lleva su
+etiqueta de prioridad y la fecha exacta de arranque. Con el botón *Renovación o proceso nuevo* vuelve
+a la agrupación anterior si la prefiere. La prioridad y la fecha de arranque salen también en el CSV
+de respuestas (`prioridad`, `grupoArranque`, `arranca2027`).
+
 ## Plan de renovaciones 2027
 
 **[`plan/PLAN_RENOVACIONES_2027.md`](plan/PLAN_RENOVACIONES_2027.md)** responde, contrato por

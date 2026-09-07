@@ -58,6 +58,48 @@
   .barra{flex:1;min-width:120px;height:8px;border-radius:99px;background:var(--linea);overflow:hidden}
   .barra i{display:block;height:100%;background:var(--ren);transition:width .3s}
 
+  /* Prioridad por fecha de arranque del servicio */
+  .prio-panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;
+    margin:0 0 22px}
+  .prio-t{border:1px solid var(--linea);border-radius:13px;padding:14px 16px;background:var(--tarjeta);
+    border-left:4px solid var(--linea-fuerte);cursor:pointer;text-align:left;font-family:inherit;
+    display:block;width:100%}
+  .prio-t:hover{border-color:var(--azul)}
+  .prio-t:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+  .prio-t[aria-pressed="true"]{border-color:var(--azul);background:var(--azul-claro)}
+  .prio-t.p1{border-left-color:var(--rojo)}
+  .prio-t.p2{border-left-color:var(--nue)}
+  .prio-t.p3{border-left-color:var(--linea-fuerte)}
+  .prio-t b{display:block;font-size:26px;font-weight:700;color:var(--ink);line-height:1;
+    font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .prio-t .cu{display:block;margin-top:6px;font-size:12.5px;color:var(--tenue);line-height:1.35}
+  .prio-t.p1 b{color:var(--rojo)}
+  .prio-t.p2 b{color:var(--nue)}
+  .prio-aviso{background:var(--rojo-bg);color:#8A2C2C;border-radius:11px;padding:13px 16px;
+    font-size:13.5px;line-height:1.55;margin:0 0 18px}
+  .prio-aviso b{font-weight:700}
+  .orden{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 4px;
+    font-size:12.5px;color:var(--tenue)}
+  .orden button{all:unset;cursor:pointer;font-weight:700;font-size:12.5px;color:var(--azul);
+    padding:4px 10px;border-radius:8px;border:1.5px solid transparent}
+  .orden button[aria-pressed="true"]{border-color:var(--azul);background:var(--azul-claro)}
+  .orden button:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+
+  .chip.p1{color:var(--rojo);background:var(--rojo-bg)}
+  .chip.p2{color:var(--nue);background:var(--nue-bg)}
+  .chip.p3{color:var(--tenue);background:var(--linea)}
+  .etiquetas{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:9px}
+  .etiquetas .chip{font-size:10px;padding:3px 9px}
+  .marcaprio{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;
+    letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:99px}
+  .marcaprio.p1{color:var(--rojo);background:var(--rojo-bg)}
+  .marcaprio.p2{color:#7A4A0B;background:var(--nue-bg)}
+  .marcaprio.p3{color:var(--tenue);background:var(--linea)}
+  .contrato.p1{border-left-color:var(--rojo)}
+  .contrato.p2{border-left-color:var(--nue)}
+  .contrato.decidido{border-left-color:var(--ren)}
+  .contrato.baja{border-left-color:var(--rojo)}
+
   /* Grupos */
   .grupo{margin:30px 0 0}
   .grupo-tit{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
@@ -70,8 +112,6 @@
   /* Tarjeta de contrato */
   .contrato{background:var(--tarjeta);border:1px solid var(--linea);border-radius:14px;
     padding:16px 18px;margin-bottom:12px;border-left:4px solid var(--linea-fuerte)}
-  .contrato.decidido{border-left-color:var(--ren)}
-  .contrato.baja{border-left-color:var(--rojo)}
   .nro{font-weight:700;color:var(--ink);font-size:13.5px;font-variant-numeric:tabular-nums}
   .det{color:var(--texto);font-size:15px;margin-top:2px}
   .meta{color:var(--tenue);font-size:13px;margin-top:6px}
@@ -164,12 +204,36 @@ var DATA_URL = '../crm/contratos_export.json';
 var LS_PASS  = 'fap_data_key';      // la misma frase que el CRM y el CLM
 var LS_YO    = 'fap_ren27_ac';
 var LS_RESP  = 'fap_ren27_respuestas';
+var ORDEN = 'urgencia';   // 'urgencia' | 'tipo'
+var FILTRO = '';          // '', 'p1', 'p2', 'p3'
 
 // Objetos que no son servicio recurrente: van por su propio proceso.
 var NO_RECURRENTES = ['Consultoría', 'Adquisición de equipos de campo'];
 
 var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
              'septiembre','octubre','noviembre','diciembre'];
+
+var LS_ORDEN = 'fap_ren27_orden';
+
+/* Prioridad por la fecha en que arranca el servicio de 2027. No es un
+   capricho de orden: el contrato que arranca el 1 de enero presta servicio
+   desde ese día, y cada día sin instrumento firmado es retroactividad que
+   hay que motivar por escrito. El que arranca en febrero todavía llega. */
+var PRIORIDADES = {
+  p1:{n:1, chip:'p1', tit:'Arranca en enero',        corto:'enero',
+      sub:'El servicio empieza el 1 de enero: desde ese día hay retroactividad si el contrato no está firmado. Estos van primero, sin excepción.'},
+  p2:{n:2, chip:'p2', tit:'Arranca en febrero',      corto:'febrero',
+      sub:'El servicio empieza el 1 de febrero. Todavía alcanza a firmarse a tiempo si el expediente está listo en diciembre.'},
+  p3:{n:3, chip:'p3', tit:'Arranca más adelante',    corto:'más adelante',
+      sub:'El contrato vigente sigue corriendo unos meses más. Entra en la cola normal.'}
+};
+function prioridad(c){
+  var ini = diaSiguiente(c.fin);
+  if(!ini) return 'p3';
+  if(ini <= '2027-01-31') return 'p1';
+  if(ini <= '2027-02-28') return 'p2';
+  return 'p3';
+}
 
 /* ---------------------------------------------------------------- utilidades */
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -294,18 +358,92 @@ function render(){
       + 'Si crees que es un error, avisa a la Unidad Legal.</div>';
     pintarPie(false); return;
   }
-  var ren = lista.filter(esRenovable), nue = lista.filter(function(c){return !esRenovable(c);});
-  ren.sort(porFecha); nue.sort(porFecha);
+  var visibles = FILTRO ? lista.filter(function(c){ return prioridad(c) === FILTRO; }) : lista;
 
   app.innerHTML =
       vistaAvance(lista)
-    + (ren.length ? bloque('ren','Se pueden renovar', ren.length,
-        'El contrato de 2026 se firmó como nuevo, así que conserva su única renovación.', ren) : '')
-    + (nue.length ? bloque('nue','Necesitan un nuevo proceso administrativo', nue.length,
-        'El contrato de 2026 ya era una renovación y el FIAS solo permite renovar una vez: el cupo está agotado.', nue) : '');
+    + panelPrioridad(lista)
+    + selectorOrden()
+    + (visibles.length ? cuerpo(visibles)
+        : '<div class="vacio">No tienes contratos en ese grupo. '
+          + '<button class="orden" style="all:unset;cursor:pointer;color:var(--azul);font-weight:700;'
+          + 'text-decoration:underline" data-prio="">Ver todos</button></div>');
 
   enlazarTarjetas();
+  enlazarPrioridad();
   pintarPie(true);
+}
+
+/* Por urgencia (lo primero que debe verse) o por tipo de proceso. */
+function cuerpo(lista){
+  if(ORDEN === 'tipo'){
+    var ren = lista.filter(esRenovable).sort(porFecha);
+    var nue = lista.filter(function(c){return !esRenovable(c);}).sort(porFecha);
+    return (ren.length ? bloque('ren','Se pueden renovar', ren.length,
+              'El contrato de 2026 se firmó como nuevo, así que conserva su única renovación.', ren) : '')
+         + (nue.length ? bloque('nue','Necesitan un nuevo proceso administrativo', nue.length,
+              'El contrato de 2026 ya era una renovación y el FIAS solo permite renovar una vez: el cupo está agotado.', nue) : '');
+  }
+  return ['p1','p2','p3'].map(function(k){
+    var arr = lista.filter(function(c){ return prioridad(c) === k; }).sort(porFecha);
+    if(!arr.length) return '';
+    var P = PRIORIDADES[k];
+    return bloque(k, P.tit, arr.length, P.sub, arr);
+  }).join('');
+}
+
+/* Cuántos de los tuyos arrancan cuándo. Con filtro de un clic. */
+function panelPrioridad(lista){
+  var cuenta = {p1:0, p2:0, p3:0}, faltan = {p1:0, p2:0, p3:0};
+  lista.forEach(function(c){
+    var k = prioridad(c);
+    cuenta[k]++;
+    if(!(R[c.nro] && R[c.nro].decision)) faltan[k]++;
+  });
+  var aviso = cuenta.p1
+    ? '<div class="prio-aviso"><b>' + cuenta.p1 + ' de tus contratos arrancan el 1 de enero.</b> '
+      + 'Desde ese día el servicio ya se está prestando, así que cada día sin contrato firmado es '
+      + 'retroactividad que hay que justificar por escrito. Decide esos primero y manda tu '
+      + 'documentación completa: son los que menos margen tienen.</div>'
+    : '';
+  return aviso + '<div class="prio-panel">'
+    + ['p1','p2','p3'].map(function(k){
+        if(!cuenta[k]) return '';
+        var P = PRIORIDADES[k];
+        return '<button class="prio-t ' + k + '" data-prio="' + k + '" '
+          + 'aria-pressed="' + (FILTRO === k ? 'true' : 'false') + '">'
+          + '<b>' + cuenta[k] + '</b>'
+          + '<span class="cu"><b style="font-size:13px;color:var(--ink);display:inline">'
+          + esc(P.tit) + '</b><br>'
+          + (faltan[k] ? 'te faltan ' + faltan[k] + ' por decidir' : 'ya los decidiste todos')
+          + '</span></button>';
+      }).join('')
+    + '</div>';
+}
+
+function selectorOrden(){
+  return '<div class="orden"><span>Ordenar por</span>'
+    + '<button data-orden="urgencia" aria-pressed="' + (ORDEN === 'urgencia') + '">Cuándo arranca</button>'
+    + '<button data-orden="tipo" aria-pressed="' + (ORDEN === 'tipo') + '">Renovación o proceso nuevo</button>'
+    + (FILTRO ? '<button data-prio="" style="margin-left:auto">✕ Quitar el filtro</button>' : '')
+    + '</div>';
+}
+
+function enlazarPrioridad(){
+  document.querySelectorAll('[data-prio]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var v = b.getAttribute('data-prio');
+      FILTRO = (v && FILTRO !== v) ? v : '';
+      render(); window.scrollTo({top:0, behavior:'smooth'});
+    });
+  });
+  document.querySelectorAll('[data-orden]').forEach(function(b){
+    b.addEventListener('click', function(){
+      ORDEN = b.getAttribute('data-orden');
+      try{ localStorage.setItem(LS_ORDEN, ORDEN); }catch(e){}
+      render();
+    });
+  });
 }
 function porFecha(a,b){ return String(a.fin||'').localeCompare(String(b.fin||'')); }
 
@@ -360,7 +498,9 @@ function tarjeta(c){
   var r = R[c.nro] || {};
   var ops = esRenovable(c) ? OPCIONES.renovable : OPCIONES.nuevo;
   var mt = montoTotal(c), hayAdenda = mt > (Number(c.monto)||0) + 0.5;
-  var clase = 'contrato' + (r.decision ? (r.decision==='terminar' ? ' baja' : ' decidido') : '');
+  var pk = prioridad(c), P = PRIORIDADES[pk];
+  var clase = 'contrato ' + pk
+    + (r.decision ? (r.decision==='terminar' ? ' baja' : ' decidido') : '');
   var aviso = (r.decision === 'comparar')
     ? '<div class="aviso">Con comparación de precios tienes que invitar a un mínimo de tres proveedores de la base del FAP y convocar a la Comisión de Calificación.</div>'
     : (r.decision === 'cambiar'
@@ -368,14 +508,21 @@ function tarjeta(c){
       : '');
 
   return '<article class="'+clase+'" data-nro="'+esc(c.nro)+'">'
+    + '<div class="etiquetas"><span class="marcaprio '+pk+'">'
+      + (pk==='p1' ? 'Prioridad 1 · ' : pk==='p2' ? 'Prioridad 2 · ' : '')
+      + 'arranca el '+fechaLarga(diaSiguiente(c.fin))+'</span>'
+      + (ORDEN !== 'tipo'
+        ? '<span class="chip '+(esRenovable(c)?'ren':'nue')+'">'
+          + (esRenovable(c) ? 'Se puede renovar' : 'Proceso nuevo') + '</span>'
+        : '')
+      + '</div>'
     + '<div class="nro">'+esc(c.nro)+'</div>'
     + '<div class="det">'+esc(c.detalle)+'</div>'
     + '<div class="meta">'+esc(c.area)+'</div>'
     + '<div class="meta"><span class="plata">'+money(mt)+'</span> este año'
       + (hayAdenda ? ' <span class="adenda">(incluye adenda)</span>' : '')
       + (c.proveedor ? ' · ' + esc(c.proveedor) : '') + '</div>'
-    + '<div class="meta">Vence el '+fechaLarga(c.fin)
-      + ' · el contrato de 2027 arrancaría el '+fechaLarga(diaSiguiente(c.fin))+'</div>'
+    + '<div class="meta">El contrato vigente vence el '+fechaLarga(c.fin)+'</div>'
     + (r.decision
         ? '<div class="sello'+(r.decision==='terminar'?' baja':'')+'">'
           + (r.decision==='terminar' ? '✕' : '✓') + ' ' + esc(ETIQUETA[r.decision]||'') + '</div>'
@@ -441,7 +588,10 @@ function filasResp(){
     return {
       nro: c.nro, detalle: c.detalle, area: c.area, categoria: c.cat,
       proveedor: c.proveedor, montoTotal2026: montoTotal(c),
-      vence: c.fin, tipo2026: c.tipo,
+      vence: c.fin, arranca2027: diaSiguiente(c.fin),
+      prioridad: PRIORIDADES[prioridad(c)].n,
+      grupoArranque: PRIORIDADES[prioridad(c)].corto,
+      tipo2026: c.tipo,
       renovable: esRenovable(c) ? 'Sí' : 'No',
       decision: ETIQUETA[r.decision] || r.decision,
       continua: r.decision === 'terminar' ? 'No' : 'Sí',
@@ -537,6 +687,11 @@ document.getElementById('cambiar').addEventListener('click', function(){
   CONTRATOS = datos.filter(function(c){
     return !c.cerrado && c.ac && NO_RECURRENTES.indexOf(c.cat) === -1;
   });
+
+  try{
+    var o = localStorage.getItem(LS_ORDEN);
+    if(o === 'tipo' || o === 'urgencia') ORDEN = o;
+  }catch(e){}
 
   var guardado = null;
   try{ guardado = localStorage.getItem(LS_YO); }catch(e){}
