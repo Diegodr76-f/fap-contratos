@@ -24,6 +24,14 @@ respuesta ya está determinada por lo que se firmó en 2026.
 | | **Total** | **128** | **497 630** |
 | Fuera de esta campaña | Objeto no recurrente: 2 consultorías y 1 adquisición de equipos, de nivel central | 3 | 131 678 |
 
+
+> **Actualización posterior al corte.** Contra el Sistema de Alertas actualizado, el universo
+> vigente es de **130 contratos activos de servicios recurrentes: 41 renovables y 89 procesos
+> nuevos**, USD 518 809. De esos, **129 son de áreas protegidas** (40 renovables y 89 nuevos,
+> USD 512 359) y uno es el contrato de la comunicadora de la Unidad Operativa FAP, de nivel
+> central, que nace con posibilidad de renovación. La tabla de arriba conserva las cifras del
+> corte del 1 de septiembre.
+
 **La modalidad de los 89 procesos nuevos es contratación directa**, con el criterio de
 **proveedor calificado y recurrencia del servicio**: el mismo proveedor ya está evaluado, el
 servicio es continuo y en territorio son de los pocos que facturan y operan legalmente. Eso hay
