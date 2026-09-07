@@ -1,0 +1,29 @@
+{
+  "name": "Planificador adaptativo · FAP",
+  "short_name": "Planificador",
+  "description": "Planificación por rutas alternas: señales, disparadores y tiempos de preparación. Avisa cuando toca decidir, no cuando ya es tarde.",
+  "lang": "es-EC",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "id": "fap-planificador",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#F4F6FB",
+  "theme_color": "#00249C",
+  "categories": ["productivity", "business"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Renovaciones FAP 2027",
+      "short_name": "Renovaciones",
+      "description": "Abrir el plan de renovaciones 2027",
+      "url": "./?plan=fap-renovaciones-2027"
+    }
+  ]
+}

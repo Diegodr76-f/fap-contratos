@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Planificador adaptativo · FAP</title>
+<meta name="description" content="Planificación por rutas alternas: señales, disparadores y tiempos de preparación.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#00249C">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Planificador">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
@@ -322,6 +329,16 @@
   .opcion b{display:block; font-size:14.5px; color:var(--ink); margin-bottom:3px}
   .opcion span{display:block; font-size:12.5px; color:var(--tenue); line-height:1.45}
 
+  .cinta{position:fixed; left:50%; transform:translateX(-50%); bottom:20px; z-index:70;
+    background:var(--ink); color:#fff; border-radius:11px; padding:11px 15px;
+    display:flex; align-items:center; gap:13px; font-size:13.5px; font-weight:600;
+    box-shadow:0 14px 40px -12px rgba(11,21,63,.55); max-width:calc(100vw - 32px)}
+  .cinta button{background:#fff; color:var(--ink); border:none; border-radius:7px;
+    padding:6px 12px; font-family:inherit; font-weight:700; font-size:12.5px; cursor:pointer;
+    white-space:nowrap}
+  .cinta .x{background:transparent; color:#fff; opacity:.65; padding:6px 4px}
+  @media(display-mode:standalone){ .solo-web{display:none !important} }
+
   .aparece{animation:sube .26s cubic-bezier(.22,.7,.3,1) both}
   @keyframes sube{from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none}}
   @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
@@ -345,6 +362,7 @@
         <span class="guardado"><i class="punto"></i><span id="estado">Guardado</span></span>
         <button class="interruptor" id="b-panel" aria-pressed="false">Panel</button>
         <button class="interruptor" id="b-editar" aria-pressed="false">Editar</button>
+        <button class="interruptor" id="b-instalar" hidden>⤓ Instalar</button>
         <button class="interruptor" id="b-menu">Plan ▾</button>
       </div>
     </div>
@@ -680,8 +698,8 @@ function planSemilla(){
         resumen:"Entran los 130 contratos activos de servicios recurrentes: 129 de áreas protegidas (USD 512 359) más el de comunicación de la Unidad Operativa FAP (USD 6 450), que nace con posibilidad de renovación. Quedan fuera tres que no son recurrentes por naturaleza: dos consultorías y una adquisición de equipos de campo. Los de áreas protegidas se reparten entre 20 administradoras contadoras y 49 áreas, y 16 de esas administradoras manejan más de un área.",
         decision:"La clasificación es binaria y mecánica, no un criterio caso a caso: un contrato es renovable solo si su tipo es «Nuevo» y el servicio es recurrente. Todo lo demás necesita proceso administrativo nuevo, porque el FIAS permite renovar una sola vez y no hay renovación sobre renovación. Resultado: 41 renovables y 89 procesos nuevos (40 y 89 si se cuentan solo los de áreas protegidas). Se descartó consolidar instrumentos por área o por proveedor en este ciclo."},
       prever:{
-        resumen:"El modelo de tiempos se calibró contra lo que efectivamente pasó en 2026: días de trámite = 15 + 0,3 × contratos en cola. Reproduce las medianas observadas —31 días una renovación, 21 una contratación directa, 40 una comparación de precios— y por eso sirve para proyectar 2027 en vez de suponerlo.",
-        decision:"La conclusión incómoda se acepta y se dice en voz alta: con el PAG aprobado a mediados de enero, la retroactividad no se elimina, se reduce aproximadamente a la mitad. El plan mueve la última firma de junio a marzo y la retroactividad mediana de 64 a unos 42 días, pero solo si la unidad sostiene 13 firmas por semana. Prometer cero retroactividad sería mentir."},
+        resumen:"El seguimiento de hitos de 2026 mide los 138 expedientes etapa por etapa, de la recepción a la firma: mediana 27 días, promedio 29,2. El 69 % de ese tiempo es atribuible a la Unidad Operativa y la etapa 1 —la revisión administrativa— se lleva ella sola el 56 %. Fuera de la unidad (administradora y proveedor) solo hay 4,6 días de promedio, y la instancia de aprobación 1,5.",
+        decision:"El cuello de botella no es la capacidad de firma: es la devolución. El 73 % de los expedientes se devuelve al menos una vez, y cada devolución cuesta 13 días de mediana —sin devolución la mediana es 16 días, con una 29, con dos 40—. Y la tasa de devolución es función de la cola: 87 % en enero con 67 expedientes encima, 33 % en agosto con 6. Repartir el ingreso desde septiembre no solo alivia la cola: baja la devolución, que es donde está la mayor parte del tiempo que sí controlamos. Con el PAG a mediados de enero la retroactividad igual no se elimina, se reduce; prometer cero sería mentir."},
       identificar:{
         resumen:"Cinco rutas alternas, cada una con su disparador y su punto de no retorno definidos por anticipado. Se decide hoy en qué momento la estrategia deja de servir, para no tener que improvisar cuando ya no hay margen.",
         decision:"Cada ruta queda enganchada a una señal y se arma sola cuando esa señal cruza el disparador. Además, cada una declara cuánto tarda en montarse: eso fija la fecha límite para decidir, que siempre es anterior a la fecha en que la ruta debe estar operando."},
@@ -725,7 +743,30 @@ function planSemilla(){
        valor:0, meta:13, disparador:9, noRetorno:6, desde:"2027-01-04", cadencia:7,
        nota:"Referencia 2026: 5,4 de promedio anual, 8,8 sostenidos entre febrero y abril, 13 en la mejor semana.",
        historial:[]},
-      {id:"retroactividad", orden:7, etapa:"evaluar", grupo:"Resultado",
+      {id:"devoluciones", orden:8, etapa:"implementar", grupo:"Calidad de entrada",
+       nombre:"Expedientes devueltos en la revisión administrativa", unidad:"%", direccion:"menor",
+       valor:33, meta:30, disparador:50, noRetorno:73, desde:"", cadencia:14,
+       nota:"En 2026 se devolvió el 73 % al menos una vez. Cada devolución cuesta 13 días de mediana; dos cuestan 24. La tasa sigue a la cola: 87 % en enero, 33 % en agosto.",
+       historial:[{fecha:"2026-01-31",valor:87},{fecha:"2026-02-28",valor:73},{fecha:"2026-03-31",valor:56},{fecha:"2026-04-30",valor:67},{fecha:"2026-05-31",valor:75},{fecha:"2026-06-30",valor:44},{fecha:"2026-07-31",valor:50},{fecha:"2026-08-31",valor:33}],
+       ultimaMedicion:"2026-08-31"},
+      {id:"diasfirma", orden:9, etapa:"implementar", grupo:"Tiempos",
+       nombre:"Días de recepción a firma (mediana del mes)", unidad:"d", direccion:"menor",
+       valor:9.5, meta:18, disparador:24, noRetorno:29, desde:"", cadencia:14,
+       nota:"Mediana de toda la campaña 2026: 27 días. Por mes de recepción va de 38 en enero a 9,5 en agosto: el número mide la congestión, no la dificultad del trámite.",
+       historial:[{fecha:"2026-01-31",valor:38},{fecha:"2026-02-28",valor:31},{fecha:"2026-03-31",valor:20},{fecha:"2026-04-30",valor:16},{fecha:"2026-05-31",valor:13.5},{fecha:"2026-06-30",valor:12},{fecha:"2026-07-31",valor:11},{fecha:"2026-08-31",valor:9.5}],
+       ultimaMedicion:"2026-08-31"},
+      {id:"revadmin", orden:10, etapa:"implementar", grupo:"Tiempos",
+       nombre:"Días en revisión administrativa (mediana del mes)", unidad:"d", direccion:"menor",
+       valor:2, meta:5, disparador:9, noRetorno:14, desde:"", cadencia:14,
+       nota:"Es el 56 % del tiempo total. Con expediente limpio la mediana es 3 días; con una devolución sube a 14 y con dos a 28,5.",
+       historial:[{fecha:"2026-01-31",valor:26},{fecha:"2026-02-28",valor:21},{fecha:"2026-03-31",valor:4},{fecha:"2026-04-30",valor:5.5},{fecha:"2026-05-31",valor:5.5},{fecha:"2026-06-30",valor:1},{fecha:"2026-07-31",valor:3.5},{fecha:"2026-08-31",valor:2}],
+       ultimaMedicion:"2026-08-31"},
+      {id:"cargaenero", orden:11, etapa:"implementar", grupo:"Carga",
+       nombre:"Expedientes recibidos en enero", unidad:"", direccion:"menor",
+       valor:0, meta:25, disparador:40, noRetorno:55, desde:"2027-01-31", cadencia:30,
+       nota:"En 2026 llegaron 67 en enero —la mitad de la campaña en un mes— y con ellos el 87 % de devolución y 38 días de mediana. Es la cifra que dice si el plan funcionó.",
+       historial:[{fecha:"2026-01-31",valor:67}]},
+      {id:"retroactividad", orden:12, etapa:"evaluar", grupo:"Resultado",
        nombre:"Retroactividad mediana", unidad:"d", direccion:"menor",
        valor:64, meta:30, disparador:50, noRetorno:65, desde:"", cadencia:30,
        nota:"Días de servicio prestado antes de la firma. En 2026 fue de 64 días: ese es el número a batir.",
@@ -756,7 +797,12 @@ function planSemilla(){
        nombre:"La causal de contratación directa no se sostiene",
        condicion:"Más del 20 % de los 89 procesos nuevos no puede motivar la contratación directa por proveedor calificado y recurrencia del servicio.",
        accion:"Preparar la comparación de precios anticipadamente para ese subconjunto: identificar los tres proveedores y conformar la Comisión de Calificación antes de diciembre.",
-       preparacionDias:45, fechaLimite:"2026-12-01", estado:"latente", manual:true}
+       preparacionDias:45, fechaLimite:"2026-12-01", estado:"latente", manual:true},
+      {id:"r6", orden:6, etapa:"identificar", senal:"devoluciones",
+       nombre:"La revisión administrativa se vuelve el cuello de botella",
+       condicion:"Más de la mitad de los expedientes se devuelve al menos una vez en la revisión administrativa.",
+       accion:"Publicar la lista de verificación previa por categoría —105 de los 130 son mantenimiento o combustible— y que La Mágica no deje enviar el expediente sin los campos que más se devuelven. Es la palanca más grande que tenemos: pasar del 73 % de devolución al 30 % baja la mediana de 27 a 18 días, y el 69 % de ese tiempo sí depende de la unidad.",
+       preparacionDias:21, fechaLimite:"2026-12-01", estado:"latente", manual:false}
     ],
     hitos:[
       {id:"h1", etapa:"delimitar",  nombre:"Clasificación de los 130 contratos",            fechaPlan:"2026-09-01", fechaReal:"2026-09-01"},
@@ -767,11 +813,14 @@ function planSemilla(){
       {id:"h6", etapa:"implementar",nombre:"Presupuesto referencial cierto por línea",       fechaPlan:"2026-11-16", fechaReal:""},
       {id:"h7", etapa:"implementar",nombre:"Documentos precontractuales generados",          fechaPlan:"2026-12-07", fechaReal:""},
       {id:"h8", etapa:"implementar",nombre:"Inicio de revisión y generación de contratos",   fechaPlan:"2026-12-09", fechaReal:""},
-      {id:"h9", etapa:"implementar",nombre:"Aprobación del PAG 2027",                        fechaPlan:"2027-01-08", fechaReal:""}
+      {id:"h9", etapa:"implementar",nombre:"Aprobación del PAG 2027",                        fechaPlan:"2027-01-08", fechaReal:""},
+      {id:"h10",etapa:"delimitar",  nombre:"Corregir las 9 inconsistencias del seguimiento de hitos", fechaPlan:"2026-09-18", fechaReal:""}
     ],
     bitacora:[
       {id:"b1", fecha:"2026-09-02", auto:false,
        texto:"Se abre el ciclo. La clasificación de los contratos de servicios recurrentes quedó cerrada. Se descartó consolidar instrumentos por ahora. La herramienta de confirmación para las administradoras quedó publicada y probada."},
+      {id:"b3", fecha:"2026-09-07", auto:false,
+       texto:"Entra el seguimiento de hitos de 2026, que mide etapa por etapa los 138 expedientes. Cambia el diagnóstico: el cuello de botella no es la firma, es la devolución en la revisión administrativa. 73 % de los expedientes se devuelve al menos una vez y cada devolución cuesta 13 días de mediana. La etapa 1 es el 56 % del tiempo total y el 69 % del total es atribuible a la Unidad Operativa. Se agregan cuatro señales con el historial mensual real y la ruta alterna de lista de verificación previa. Quedan además 9 inconsistencias de fechas por corregir en el seguimiento."},
       {id:"b2", fecha:"2026-09-03", auto:false,
        texto:"Corte contra el Sistema de Alertas actualizado: 130 contratos activos de servicios recurrentes, 41 renovables y 89 procesos nuevos, USD 518 809. De esos, 129 son de áreas protegidas (40 renovables + 89 nuevos, USD 512 359) y uno es la comunicadora de la Unidad Operativa FAP (USD 6 450), que nace con posibilidad de renovación. El universo de áreas protegidas creció de 128 a 129 por su cuenta, aparte de ese contrato."}
     ]
@@ -1660,8 +1709,91 @@ function armarCSV(){
   return "﻿" + L.join("\r\n") + "\r\n";
 }
 
+/* ============================================== APLICACIÓN DE ESCRITORIO
+   Registrada como PWA: Edge y Chrome en Windows la instalan desde el propio
+   navegador —entrada en el menú Inicio, ventana propia, ícono propio— sin
+   permisos de administrador y sin pasar por IT. El service worker guarda la
+   aplicación completa, así que una vez instalada abre y funciona sin internet.
+   ==================================================================== */
+var espera = null;       /* service worker con una versión nueva lista */
+var promptInstalar = null;
+
+function cinta(texto, etiqueta, alPulsar){
+  var d = document.createElement("div");
+  d.className = "cinta";
+  d.innerHTML = '<span></span><button></button><button class="x" title="Cerrar">✕</button>';
+  d.firstChild.textContent = texto;
+  var b = d.querySelector("button");
+  b.textContent = etiqueta;
+  b.addEventListener("click", function(){ d.remove(); alPulsar(); });
+  d.querySelector(".x").addEventListener("click", function(){ d.remove(); });
+  document.body.appendChild(d);
+  return d;
+}
+
+if("serviceWorker" in navigator && location.protocol !== "file:"){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").then(function(reg){
+      function vigilar(sw){
+        if(!sw) return;
+        sw.addEventListener("statechange", function(){
+          if(sw.state === "installed" && navigator.serviceWorker.controller){
+            espera = sw;
+            cinta("Hay una versión nueva del planificador.", "Actualizar", function(){
+              espera.postMessage("activar-ya");
+            });
+          }
+        });
+      }
+      if(reg.waiting && navigator.serviceWorker.controller){
+        espera = reg.waiting;
+        cinta("Hay una versión nueva del planificador.", "Actualizar", function(){
+          espera.postMessage("activar-ya");
+        });
+      }
+      reg.addEventListener("updatefound", function(){ vigilar(reg.installing); });
+    }).catch(function(){ /* sin service worker la app sigue funcionando */ });
+  });
+  var recargando = false;
+  navigator.serviceWorker.addEventListener("controllerchange", function(){
+    if(recargando) return;
+    recargando = true;
+    location.reload();
+  });
+}
+
+window.addEventListener("beforeinstallprompt", function(ev){
+  ev.preventDefault();
+  promptInstalar = ev;
+  var b = document.getElementById("b-instalar");
+  if(b) b.hidden = false;
+});
+document.getElementById("b-instalar").addEventListener("click", async function(){
+  if(!promptInstalar) return;
+  var b = this;
+  promptInstalar.prompt();
+  try{ await promptInstalar.userChoice; }catch(e){}
+  promptInstalar = null;
+  b.hidden = true;
+});
+window.addEventListener("appinstalled", function(){
+  var b = document.getElementById("b-instalar");
+  if(b) b.hidden = true;
+  promptInstalar = null;
+});
+
+/* Atajo del manifiesto: ?plan=<id> abre ese plan directo. */
+function planPedido(){
+  try{
+    var q = new URLSearchParams(location.search).get("plan");
+    return q && BD.planes[q] ? q : null;
+  }catch(e){ return null; }
+}
+
 /* ================================================================ ARRANQUE */
 cargar();
+var pedido = planPedido();
+if(pedido) BD.activo = pedido;
 if(BD.activo && BD.planes[BD.activo]){ P = BD.planes[BD.activo]; if(!P.textos) P.textos = {}; ordenar(); }
 render();
 </script>

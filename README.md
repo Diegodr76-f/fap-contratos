@@ -233,11 +233,69 @@ administrativa (4) y uno libre de una sola etapa. Las etapas se renombran y un p
 **duplicar como plantilla** —conserva estructura, pone las mediciones en cero— para el ciclo
 siguiente o para otro caso.
 
+### Instalarlo como aplicación de Windows
+
+El planificador es una **PWA**: Edge y Chrome en Windows lo instalan como aplicación de escritorio
+—entrada en el menú Inicio, ícono propio, ventana sin barra de navegador, se puede anclar a la barra
+de tareas— **sin permisos de administrador, sin instalador y sin pasar por IT**.
+
+1. Abrir `https://[tu-usuario].github.io/fap-contratos/planificador/` en Edge.
+2. Pulsar **⤓ Instalar** en la cabecera de la app, o el ícono de instalar de la barra de
+   direcciones, o el menú **⋯ → Aplicaciones → Instalar este sitio como una aplicación**.
+
+Una vez instalado **funciona sin internet**: un *service worker* guarda la aplicación completa y los
+planes viven en el equipo, así que abre y se usa igual en territorio o con la red caída. Cuando se
+publica una versión nueva, la app avisa con una cinta abajo y se actualiza al pulsar **Actualizar**;
+no hay que reinstalar nada.
+
+> No se entrega como `.exe` a propósito. Un ejecutable sin firma digital lo bloquea SmartScreen, lo
+> marca el antivirus y necesita que IT lo autorice —que es justamente lo que no tenemos—. La PWA da
+> lo mismo (ventana propia, menú Inicio, offline) sin ninguno de esos obstáculos, y se actualiza
+> sola. Si en algún momento hace falta un instalador de verdad, el camino es empaquetar esta misma
+> aplicación con Electron desde un runner `windows-latest` de GitHub Actions.
+
 **Dónde viven los datos:** en el navegador (`localStorage`), como el resto de las herramientas.
 No hay servidor. Para respaldar, compartir o abrir un plan en otra máquina se **exporta a JSON**;
 también exporta **CSV** para informes e imprime a PDF. Trae precargado el plan de **Renovaciones
 FAP 2027** con sus cifras agregadas; el detalle contrato por contrato no está aquí, por la misma
 razón que en el resto del repositorio.
+
+## Lo que mostró el seguimiento de hitos 2026
+
+**`Seguimiento_hitos_contratos_FAP_2026.xlsx`** mide los 138 expedientes de 2026 etapa por etapa,
+de la recepción a la firma, y **cambia el diagnóstico del plan**: el cuello de botella no es la
+capacidad de firma, es la **devolución en la revisión administrativa**.
+
+| | Mediana total | Etapa 1 (revisión administrativa) |
+|---|---:|---:|
+| Sin devolución (n=36) | **16 d** | 3 d |
+| Una devolución (n=89) | **29 d** | 14 d |
+| Dos devoluciones (n=10) | **40 d** | 28,5 d |
+
+**El 73 % de los expedientes se devuelve al menos una vez.** Cada devolución cuesta **13 días de
+mediana**; dos cuestan 24. La etapa 1 concentra el **56 %** del tiempo total, y el **69 %** del total
+es atribuible a la Unidad Operativa: fuera de ella —administradora y proveedor— solo hay 4,6 días de
+promedio, y la instancia de aprobación 1,5.
+
+Y la tasa de devolución **es función de la cola**, no de la dificultad del trámite:
+
+| Mes de recepción | Expedientes | Devueltos | Mediana |
+|---|---:|---:|---:|
+| Enero | 67 | 87 % | 38 d |
+| Marzo | 27 | 56 % | 20 d |
+| Agosto | 6 | 33 % | 9,5 d |
+
+Con 67 expedientes encima en enero —la mitad de la campaña en un mes— se devuelve casi todo. Eso
+valida el plan de repartir el ingreso desde septiembre, y le pone número: **bajar la devolución del
+73 % al 30 % lleva la mediana de 27 a 18 días**, más que cualquier ganancia por capacidad de firma.
+
+Un dato contraintuitivo: las **renovaciones tardan más** que los procesos nuevos (32,5 d contra
+19 d de mediana) y se devuelven más (79 % contra 62 %), incluso controlando por devolución. Los 41
+renovables de 2027 no son el grupo fácil.
+
+El seguimiento trae además **9 inconsistencias de fechas** para corregir (hitos posteriores a la
+firma, dos fechas imposibles, una firma que no calza con el registro). Están en la hoja
+*Revisar ahora* y quedaron como hito en el planificador.
 
 ## Estructura
 
