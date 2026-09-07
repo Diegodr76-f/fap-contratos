@@ -239,7 +239,7 @@ El planificador es una **PWA**: Edge y Chrome en Windows lo instalan como aplica
 —entrada en el menú Inicio, ícono propio, ventana sin barra de navegador, se puede anclar a la barra
 de tareas— **sin permisos de administrador, sin instalador y sin pasar por IT**.
 
-1. Abrir `https://[tu-usuario].github.io/fap-contratos/planificador/` en Edge.
+1. Abrir `https://diegodr76-f.github.io/fap-contratos/planificador/` en Edge.
 2. Pulsar **⤓ Instalar** en la cabecera de la app, o el ícono de instalar de la barra de
    direcciones, o el menú **⋯ → Aplicaciones → Instalar este sitio como una aplicación**.
 
@@ -320,15 +320,15 @@ firma, dos fechas imposibles, una firma que no calza con el registro). Están en
 
 Cada herramienta tiene su propio enlace en GitHub Pages:
 
-- **CLM (plataforma unificada):** https://[tu-usuario].github.io/fap-contratos/clm/
-- Confirmación de renovaciones 2027 (para las ACs): https://[tu-usuario].github.io/fap-contratos/renovaciones/
-- Planificador adaptativo: https://[tu-usuario].github.io/fap-contratos/planificador/
-- Calificador de Ofertas: https://[tu-usuario].github.io/fap-contratos/calificacion/
-- CRM directo: https://[tu-usuario].github.io/fap-contratos/crm/
-- La Mágica: https://[tu-usuario].github.io/fap-contratos/generador/
-- Centro de mando diario (personal): https://[tu-usuario].github.io/fap-contratos/centro/
+- **CLM (plataforma unificada):** https://diegodr76-f.github.io/fap-contratos/clm/
+- Confirmación de renovaciones 2027 (para las ACs): https://diegodr76-f.github.io/fap-contratos/renovaciones/
+- Planificador adaptativo: https://diegodr76-f.github.io/fap-contratos/planificador/
+- Calificador de Ofertas: https://diegodr76-f.github.io/fap-contratos/calificacion/
+- CRM directo: https://diegodr76-f.github.io/fap-contratos/crm/
+- La Mágica: https://diegodr76-f.github.io/fap-contratos/generador/
+- Centro de mando diario (personal): https://diegodr76-f.github.io/fap-contratos/centro/
 
-La raíz (`https://[tu-usuario].github.io/fap-contratos/`) redirige automáticamente al CLM.
+La raíz (`https://diegodr76-f.github.io/fap-contratos/`) redirige automáticamente al CLM.
 
 ## Actualización de datos
 
