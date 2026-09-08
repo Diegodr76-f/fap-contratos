@@ -16,9 +16,9 @@
 <!-- La tipografía se carga sin bloquear el pintado: si Google Fonts no responde
      —sin internet, en territorio o bloqueado por IT— la herramienta abre igual al
      instante, con la tipografía del sistema, en vez de quedarse en blanco. -->
-<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap"
       rel="stylesheet" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"></noscript>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap"></noscript>
 <style>
   :root{
     --ink:#0B153F; --texto:#252A3D; --tenue:#5A6072; --debil:#8B92A6;
@@ -99,10 +99,8 @@
   section{padding-top:34px}
   .sec-cab{display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; margin-bottom:5px}
   .cuenta{font-size:11.5px; font-weight:700; color:var(--debil); font-variant-numeric:tabular-nums}
-  .sub{font-family:'Source Serif 4',Georgia,serif; font-size:15.5px; color:var(--tenue);
-    margin:0 0 17px; max-width:68ch; line-height:1.55}
-  .lead{font-family:'Source Serif 4',Georgia,serif; font-size:17px; color:var(--tenue);
-    max-width:66ch; line-height:1.55; margin:11px 0 0}
+  .sub{font-size:14.5px; color:var(--tenue); margin:0 0 17px; max-width:68ch; line-height:1.55}
+  .lead{font-size:15.5px; color:var(--tenue); max-width:66ch; line-height:1.55; margin:11px 0 0}
 
   /* ------------------------------------------------------------- pantalla planes */
   .portada{padding:44px 0 0}
@@ -142,8 +140,8 @@
   @media(max-width:800px){ .narra{grid-template-columns:1fr} }
   .rot{font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
     color:var(--debil); margin-bottom:5px}
-  .narra p{margin:0; font-family:'Source Serif 4',Georgia,serif; font-size:15.5px; line-height:1.6}
-  .narra .dec p{font-family:inherit; font-size:14.5px}
+  .narra p{margin:0; font-size:14.5px; line-height:1.6}
+  .narra .dec p{font-size:14px}
 
   /* -------------------------------------------------------------- avisos */
   .avisos{display:grid; gap:8px; margin-top:20px}
@@ -221,7 +219,7 @@
   .ruta-cuerpo{display:grid; grid-template-columns:1fr 1fr; gap:14px}
   @media(max-width:720px){ .ruta-cuerpo{grid-template-columns:1fr} }
   .ruta-cuerpo p{margin:0; font-size:14px; line-height:1.5; color:var(--texto)}
-  .ruta-cuerpo .si p{font-family:'Source Serif 4',Georgia,serif; font-size:14.5px}
+  .ruta-cuerpo .si p{font-size:14px}
 
   .plazo{display:grid; grid-template-columns:auto 1fr; gap:5px 12px; margin-top:13px;
     padding:12px 14px; background:var(--papel); border-radius:10px; font-size:12.5px;
@@ -261,7 +259,7 @@
   .entrada > div{flex:1; min-width:0}
   .entrada .cuando{font-size:10.5px; font-weight:700; letter-spacing:.05em;
     text-transform:uppercase; color:var(--debil); margin-bottom:3px}
-  .entrada p{margin:0; font-family:'Source Serif 4',Georgia,serif; font-size:15.5px; line-height:1.55}
+  .entrada p{margin:0; font-size:14.5px; line-height:1.55}
   .entrada .auto{color:var(--azul)}
 
   /* ------------------------------------------------------------ panel */
@@ -535,9 +533,8 @@
   .sim-dice .sim-nota{display:block; margin-top:4px; font-size:11px; opacity:.85; font-weight:600}
 
   /* La frase en voz alta: la señal dicha como se la diría a alguien. */
-  .sen-dice{font-size:13px; line-height:1.5; color:var(--texto); margin:10px 0 2px;
-    font-family:'Source Serif 4',Georgia,serif}
-  .sen-dice b{font-family:'Titillium Web',system-ui,sans-serif; font-weight:700; color:var(--ink)}
+  .sen-dice{font-size:13px; line-height:1.5; color:var(--texto); margin:10px 0 2px}
+  .sen-dice b{font-weight:700; color:var(--ink)}
   .sen-rutas{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px}
   .sen-rutas .rlink{font-size:11px; font-weight:700; padding:4px 9px; border-radius:99px;
     background:var(--azul-claro); color:var(--azul); border:none; cursor:pointer;
@@ -554,7 +551,7 @@
   .guia-svg text{font-family:'Titillium Web',system-ui,sans-serif}
   .guia h4{margin:0 0 7px; font-size:17px; color:var(--ink); letter-spacing:-.012em}
   .guia p{margin:0 0 10px; font-size:14px; line-height:1.55; color:var(--texto)}
-  .guia p.eco{font-family:'Source Serif 4',Georgia,serif; font-size:14.5px; color:var(--tenue);
+  .guia p.eco{font-size:13.5px; font-weight:600; color:var(--tenue);
     border-left:3px solid var(--linea-fuerte); padding-left:12px; margin-top:13px}
   .guia-nav{display:flex; align-items:center; gap:9px; margin-top:20px; flex-wrap:wrap}
   .guia-bolas{display:flex; gap:6px; margin-right:auto}
