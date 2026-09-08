@@ -345,9 +345,11 @@ Las tres plantillas se generan con `scripts/plantillas_renovacion.py`, que hered
 pie de página, los estilos y las fuentes de una plantilla existente y solo reemplaza el cuerpo, para
 que el formato sea idéntico al del resto de documentos.
 
-> **Nota para el Forms de envío.** El campo *Tipo de proceso* del envío a la Unidad Operativa manda
-> `Renovación`, que es una opción nueva. Si el Forms todavía no la tiene, la AC puede corregir ese
-> campo antes de enviar (es editable).
+> **Los dos flujos de Power Automate aceptan la vía nueva sin cambios.** El de envío a la Unidad
+> Operativa declara `tipoProceso` como cadena libre en el esquema de su disparador HTTP, y la
+> columna `tipoProceso` del Microsoft List del registro central es de texto — comprobado. Las
+> renovaciones llegan con su propio nombre a los dos sitios, así que se pueden contar aparte en vez
+> de quedar mezcladas con la contratación directa.
 
 ### Mis procesos
 

@@ -1369,9 +1369,13 @@ function checklistHTML(){
    +"<div style='margin-top:10px'>"+filas+"</div></div>";
 }
 
-// Mapea el tipo de proceso de La Mágica a las opciones del Forms de envío. La
-// renovación es una vía propia: si el Forms todavía no tiene esa opción, la AC
-// puede corregir el campo antes de enviar (es editable).
+// Mapea el tipo de proceso de La Mágica al campo «tipo de proceso» del envío a
+// la Unidad Operativa. La renovación viaja con su propio nombre: el disparador
+// del flujo lo declara como cadena libre, así que no hay lista de opciones que
+// ampliar. Al registro central va todavía más directo — registroPayload manda
+// D().tipoProceso en crudo, sin pasar por aquí—, y su columna es de texto: por
+// eso las renovaciones se pueden contar aparte en vez de disolverse en
+// «contratación directa».
 function uoTipoForms(){
   var t=D().tipoProceso;
   if(t==='Renovación') return 'Renovación';
