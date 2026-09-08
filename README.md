@@ -314,6 +314,97 @@ El seguimiento trae además **9 inconsistencias de fechas** para corregir (hitos
 firma, dos fechas imposibles, una firma que no calza con el registro). Están en la hoja
 *Revisar ahora* y quedaron como hito en el planificador.
 
+## La Mágica para las renovaciones
+
+El plan de renovaciones multiplica por cinco lo que una administradora lleva en paralelo: de uno o
+dos expedientes pasa a entre 1 y 13 entre septiembre y diciembre, y varios quedan abiertos meses
+esperando el PAG. Eso obligó a cuatro cosas (secciones 8.1 a 8.4 del
+[plan](plan/PLAN_RENOVACIONES_2027.md)).
+
+### La vía de renovación
+
+`Renovación` es un cuarto tipo de proceso, con su propia captura por momentos y **tres plantillas
+Word** en `generador/plantillas/`:
+
+| Momento | Documento | Bloque |
+|---|---|---|
+| 1 · Análisis (sin PAG) | `19_Informe_satisfaccion_renovacion.docx` — informe de satisfacción con la verificación de la cláusula y los análisis técnico, geográfico y económico | **1** — no necesita el PAG |
+| 2 · Cotización (con PAG) | `20_Solicitud_cotizacion_renovacion.docx` — solicitud de cotización del nuevo período | 2 |
+| 3 · Notificación | `21_Notificacion_renovacion.docx` — notificación de renovación al proveedor | 2 |
+| 4 · Contrato | Lo elabora la **Unidad Operativa**; desde aquí solo se envía el expediente | — |
+
+**El corte por el PAG es el punto del diseño.** El Momento 1 se cierra entero **sin monto y sin
+presupuesto**: la administradora marca *«en espera del PAG»*, el expediente queda guardado y los
+documentos del bloque 2 se muestran *en espera*, no bloqueados. Cuando sale el PAG, basta registrar
+su fecha en el Momento 2 y el expediente se reactiva solo.
+
+Si la verificación legal dice que el contrato vigente **no** contempla la cláusula, la captura lo
+avisa en el sitio: ese contrato pasa a proceso nuevo y cambia de semana en el calendario.
+
+Las tres plantillas se generan con `scripts/plantillas_renovacion.py`, que hereda el membrete, el
+pie de página, los estilos y las fuentes de una plantilla existente y solo reemplaza el cuerpo, para
+que el formato sea idéntico al del resto de documentos.
+
+> **Nota para el Forms de envío.** El campo *Tipo de proceso* del envío a la Unidad Operativa manda
+> `Renovación`, que es una opción nueva. Si el Forms todavía no la tiene, la AC puede corregir ese
+> campo antes de enviar (es editable).
+
+### Mis procesos
+
+Pantalla con un renglón por expediente —nombre, área, si se renueva o es proceso nuevo, momento
+alcanzado, documentos generados, si ya se envió a la Unidad Operativa, el contrato que reemplaza,
+cuándo arranca su sucesor, la semana asignada y si está esperando el PAG—, **ordenada por la fecha
+en que arranca el servicio**: lo que arranca el 1 de enero va primero, porque desde ese día cada
+día sin contrato suscrito es retroactividad.
+
+### La lista de verificación que bloquea el envío
+
+Medida 3 de la sección 6 del plan: *expediente completo o no entra*. Antes de enviar a la Unidad
+Operativa, La Mágica revisa el área, los datos base, la línea de gasto, el plazo, la causal, el
+proveedor y su RUC, los documentos obligatorios de la vía y los **cuadres automáticos** —monto
+contra el detalle de ítems, IVA, y que el monto no supere el presupuesto—. Mientras falte un punto
+crítico, el botón de envío está deshabilitado y la lista dice exactamente qué falta.
+
+### Almacenamiento
+
+- **El fallo de cuota se ve.** Si el navegador se queda sin espacio, aparece una barra roja fija
+  ("no se pudo guardar") con el botón de respaldo. Antes se descartaba en silencio y la AC perdía
+  el expediente al cerrar la pestaña.
+- **Las plantillas ya no ocupan el espacio dos veces.** El seed embebido (~2 MB) vive en el propio
+  HTML y se carga en memoria; a `localStorage` solo van las plantillas que la AC subió a mano. Una
+  instalación anterior se migra sola al abrir: se rescata lo propio y se borra `fap_tpls`, lo que
+  devuelve unos 2 MB de una cuota de 5 MB.
+- **Respaldo y restauración.** Desde *Mis procesos* se descarga un `.json` con expedientes en curso,
+  historial, cola de envío y plantillas propias, y se restaura reemplazando o combinando. La
+  pantalla avisa cuando el último respaldo tiene más de una semana.
+- **Colas acotadas.** `fap_pendientes` se queda en 300 registros y deja constancia de lo que sale;
+  `fap_historial` se recorta a 2 000, pero **descarga antes** los registros antiguos en un archivo
+  aparte, así no se pierde ningún cierre.
+
+### Probar los cambios
+
+La herramienta es un solo HTML sin build, así que las comprobaciones cargan el archivo en un DOM de
+mentira y lo manejan desde fuera:
+
+```bash
+npm install jsdom pizzip@3.2.0 docxtemplater@3.66.4
+node scripts/probar_generador.js
+```
+
+Cubre la vía de renovación de punta a punta (incluida la generación real de los tres `.docx` con
+docxtemplater), los arreglos de almacenamiento, la lista de verificación, *Mis procesos* y que las
+tres vías de siempre sigan intactas.
+
+### Cambiar o añadir una plantilla
+
+1. Deja el `.docx` en `generador/plantillas/`.
+2. Si es una plantilla nueva, añádela a `TPL_SLOTS` en `generador/index.html` y a `ORDEN` en
+   `scripts/embeber_plantillas.py`.
+3. Corre `python3 scripts/embeber_plantillas.py` para reconstruir el seed embebido.
+
+`python3 scripts/embeber_plantillas.py --check` dice si el seed quedó desactualizado, sin escribir
+nada.
+
 ## Estructura
 
 - **`/planificador/`** — Planificador adaptativo: planes por rutas alternas, con señales,
@@ -332,6 +423,8 @@ firma, dos fechas imposibles, una firma que no calza con el registro). Están en
   con los datos del proceso para adjuntar los archivos y subirlos a un flujo de Power Automate
   (subida de documentos a revisión). La URL de ese flujo se configura en la constante
   `FLOW_DOCS_URL` dentro de `generador/index.html`.
+  Lo que la campaña de renovaciones 2027 añadió está en
+  [La Mágica para las renovaciones](#la-mágica-para-las-renovaciones).
 
 ## URL pública
 

@@ -318,14 +318,28 @@ Es la medida 3 de la sección 6, y la que más tiempo de revisión ahorra.
 
 ### 8.5 · Secuencia propuesta
 
-| Sprint | Qué entra | Antes de | Por qué esa fecha |
-|---|---|---|---|
-| **1** | Arreglos de almacenamiento + pantalla *Mis procesos* | **18 sep** | La primera ola arranca el 21 de septiembre con 10 expedientes simultáneos |
-| **2** | Vía de renovación + 3 plantillas + expediente sin monto | **12 oct** | La primera ola con renovaciones es la del 19 de octubre |
-| **3** | Lista de verificación que bloquea el envío | **31 oct** | Rinde sobre los 90 expedientes que faltan por ingresar |
-| **4** | Cola precargada por AC + panel de avance semanal | noviembre | Mejora el seguimiento; no bloquea ninguna ola |
+| Sprint | Qué entra | Antes de | Por qué esa fecha | Estado |
+|---|---|---|---|---|
+| **1** | Arreglos de almacenamiento + pantalla *Mis procesos* | **18 sep** | La primera ola arranca el 21 de septiembre con 10 expedientes simultáneos | **Hecho** |
+| **2** | Vía de renovación + 3 plantillas + expediente sin monto | **12 oct** | La primera ola con renovaciones es la del 19 de octubre | **Hecho** |
+| **3** | Lista de verificación que bloquea el envío | **31 oct** | Rinde sobre los 90 expedientes que faltan por ingresar | **Hecho** |
+| **4** | Cola precargada por AC + panel de avance semanal | noviembre | Mejora el seguimiento; no bloquea ninguna ola | Pendiente |
 
 Los sprints 1 a 3 están en el camino crítico; el 4 no.
+
+**Lo entregado en los sprints 1 a 3** está en `generador/index.html` y descrito en el
+[README](../README.md#la-mágica-para-las-renovaciones): la vía `Renovación` con captura por
+momentos y sus tres plantillas (`19_`, `20_` y `21_` en `generador/plantillas/`, generadas con
+`scripts/plantillas_renovacion.py`), el corte por el PAG —el Momento 1 se cierra sin monto y el
+expediente queda *en espera*—, la pantalla *Mis procesos*, el respaldo y restauración de
+expedientes, el aviso visible cuando el navegador se queda sin espacio, las colas acotadas y la
+lista de verificación que deshabilita el envío hasta que el expediente esté completo. Las
+comprobaciones se corren con `node scripts/probar_generador.js`.
+
+Aparte de lo planificado, apareció un defecto que la pantalla *Mis procesos* dejó a la vista: los
+expedientes se identificaban con `'e'+Date.now()`, así que dos creados en el mismo milisegundo
+compartían identificador y **mostraban los datos del primero**. Ya se generan identificadores
+únicos y los repetidos de instalaciones anteriores se separan solos al abrir.
 
 ---
 
