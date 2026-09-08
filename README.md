@@ -225,10 +225,32 @@ qué valor se cambia de estrategia y cuánto tarda ese cambio en montarse.
 | **Ruta alterna** | A qué se cambia | Extender el plazo y escalar al responsable del área |
 | **Tiempo de preparación** | Cuánto tarda esa ruta en estar operando | 7 días |
 
+**Se entra por «Hoy», no por el método.** La pantalla de arranque responde una sola pregunta
+—*qué pide el plan hoy*— con las decisiones ordenadas por lo que se vence primero, las mediciones
+atrasadas listas para registrar en la misma línea, y el plan entero dibujado en el tiempo. Hay tres
+vistas y nada más: **Hoy**, **Etapas** y **Mapa** (teclas `1`, `2`, `3`).
+
+**El método se explica solo.** La primera visita abre una guía de cuatro pantallas con el mecanismo
+dibujado —por qué un plan se desvía, qué es un disparador, por qué la fecha que manda es la de
+decidir—; después queda en **? Cómo funciona** o en la tecla `?`. Y cada término del vocabulario
+aparece <u>subrayado de puntos</u> allí donde se usa: al pulsarlo se explica en el sitio, con el
+ejemplo del propio plan.
+
+**Los umbrales se tocan, no se leen.** Cada señal tiene un control deslizante: al moverlo la tarjeta
+dice en vivo qué ruta se armaría, con qué tiempo de preparación y en qué fecha vencería la decisión.
+No guarda nada hasta pulsar *Registrar*, así que se puede explorar sin miedo. Es la vía más corta
+para que el mecanismo de umbrales se entienda.
+
 **Qué hace, que un Excel no hace:**
 
+- **Dibuja el margen que queda.** Cada decisión lleva una barra a escala: el tramo verde es el margen
+  en el que todavía se puede decidir y el tramo rayado es el tiempo de preparación, que ya no se
+  puede comprimir. Cuando el rayado se come la barra entera, la ruta ya no alcanza a montarse.
+- **Pone el plan en una línea de tiempo.** Rombos para las fechas de decisión, barras rayadas para
+  las preparaciones, banderas para las fechas de operación y puntos para los hitos, todo contra la
+  misma escala de meses y la línea de hoy.
 - **Navega por etapa.** Se entra a una etapa y se ve solo lo suyo —su narrativa, sus señales, sus
-  hitos, sus alertas—, no las seis a la vez. El *Panel general* da la vista completa.
+  hitos, sus alertas—, no las seis a la vez. El *Mapa* da la vista completa.
 - **Las rutas se arman solas.** Cada ruta queda enganchada a una señal: cuando esa señal cruza el
   disparador la ruta pasa a *armada*, y al cruzar el no retorno a *activada*. Nadie tiene que
   acordarse de revisarlas. Se pueden fijar a mano cuando hace falta.
@@ -242,6 +264,9 @@ qué valor se cambia de estrategia y cuánto tarda ese cambio en montarse.
 - **Reclama las mediciones vencidas.** Cada señal declara su cadencia y la herramienta marca las
   que llevan demasiado sin medirse.
 - **Guarda el historial** de cada medición con su fecha, con tendencia y minigráfico.
+- **Traduce cada señal a una frase.** «Hoy va en 33 %, en rumbo. Si sube a 50 % hay que empezar a
+  preparar «…»; en 73 % la estrategia actual ya no sirve.» Se entiende sin haber leído el método.
+- **Enlaza señal y ruta en los dos sentidos**, para no tener que recordar cuál lee a cuál.
 - **Cierra etapas** dejando la entrada automática en la bitácora, y al cerrar la última reabre el
   ciclo.
 
@@ -259,6 +284,9 @@ de tareas— **sin permisos de administrador, sin instalador y sin pasar por IT*
 1. Abrir `https://diegodr76-f.github.io/fap-contratos/planificador/` en Edge.
 2. Pulsar **⤓ Instalar** en la cabecera de la app, o el ícono de instalar de la barra de
    direcciones, o el menú **⋯ → Aplicaciones → Instalar este sitio como una aplicación**.
+
+La tipografía se carga sin bloquear el pintado, así que la herramienta abre al instante aunque
+Google Fonts no responda —sin internet, en territorio o bloqueado por IT—.
 
 Una vez instalado **funciona sin internet**: un *service worker* guarda la aplicación completa y los
 planes viven en el equipo, así que abre y se usa igual en territorio o con la red caída. Cuando se
