@@ -13,7 +13,12 @@
 <meta name="apple-mobile-web-app-title" content="Planificador">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<!-- La tipografía se carga sin bloquear el pintado: si Google Fonts no responde
+     —sin internet, en territorio o bloqueado por IT— la herramienta abre igual al
+     instante, con la tipografía del sistema, en vez de quedarse en blanco. -->
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap"></noscript>
 <style>
   :root{
     --ink:#0B153F; --texto:#252A3D; --tenue:#5A6072; --debil:#8B92A6;
@@ -94,15 +99,13 @@
   section{padding-top:34px}
   .sec-cab{display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; margin-bottom:5px}
   .cuenta{font-size:11.5px; font-weight:700; color:var(--debil); font-variant-numeric:tabular-nums}
-  .sub{font-family:'Source Serif 4',Georgia,serif; font-size:15.5px; color:var(--tenue);
-    margin:0 0 17px; max-width:68ch; line-height:1.55}
-  .lead{font-family:'Source Serif 4',Georgia,serif; font-size:17px; color:var(--tenue);
-    max-width:66ch; line-height:1.55; margin:11px 0 0}
+  .sub{font-size:14.5px; color:var(--tenue); margin:0 0 17px; max-width:68ch; line-height:1.55}
+  .lead{font-size:15.5px; color:var(--tenue); max-width:66ch; line-height:1.55; margin:11px 0 0}
 
   /* ------------------------------------------------------------- pantalla planes */
   .portada{padding:44px 0 0}
-  .planes{display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px;
-    margin-top:24px}
+  .planes{display:grid; grid-template-columns:repeat(auto-fill,minmax(min(290px,100%),1fr));
+    gap:14px; margin-top:24px}
   .plan-c{background:var(--tarjeta); border:1px solid var(--linea); border-radius:13px;
     padding:18px 20px; box-shadow:var(--sombra); cursor:pointer; text-align:left;
     font-family:inherit; display:flex; flex-direction:column; gap:9px;
@@ -137,8 +140,8 @@
   @media(max-width:800px){ .narra{grid-template-columns:1fr} }
   .rot{font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
     color:var(--debil); margin-bottom:5px}
-  .narra p{margin:0; font-family:'Source Serif 4',Georgia,serif; font-size:15.5px; line-height:1.6}
-  .narra .dec p{font-family:inherit; font-size:14.5px}
+  .narra p{margin:0; font-size:14.5px; line-height:1.6}
+  .narra .dec p{font-size:14px}
 
   /* -------------------------------------------------------------- avisos */
   .avisos{display:grid; gap:8px; margin-top:20px}
@@ -155,13 +158,15 @@
     text-align:center; line-height:1.5}
 
   /* ------------------------------------------------------------- señales */
-  .senales{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:13px}
+  .senales{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr));
+    gap:13px}
   .sen{background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px;
     padding:16px 18px; box-shadow:var(--sombra); border-left:4px solid var(--linea-fuerte);
     transition:border-left-color .25s}
   .sen.ok{border-left-color:var(--ok)}
   .sen.alerta{border-left-color:var(--alerta)}
   .sen.critico{border-left-color:var(--critico)}
+  .sen.simulando{outline:2px dashed var(--azul); outline-offset:3px}
   .sen-cab{display:flex; justify-content:space-between; align-items:flex-start; gap:10px}
   .sen-nom{font-size:14.5px; font-weight:700; color:var(--ink); line-height:1.3}
   .chip{font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
@@ -214,7 +219,7 @@
   .ruta-cuerpo{display:grid; grid-template-columns:1fr 1fr; gap:14px}
   @media(max-width:720px){ .ruta-cuerpo{grid-template-columns:1fr} }
   .ruta-cuerpo p{margin:0; font-size:14px; line-height:1.5; color:var(--texto)}
-  .ruta-cuerpo .si p{font-family:'Source Serif 4',Georgia,serif; font-size:14.5px}
+  .ruta-cuerpo .si p{font-size:14px}
 
   .plazo{display:grid; grid-template-columns:auto 1fr; gap:5px 12px; margin-top:13px;
     padding:12px 14px; background:var(--papel); border-radius:10px; font-size:12.5px;
@@ -254,11 +259,11 @@
   .entrada > div{flex:1; min-width:0}
   .entrada .cuando{font-size:10.5px; font-weight:700; letter-spacing:.05em;
     text-transform:uppercase; color:var(--debil); margin-bottom:3px}
-  .entrada p{margin:0; font-family:'Source Serif 4',Georgia,serif; font-size:15.5px; line-height:1.55}
+  .entrada p{margin:0; font-size:14.5px; line-height:1.55}
   .entrada .auto{color:var(--azul)}
 
   /* ------------------------------------------------------------ panel */
-  .panel-g{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:13px}
+  .panel-g{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)); gap:13px}
   .pcol{background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px;
     padding:16px 18px; box-shadow:var(--sombra)}
   .pcol h4{margin:0 0 11px; font-size:12px; font-weight:700; letter-spacing:.08em;
@@ -342,9 +347,230 @@
   .aparece{animation:sube .26s cubic-bezier(.22,.7,.3,1) both}
   @keyframes sube{from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none}}
   @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
+  /* ====================================================== NUEVO · pestañas
+     Tres destinos, no tres interruptores sin nombre: dónde estoy hoy, el
+     detalle por etapa, y el plan entero dibujado en el tiempo. */
+  .pestanas{display:flex; gap:4px; margin-top:12px}
+  .pest{flex:0 0 auto; background:transparent; border:none; cursor:pointer; font-family:inherit;
+    font-size:13.5px; font-weight:700; color:var(--tenue); padding:8px 15px 9px;
+    border-radius:9px 9px 0 0; border-bottom:3px solid transparent; display:flex;
+    align-items:center; gap:7px; transition:background .16s, color .16s}
+  .pest:hover{background:var(--azul-claro)}
+  .pest:focus-visible{outline:2px solid var(--azul); outline-offset:-2px}
+  .pest[aria-selected="true"]{color:var(--azul); border-bottom-color:var(--azul);
+    background:var(--azul-claro)}
+  .pest .cont{font-size:10.5px; font-weight:700; min-width:18px; height:18px; padding:0 5px;
+    border-radius:99px; display:inline-flex; align-items:center; justify-content:center;
+    background:var(--linea); color:var(--tenue); font-variant-numeric:tabular-nums}
+  .pest .cont.alerta{background:var(--alerta-bg); color:var(--alerta)}
+  .pest .cont.critico{background:var(--critico-bg); color:var(--critico)}
+  @media(max-width:560px){ .pest{padding:8px 11px 9px; font-size:12.5px} }
+
+  .pulso-i.pulsable{cursor:pointer; background:none; border:none; border-right:1px solid var(--linea);
+    font-family:inherit; text-align:left; transition:background .16s}
+  .pulso-i.pulsable:hover{background:var(--azul-claro)}
+  .pulso-i.pulsable:focus-visible{outline:2px solid var(--azul); outline-offset:-2px}
+
+  /* ================================================= NUEVO · glosario vivo
+     El vocabulario del método se explica donde se usa, no en un manual
+     aparte: cada término es un botón que se abre en el sitio. */
+  .term{background:none; border:none; padding:0; font:inherit; color:inherit; cursor:help;
+    border-bottom:1.5px dotted var(--azul); font-weight:600; text-align:left}
+  .term:hover{background:var(--azul-claro)}
+  .term:focus-visible{outline:2px solid var(--azul); outline-offset:2px}
+  .glosa{position:fixed; z-index:75; max-width:330px; background:var(--ink); color:#fff;
+    border-radius:11px; padding:13px 15px; font-size:12.5px; line-height:1.5;
+    box-shadow:0 18px 44px -14px rgba(11,21,63,.6)}
+  .glosa b{display:block; font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+    color:#9FB2F5; margin-bottom:5px}
+  .glosa .ej{display:block; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,.18);
+    color:#C9D3F7; font-size:11.5px}
+
+  /* ==================================================== NUEVO · vista Hoy */
+  .hoy-cab{padding:28px 0 0}
+  .hoy-fecha{font-size:11px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--azul); margin-bottom:6px}
+  .hoy-vacio{background:var(--ok-bg); color:var(--ok); border-radius:12px; padding:20px 22px;
+    font-size:14.5px; line-height:1.5; margin-top:20px; font-weight:600}
+
+  .dec-lista{display:grid; gap:12px; grid-template-columns:minmax(0,1fr)}
+  .dec{background:var(--tarjeta); border:1px solid var(--linea); border-radius:13px;
+    padding:17px 19px; box-shadow:var(--sombra); border-left:4px solid var(--linea-fuerte);
+    transition:border-left-color .25s, box-shadow .25s; min-width:0; overflow-wrap:anywhere}
+  .dec.tarde{border-left-color:var(--critico); box-shadow:0 0 0 3px var(--critico-bg), var(--sombra)}
+  .dec.urge{border-left-color:var(--alerta)}
+  .dec.calma{border-left-color:var(--ok)}
+  .dec-cab{display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; margin-bottom:3px}
+  .dec-dias{font-size:25px; font-weight:700; line-height:1; letter-spacing:-.022em;
+    font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap}
+  .dec.tarde .dec-dias{color:var(--critico)} .dec.urge .dec-dias{color:var(--alerta)}
+  .dec.calma .dec-dias{color:var(--ok)}
+  .dec-que{font-size:12.5px; font-weight:700; color:var(--tenue); text-transform:uppercase;
+    letter-spacing:.06em}
+  .dec-nom{font-size:15px; font-weight:700; color:var(--ink); line-height:1.35; margin:4px 0 0}
+  .dec-frase{font-size:13.5px; color:var(--tenue); line-height:1.5; margin:7px 0 0}
+  .dec-pie{display:flex; align-items:center; gap:10px; margin-top:13px; padding-top:11px;
+    border-top:1px solid var(--linea); flex-wrap:wrap; font-size:12px; color:var(--debil)}
+
+  /* El carril: la idea central del método, dibujada. Se ve el bloque de
+     preparación comiéndose el margen antes de la fecha de operación. */
+  .carril{margin-top:14px}
+  .carril-b{position:relative; height:26px; border-radius:7px; background:var(--linea);
+    display:flex; overflow:hidden}
+  .carril-b .margen{background:var(--ok-bg); height:100%; display:flex; align-items:center;
+    justify-content:center; font-size:10.5px; font-weight:700; color:var(--ok);
+    white-space:nowrap; overflow:hidden; min-width:0}
+  .dec.urge .carril-b .margen{background:var(--alerta-bg); color:var(--alerta)}
+  .dec.tarde .carril-b .margen{background:var(--critico-bg); color:var(--critico)}
+  .carril-b .prep{height:100%; display:flex; align-items:center; justify-content:center;
+    font-size:10.5px; font-weight:700; color:var(--tenue); white-space:nowrap; overflow:hidden;
+    min-width:0; background:repeating-linear-gradient(-45deg,var(--linea) 0 5px,
+      var(--linea-fuerte) 5px 10px)}
+  .carril-pies{display:flex; justify-content:space-between; margin-top:5px; font-size:10.5px;
+    color:var(--debil); font-variant-numeric:tabular-nums; gap:8px}
+  .carril-pies span{min-width:0; flex:1 1 0}
+  .carril-pies b{display:block; color:var(--tenue); font-size:10px; letter-spacing:.06em;
+    text-transform:uppercase}
+  .carril-pies span:nth-child(2){text-align:center}
+  .carril-pies span:last-child{text-align:right}
+
+  .lector-b{display:flex; align-items:center; gap:9px 10px; margin-top:12px; padding:10px 13px;
+    background:var(--papel); border-radius:10px; font-size:12.5px; color:var(--tenue);
+    flex-wrap:wrap}
+  .lector-b .quien{flex:1 1 100%; min-width:0; overflow-wrap:anywhere}
+  .lector-b .mini-esc{position:relative; flex:1 1 90px; min-width:70px; max-width:230px;
+    height:6px; border-radius:99px; background:var(--linea)}
+  .lector-b .mini-esc i{display:block; height:100%; border-radius:99px; background:var(--ok)}
+  .lector-b .mini-esc i.alerta{background:var(--alerta)} .lector-b .mini-esc i.critico{background:var(--critico)}
+  .lector-b .mini-esc u{position:absolute; top:-3px; width:2px; height:12px; border-radius:2px;
+    background:var(--alerta)}
+  .lector-b b{color:var(--ink); font-variant-numeric:tabular-nums}
+  .lector-b .quien b{white-space:normal}
+
+  /* Medir desde Hoy, sin ir a buscar la tarjeta */
+  .medir{background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px;
+    box-shadow:var(--sombra); overflow:hidden}
+  .medir-f{display:flex; align-items:center; gap:11px; padding:12px 16px;
+    border-bottom:1px solid var(--linea); flex-wrap:wrap}
+  .medir-f:last-child{border-bottom:none}
+  .medir-f .mn{flex:1 1 220px; min-width:0; font-size:13.5px; font-weight:600; color:var(--ink)}
+  .medir-f .mn small{display:block; font-weight:400; color:var(--debil); font-size:11px;
+    margin-top:1px}
+  .medir-f input{width:92px}
+
+  /* ============================================ NUEVO · línea de tiempo */
+  .lt-caja{background:var(--tarjeta); border:1px solid var(--linea); border-radius:13px;
+    box-shadow:var(--sombra); overflow-x:auto; padding:16px 0 10px}
+  .lt{position:relative; min-width:660px; --et:170px}
+  @media(max-width:640px){ .lt{--et:118px} }
+  .lt-capa{position:absolute; left:calc(var(--et) + 36px); right:18px; top:0; bottom:0;
+    pointer-events:none}
+  .lt-mes{position:absolute; top:0; bottom:0; width:1px; background:var(--linea)}
+  .lt-mes span{position:absolute; top:0; left:5px; font-size:10px; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--debil); white-space:nowrap}
+  .lt-hoy{position:absolute; top:0; bottom:0; width:2px; background:var(--azul); z-index:2}
+  .lt-hoy span{position:absolute; top:0; left:4px; font-size:10px; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--azul); background:var(--tarjeta);
+    padding:0 3px; white-space:nowrap}
+  .lt-filas{position:relative; z-index:1; padding-top:19px}
+  .lt-tit{display:grid; grid-template-columns:var(--et) 1fr; gap:18px; padding:13px 18px 5px;
+    font-size:10.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--debil)}
+  .lt-f{display:grid; grid-template-columns:var(--et) 1fr; gap:18px; align-items:center;
+    padding:5px 18px; min-height:32px}
+  .lt-f:hover{background:var(--azul-claro)}
+  .lt-et{font-size:12px; color:var(--ink); line-height:1.3; overflow:hidden;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; min-width:0}
+  .lt-et button{background:none; border:none; padding:0; font:inherit; color:inherit;
+    cursor:pointer; text-align:left}
+  .lt-et button:hover{color:var(--azul); text-decoration:underline}
+  .lt-p{position:relative; height:20px}
+  .lt-barra{position:absolute; top:4px; height:12px; border-radius:4px;
+    background:repeating-linear-gradient(-45deg,var(--linea) 0 5px,var(--linea-fuerte) 5px 10px);
+    min-width:3px}
+  .lt-barra.tarde{background:repeating-linear-gradient(-45deg,var(--critico-bg) 0 5px,#F0C9C9 5px 10px)}
+  .lt-m{position:absolute; top:2px; width:11px; height:11px; margin:2px 0 0 -5.5px;
+    transform:rotate(45deg); border-radius:2px; background:var(--azul); z-index:2}
+  .lt-m.tarde{background:var(--critico)} .lt-m.urge{background:var(--alerta)}
+  .lt-m.hecho{background:var(--ok)} .lt-m.punto{transform:none; border-radius:50%;
+    width:9px; height:9px; margin-left:-4.5px; top:5px}
+  .lt-m.hueco{background:var(--tarjeta); border:2px solid var(--linea-fuerte)}
+  .lt-bandera{position:absolute; top:3px; width:3px; height:14px; margin-left:-1.5px;
+    background:var(--ink); border-radius:2px; z-index:2}
+  .lt-leyenda{display:flex; gap:16px; flex-wrap:wrap; padding:13px 18px 2px; font-size:11px;
+    color:var(--tenue); align-items:center; min-width:660px; margin-top:9px;
+    border-top:1px solid var(--linea)}
+  .lt-leyenda i{display:inline-block; vertical-align:middle; margin-right:5px}
+  .lt-leyenda .d{width:9px; height:9px; transform:rotate(45deg); border-radius:2px; background:var(--azul)}
+  .lt-leyenda .h{width:22px; height:9px; border-radius:3px;
+    background:repeating-linear-gradient(-45deg,var(--linea) 0 5px,var(--linea-fuerte) 5px 10px)}
+  .lt-leyenda .b{width:3px; height:12px; background:var(--ink); border-radius:2px}
+  .lt-leyenda .p{width:9px; height:9px; border-radius:50%; background:var(--ok)}
+
+  /* ================================================== NUEVO · simulador
+     Mover el valor y ver qué se enciende es la forma más rápida de que el
+     mecanismo de umbrales se entienda. No guarda nada hasta registrar. */
+  .sim{margin-top:11px; padding-top:11px; border-top:1px solid var(--linea)}
+  .sim-l{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .sim-l label{font-size:11.5px; font-weight:700; color:var(--tenue); white-space:nowrap}
+  .sim-r{flex:1 1 140px; min-width:110px; -webkit-appearance:none; appearance:none;
+    height:20px; background:transparent; padding:0; border:none; cursor:pointer}
+  .sim-r:focus{box-shadow:none}
+  .sim-r::-webkit-slider-runnable-track{height:6px; border-radius:99px; background:var(--linea)}
+  .sim-r::-moz-range-track{height:6px; border-radius:99px; background:var(--linea)}
+  .sim-r::-webkit-slider-thumb{-webkit-appearance:none; width:18px; height:18px; margin-top:-6px;
+    border-radius:50%; background:var(--tarjeta); border:2.5px solid var(--azul); cursor:grab;
+    box-shadow:0 1px 4px rgba(11,21,63,.25)}
+  .sim-r::-moz-range-thumb{width:15px; height:15px; border-radius:50%; background:var(--tarjeta);
+    border:2.5px solid var(--azul); cursor:grab; box-shadow:0 1px 4px rgba(11,21,63,.25)}
+  .sim-r:focus-visible::-webkit-slider-thumb{outline:2px solid var(--ink); outline-offset:2px}
+  .sim-dice{font-size:12px; line-height:1.45; margin-top:9px; padding:9px 12px; border-radius:9px;
+    background:var(--papel); color:var(--tenue)}
+  .sim-dice.alerta{background:var(--alerta-bg); color:var(--alerta)}
+  .sim-dice.critico{background:var(--critico-bg); color:var(--critico)}
+  .sim-dice.ok{background:var(--ok-bg); color:var(--ok)}
+  .sim-dice b{font-weight:700}
+  .sim-dice .sim-nota{display:block; margin-top:4px; font-size:11px; opacity:.85; font-weight:600}
+
+  /* La frase en voz alta: la señal dicha como se la diría a alguien. */
+  .sen-dice{font-size:13px; line-height:1.5; color:var(--texto); margin:10px 0 2px}
+  .sen-dice b{font-weight:700; color:var(--ink)}
+  .sen-rutas{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px}
+  .sen-rutas .rlink{font-size:11px; font-weight:700; padding:4px 9px; border-radius:99px;
+    background:var(--azul-claro); color:var(--azul); border:none; cursor:pointer;
+    font-family:inherit; max-width:100%; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; text-align:left}
+  .sen-rutas .rlink:hover{background:var(--azul); color:#fff}
+
+  /* ==================================================== NUEVO · la guía */
+  .modal.ancho{max-width:640px}
+  .guia-paso{display:none}
+  .guia-paso.viva{display:block; animation:sube .24s cubic-bezier(.22,.7,.3,1) both}
+  .guia-svg{width:100%; height:auto; display:block; margin:4px 0 16px; border-radius:11px;
+    background:var(--papel); padding:14px 10px}
+  .guia-svg text{font-family:'Titillium Web',system-ui,sans-serif}
+  .guia h4{margin:0 0 7px; font-size:17px; color:var(--ink); letter-spacing:-.012em}
+  .guia p{margin:0 0 10px; font-size:14px; line-height:1.55; color:var(--texto)}
+  .guia p.eco{font-size:13.5px; font-weight:600; color:var(--tenue);
+    border-left:3px solid var(--linea-fuerte); padding-left:12px; margin-top:13px}
+  .guia-nav{display:flex; align-items:center; gap:9px; margin-top:20px; flex-wrap:wrap}
+  .guia-bolas{display:flex; gap:6px; margin-right:auto}
+  .guia-bolas i{width:7px; height:7px; border-radius:50%; background:var(--linea-fuerte);
+    cursor:pointer; transition:background .2s, transform .2s}
+  .guia-bolas i.viva{background:var(--azul); transform:scale(1.35)}
+
+  .atajos{display:grid; grid-template-columns:auto 1fr; gap:7px 14px; font-size:12.5px;
+    color:var(--tenue); margin-top:4px}
+  .atajos kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px;
+    background:var(--papel); border:1px solid var(--linea-fuerte); border-bottom-width:2px;
+    border-radius:5px; padding:2px 6px; color:var(--ink); white-space:nowrap}
+
   @media print{
     header{position:static}
-    .cab-acc,.riel,.btn,.btn-add,.interruptor,.aviso .ir,.sen-pie,.velo{display:none !important}
+    .cab-acc,.riel,.pestanas,.btn,.btn-add,.interruptor,.aviso .ir,.sen-pie,.sim,
+    .velo,.glosa,.sen-rutas,.dec-pie{display:none !important}
+    .term{border-bottom:none; font-weight:600}
+    .lt-caja,.dec,.sen,.ruta,.medir{break-inside:avoid; box-shadow:none}
   }
 </style>
 </head>
@@ -360,12 +586,13 @@
       </div>
       <div class="cab-acc">
         <span class="guardado"><i class="punto"></i><span id="estado">Guardado</span></span>
-        <button class="interruptor" id="b-panel" aria-pressed="false">Panel</button>
-        <button class="interruptor" id="b-editar" aria-pressed="false">Editar</button>
+        <button class="interruptor" id="b-guia" title="Cómo funciona el método (tecla ?)">? Cómo funciona</button>
+        <button class="interruptor" id="b-editar" aria-pressed="false" title="Tecla E">Editar</button>
         <button class="interruptor" id="b-instalar" hidden>⤓ Instalar</button>
         <button class="interruptor" id="b-menu">Plan ▾</button>
       </div>
     </div>
+    <nav class="pestanas" id="pestanas" role="tablist" aria-label="Vistas"></nav>
     <nav class="riel" id="riel" aria-label="Etapas"></nav>
     <div class="pulso" id="pulso"></div>
   </div>
@@ -492,7 +719,11 @@ function guardar(){
 var P = null;               /* plan activo */
 var VISTA = null;           /* etapa que se está viendo */
 var EDITANDO = false;
-var PANEL = false;
+/* Tres destinos, no interruptores sueltos:
+     hoy   · qué toca decidir y medir ahora — la pantalla de entrada
+     etapa · el detalle de una etapa del ciclo
+     mapa  · el plan entero: línea de tiempo y estado por etapa          */
+var MODO = "hoy";
 
 function etapasDe(p){
   return (p.etapas && p.etapas.length) ? p.etapas
@@ -564,12 +795,24 @@ function valorTxt(s){ return num(s.valor) + unidadTxt(s); }
 /* Posición de un valor en la escala meta ↔ no retorno, para pintar la barra
    y las marcas de los umbrales sobre la misma regla. */
 function escalaSenal(s){
-  var meta = num(s.meta), nore = num(s.noRetorno), disp = num(s.disparador), v = num(s.valor);
-  var lo = Math.min(meta, nore, disp, v), hi = Math.max(meta, nore, disp, v);
+  var pts = [num(s.meta), num(s.noRetorno), num(s.disparador), num(s.valor)];
+  (s.historial||[]).forEach(function(h){ pts.push(num(h.valor)); });
+  var lo = Math.min.apply(null, pts), hi = Math.max.apply(null, pts);
   if(hi === lo) hi = lo + 1;
+  var pad = (hi - lo) * 0.10;
+  lo -= pad; hi += pad;
+  /* Los extremos se ajustan al paso para que el deslizador caiga en valores
+     redondos —55 %, no 55,3 %— y la escala se pueda leer de un vistazo. */
+  var bruto = hi - lo;
+  var paso = bruto > 60 ? 1 : bruto > 12 ? 0.5 : bruto > 3 ? 0.1 : 0.01;
+  var dec = paso >= 1 ? 0 : paso >= 0.1 ? 1 : 2;
+  lo = Number((Math.floor(lo / paso) * paso).toFixed(dec));
+  hi = Number((Math.ceil(hi / paso) * paso).toFixed(dec));
   var span = hi - lo;
   var pos = function(x){ return Math.max(0, Math.min(100, Math.round((x - lo) / span * 100))); };
-  return {pos:pos, lo:lo, hi:hi, valor:pos(v), disp:pos(disp), nore:pos(nore), meta:pos(meta)};
+  return {pos:pos, lo:lo, hi:hi, paso:paso,
+          valor:pos(num(s.valor)), disp:pos(num(s.disparador)),
+          nore:pos(num(s.noRetorno)), meta:pos(num(s.meta))};
 }
 
 /* Tendencia entre las dos últimas mediciones. */
@@ -661,6 +904,168 @@ function avisaATiempo(r){
   var pr = proyeccion(s);
   if(!pr) return null;
   return {cruce: pr.fecha, limite: pl.limite, tarde: pr.fecha > pl.limite};
+}
+
+/* =========================================================== GLOSARIO VIVO
+   El vocabulario del método no vive en un manual aparte: cada término es un
+   botón que se explica donde aparece, con el ejemplo del propio plan. */
+var GLOSARIO = {
+  senal:{t:"Señal", d:"Lo que se mide para saber si el plan sigue sirviendo. No es un indicador de informe: es el número que, al cruzar cierto valor, obliga a mover el plan.",
+    ej:"Ejemplo: «expedientes devueltos en la revisión administrativa»."},
+  disparador:{t:"Disparador", d:"El valor en que hay que EMPEZAR A PREPARAR la ruta alterna. No es el valor en que el plan falla: es el aviso anticipado, puesto a propósito antes, para que la ruta alcance a montarse.",
+    ej:"Si la ruta tarda 21 días en montarse, el disparador tiene que sonar más de 21 días antes."},
+  noretorno:{t:"Punto de no retorno", d:"El valor en que la estrategia actual ya dejó de servir. Llegar aquí sin la ruta alterna montada es quedarse sin salida.",
+    ej:"Entre el disparador y el no retorno está todo el margen de maniobra del plan."},
+  ruta:{t:"Ruta alterna", d:"A qué se cambia cuando la estrategia actual deja de servir. Se escribe hoy, con calma y por escrito, para no tener que improvisarla cuando ya no hay tiempo.",
+    ej:"Se arma sola: cuando su señal cruza el disparador pasa a «armada», y en el no retorno a «activada»."},
+  preparacion:{t:"Tiempo de preparación", d:"Cuánto tarda la ruta alterna en estar operando desde que se decide activarla. Es el dato que convierte una fecha de operación en una fecha de decisión.",
+    ej:"Conformar una comisión de calificación toma 45 días: eso adelanta la decisión mes y medio."},
+  limite:{t:"Fecha límite para decidir", d:"La fecha en que la ruta debe estar operando MENOS su tiempo de preparación. Es la fecha que de verdad manda, y la que se pasa sin que nadie se dé cuenta.",
+    ej:"Operar el 1 de diciembre con 45 días de preparación = decidir el 17 de octubre."},
+  cadencia:{t:"Cadencia", d:"Cada cuánto toca medir la señal. Una señal medida tarde avisa tarde, y una señal que avisa tarde no sirve para nada.",
+    ej:"La herramienta reclama sola las mediciones vencidas."},
+  ventana:{t:"Ventana de aviso", d:"El tiempo entre que la señal cruza el disparador y la fecha límite para decidir. Si sale negativo, la señal avisaría cuando ya no hay nada que hacer.",
+    ej:"Se arregla midiendo más seguido o adelantando el disparador."},
+  etapa:{t:"Etapa", d:"Un tramo del ciclo. No se recorren de corrido: se avanza cuando la etapa cerró, y al terminar la última el ciclo vuelve a empezar con lo aprendido.",
+    ej:"Cerrar una etapa deja su propia entrada en la bitácora."},
+  hito:{t:"Hito", d:"Una fecha comprometida del plan. Se anota la fecha real en cuanto ocurre y el desvío se calcula solo.",
+    ej:"El desvío acumulado es lo que mueve las fechas límite de decisión."}
+};
+function term(k, txt){
+  var g = GLOSARIO[k];
+  if(!g) return esc(txt||k);
+  return '<button class="term" data-term="'+k+'">'+esc(txt||g.t.toLowerCase())+'</button>';
+}
+
+/* ------------------------------------------------- relaciones señal ↔ ruta */
+function rutasDeSenal(sid){
+  return (P.rutas||[]).filter(function(r){ return r.senal === sid; });
+}
+
+/* La señal dicha como se la diría en voz alta, sin vocabulario técnico.
+   Es lo que hace que la tarjeta se entienda sin haber leído el método. */
+function frasSenal(s){
+  var est = estadoSenal(s), u = unidadTxt(s);
+  var sube = s.direccion === "menor";      /* empeora subiendo */
+  var haciaMal = sube ? "sube a" : "baja a";
+  var rs = rutasDeSenal(s.id);
+  var quien = rs.length ? "«"+esc(rs[0].nombre)+"»"
+            : "la "+term("ruta","ruta alterna")+" que se le enganche";
+  if(est === "espera")
+    return "Todavía no se evalúa: entra en medición el <b>"+fechaCorta(s.desde)+"</b>. "
+      + "Desde ahí, si "+haciaMal+" <b>"+esc(s.disparador)+esc(u)+"</b> habrá que empezar a preparar "+quien+".";
+  if(est === "ok")
+    return "Hoy va en <b>"+esc(valorTxt(s))+"</b>, en rumbo. Si "+haciaMal+" <b>"
+      + esc(s.disparador)+esc(u)+"</b> hay que empezar a preparar "+quien+"; en <b>"
+      + esc(s.noRetorno)+esc(u)+"</b> la estrategia actual ya no sirve.";
+  if(est === "alerta")
+    return "Ya cruzó el "+term("disparador")+" (<b>"+esc(s.disparador)+esc(u)+"</b>): toca empezar "
+      + "a preparar "+quien+" desde ahora. El "+term("noretorno","punto de no retorno")+" está en <b>"
+      + esc(s.noRetorno)+esc(u)+"</b>.";
+  return "Pasó el "+term("noretorno","punto de no retorno")+" (<b>"+esc(s.noRetorno)+esc(u)
+    + "</b>): la estrategia actual ya no sirve y hay que cambiar a "+quien+".";
+}
+
+/* ---------------------------------------------------------- simulación
+   Mover el valor sin registrarlo y ver qué se enciende. Es la vía más corta
+   para que el mecanismo de umbrales se entienda: se toca, no se lee. */
+function copiaSenal(s, v){
+  var c = {}; for(var k in s){ if(Object.prototype.hasOwnProperty.call(s,k)) c[k]=s[k]; }
+  c.valor = v; return c;
+}
+function consecuencia(s, v){
+  var antes = estadoSenal(s), ahora = estadoSenal(copiaSenal(s, v));
+  var u = unidadTxt(s);
+  var desde = "";
+  if(ahora === "espera"){
+    /* Aún no entra en medición, pero enseñar qué pasaría es justamente el
+       punto: los umbrales se entienden antes de que hagan falta. */
+    ahora = estadoSenal(copiaSenal({ nombre:s.nombre, direccion:s.direccion,
+      disparador:s.disparador, noRetorno:s.noRetorno, id:s.id }, v));
+    desde = "Desde el " + fechaCorta(s.desde) + ", ";
+  }
+  var rs = rutasDeSenal(s.id).filter(function(r){ return !r.manual; });
+  var destino = ahora==="critico" ? "activada" : ahora==="alerta" ? "armada" : "latente";
+  var cab = desde + "con <b>"+esc(v)+esc(u)+"</b>: "+nombreEstado(ahora).toLowerCase()+".";
+  cab = cab.charAt(0).toUpperCase() + cab.slice(1);
+  var cuerpo;
+  if(!rs.length){
+    cuerpo = ahora==="ok" ? " Ninguna ruta alterna lee esta señal todavía."
+      : " Ninguna ruta alterna lee esta señal, así que nadie se enteraría. Engancha una en Editar.";
+  }else{
+    cuerpo = " " + rs.map(function(r){
+      var pl = plazoRuta(r);
+      var t = "«"+esc(r.nombre)+"» pasa a <b>"+nombreRuta(destino).toLowerCase()+"</b>";
+      if(destino!=="latente" && pl)
+        t += " y montarla toma "+plural(pl.prep,"día","días")+", así que la decisión vence el "
+          + fechaCorta(pl.limite);
+      return t + ".";
+    }).join(" ");
+  }
+  var nota = (antes !== ahora && !desde)
+    ? '<span class="sim-nota">Es un cambio respecto de hoy ('+nombreEstado(antes).toLowerCase()
+      +'). Pulsa «Registrar» para dejarlo asentado con la fecha de hoy.</span>'
+    : '<span class="sim-nota">Mueve el control para ver en qué valor cambia el estado. '
+      + 'Nada se guarda hasta pulsar «Registrar».</span>';
+  return {cls:ahora, html:cab + cuerpo + nota};
+}
+
+/* ------------------------------------------------------- agenda de decisiones
+   Todas las rutas con plazo, ordenadas por lo que se vence primero. Es la
+   única pregunta que hay que poder responder al abrir la herramienta. */
+function decisiones(){
+  var out = [];
+  (P.rutas||[]).forEach(function(r){
+    var e = estadoRuta(r);
+    if(e.v === "descartada") return;
+    var pl = plazoRuta(r);
+    if(!pl || pl.restan === null) return;
+    out.push({r:r, pl:pl, est:e.v, senal: r.senal ? buscar("senales", r.senal) : null});
+  });
+  out.sort(function(a,b){ return a.pl.restan - b.pl.restan; });
+  return out;
+}
+function porMedir(){
+  return (P.senales||[]).filter(function(s){
+    if(estadoSenal(s) === "espera") return false;
+    var c = cadencia(s);
+    return c && c.vencida;
+  });
+}
+function fueraDeRumbo(){
+  return (P.senales||[]).filter(function(s){
+    var e = estadoSenal(s); return e === "alerta" || e === "critico";
+  });
+}
+
+/* ------------------------------------------------- rango y escala temporal */
+function rangoFechas(){
+  var f = [HOY];
+  (P.hitos||[]).forEach(function(h){
+    if(h.fechaPlan) f.push(h.fechaPlan);
+    if(h.fechaReal) f.push(h.fechaReal);
+  });
+  (P.rutas||[]).forEach(function(r){
+    if(!r.fechaLimite) return;
+    f.push(r.fechaLimite);
+    f.push(masDias(r.fechaLimite, -num(r.preparacionDias)));
+  });
+  (P.senales||[]).forEach(function(s){ if(s.desde) f.push(s.desde); });
+  f.sort();
+  var a = f[0], b = f[f.length-1];
+  if(dias(a,b) < 30) b = masDias(a, 30);
+  var margen = Math.max(6, Math.round(dias(a,b) * 0.05));
+  return {ini: masDias(a, -margen), fin: masDias(b, margen)};
+}
+function mesesEntre(ini, fin){
+  var out = [], y = Number(ini.slice(0,4)), m = Number(ini.slice(5,7));
+  for(var i=0; i<80; i++){
+    var iso = y + "-" + (m<10?"0":"") + m + "-01";
+    if(iso > fin) break;
+    if(iso >= ini) out.push({iso:iso, txt: MES[m-1] + (m===1 ? " " + y : "")});
+    m++; if(m>12){ m=1; y++; }
+  }
+  return out;
 }
 
 function proximoHito(){
@@ -842,15 +1247,34 @@ function render(){
   }
   cab.hidden = false;
   document.getElementById("cab-plan").textContent = P.nombre;
-  pintarRiel(); pintarPulso();
-  app.innerHTML = PANEL ? panelGeneral() : workspace(vistaActual());
+  pintarPestanas(); pintarRiel(); pintarPulso();
+  document.getElementById("riel").hidden = MODO !== "etapa";
+  app.innerHTML = MODO === "hoy"  ? vistaHoy()
+                : MODO === "mapa" ? panelGeneral()
+                : workspace(vistaActual());
   app.className = "env aparece";
   var be = document.getElementById("b-editar");
   be.setAttribute("aria-pressed", EDITANDO ? "true" : "false");
   be.textContent = EDITANDO ? "✓ Listo" : "Editar";
-  var bp = document.getElementById("b-panel");
-  bp.setAttribute("aria-pressed", PANEL ? "true" : "false");
+  be.hidden = MODO === "hoy";
   pintarChispas();
+}
+
+/* --------------------------------------------------------------- pestañas */
+function pintarPestanas(){
+  var d = decisiones(), fr = fueraDeRumbo().length, pm = porMedir().length;
+  var urgentes = d.filter(function(x){ return x.pl.tarde || x.pl.urge; }).length;
+  var pend = urgentes + fr + pm;
+  var tabs = [
+    ["hoy",   "Hoy",     pend, pend ? (d.some(function(x){return x.pl.tarde;}) || fueraDeRumbo().some(function(s){return estadoSenal(s)==="critico";}) ? "critico" : "alerta") : ""],
+    ["etapa", "Etapas",  0, ""],
+    ["mapa",  "Mapa",    0, ""]
+  ];
+  document.getElementById("pestanas").innerHTML = tabs.map(function(t){
+    return '<button class="pest" role="tab" data-modo="'+t[0]+'" aria-selected="'
+      + (MODO===t[0] ? "true" : "false") + '">' + esc(t[1])
+      + (t[2] ? '<span class="cont '+t[3]+'">'+t[2]+'</span>' : '') + '</button>';
+  }).join("");
 }
 
 /* -------------------------------------------------------- lista de planes */
@@ -862,10 +1286,14 @@ function pantallaPlanes(){
     + '<div><div class="eyebrow" style="font-size:10px;font-weight:700;letter-spacing:.13em;'
     + 'text-transform:uppercase;color:var(--azul)">Fondo de Áreas Protegidas · FIAS</div></div></div>'
     + '<h1>Planificador adaptativo</h1>'
-    + '<p class="lead">Planificación por rutas alternas: se define de antemano qué se mide, en qué '
-    + 'valor hay que cambiar de estrategia y cuánto tarda el cambio en montarse. La herramienta '
-    + 'avisa cuando toca decidir, no cuando ya es tarde. Los planes viven en este navegador y se '
-    + 'llevan de un lado a otro como archivos.</p>'
+    + '<p class="lead">Un plan a un año no falla de golpe: se va desviando, y cuando el desvío es '
+    + 'evidente ya no queda margen. Aquí se decide <b>de antemano</b> qué se mide, en qué valor hay '
+    + 'que cambiar de estrategia y cuánto tarda ese cambio en montarse. La herramienta avisa cuando '
+    + 'toca decidir, no cuando ya es tarde.</p>'
+    + '<div class="et-acc" style="margin-top:18px">'
+    + '<button class="btn" data-guia="0">Ver cómo funciona · 1 minuto</button>'
+    + '<span style="font-size:12.5px;color:var(--debil)">Los planes viven en este navegador y se '
+    + 'llevan de un lado a otro como archivos.</span></div>'
     + '<div class="planes">'
     + ids.map(function(k){
         var p = BD.planes[k];
@@ -895,7 +1323,7 @@ function pintarRiel(){
       + (P.senales||[]).filter(function(s){
         return (s.etapa||"")===e.id && estadoSenal(s)==="critico"; }).length;
     return '<button class="paso" data-ir="'+esc(e.id)+'" data-est="'+est+'"'
-      + (e.id===v && !PANEL ? ' aria-current="page"' : '') + '>'
+      + (e.id===v && MODO==="etapa" ? ' aria-current="page"' : '') + '>'
       + (señal ? '<i class="aguja"></i>' : '')
       + '<span class="pn">'+esc(e.n || "Etapa")+(est==="cerrada"?" ✓":"")+'</span>'
       + '<span class="pnom">'+esc(e.nom)+'</span></button>';
@@ -926,23 +1354,234 @@ function pintarPulso(){
   });
 
   document.getElementById("pulso").innerHTML =
-      item(ph ? Math.abs(d)+" d" : "—", d===null ? "" : d<0?"critico":d<=7?"alerta":"ok",
-           ph ? (d<0 ? "de atraso · " : "para · ")+esc(ph.nombre) : "sin hitos pendientes")
-    + item(prox ? Math.abs(prox.pl.restan)+" d" : "—",
+      item(prox ? Math.abs(prox.pl.restan)+" d" : "—",
            !prox ? "" : prox.pl.tarde ? "critico" : prox.pl.restan<=21 ? "alerta" : "ok",
            prox ? (prox.pl.restan<0 ? "vencido para decidir · " : "para decidir · ")
-                  +esc(prox.r.nombre) : "sin plazos de decisión")
+                  +esc(prox.r.nombre) : "sin plazos de decisión", "hoy")
     + item(fuera, fuera===0?"ok":fuera<=2?"alerta":"critico",
-           fuera===1?"señal fuera de rumbo":"señales fuera de rumbo")
-    + item(armadas, armadas===0?"ok":"alerta",
-           armadas===1?"ruta armada":"rutas armadas")
+           fuera===1?"señal fuera de rumbo":"señales fuera de rumbo", "hoy")
     + item(vencidas, vencidas===0?"ok":"alerta",
-           vencidas===1?"señal sin medir":"señales sin medir")
-    + item(hechos+"/"+(P.hitos||[]).length, "", "hitos cumplidos");
+           vencidas===1?"señal sin medir":"señales sin medir", "hoy")
+    + item(armadas, armadas===0?"ok":"alerta",
+           armadas===1?"ruta armada":"rutas armadas", "mapa")
+    + item(ph ? Math.abs(d)+" d" : "—", d===null ? "" : d<0?"critico":d<=7?"alerta":"ok",
+           ph ? (d<0 ? "de atraso · " : "para · ")+esc(ph.nombre) : "sin hitos pendientes", "mapa")
+    + item(hechos+"/"+(P.hitos||[]).length, "", "hitos cumplidos", "mapa");
 
-  function item(v, cls, txt){
-    return '<div class="pulso-i"><b class="'+cls+'">'+esc(v)+'</b><span>'+txt+'</span></div>';
+  function item(v, cls, txt, destino){
+    return '<button class="pulso-i pulsable" data-modo="'+destino+'" title="Ir a '
+      + (destino==="hoy" ? "Hoy" : "Mapa") + '"><b class="'+cls+'">'+esc(v)+'</b>'
+      + '<span>'+txt+'</span></button>';
   }
+}
+
+/* ============================================================== VISTA HOY
+   La pantalla de entrada. Responde una sola pregunta, que es la que la
+   herramienta existe para responder: qué pide el plan hoy y qué se vence
+   primero. Todo lo demás —el detalle por etapa, el mapa— es opcional. */
+function vistaHoy(){
+  var d = decisiones(), med = porMedir(), fr = fueraDeRumbo();
+  var hay = d.length || med.length || fr.length;
+
+  var s = '<div class="hoy-cab">'
+    + '<div class="hoy-fecha">Hoy · '+fechaCorta(HOY)+'</div>'
+    + '<h1>Qué pide el plan hoy</h1>'
+    + '<p class="lead">Ordenado por lo que se vence primero. De cada decisión importa una sola cosa: '
+    + 'si todavía queda margen para que su '+term("ruta","ruta alterna")+' alcance a montarse.</p>'
+    + '</div>';
+
+  s += avisos("");
+
+  /* ---- las decisiones, que es lo que de verdad se pasa sin darse cuenta */
+  if(d.length){
+    var apremian = d.filter(function(x){ return x.pl.tarde || x.pl.urge; }).length;
+    s += '<section><div class="sec-cab"><h2>Decisiones con fecha</h2>'
+      + '<span class="cuenta">'+(apremian ? apremian+' apremian de '+d.length : d.length+' en cola')
+      + '</span></div>'
+      + '<p class="sub">La '+term("limite","fecha límite para decidir")+' es la fecha en que la ruta '
+      + 'debe estar operando menos su '+term("preparacion","tiempo de preparación")+'. La barra muestra '
+      + 'las dos piezas: el margen que queda y el bloque de preparación que ya no se puede comprimir.</p>'
+      + '<div class="dec-lista">' + d.map(tarjetaDecision).join("") + '</div></section>';
+  }
+
+  /* ---- lo que hay que medir, con el registro en la misma línea */
+  if(med.length){
+    s += '<section><div class="sec-cab"><h2>Mediciones vencidas</h2>'
+      + '<span class="cuenta">'+plural(med.length,"señal","señales")+'</span></div>'
+      + '<p class="sub">Cada señal declara su '+term("cadencia")+'. Estas llevan más tiempo del '
+      + 'acordado sin medirse, y una señal medida tarde avisa tarde. Escribe el valor y registra: '
+      + 'todo lo demás se recalcula solo.</p><div class="medir">'
+      + med.map(function(x){
+          var c = cadencia(x);
+          return '<div class="medir-f"><span class="mn">'+esc(x.nombre)
+            + '<small>cada '+plural(num(x.cadencia),"día","días")+' · '+esc(c.txt)+'</small></span>'
+            + '<input type="number" step="any" id="mh-'+esc(x.id)+'" value="'+esc(x.valor)+'" '
+            + 'aria-label="Medición de '+esc(x.nombre)+'">'
+            + '<button class="btn mini sec" data-registrar="'+esc(x.id)+'" data-campo-med="mh-'+esc(x.id)+'">Registrar</button>'
+            + '<button class="enlace" data-versenal="'+esc(x.id)+'">Ver la señal</button></div>';
+        }).join("")
+      + '</div></section>';
+  }
+
+  /* ---- las señales que ya se movieron */
+  if(fr.length){
+    s += '<section><div class="sec-cab"><h2>Señales fuera de rumbo</h2>'
+      + '<span class="cuenta">'+plural(fr.length,"señal","señales")+'</span></div>'
+      + '<p class="sub">Cruzaron su '+term("disparador")+'. Mueve el control de cada una para ver '
+      + 'qué ruta se enciende en cada valor.</p>'
+      + '<div class="senales">' + fr.map(tarjetaSenal).join("") + '</div></section>';
+  }
+
+  if(!hay){
+    s += '<div class="hoy-vacio">Nada pendiente hoy: ninguna señal cruzó su disparador, ninguna '
+      + 'medición está vencida y ninguna decisión apremia. Es el estado normal de un plan que '
+      + 'todavía sirve.</div>';
+  }
+
+  /* ---- el plan entero dibujado en el tiempo */
+  s += '<section><div class="sec-cab"><h2>El plan en el tiempo</h2></div>'
+    + '<p class="sub">Los rombos son fechas de decisión, el rayado es el tiempo que toma montar '
+    + 'cada ruta y la barra negra es la fecha en que tiene que estar operando. Todo lo que quede '
+    + 'a la izquierda de la línea azul ya pasó.</p>'
+    + lineaTiempo() + '</section>';
+  return s;
+}
+
+/* Una decisión, con el carril que hace visible el método: se ve el bloque de
+   preparación comiéndose el margen antes de la fecha de operación. */
+function tarjetaDecision(x){
+  var r = x.r, pl = x.pl;
+  var cls = pl.tarde ? "tarde" : pl.urge ? "urge" : "calma";
+  var etiq = pl.tarde ? "de retraso para decidir"
+           : pl.restan === 0 ? "la decisión es hoy" : "para decidir";
+  var e = estadoRuta(r);
+  var accion = String(r.accion||"");
+  if(accion.length > 190) accion = accion.slice(0,190).replace(/\s+\S*$/,"") + "…";
+
+  var s = '<article class="dec '+cls+'">'
+    + '<div class="dec-cab"><span class="dec-dias">'+Math.abs(pl.restan)+' d</span>'
+    + '<span class="dec-que">'+etiq+'</span>'
+    + '<span class="chip '+chipRuta(e.v)+'" style="margin-left:auto">'+nombreRuta(e.v)+'</span></div>'
+    + '<p class="dec-nom">'+esc(r.nombre)+'</p>'
+    + (r.condicion ? '<p class="dec-frase"><b>Se dispara si</b> · '+esc(r.condicion)+'</p>' : '')
+    + (accion ? '<p class="dec-frase"><b>Se cambia a</b> · '+esc(accion)+'</p>' : '')
+    + carril(pl, cls);
+
+  /* qué señal la está leyendo, con su posición contra el disparador */
+  if(x.senal){
+    var sn = x.senal, ec = escalaSenal(sn), est = estadoSenal(sn);
+    s += '<div class="lector-b"><span class="quien">Se arma leyendo <b>'+esc(sn.nombre)+'</b></span>'
+      + '<span class="mini-esc"><i class="'+est+'" style="width:'+ec.valor+'%"></i>'
+      + '<u style="left:calc('+ec.disp+'% - 1px)"></u></span>'
+      + '<span style="white-space:nowrap"><b>'+esc(valorTxt(sn))+'</b> · '+term("disparador")+' '
+      + esc(sn.disparador)+esc(unidadTxt(sn))+'</span></div>';
+  }else{
+    s += '<div class="lector-b"><span class="quien">No lee ninguna '+term("senal","señal")
+      + ': su estado se fija a mano.</span></div>';
+  }
+
+  s += '<div class="dec-pie"><button class="enlace" data-ir="'+esc(r.etapa)+'">Abrir en '
+    + esc((etapaObj(P, r.etapa)||{}).nom || "su etapa") + ' →</button></div></article>';
+  return s;
+}
+
+/* El carril de una decisión: hoy → decidir → operando, a escala. */
+function carril(pl, cls){
+  var total = dias(HOY, pl.operando);
+  var prep = Math.max(0, pl.prep);
+  var pies = '<div class="carril-pies">'
+    + '<span><b>Hoy</b>'+fechaCorta(HOY)+'</span>'
+    + '<span><b>Decidir</b>'+fechaCorta(pl.limite)+'</span>'
+    + '<span><b>Operando</b>'+fechaCorta(pl.operando)+'</span></div>';
+
+  if(total <= 0){
+    return '<div class="carril"><div class="carril-b">'
+      + '<div class="prep" style="width:100%">la fecha de operación ya pasó</div></div>'
+      + pies + '</div>';
+  }
+  if(pl.restan < 0){
+    return '<div class="carril"><div class="carril-b">'
+      + '<div class="prep" style="width:100%">quedan '+plural(total,"día","días")
+      + ' y montarla toma '+plural(prep,"día","días")+': ya no entra</div></div>'
+      + pies + '</div>';
+  }
+  var wm = Math.round(pl.restan / total * 100);
+  return '<div class="carril"><div class="carril-b">'
+    + '<div class="margen" style="width:'+wm+'%">'
+    + (wm > 16 ? 'margen · '+plural(pl.restan,"día","días") : '') + '</div>'
+    + '<div class="prep" style="width:'+(100-wm)+'%">'
+    + (100-wm > 16 ? 'preparación · '+plural(prep,"día","días") : '') + '</div></div>'
+    + pies + '</div>';
+}
+
+/* ======================================================= LÍNEA DE TIEMPO
+   El plan entero a escala. Es lo que un Excel no puede dar: ver de un
+   vistazo si los bloques de preparación caben antes de sus fechas. */
+function lineaTiempo(){
+  var r = rangoFechas(), span = dias(r.ini, r.fin);
+  if(!span || span <= 0) return '<div class="vacio">Todavía no hay fechas que dibujar.</div>';
+  function px(iso){ return Math.max(0, Math.min(100, dias(r.ini, iso) / span * 100)); }
+
+  var capa = '<div class="lt-capa">'
+    + mesesEntre(r.ini, r.fin).map(function(m){
+        return '<i class="lt-mes" style="left:'+px(m.iso).toFixed(2)+'%"><span>'+esc(m.txt)+'</span></i>';
+      }).join("")
+    + '<i class="lt-hoy" style="left:'+px(HOY).toFixed(2)+'%"><span>hoy</span></i></div>';
+
+  var rutas = (P.rutas||[]).filter(function(x){ return x.fechaLimite; })
+    .slice().sort(function(a,b){
+      return String(masDias(a.fechaLimite,-num(a.preparacionDias)))
+        .localeCompare(String(masDias(b.fechaLimite,-num(b.preparacionDias)))); });
+
+  var filas = "";
+  if(rutas.length){
+    filas += '<div class="lt-tit"><span>Rutas alternas</span><span>Preparación y fecha de decisión</span></div>';
+    filas += rutas.map(function(x){
+      var pl = plazoRuta(x), a = px(pl.limite), b = px(pl.operando);
+      var cls = pl.tarde ? "tarde" : pl.urge ? "urge" : "";
+      return '<div class="lt-f"><div class="lt-et"><button data-ir="'+esc(x.etapa)+'" '
+        + 'title="'+esc(x.nombre)+'">'+esc(x.nombre)+'</button></div>'
+        + '<div class="lt-p">'
+        + '<i class="lt-barra '+(pl.tarde?"tarde":"")+'" style="left:'+a.toFixed(2)+'%;width:'
+        + Math.max(0.4, b-a).toFixed(2)+'%" title="Montarla toma '+plural(pl.prep,"día","días")+'"></i>'
+        + '<i class="lt-m '+cls+'" style="left:'+a.toFixed(2)+'%" title="Decidir el '
+        + fechaCorta(pl.limite)+'"></i>'
+        + '<i class="lt-bandera" style="left:'+b.toFixed(2)+'%" title="Debe estar operando el '
+        + fechaCorta(pl.operando)+'"></i></div></div>';
+    }).join("");
+  }
+
+  var hitos = (P.hitos||[]).filter(function(h){ return h.fechaPlan || h.fechaReal; });
+  if(hitos.length){
+    filas += '<div class="lt-tit"><span>Hitos</span><span>Planificado y real</span></div>';
+    filas += hitos.map(function(h){
+      var f = h.fechaReal || h.fechaPlan;
+      var dv = dias(h.fechaPlan, h.fechaReal);
+      var cls = h.fechaReal ? (dv<=0 ? "hecho" : dv<=7 ? "urge" : "tarde") : "hueco";
+      var tit = h.fechaReal
+        ? "Cumplido el "+fechaCorta(h.fechaReal)+(dv>0?" · "+dv+" d de desvío":" · en fecha")
+        : "Planificado para el "+fechaCorta(h.fechaPlan)+" · pendiente";
+      return '<div class="lt-f"><div class="lt-et"><button data-ir="'+esc(h.etapa)+'" '
+        + 'title="'+esc(h.nombre)+'">'+esc(h.nombre)+'</button></div>'
+        + '<div class="lt-p">'
+        + (h.fechaReal && h.fechaPlan && h.fechaReal !== h.fechaPlan
+          ? '<i class="lt-barra" style="left:'+Math.min(px(h.fechaPlan),px(h.fechaReal)).toFixed(2)
+            + '%;width:'+Math.abs(px(h.fechaReal)-px(h.fechaPlan)).toFixed(2)+'%"></i>' : '')
+        + '<i class="lt-m punto '+cls+'" style="left:'+px(f).toFixed(2)+'%" title="'+esc(tit)+'"></i>'
+        + '</div></div>';
+    }).join("");
+  }
+
+  if(!filas) return '<div class="vacio">Todavía no hay rutas ni hitos con fecha.</div>';
+
+  return '<div class="lt-caja"><div class="lt">' + capa
+    + '<div class="lt-filas">' + filas + '</div></div>'
+    + '<div class="lt-leyenda">'
+    + '<span><i class="d"></i>fecha límite para decidir</span>'
+    + '<span><i class="h"></i>tiempo de preparación</span>'
+    + '<span><i class="b"></i>debe estar operando</span>'
+    + '<span><i class="p"></i>hito</span></div>'
+    + '</div>';
 }
 
 /* ------------------------------------------------------------- workspace */
@@ -1045,8 +1684,10 @@ function secSenales(eid){
     + (esp ? ok+" en rumbo · "+esp+" sin evaluar aún" : ok+" de "+lista.length+" en rumbo")
     + '</span></div>'
     + '<p class="sub">Lo que se mide para saber si el plan sigue sirviendo. Cada señal lleva su '
-    + 'disparador —el valor en que hay que empezar a preparar la ruta alterna— y su punto de no '
-    + 'retorno. Registra una medición y todo lo demás se recalcula.</p>'
+    + term("disparador")+' —el valor en que hay que empezar a preparar la '+term("ruta","ruta alterna")
+    + '— y su '+term("noretorno","punto de no retorno")+'. Mueve el control de una tarjeta para ver '
+    + 'qué se enciende en cada valor; registra la medición, con la '+term("cadencia")+' que declare, '
+    + 'y todo lo demás se recalcula.</p>'
     + (lista.length ? grupos.map(function(g){
         return '<h3 class="grupo">'+esc(g)+'</h3><div class="senales">'
           + vistos[g].map(tarjetaSenal).join("") + '</div>';
@@ -1058,6 +1699,7 @@ function secSenales(eid){
 function tarjetaSenal(s){
   var est = estadoSenal(s), ec = escalaSenal(s), t = tendencia(s), c = cadencia(s), pr = proyeccion(s);
   var menor = s.direccion === "menor";
+  var rs = rutasDeSenal(s.id), cons = consecuencia(s, num(s.valor));
   return '<article class="sen '+est+'" id="sc-'+esc(s.id)+'">'
     + '<div class="sen-cab"><div class="sen-nom">'+esc(s.nombre)+'</div>'
     + '<span class="chip '+est+'">'+nombreEstado(est)+'</span></div>'
@@ -1068,22 +1710,33 @@ function tarjetaSenal(s){
     + '<div class="escala"><i class="'+est+'" style="width:'+ec.valor+'%"></i>'
     + '<u class="disp" style="left:calc('+ec.disp+'% - 1px)" title="Disparador"></u>'
     + '<u class="nore" style="left:calc('+ec.nore+'% - 1px)" title="Punto de no retorno"></u></div>'
-    + '<div class="escala-pie"><span>disparador '+esc(s.disparador)+esc(unidadTxt(s))+'</span>'
-    + '<span>no retorno '+esc(s.noRetorno)+esc(unidadTxt(s))+'</span></div>'
+    + '<div class="escala-pie"><span>'+term("disparador")+' '+esc(s.disparador)+esc(unidadTxt(s))+'</span>'
+    + '<span>'+term("noretorno","no retorno")+' '+esc(s.noRetorno)+esc(unidadTxt(s))+'</span></div>'
     + ((s.historial||[]).length>1
       ? '<svg class="chispa" data-chispa="'+esc(s.id)+'" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"></svg>'
       : '')
+    + '<p class="sen-dice">'+frasSenal(s)+'</p>'
+    + (rs.length
+      ? '<div class="sen-rutas">' + rs.map(function(r){
+          return '<button class="rlink" data-verruta="'+esc(r.id)+'" title="Ir a «'+esc(r.nombre)+'»">'
+            + (r.manual ? "↦ " : "⇢ ") + esc(r.nombre) + '</button>'; }).join("") + '</div>'
+      : '')
     + '<div class="sen-nota">'
-    + (est==="espera" ? "Se evalúa contra los umbrales desde el "+fechaCorta(s.desde)+". " : "")
     + esc(s.nota||"")
     + (pr ? ' <b style="color:var(--alerta)">A este ritmo cruza el disparador el '
             + fechaCorta(pr.fecha)+'.</b>' : '')
     + '</div>'
-    + '<div class="sen-pie"><label for="mv-'+esc(s.id)+'">Medición</label>'
-    + '<input type="number" step="any" id="mv-'+esc(s.id)+'" value="'+esc(s.valor)+'" data-med="'+esc(s.id)+'">'
+    /* El simulador: mover el valor y ver qué se enciende. No guarda nada
+       hasta pulsar Registrar; es para entender, no para maquillar. */
+    + '<div class="sim"><div class="sim-l">'
+    + '<label for="mv-'+esc(s.id)+'">Medición</label>'
+    + '<input type="range" class="sim-r" data-sim="'+esc(s.id)+'" min="'+ec.lo+'" max="'+ec.hi+'" '
+    + 'step="'+ec.paso+'" value="'+esc(s.valor)+'" aria-label="Simular el valor de '+esc(s.nombre)+'">'
+    + '<input type="number" step="any" id="mv-'+esc(s.id)+'" value="'+esc(s.valor)+'" data-sim-n="'+esc(s.id)+'">'
     + '<button class="btn mini sec" data-registrar="'+esc(s.id)+'">Registrar</button>'
     + (c ? '<span class="cadencia'+(c.vencida?" vencida":"")+'">'+esc(c.txt)+'</span>' : '')
     + '</div>'
+    + '<div class="sim-dice '+cons.cls+'" id="sd-'+esc(s.id)+'">'+cons.html+'</div></div>'
     + (EDITANDO ? panelSenal(s) : "")
     + '</article>';
 }
@@ -1149,8 +1802,9 @@ function secRutas(eid){
   return '<section><div class="sec-cab"><h2>Rutas alternas</h2>'
     + '<span class="cuenta">'+act+' de '+lista.length+' activas</span></div>'
     + '<p class="sub">A qué se cambia cuando la estrategia actual deja de servir, y cuánto tarda '
-    + 'ese cambio en montarse. El tiempo de preparación es lo que fija la fecha límite para decidir: '
-    + 'siempre es anterior a la fecha en que la ruta debe estar operando.</p>'
+    + 'ese cambio en montarse. El '+term("preparacion","tiempo de preparación")+' es lo que fija la '
+    + term("limite","fecha límite para decidir")+': siempre es anterior a la fecha en que la ruta '
+    + 'debe estar operando.</p>'
     + (lista.length ? '<div class="rutas">' + lista.map(tarjetaRuta).join("") + '</div>'
                     : '<div class="vacio">Esta etapa todavía no tiene rutas alternas.</div>')
     + (EDITANDO ? '<button class="btn-add" data-nuevo="rutas" data-etapa="'+esc(eid)+'">+ Agregar ruta</button>' : '')
@@ -1159,26 +1813,29 @@ function secRutas(eid){
 
 function tarjetaRuta(r){
   var e = estadoRuta(r), pl = plazoRuta(r), at = avisaATiempo(r);
-  return '<article class="ruta '+e.v+'">'
+  return '<article class="ruta '+e.v+'" id="rc-'+esc(r.id)+'">'
     + '<div class="ruta-cab"><div class="ruta-nom">'+esc(r.nombre)+'</div>'
     + '<span class="chip '+chipRuta(e.v)+'">'+nombreRuta(e.v)+'</span></div>'
     + '<div class="ruta-cuerpo">'
     + '<div class="si"><div class="rot">Si se cruza el disparador</div><p>'+esc(r.condicion)+'</p></div>'
     + '<div><div class="rot">Entonces se cambia a</div><p>'+esc(r.accion)+'</p></div></div>'
-    + (pl ? '<dl class="plazo">'
+    + (pl ? carril(pl, pl.tarde?"tarde":pl.urge?"urge":"calma") + '<dl class="plazo">'
         + '<dt>Debe estar operando</dt><dd>'+fechaCorta(pl.operando)+'</dd>'
-        + '<dt>Montarla toma</dt><dd>'+plural(pl.prep,"día","días")+'</dd>'
-        + '<dt>Fecha límite para decidir</dt><dd class="'+(pl.tarde?"tarde":pl.urge?"urge":"")+'">'
+        + '<dt>'+term("preparacion","Montarla toma")+'</dt><dd>'+plural(pl.prep,"día","días")+'</dd>'
+        + '<dt>'+term("limite","Fecha límite para decidir")+'</dt>'
+        + '<dd class="'+(pl.tarde?"tarde":pl.urge?"urge":"")+'">'
         + fechaCorta(pl.limite)
         + (pl.restan!==null ? ' · '+(pl.restan<0 ? "vencida hace "+plural(-pl.restan,"día","días")
                                                  : "faltan "+plural(pl.restan,"día","días")) : '')
         + '</dd>'
-        + (at ? '<dt>Aviso proyectado</dt><dd class="'+(at.tarde?"tarde":"")+'">'
+        + (at ? '<dt>'+term("ventana","Aviso proyectado")+'</dt>'
+                + '<dd class="'+(at.tarde?"tarde":"")+'">'
                 + fechaCorta(at.cruce)+(at.tarde?" — llegaría tarde":" — a tiempo")+'</dd>' : '')
         + '</dl>' : '')
     + '<div class="ruta-pie">'
     + (e.auto
       ? '<span class="lector">'+e.lectura+'</span>'
+        + '<button class="enlace" data-versenal="'+esc(r.senal)+'">Ver la señal</button>'
         + '<button class="enlace" data-manual="'+esc(r.id)+'" style="margin-left:auto">Fijar a mano</button>'
       : '<label for="re-'+esc(r.id)+'">Estado</label>'
         + '<select id="re-'+esc(r.id)+'" data-col="rutas" data-id="'+esc(r.id)+'" data-campo="estado">'
@@ -1220,8 +1877,8 @@ function secHitos(eid){
   var hechos = lista.filter(function(h){ return !!h.fechaReal; }).length;
   return '<section><div class="sec-cab"><h2>Hitos</h2>'
     + '<span class="cuenta">'+hechos+' de '+lista.length+' cumplidos</span></div>'
-    + '<p class="sub">Escribe la fecha real en cuanto ocurra: el desvío y el pulso de arriba se '
-    + 'recalculan al instante.</p>'
+    + '<p class="sub">Cada '+term("hito")+' es una fecha comprometida. Escribe la fecha real en '
+    + 'cuanto ocurra: el desvío y el pulso de arriba se recalculan al instante.</p>'
     + (lista.length
       ? '<div class="tabla-caja"><table><thead><tr><th>Hito</th><th>Planificado</th><th>Real</th>'
         + '<th>Desvío</th>' + (EDITANDO?'<th></th>':'') + '</tr></thead><tbody>'
@@ -1272,11 +1929,18 @@ function secBitacora(){
 
 /* ----------------------------------------------------------- panel general */
 function panelGeneral(){
-  var s = '<div class="et-cab"><h1>Panel general</h1>'
-    + '<p class="lead">Todo el plan de un vistazo: en qué está cada señal, qué rutas se movieron y '
-    + 'qué decisiones tienen fecha. Para leer una etapa completa, pulsa su nombre en el riel.</p></div>';
+  var s = '<div class="et-cab"><h1>Mapa del plan</h1>'
+    + '<p class="lead">Todo el plan de un vistazo: cuándo vence cada decisión, en qué está cada '
+    + 'señal y qué rutas se movieron. Pulsa cualquier nombre para abrir su etapa.</p></div>';
   s += avisos("");
-  s += '<section><div class="sec-cab"><h2>Estado por etapa</h2></div><div class="panel-g">'
+  s += '<section><div class="sec-cab"><h2>El plan en el tiempo</h2></div>'
+    + '<p class="sub">Cada rombo es una '+term("limite","fecha límite para decidir")+'; el rayado a '
+    + 'su derecha es el '+term("preparacion","tiempo de preparación")+' que ya no se puede comprimir, '
+    + 'y la barra negra la fecha en que la ruta tiene que estar operando.</p>'
+    + lineaTiempo() + '</section>';
+  s += '<section><div class="sec-cab"><h2>Estado por etapa</h2></div>'
+    + '<p class="sub">Cada '+term("etapa")+' con lo suyo: sus señales con el último valor, sus rutas '
+    + 'con el estado en que quedaron y sus hitos con la fecha que cuenta.</p><div class="panel-g">'
     + etapasDe(P).map(function(e){
         var ss = (P.senales||[]).filter(function(x){ return x.etapa===e.id; });
         var rr = (P.rutas||[]).filter(function(x){ return x.etapa===e.id; });
@@ -1303,7 +1967,9 @@ function panelGeneral(){
               + '<span class="pv" style="font-size:11px;color:var(--tenue)">'
               + fechaCorta(x.fechaReal||x.fechaPlan)+'</span></div>';
           }).join("");
-        return '<div class="pcol"><h4>'+esc(e.n?e.n+" · ":"")+esc(e.nom)
+        return '<div class="pcol"><h4><button class="enlace" data-ir="'+esc(e.id)+'" '
+          + 'style="font:inherit;color:inherit;text-decoration:none">'
+          + esc(e.n?e.n+" · ":"")+esc(e.nom)+'</button>'
           + ' <span class="estampa '+est+'" style="margin-left:4px">'
           + (est==="cerrada"?"cerrada":est==="curso"?"actual":"pendiente")+'</span></h4>'
           + (cuerpo || '<div class="plinea" style="color:var(--debil)">Sin elementos.</div>')
@@ -1353,13 +2019,13 @@ function nuevoDe(col, etapa){
 }
 
 function irA(eid){
-  VISTA = eid; PANEL = false;
+  VISTA = eid; MODO = "etapa";
   render();
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
 function abrirPlan(k){
-  P = BD.planes[k]; BD.activo = k; VISTA = null; PANEL = false; EDITANDO = false;
+  P = BD.planes[k]; BD.activo = k; VISTA = null; MODO = "hoy"; EDITANDO = false;
   if(!P.textos) P.textos = {};
   ordenar(); guardar(); render();
   window.scrollTo({top:0});
@@ -1369,12 +2035,26 @@ document.addEventListener("click", function(ev){
   var el = ev.target.closest(
     "[data-abrir],[data-nuevoplan],[data-importar],[data-ir],[data-actual],[data-cerrar],"
     + "[data-borrar],[data-nuevo],[data-manual],[data-auto],[data-registrar],[data-cmd],"
-    + "[data-metodo],#add-nota");
-  if(!el) return;
+    + "[data-metodo],[data-modo],[data-term],[data-versenal],[data-verruta],[data-guia],"
+    + "#add-nota");
+  if(!el){ cerrarGlosa(); return; }
+
+  if(el.hasAttribute("data-term")){
+    var k = el.getAttribute("data-term");
+    if(glosaAbierta && glosaAbierta.dataset.k === k) return cerrarGlosa();
+    abrirGlosa(el, k);
+    if(glosaAbierta) glosaAbierta.dataset.k = k;
+    return;
+  }
+  cerrarGlosa();
 
   if(el.hasAttribute("data-abrir"))     return abrirPlan(el.getAttribute("data-abrir"));
   if(el.hasAttribute("data-nuevoplan")) return modalNuevoPlan();
   if(el.hasAttribute("data-importar"))  return importar();
+  if(el.hasAttribute("data-guia"))      return modalGuia(num(el.getAttribute("data-guia")));
+  if(el.hasAttribute("data-modo"))      return irModo(el.getAttribute("data-modo"));
+  if(el.hasAttribute("data-versenal"))  return verElemento("senales", el.getAttribute("data-versenal"));
+  if(el.hasAttribute("data-verruta"))   return verElemento("rutas", el.getAttribute("data-verruta"));
   if(el.hasAttribute("data-ir"))        return irA(el.getAttribute("data-ir"));
   if(el.hasAttribute("data-cmd"))       return comando(el.getAttribute("data-cmd"));
 
@@ -1414,7 +2094,7 @@ document.addEventListener("click", function(ev){
   if(el.hasAttribute("data-registrar")){
     var s = buscar("senales", el.getAttribute("data-registrar"));
     if(!s) return;
-    var inp = document.getElementById("mv-"+s.id);
+    var inp = document.getElementById(el.getAttribute("data-campo-med") || ("mv-"+s.id));
     var v = num(inp ? inp.value : s.valor);
     s.valor = v;
     s.historial = s.historial || [];
@@ -1474,6 +2154,8 @@ function aplicar(el){
 document.addEventListener("input", function(ev){
   var el = ev.target;
   if(!el.getAttribute) return;
+  var sim = el.getAttribute("data-sim") || el.getAttribute("data-sim-n");
+  if(sim) return previsualizar(sim, num(el.value));
   if(!el.getAttribute("data-col") && !el.getAttribute("data-txt")) return;
   if(!aplicar(el)) return;
   if(el.getAttribute("data-col")) { pintarPulso(); pintarRiel(); }
@@ -1494,10 +2176,233 @@ document.addEventListener("change", function(ev){
 document.getElementById("b-editar").addEventListener("click", function(){
   EDITANDO = !EDITANDO; render();
 });
-document.getElementById("b-panel").addEventListener("click", function(){
-  PANEL = !PANEL; render(); window.scrollTo({top:0, behavior:"smooth"});
-});
+document.getElementById("b-guia").addEventListener("click", function(){ modalGuia(0); });
+function irModo(m){
+  if(MODO === m && m !== "etapa") return;
+  MODO = m;
+  if(m === "etapa" && !VISTA) VISTA = P.etapaActual || etapasDe(P)[0].id;
+  render();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
 document.getElementById("b-menu").addEventListener("click", modalPlan);
+
+
+/* =================================================== NUEVO · glosario vivo
+   Un término se explica donde aparece. Se cierra solo al pulsar fuera, con
+   Escape o al hacer scroll: no interrumpe la lectura. */
+var glosaAbierta = null, glosaDesde = 0;
+function cerrarGlosa(){
+  if(!glosaAbierta) return;
+  glosaAbierta.remove(); glosaAbierta = null;
+}
+function abrirGlosa(btn, k){
+  cerrarGlosa();
+  var g = GLOSARIO[k]; if(!g) return;
+  var d = document.createElement("div");
+  d.className = "glosa"; d.setAttribute("role","tooltip");
+  d.innerHTML = '<b>'+esc(g.t)+'</b>'+esc(g.d)
+    + (g.ej ? '<span class="ej">'+esc(g.ej)+'</span>' : '');
+  document.body.appendChild(d);
+  var r = btn.getBoundingClientRect(), c = d.getBoundingClientRect();
+  var x = Math.min(Math.max(10, r.left), window.innerWidth - c.width - 10);
+  var y = r.bottom + 9;
+  if(y + c.height > window.innerHeight - 10) y = Math.max(10, r.top - c.height - 9);
+  d.style.left = x + "px"; d.style.top = y + "px";
+  glosaAbierta = d;
+  glosaDesde = window.scrollY;
+}
+/* Solo se cierra con un desplazamiento de verdad: pulsar un término que
+   está al borde de la pantalla la desplaza sola, y eso no debe cerrarla. */
+window.addEventListener("scroll", function(){
+  if(glosaAbierta && Math.abs(window.scrollY - glosaDesde) > 60) cerrarGlosa();
+}, {passive:true});
+window.addEventListener("resize", cerrarGlosa);
+
+/* ------------------------------------------------ llevar a un elemento
+   Los enlaces señal ↔ ruta abren la etapa que corresponda y dejan la
+   tarjeta señalada un segundo, para no perderla de vista. */
+function destacar(n){
+  n.style.transition = "box-shadow .3s";
+  n.style.boxShadow = "0 0 0 3px var(--azul-claro), 0 0 0 5px var(--azul)";
+  setTimeout(function(){ n.style.boxShadow = ""; }, 1600);
+}
+function verElemento(col, i){
+  var o = buscar(col, i);
+  if(!o) return;
+  MODO = "etapa";
+  VISTA = o.etapa || vistaActual();
+  render();
+  setTimeout(function(){
+    var n = document.getElementById((col === "senales" ? "sc-" : "rc-") + i);
+    if(!n) return;
+    n.scrollIntoView({behavior:"smooth", block:"center"});
+    destacar(n);
+  }, 70);
+}
+
+/* ------------------------------------------------------- el simulador
+   Mueve el valor en pantalla sin tocar el plan: repinta la tarjeta y dice
+   qué ruta se encendería. Solo «Registrar» escribe algo. */
+function previsualizar(sid, v){
+  var s = buscar("senales", sid);
+  var art = document.getElementById("sc-" + sid);
+  if(!s || !art) return;
+  var est = estadoSenal(copiaSenal(s, v)), ec = escalaSenal(s);
+  art.className = "sen " + est + (v !== num(s.valor) ? " simulando" : "");
+  var chip = art.querySelector(".sen-cab .chip");
+  if(chip){ chip.className = "chip " + est; chip.textContent = nombreEstado(est); }
+  var barra = art.querySelector(".escala i");
+  if(barra){ barra.className = est; barra.style.width = ec.pos(v) + "%"; }
+  var val = art.querySelector(".sen-val");
+  if(val) val.textContent = (Math.round(v*1000)/1000) + unidadTxt(s);
+  var dice = document.getElementById("sd-" + sid);
+  if(dice){
+    var c = consecuencia(s, v);
+    dice.className = "sim-dice " + c.cls;
+    dice.innerHTML = c.html;
+  }
+  var r = art.querySelector("[data-sim]"), n = art.querySelector("[data-sim-n]");
+  if(r && document.activeElement !== r) r.value = v;
+  if(n && document.activeElement !== n) n.value = v;
+}
+
+/* ==================================================== NUEVO · la guía
+   Cuatro pantallas con el método dibujado. Se abre sola la primera vez y
+   queda siempre a mano en «? Cómo funciona» o con la tecla ?. */
+var LLAVE_GUIA = "fap_planificador_guia_v2";
+var guiaPaso = 0;
+
+function svgDesvio(){
+  return '<svg class="guia-svg" viewBox="0 0 460 140" role="img" '
+    + 'aria-label="Un plan que se desvía y se descubre tarde">'
+    + '<line x1="26" y1="118" x2="440" y2="118" stroke="var(--linea-fuerte)" stroke-width="1.5"/>'
+    + '<path d="M30 40 H430" stroke="var(--azul)" stroke-width="2" stroke-dasharray="5 5" fill="none"/>'
+    + '<text x="30" y="30" font-size="11" font-weight="700" fill="var(--azul)">lo planificado</text>'
+    + '<path d="M30 40 C120 44 180 60 250 82 S360 108 430 112" stroke="var(--critico)" '
+    + 'stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+    + '<text x="196" y="76" font-size="11" font-weight="700" fill="var(--critico)">lo que pasa</text>'
+    + '<circle cx="430" cy="112" r="5" fill="var(--critico)"/>'
+    + '<text x="332" y="134" font-size="10.5" font-weight="700" fill="var(--critico)">te enteras aquí</text>'
+    + '<text x="26" y="134" font-size="10.5" fill="var(--debil)">enero</text>'
+    + '<text x="404" y="14" font-size="10.5" fill="var(--debil)">diciembre</text>'
+    + '</svg>';
+}
+function svgRegla(){
+  return '<svg class="guia-svg" viewBox="0 0 460 130" role="img" '
+    + 'aria-label="La regla de una señal: en rumbo, disparador y punto de no retorno">'
+    + '<rect x="30" y="58" width="400" height="12" rx="6" fill="var(--linea)"/>'
+    + '<rect x="30" y="58" width="150" height="12" rx="6" fill="var(--ok)"/>'
+    + '<rect x="180" y="58" width="130" height="12" fill="var(--alerta)"/>'
+    + '<rect x="310" y="58" width="120" height="12" rx="6" fill="var(--critico)"/>'
+    + '<text x="30" y="48" font-size="10.5" font-weight="700" fill="var(--ok)">EN RUMBO</text>'
+    + '<text x="182" y="48" font-size="10.5" font-weight="700" fill="var(--alerta)">HAY QUE PREPARAR</text>'
+    + '<text x="312" y="48" font-size="10.5" font-weight="700" fill="var(--critico)">YA NO SIRVE</text>'
+    + '<line x1="180" y1="52" x2="180" y2="82" stroke="var(--ink)" stroke-width="2"/>'
+    + '<line x1="310" y1="52" x2="310" y2="82" stroke="var(--ink)" stroke-width="2"/>'
+    + '<text x="180" y="98" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="middle">disparador</text>'
+    + '<text x="310" y="98" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="middle">no retorno</text>'
+    + '<text x="180" y="112" font-size="10.5" fill="var(--debil)" text-anchor="middle">50 % devuelto</text>'
+    + '<text x="310" y="112" font-size="10.5" fill="var(--debil)" text-anchor="middle">73 % devuelto</text>'
+    + '<circle cx="96" cy="64" r="8" fill="var(--tarjeta)" stroke="var(--ink)" stroke-width="2.5"/>'
+    + '<text x="96" y="20" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="middle">hoy: 33 %</text>'
+    + '<line x1="96" y1="26" x2="96" y2="53" stroke="var(--ink)" stroke-width="1.5"/>'
+    + '</svg>';
+}
+function svgCarril(){
+  return '<svg class="guia-svg" viewBox="0 0 460 140" role="img" '
+    + 'aria-label="La fecha de operación menos el tiempo de preparación da la fecha de decisión">'
+    + '<defs><pattern id="ray" width="10" height="10" patternTransform="rotate(-45)" '
+    + 'patternUnits="userSpaceOnUse">'
+    + '<rect width="10" height="10" fill="var(--linea)"/>'
+    + '<rect width="5" height="10" fill="var(--linea-fuerte)"/></pattern></defs>'
+    + '<rect x="30" y="52" width="230" height="26" rx="5" fill="var(--ok-bg)"/>'
+    + '<text x="145" y="69" font-size="11" font-weight="700" fill="var(--ok)" text-anchor="middle">margen · aquí todavía se decide</text>'
+    + '<rect x="260" y="52" width="170" height="26" rx="5" fill="url(#ray)"/>'
+    + '<text x="345" y="69" font-size="11" font-weight="700" fill="var(--tenue)" text-anchor="middle">preparación · 45 d</text>'
+    + '<line x1="30" y1="44" x2="30" y2="88" stroke="var(--azul)" stroke-width="2.5"/>'
+    + '<text x="30" y="34" font-size="11" font-weight="700" fill="var(--azul)">hoy</text>'
+    + '<rect x="253" y="58" width="14" height="14" rx="2" fill="var(--alerta)" transform="rotate(45 260 65)"/>'
+    + '<text x="260" y="34" font-size="11" font-weight="700" fill="var(--alerta)" text-anchor="middle">decidir</text>'
+    + '<line x1="260" y1="38" x2="260" y2="50" stroke="var(--alerta)" stroke-width="1.5"/>'
+    + '<text x="260" y="102" font-size="10.5" fill="var(--debil)" text-anchor="middle">17 oct</text>'
+    + '<line x1="430" y1="44" x2="430" y2="88" stroke="var(--ink)" stroke-width="3"/>'
+    + '<text x="430" y="34" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="end">operando</text>'
+    + '<text x="430" y="102" font-size="10.5" fill="var(--debil)" text-anchor="end">1 dic</text>'
+    + '<text x="30" y="126" font-size="11.5" font-weight="700" fill="var(--ink)">1 dic − 45 d = 17 oct. '
+    + 'La fecha que manda es la de decidir.</text>'
+    + '</svg>';
+}
+function svgTres(){
+  var caja = function(x, t, d, act){
+    return '<rect x="'+x+'" y="30" width="130" height="70" rx="10" fill="'
+      + (act ? "var(--azul-claro)" : "var(--tarjeta)") + '" stroke="'
+      + (act ? "var(--azul)" : "var(--linea-fuerte)") + '" stroke-width="'+(act?2.5:1.5)+'"/>'
+      + '<text x="'+(x+65)+'" y="57" font-size="13" font-weight="700" text-anchor="middle" fill="'
+      + (act ? "var(--azul)" : "var(--ink)") + '">'+t+'</text>'
+      + '<text x="'+(x+65)+'" y="76" font-size="10.5" text-anchor="middle" fill="var(--tenue)">'+d+'</text>';
+  };
+  return '<svg class="guia-svg" viewBox="0 0 460 120" role="img" '
+    + 'aria-label="Las tres vistas de la herramienta">'
+    + caja(15, "Hoy", "qué se vence primero", true)
+    + caja(165, "Etapas", "el detalle del ciclo", false)
+    + caja(315, "Mapa", "el plan en el tiempo", false)
+    + '<text x="230" y="112" font-size="10.5" text-anchor="middle" fill="var(--debil)">'
+    + 'teclas 1 · 2 · 3</text></svg>';
+}
+
+var GUIA = [
+  {t:"Un plan a un año no falla de golpe",
+   svg:svgDesvio,
+   p:["Se va desviando, y cuando el desvío es evidente ya no queda margen para hacer nada. "
+      + "En renovaciones eso tiene nombre: la retroactividad de enero, que se descubre en enero."],
+   eco:"La pregunta no es «¿cómo evito el desvío?», sino «¿cómo me entero a tiempo de que empezó?»."},
+  {t:"Por eso se decide de antemano qué se mide y en qué valor se cambia",
+   svg:svgRegla,
+   p:["Una <b>señal</b> es lo que se mide. Sobre ella se marcan dos valores, hoy, con calma:",
+      "El <b>disparador</b> es donde hay que <b>empezar a preparar</b> la salida alterna — no donde "
+      + "el plan falla. El <b>punto de no retorno</b> es donde la estrategia actual ya dejó de servir."],
+   eco:"Entre esos dos valores está todo el margen de maniobra que tiene el plan."},
+  {t:"Y cada salida alterna tarda en montarse",
+   svg:svgCarril,
+   p:["Ese es el dato que casi nadie anota y el que decide todo. Si conformar una comisión toma "
+      + "45 días y tiene que estar operando el 1 de diciembre, la decisión no es en noviembre: es el "
+      + "17 de octubre.",
+      "La herramienta resta sola y te avisa antes. También te dice si la señal, al ritmo que va, "
+      + "cruzaría el disparador <b>después</b> de esa fecha: cuando eso pasa, la señal no sirve y hay "
+      + "que medir más seguido o adelantar el disparador."],
+   eco:"«La fecha límite para decidir» es la fecha real del plan. Es la que se pasa sin que nadie se dé cuenta."},
+  {t:"Cómo se usa",
+   svg:svgTres,
+   p:["<b>Hoy</b> responde qué pide el plan ahora, ordenado por lo que se vence primero. Es la "
+      + "pantalla de entrada y casi siempre la única que hace falta.",
+      "<b>Etapas</b> abre el detalle del ciclo. <b>Mapa</b> dibuja todo el plan en el tiempo.",
+      "En cada señal hay un control deslizante: muévelo y verás qué ruta se enciende en cada valor, "
+      + "sin guardar nada. Y cualquier palabra <u>subrayada de puntos</u> se explica al pulsarla."],
+   eco:""}
+];
+
+function modalGuia(paso){
+  guiaPaso = Math.max(0, Math.min(GUIA.length-1, paso||0));
+  var g = GUIA[guiaPaso];
+  abrirModal('<div class="guia">'
+    + '<div class="guia-paso viva">'
+    + '<h4>'+esc(g.t)+'</h4>'
+    + g.svg()
+    + g.p.map(function(x){ return '<p>'+x+'</p>'; }).join("")
+    + (g.eco ? '<p class="eco">'+esc(g.eco)+'</p>' : '')
+    + '</div>'
+    + '<div class="guia-nav"><div class="guia-bolas">'
+    + GUIA.map(function(_, i){
+        return '<i class="'+(i===guiaPaso?"viva":"")+'" data-guia="'+i+'" title="Paso '+(i+1)+'"></i>';
+      }).join("")
+    + '</div>'
+    + (guiaPaso > 0 ? '<button class="btn sec" data-guia="'+(guiaPaso-1)+'">Atrás</button>' : '')
+    + (guiaPaso < GUIA.length-1
+      ? '<button class="btn" data-guia="'+(guiaPaso+1)+'">Siguiente</button>'
+      : '<button class="btn" data-cmd="cerrar">Entendido, empezar</button>')
+    + '</div></div>');
+  try{ localStorage.setItem(LLAVE_GUIA, "1"); }catch(e){}
+}
 
 /* ================================================================= MODALES */
 function abrirModal(html){
@@ -1508,7 +2413,28 @@ function cerrarModal(){ document.getElementById("capa").innerHTML = ""; }
 document.addEventListener("click", function(ev){
   if(ev.target && ev.target.getAttribute && ev.target.getAttribute("data-velo")) cerrarModal();
 });
-document.addEventListener("keydown", function(ev){ if(ev.key === "Escape") cerrarModal(); });
+document.addEventListener("keydown", function(ev){
+  if(ev.key === "Escape"){ cerrarGlosa(); cerrarModal(); return; }
+  /* Atajos: solo fuera de un campo de texto y sin modificadores. */
+  var t = ev.target, etiqueta = t && t.tagName;
+  if(etiqueta === "INPUT" || etiqueta === "TEXTAREA" || etiqueta === "SELECT") return;
+  if(ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if(ev.key === "?" || ev.key === "/"){ ev.preventDefault(); return modalGuia(0); }
+  if(!P) return;
+  if(ev.key === "1") return irModo("hoy");
+  if(ev.key === "2") return irModo("etapa");
+  if(ev.key === "3") return irModo("mapa");
+  if(ev.key === "e" || ev.key === "E"){
+    if(MODO === "hoy") MODO = "etapa";
+    EDITANDO = !EDITANDO; render(); return;
+  }
+  /* En Etapas, ← y → recorren el ciclo. */
+  if(MODO === "etapa" && (ev.key === "ArrowLeft" || ev.key === "ArrowRight")){
+    var es = etapasDe(P), k = idxEtapa(P, vistaActual());
+    var n = (k + (ev.key === "ArrowRight" ? 1 : es.length-1)) % es.length;
+    ev.preventDefault(); return irA(es[n].id);
+  }
+});
 
 function modalNuevoPlan(){
   abrirModal(
@@ -1796,6 +2722,12 @@ var pedido = planPedido();
 if(pedido) BD.activo = pedido;
 if(BD.activo && BD.planes[BD.activo]){ P = BD.planes[BD.activo]; if(!P.textos) P.textos = {}; ordenar(); }
 render();
+
+/* La primera visita abre la guía: el método se explica antes de pedir que
+   se use. Después queda en «? Cómo funciona» y en la tecla ?. */
+try{
+  if(!localStorage.getItem(LLAVE_GUIA)) setTimeout(function(){ modalGuia(0); }, 420);
+}catch(e){}
 </script>
 </body>
 </html>
