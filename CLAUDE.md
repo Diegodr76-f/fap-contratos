@@ -73,6 +73,34 @@ python3 scripts/concordancia.py --verificar   que lo que no es concordancia sigu
 Corre `--verificar` después de cualquier cambio en las plantillas: comprueba que
 los 24 controles de juicio siguen estando, uno por uno.
 
+## Orden o contrato: lo decide el plazo de ejecución
+
+**La regla es una sola: si la ejecución dura más de 30 días, va por contrato.**
+Las garantías contractuales (anticipo, fiel cumplimiento) también obligan a
+contrato, pero son un eje aparte y opcional — la mayoría de los procesos no
+llevan ninguna.
+
+El instrumento **no se marca: se deriva**, en `motivoContrato()`, que devuelve
+por qué va por contrato (`'plazo'`, `'garantias'`, `'renovacion'`) o `''` si se
+resuelve con orden. `esContrato()` y `puedeOrden()` cuelgan de ahí, y la captura
+muestra el resultado en un cartel, no en una casilla.
+
+El plazo se captura como lo que es: **entrega puntual** (días) o **servicio
+continuo** (fecha de inicio y fin, y los días salen de `diasEntre()`, que cuenta
+los dos extremos — del 1 de enero al 31 de diciembre son 365). En continuo, el
+número calculado se guarda igualmente en `d.plazo` para que plantillas y
+comprobaciones lean siempre del mismo sitio; `diasEjecucion()` es la autoridad.
+
+No confundir con la **garantía técnica** del bien, que vive en el Momento 3
+(`garantiaAplica`, `garantiaMeses`): esa no obliga a contrato, una orden de
+compra puede llevarla.
+
+Antes esto estaba al revés: tres casillas de «modalidad de pago / garantías»
+decidían el instrumento, y `ordenDoc()` miraba solo las garantías, así que un
+contrato de enero a diciembre **dejaba generar la orden de compra** con un aviso
+amarillo. Y la lista de verificación exigía marcar una de las tres, de modo que
+la AC tenía que declarar algo falso para poder enviar.
+
 ## La Mágica — `generador/index.html`
 
 Un solo archivo de ~2,4 MB: la aplicación y, embebidas en base64, las 19 plantillas

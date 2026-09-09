@@ -425,6 +425,30 @@ Por qué importa, con el caso que lo motivó: la vía de renovación nació usan
 el sinónimo convertía en tecleo de la administradora lo que podía ser precarga. Un quinto,
 `fechaNotificacion`, se separaba de `fechanotificacion` por una mayúscula.
 
+### Orden o contrato: lo decide el plazo, no las garantías
+
+La regla del FAP es que **si la ejecución dura más de 30 días, el proceso va por contrato**.
+La Mágica la tenía escrita, pero la decisión efectiva la tomaban tres casillas de «modalidad
+de pago / garantías», y eso rompía justo el caso más común de la campaña: **un contrato de
+enero a diciembre que no lleva ninguna garantía**. La administradora tenía que marcar algo
+falso para poder seguir, y la tarjeta de la orden de compra se quedaba habilitada con un
+simple aviso amarillo.
+
+Ahora el plazo se captura como lo que es —**entrega puntual** en días, o **servicio continuo**
+con fecha de inicio y fin— y el instrumento **se deriva y se muestra**:
+
+| Situación | Instrumento |
+|---|---|
+| Ejecución de 30 días o menos, sin garantías | Orden de compra / servicio |
+| Ejecución de más de 30 días | Contrato |
+| Con garantía de anticipo o de fiel cumplimiento | Contrato |
+| Renovación | Contrato (lo elabora la Unidad Operativa) |
+| Y además, total con IVA sobre USD 8.000 | La orden la firma el Director Ejecutivo |
+
+Las **garantías contractuales** pasan a ser opcionales: si no aplican, no se marca nada y no
+bloquea nada. No se confunden con la **garantía técnica** del bien, que se registra en el
+Momento 3 y no obliga a contrato — una orden de compra puede llevarla.
+
 ### Concordancia de género: se elige una vez, no en cada documento
 
 Las plantillas llevaban **187 cuadros combinados de Word** —«el proveedor / la
