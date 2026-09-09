@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Renovaciones 2027 — Confirma tus contratos · FAP</title>
+<title>Contratos 2027 — Confirma tus contratos · FAP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -165,7 +165,7 @@
 <header><div class="env">
   <div class="logo">FAP</div>
   <div>
-    <div class="tit">Renovaciones 2027</div>
+    <div class="tit">Contratos 2027</div>
     <div class="sub" id="sub">Fondo de Áreas Protegidas · FIAS</div>
   </div>
   <button class="cambiar" id="cambiar" style="display:none">Cambiar administrador/a</button>
@@ -179,7 +179,7 @@
 
 <script>
 /* =======================================================================
-   Confirmación de renovaciones 2027
+   Contratos 2027 — confirmación de las administradoras
 
    Cada administrador/a contador/a entra, elige su nombre, ve sus contratos
    vigentes desplegados y dice, contrato por contrato, qué hace en 2027.
@@ -616,7 +616,7 @@ function descargar(){
   if(!t){ toast('Todavía no has decidido ningún contrato.'); return; }
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([t], {type:'text/csv;charset=utf-8'}));
-  a.download = 'Renovaciones2027_' + String(YO).replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g,'_') + '.csv';
+  a.download = 'Contratos2027_' + String(YO).replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g,'_') + '.csv';
   document.body.appendChild(a); a.click();
   setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 200);
   toast('Descargado. Responde el correo adjuntando ese archivo.');
