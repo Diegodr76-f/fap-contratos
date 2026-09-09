@@ -397,12 +397,41 @@ Cubre la vía de renovación de punta a punta (incluida la generación real de l
 docxtemplater), los arreglos de almacenamiento, la lista de verificación, *Mis procesos* y que las
 tres vías de siempre sigan intactas.
 
+### El idioma de las plantillas
+
+`generador/variables_fap.json` es la copia en el repositorio del catálogo de variables del sistema
+—202 variables en 13 grupos—, y es el vocabulario único de todos los documentos: las plantillas
+Word de La Mágica, las plantillas HTML del CLM y lo que publica el CRM. Vive aquí porque es aquí
+donde están las plantillas: **quien escriba una plantilla nueva usa estos nombres y no inventa
+sinónimos.**
+
+```bash
+python3 scripts/variables.py                  # los 13 grupos
+python3 scripts/variables.py Fechas           # un grupo, con descripción y ejemplo
+python3 scripts/variables.py --buscar monto   # antes de inventar un nombre, buscar
+python3 scripts/variables.py --check          # las plantillas contra el catálogo
+python3 scripts/variables.py --unir <a.json>  # traer lo que se creó en el sistema
+```
+
+Que no se desincronice no depende de acordarse, sino de tres comprobaciones:
+`scripts/variables.py --check` contrasta las plantillas contra el catálogo,
+`scripts/probar_generador.js` contrasta las 73 claves que La Mágica entrega a las plantillas, y
+`scripts/plantillas_renovacion.py` **se niega a escribir un `.docx`** con una etiqueta sin
+catalogar. Una copia en git se queda vieja sin avisar; estas tres avisan.
+
+Por qué importa, con el caso que lo motivó: la vía de renovación nació usando `contratoAnterior`,
+`fechaSuscripcionAnt`, `fechaFinAnterior` y `montoAnterior`, que el catálogo ya llamaba
+`contratoNro`, `fechaContrato`, `fechaFin` y `montoTotal`. Los cuatro los publica el CRM, así que
+el sinónimo convertía en tecleo de la administradora lo que podía ser precarga. Un quinto,
+`fechaNotificacion`, se separaba de `fechanotificacion` por una mayúscula.
+
 ### Cambiar o añadir una plantilla
 
 1. Deja el `.docx` en `generador/plantillas/`.
 2. Si es una plantilla nueva, añádela a `TPL_SLOTS` en `generador/index.html` y a `ORDEN` en
    `scripts/embeber_plantillas.py`.
 3. Corre `python3 scripts/embeber_plantillas.py` para reconstruir el seed embebido.
+4. Comprueba el vocabulario con `python3 scripts/variables.py --check`.
 
 `python3 scripts/embeber_plantillas.py --check` dice si el seed quedó desactualizado, sin escribir
 nada.

@@ -29,6 +29,9 @@ import shutil
 import sys
 import zipfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import variables            # el catálogo manda: aquí no se inventan nombres
+
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE = '2_Inicio_seleccion.docx'   # paquete del que se hereda el membrete
 
@@ -449,8 +452,14 @@ def main():
     if not os.path.exists(base):
         raise SystemExit('No encuentro la plantilla base: ' + base)
     for nombre, titulo_doc, fn in DOCUMENTOS:
+        cuerpo = fn()
+        # Antes de escribir nada: si una etiqueta no está en el catálogo, o es un
+        # sinónimo de algo que ya tiene nombre, o falta catalogarla. No sale de aquí.
+        etiquetas = set(t for _, t in re.findall(
+            r'\{([#/^]?)([A-Za-zÁÉÍÓÚÑáéíóúñ_][A-Za-z0-9ÁÉÍÓÚÑáéíóúñ_]*)\}', cuerpo))
+        variables.exigir(etiquetas, nombre)
         destino = os.path.join(carpeta, nombre)
-        construir(base, destino, fn(), titulo_doc)
+        construir(base, destino, cuerpo, titulo_doc)
         print('%-46s %7d bytes' % (nombre, os.path.getsize(destino)))
 
 

@@ -250,7 +250,29 @@ const idsRep=w.ST.exps.map(e=>e.id);
 ok(new Set(idsRep).size===2,'los ids repetidos de una versión anterior se separan: '+idsRep.join(', '));
 ok(w.ST.exps[0].id==='e1','el primero conserva el id al que apunta el historial');
 
-seccion('15 · Todas las pantallas se pintan, en las dos vías');
+seccion('15 · La Mágica habla el idioma del catálogo de variables');
+// El otro extremo de scripts/variables.py: aquel comprueba las plantillas, este
+// comprueba lo que La Mágica les entrega. Si divergen, una etiqueta queda vacía
+// en el Word sin que nadie se entere hasta que el documento está firmado.
+{
+  const cat=JSON.parse(fs.readFileSync(path.join(RAIZ,'generador','variables_fap.json'),'utf8'));
+  const conocidas=new Set(cat.variables.map(v=>v.nombre));
+  cat.variables.filter(v=>v.tipo==='repetible').forEach(v=>{
+    const m=/(?:[Cc]ampos:?)\s+([a-zA-Z0-9_,\s]+)/.exec(v.descripcion||'');
+    if(m) m[1].split(',').map(x=>x.trim()).filter(Boolean).forEach(c=>conocidas.add(c));
+  });
+  const w2=nuevoDom();
+  w2.ST.cfg.areas=[{id:'a1',ap:'PNY',siglas:'PNY',ciudad:'Quito',mae:'m',maeCargo:'c',lugar:'l'}];
+  w2.newExp('x'); w2.D().areaId='a1'; w2.D().tipoProceso='Renovación';
+  const datos=w2.buildTemplateData();
+  const fuera=Object.keys(datos).filter(k=>!conocidas.has(k));
+  ok(fuera.length===0,'las '+Object.keys(datos).length+' claves que emite buildTemplateData están catalogadas', fuera.join(', '));
+  const subItems=Object.keys((datos.items&&datos.items[0])||{});
+  const fueraItems=subItems.filter(k=>!conocidas.has(k));
+  ok(fueraItems.length===0,'y los subcampos de {#items} también', fueraItems.join(', '));
+}
+
+seccion('16 · Todas las pantallas se pintan, en las dos vías');
 function pintaTodo(w,etiqueta){
   ['guia','plantillas','captura','documentos','historial','datos','procesos','unidad'].forEach(function(nav){
     [0,1,2,3].forEach(function(step){
