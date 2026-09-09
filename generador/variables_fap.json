@@ -1,0 +1,1881 @@
+{
+  "tipo": "variables_fap",
+  "version": 1,
+  "exportado": "2026-09-09T14:52:13.954390Z",
+  "variables": [
+    {
+      "id": "pmrzmgq6fy1tua",
+      "grupo": "Adendas y AA",
+      "nombre": "FechaAAM",
+      "descripcion": "Fecha de acta de aumento de monto",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrzmvzuelpmpj",
+      "grupo": "Adendas y AA",
+      "nombre": "fechaautorizacionAAM",
+      "descripcion": "Fecha de autorización de aumento de monto",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrzmpb1yhrzu2",
+      "grupo": "Adendas y AA",
+      "nombre": "Fechareprogramacion",
+      "descripcion": "Fecha de reprogramación presupuestaria",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmsf49hypknti5",
+      "grupo": "Adendas y AA",
+      "nombre": "Nombreinformeadenda",
+      "descripcion": "El nombre del informe en donde se solicita la adenda",
+      "ejemplo": "",
+      "tipo": "texto",
+      "origen": ""
+    },
+    {
+      "id": "pmrzmfvkvemq4k",
+      "grupo": "Adendas y AA",
+      "nombre": "NumeroactaAA",
+      "descripcion": "Número de acta de aumento de monto",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrzmu0za7x9u5",
+      "grupo": "Adendas y AA",
+      "nombre": "porcentajeincremento",
+      "descripcion": "Porcentaje de incremento de monto",
+      "ejemplo": "",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwiv2ubw",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "fof1",
+      "descripcion": "Fecha de la oferta del proponente 1",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwi02iaq",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "fof2",
+      "descripcion": "Fecha de la oferta del proponente 2",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwiojyuq",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "fof3",
+      "descripcion": "Fecha de la oferta del proponente 3",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwi0pdcp",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "monto1",
+      "descripcion": "Monto ofertado por el proponente 1",
+      "ejemplo": "",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwixbv03",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "monto2",
+      "descripcion": "Monto ofertado por el proponente 2",
+      "ejemplo": "",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwid5eqi",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "monto3",
+      "descripcion": "Monto ofertado por el proponente 3",
+      "ejemplo": "",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwimzw84",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "prov1",
+      "descripcion": "Razón social del proponente 1",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwixxzem",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "prov2",
+      "descripcion": "Razón social del proponente 2",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwi9c8uu",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "prov3",
+      "descripcion": "Razón social del proponente 3",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9ko4o2",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "provs",
+      "descripcion": "Bloque repetible {#provs}…{/provs} con los proveedores que presentaron oferta. Campos: n, razon, ruc, dir, tel, monto, fof. Alternativa al esquema plano prov1/fof1/monto1.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pmtu7w0eafnqch",
+      "grupo": "Concordancia",
+      "nombre": "adjudicadoA",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "adjudicado",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrzn070epvapd",
+      "nombre": "AdminContador",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "Administrador contador"
+    },
+    {
+      "id": "pmrkumrwkc4po9",
+      "nombre": "adminDesignado",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del contrato»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "designado"
+    },
+    {
+      "id": "pmrkw7voncxdfa",
+      "grupo": "Concordancia",
+      "nombre": "administrador_delAP",
+      "descripcion": "Concordancia Administrador/a del área protegida por parte del MAE",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrzamh4u9pwz6",
+      "nombre": "AdministradoraAP",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del área protegida (por parte del MAE)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "administrador"
+    },
+    {
+      "id": "pmrkw7von3561q",
+      "nombre": "administradoracontadora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a Contador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "administrador contador"
+    },
+    {
+      "id": "pmtu7w0eauykjg",
+      "grupo": "Concordancia",
+      "nombre": "administradorAP",
+      "descripcion": "Concordancia «Responsable del área protegida (MAE)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "administrador",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkw7vonwxb0v",
+      "nombre": "administradordecontrato",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del contrato»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "administrador de contrato"
+    },
+    {
+      "id": "pmtu7w0eah1n87",
+      "grupo": "Concordancia",
+      "nombre": "ADMINISTRADORorden",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "ADMINISTRADOR",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwksj0tq",
+      "nombre": "alALaContratista",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "al contratista"
+    },
+    {
+      "id": "pmtu7w0ea1d8xc",
+      "grupo": "Concordancia",
+      "nombre": "alALaProveedor",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "al proveedor",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrm6ehdsk64ds",
+      "nombre": "allaadministradoracontadora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a contador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "al administrador contador"
+    },
+    {
+      "id": "pmrm5ohzefe275",
+      "nombre": "allaadministradorAP",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del AP»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "al administrador"
+    },
+    {
+      "id": "pmrkw7von77hcc",
+      "nombre": "allaadministradorcontador",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a Contador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "al administrador contador"
+    },
+    {
+      "id": "pmrkw7vonpio5g",
+      "nombre": "allaAP",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Género del Área Protegida»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "al"
+    },
+    {
+      "id": "pmrza6uvkl3c1m",
+      "nombre": "allaarrendadora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Arrendador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "al ARRENDADOR"
+    },
+    {
+      "id": "pmsf5j8fmsyoov",
+      "nombre": "allaconsultora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "al CONSULTOR"
+    },
+    {
+      "id": "pmrzaesj20dz5i",
+      "nombre": "allaDirectora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Director/a DAPOFC»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "al Director"
+    },
+    {
+      "id": "pmrza6uvkawbk6",
+      "nombre": "Arrendador_a",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Arrendador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "Arrendador"
+    },
+    {
+      "id": "pmrkw7vonyr8bk",
+      "nombre": "autorizadoa",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del contrato»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "autorizado"
+    },
+    {
+      "id": "pmsf5njzsl5aoc",
+      "nombre": "conmismoconsultor",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "con el mismo CONSULTOR"
+    },
+    {
+      "id": "pmrkw7vonmubyg",
+      "nombre": "conmismocontratista",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "con el mismo CONTRATISTA"
+    },
+    {
+      "id": "pmrm71sc3ueo1x",
+      "nombre": "consideradoac",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "considerado"
+    },
+    {
+      "id": "pmsf5j8fmsnr7v",
+      "nombre": "CONSULTORA",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "CONSULTOR"
+    },
+    {
+      "id": "pmsgo279wqdz6l",
+      "nombre": "Consultora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "Consultor"
+    },
+    {
+      "id": "pmsf5mw4dngwml",
+      "nombre": "consultorahabilitada",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "habilitado"
+    },
+    {
+      "id": "pmsf5q80znnrvm",
+      "nombre": "consultorconsideradoa",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "considerado"
+    },
+    {
+      "id": "pmsf5khvo7bxnb",
+      "nombre": "consultordomiciliado",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "domiciliado"
+    },
+    {
+      "id": "pmsf5l4rg1tmwa",
+      "nombre": "consultorobligado",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "obligado"
+    },
+    {
+      "id": "pmrkumrwknanco",
+      "nombre": "contratistaDomiciliado",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "domiciliado"
+    },
+    {
+      "id": "pmrkumrwkperrk",
+      "nombre": "contratistaObligado",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "obligado"
+    },
+    {
+      "id": "pmrkumrwkz09n6",
+      "nombre": "contratistaTrato",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el señor"
+    },
+    {
+      "id": "pmrkumrwkeegs7",
+      "nombre": "delDeLaAdminContrato",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del contrato»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del administrador del contrato"
+    },
+    {
+      "id": "pmrkumrwk6w8t5",
+      "nombre": "delDeLaContratista",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del contratista"
+    },
+    {
+      "id": "pmrkumrwkwwnti",
+      "nombre": "delDeLaOferente",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Oferente / proponente»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del oferente"
+    },
+    {
+      "id": "pmtu7w0eapyz27",
+      "grupo": "Concordancia",
+      "nombre": "delDeLaProveedor",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "del proveedor",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkw7vonm6hy7",
+      "nombre": "della",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «del/la»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del"
+    },
+    {
+      "id": "pmrm6ehds4oses",
+      "nombre": "dellaadministradoracontadora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a contador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del administrador contador"
+    },
+    {
+      "id": "pmrkw7vonker4u",
+      "nombre": "dellaadministradorAP",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «administrador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del administrador"
+    },
+    {
+      "id": "pmrkw7von2g46f",
+      "nombre": "dellaadministradorcontador",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a Contador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del administrador contador"
+    },
+    {
+      "id": "pmrkw7vonam46l",
+      "nombre": "dellaAP",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Género del Área Protegida»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del"
+    },
+    {
+      "id": "pmrza6uvkpr963",
+      "nombre": "dellaarrendadora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Arrendador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del ARRENDADOR"
+    },
+    {
+      "id": "pmsf5j8fm374a6",
+      "nombre": "dellaconsultora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del CONSULTOR"
+    },
+    {
+      "id": "pmsf5qrtsqyt50",
+      "nombre": "DELLACONSULTORA",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "DEL CONSULTOR"
+    },
+    {
+      "id": "pmrm66gf5cp5du",
+      "nombre": "dellaContratista",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del CONTRATISTA"
+    },
+    {
+      "id": "pmrm73xx64gdg3",
+      "nombre": "DELLACONTRATISTA",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "DEL CONTRATISTA"
+    },
+    {
+      "id": "pmrzaesj2c5af4",
+      "nombre": "dellaDirectora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Director/a DAPOFC»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "del Director"
+    },
+    {
+      "id": "pmrzaesj25114q",
+      "nombre": "Directora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Director/a DAPOFC»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el Director"
+    },
+    {
+      "id": "pmtu7w0eaho90u",
+      "grupo": "Concordancia",
+      "nombre": "DirectorEjecutivo",
+      "descripcion": "Concordancia «Director/a Ejecutivo/a del FIAS»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Director Ejecutivo",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwk1kf72",
+      "nombre": "elLaAdminContrato",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del contrato»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el administrador del contrato"
+    },
+    {
+      "id": "pmrm6ehdsvsqmv",
+      "nombre": "ellaadministradoracontadora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a contador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el administrador contador"
+    },
+    {
+      "id": "pmrkw7vonf3trm",
+      "nombre": "ellaadministradorAP",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «administrador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el administrador"
+    },
+    {
+      "id": "pmrm5ohzewbtup",
+      "nombre": "ElLaadministradorAP",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del AP»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "El administrador"
+    },
+    {
+      "id": "pmrkw7vonjr4cr",
+      "nombre": "ellaadministradorcontador",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a Contador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el administrador contador"
+    },
+    {
+      "id": "pmtu7w0eagqswh",
+      "grupo": "Concordancia",
+      "nombre": "ElLaadministradorcontador",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "El administrador contador",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrm6ztw3pipf3",
+      "nombre": "Ellaadministradordecontrato",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del contrato»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "El administrador de contrato"
+    },
+    {
+      "id": "pmtu7w0eavvc1z",
+      "grupo": "Concordancia",
+      "nombre": "ellaadministradorOrden",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "el administrador",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaxtokn",
+      "grupo": "Concordancia",
+      "nombre": "ElLaadministradorOrden",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "El administrador",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmt7p56kvr28b2",
+      "nombre": "ellaadminsaliente",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Administrador/a del contrato»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el administrador"
+    },
+    {
+      "id": "pmrkw7vonzm5mz",
+      "nombre": "ellaAP",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Género del Área Protegida»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el"
+    },
+    {
+      "id": "pmsf6mj3f8yokp",
+      "nombre": "EllaAP",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Género del Área Protegida»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "El"
+    },
+    {
+      "id": "pmrza6uvkwbyxy",
+      "nombre": "ellaarrendadora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Arrendador/a»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el ARRENDADOR"
+    },
+    {
+      "id": "pmsf5ltcggfzcs",
+      "nombre": "Ellaconsultor",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "El CONSULTOR"
+    },
+    {
+      "id": "pmsf5j8fmjp8ya",
+      "nombre": "ellaconsultora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el CONSULTOR"
+    },
+    {
+      "id": "pmrkw7vonpqbwv",
+      "nombre": "ElLaContratista",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "El CONTRATISTA"
+    },
+    {
+      "id": "pmrm67ec1qrmmt",
+      "nombre": "elLaContratista",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el CONTRATISTA"
+    },
+    {
+      "id": "pmrzaesj2qfk76",
+      "nombre": "EllaDirectora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Director/a DAPOFC»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "El Director"
+    },
+    {
+      "id": "pmrkumrwklpl4w",
+      "nombre": "elLaOferente",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Oferente / proponente»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el oferente"
+    },
+    {
+      "id": "pmtu7w0eaxmtjj",
+      "grupo": "Concordancia",
+      "nombre": "elLaOrdenador",
+      "descripcion": "Concordancia «Responsable del área protegida (MAE)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "el ordenador",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eag231d",
+      "grupo": "Concordancia",
+      "nombre": "elLaProveedor",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "el proveedor",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaytze1",
+      "grupo": "Concordancia",
+      "nombre": "ElLaProveedor",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "El proveedor",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkw7vonagwf1",
+      "nombre": "habilitacionContratista",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "habilitado"
+    },
+    {
+      "id": "pmrm66gf5zjfqg",
+      "nombre": "habilitadoac",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "habilitado"
+    },
+    {
+      "id": "pmsf5q80zp98cb",
+      "nombre": "habilitadoaconsultora",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "habilitado"
+    },
+    {
+      "id": "pmrkw7vonbmk7w",
+      "nombre": "incumplidoa",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "incumplido"
+    },
+    {
+      "id": "pmrzije8ocx0fm",
+      "nombre": "inhabilitarContratista",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "inhabilitado"
+    },
+    {
+      "id": "pmrm6ll807tj3z",
+      "nombre": "lolahabilite",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "lo inhabilite"
+    },
+    {
+      "id": "pmsf5p2gl04450",
+      "nombre": "lolainhabilite",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Consultor (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "lo inhabilite"
+    },
+    {
+      "id": "pmrkumrwk69q4r",
+      "nombre": "oferenteTrato",
+      "grupo": "Concordancia",
+      "tipo": "texto",
+      "descripcion": "Concordancia «Oferente / proponente»: se elige en el formulario, no se escribe a mano.",
+      "ejemplo": "el señor"
+    },
+    {
+      "id": "pmtu7w0ea2jtpx",
+      "grupo": "Concordancia",
+      "nombre": "ordenadorA",
+      "descripcion": "Concordancia «Responsable del área protegida (MAE)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "ordenador",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eadx0he",
+      "grupo": "Concordancia",
+      "nombre": "PresidenteA",
+      "descripcion": "Concordancia «Responsable del área protegida (MAE)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Presidente",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ea7av56",
+      "grupo": "Concordancia",
+      "nombre": "ProveedorTitulo",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Proveedor",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eapp6hj",
+      "grupo": "Concordancia",
+      "nombre": "proveedorTrato",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Señor",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ea0f4pu",
+      "grupo": "Concordancia",
+      "nombre": "SecretarioA",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Secretario",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eavkxj8",
+      "grupo": "Concordancia derivada",
+      "nombre": "actaInforme",
+      "descripcion": "Concordancia que no se elige: se deriva de tipo de proceso ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eas78r2",
+      "grupo": "Concordancia derivada",
+      "nombre": "adquisicionBienContratacionServicio",
+      "descripcion": "Concordancia que no se elige: se deriva de bien o servicio ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ear1dwi",
+      "grupo": "Concordancia derivada",
+      "nombre": "adquisicionContratacion",
+      "descripcion": "Concordancia que no se elige: se deriva de bien o servicio ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaiqgs1",
+      "grupo": "Concordancia derivada",
+      "nombre": "contadoContados",
+      "descripcion": "Concordancia que no se elige: se deriva de plazo en días ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0easvb4s",
+      "grupo": "Concordancia derivada",
+      "nombre": "cumpleCumplen",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaej87t",
+      "grupo": "Concordancia derivada",
+      "nombre": "delBienDelServicio",
+      "descripcion": "Concordancia que no se elige: se deriva de bien o servicio y número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ea3u0ej",
+      "grupo": "Concordancia derivada",
+      "nombre": "delDeLosBien",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaub6bd",
+      "grupo": "Concordancia derivada",
+      "nombre": "describeDescriben",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eav0y5a",
+      "grupo": "Concordancia derivada",
+      "nombre": "diaContadoDiasContados",
+      "descripcion": "Concordancia que no se elige: se deriva de plazo en días ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ea5vs4g",
+      "grupo": "Concordancia derivada",
+      "nombre": "diaDias",
+      "descripcion": "Concordancia que no se elige: se deriva de plazo en días ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eanyjqb",
+      "grupo": "Concordancia derivada",
+      "nombre": "elLosProducto",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaejrq9",
+      "grupo": "Concordancia derivada",
+      "nombre": "ElLosProducto",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eae40zm",
+      "grupo": "Concordancia derivada",
+      "nombre": "finalizadoEntregado",
+      "descripcion": "Concordancia que no se elige: se deriva de bien o servicio ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwirbhk0",
+      "grupo": "Contrato",
+      "nombre": "contratoNro",
+      "descripcion": "Número del contrato",
+      "ejemplo": "CONTRATO-FIAS-FAP-2026-001",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkw7vonuwx0u",
+      "grupo": "Contrato",
+      "nombre": "Nombrecontrato",
+      "descripcion": "Escribir el nombre del servicio en mayúsculas",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9dupb8",
+      "grupo": "Fechas",
+      "nombre": "arranqueSucesor",
+      "descripcion": "Día en que arranca el servicio del contrato sucesor. Desde esa fecha corre la retroactividad si el contrato no está suscrito.",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwi6rznr",
+      "grupo": "Fechas",
+      "nombre": "fecha",
+      "descripcion": "Fecha del informe de adenda (doc 14)",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwi7yual",
+      "grupo": "Fechas",
+      "nombre": "fechaActa",
+      "descripcion": "Fecha de suscripción del acta de terminación",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwir6pvu",
+      "grupo": "Fechas",
+      "nombre": "fechaAdenda",
+      "descripcion": "Fecha de suscripción de la adenda",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwio959s",
+      "grupo": "Fechas",
+      "nombre": "fechaAdj",
+      "descripcion": "Fecha de adjudicación",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwijci12",
+      "grupo": "Fechas",
+      "nombre": "fechaContrato",
+      "descripcion": "Fecha de firma del contrato — la provee el CRM",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrzg0x70ivhn2",
+      "grupo": "Fechas",
+      "nombre": "fechaconvocatoria",
+      "descripcion": "La fecha que se convocó a las miembros de la comisión",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmtu6qdn9y6z76",
+      "grupo": "Fechas",
+      "nombre": "fechaCotizacion",
+      "descripcion": "Fecha en que el proveedor presentó la cotización del nuevo período.",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwi56vzn",
+      "grupo": "Fechas",
+      "nombre": "fechaFin",
+      "descripcion": "Fecha de terminación contractual (fin de vigencia) — la provee el CRM",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmsf4eyjebt5f3",
+      "grupo": "Fechas",
+      "nombre": "FechaInfAdenda",
+      "descripcion": "Fecha de la firma del informe de solicitud de adenda",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmtu6qdn9txgm3",
+      "grupo": "Fechas",
+      "nombre": "fechaInforme",
+      "descripcion": "Fecha del informe de satisfacción y análisis de renovación (doc 19).",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwic4z1r",
+      "grupo": "Fechas",
+      "nombre": "fechaInicio",
+      "descripcion": "Inicio del proceso (docs 1,2,5,9,10,11) · inicio de ejecución del contrato en doc 15 (la provee el CRM)",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkw7vone85eu",
+      "grupo": "Fechas",
+      "nombre": "fechaInicioContrato",
+      "descripcion": "Fecha de firma de contrato",
+      "ejemplo": "",
+      "tipo": "fecha",
+      "origen": ""
+    },
+    {
+      "id": "pmrkumrwik0ax2",
+      "grupo": "Fechas",
+      "nombre": "fechaInvitacion",
+      "descripcion": "Fecha de invitación al proveedor",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwide4qc",
+      "grupo": "Fechas",
+      "nombre": "fechaLimite",
+      "descripcion": "Fecha y hora límite de recepción de ofertas (incluye hora, se escribe completa)",
+      "ejemplo": "15 de julio de 2026, 16h00",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkw7von94cl3",
+      "grupo": "Fechas",
+      "nombre": "fechanotificacion",
+      "descripcion": "Se determina la fecha de notificación por parte de FIAS",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwi3nne6",
+      "grupo": "Fechas",
+      "nombre": "fechaRecepcion",
+      "descripcion": "Fecha de recepción / entrega del servicio",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwiap3fy",
+      "grupo": "Fechas",
+      "nombre": "fechaRecepOferta",
+      "descripcion": "Fecha de recepción de la oferta adjudicada",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwixv2ug",
+      "grupo": "Fechas",
+      "nombre": "fechaReprog",
+      "descripcion": "Fecha de reprogramación presupuestaria (adenda)",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmsf4anzz9t1br",
+      "grupo": "Fechas",
+      "nombre": "Fechasoladenda",
+      "descripcion": "Fecha de solicitud de la adenda a la UO",
+      "ejemplo": "",
+      "tipo": "fecha",
+      "origen": ""
+    },
+    {
+      "id": "pmtu6qdn9iqsqa",
+      "grupo": "Fechas",
+      "nombre": "fechaSolCotizacion",
+      "descripcion": "Fecha de la solicitud de cotización del nuevo período (doc 20).",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmtu6qdn9i1jei",
+      "grupo": "Fechas",
+      "nombre": "pagAprobado",
+      "descripcion": "Fecha de aprobación del PAG del nuevo período. Es lo que fija el presupuesto del área y desbloquea la cotización.",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmtu6qdn9hp16p",
+      "grupo": "Fechas",
+      "nombre": "periodoDesde",
+      "descripcion": "Inicio del nuevo período de la renovación.",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmtu6qdn9jn9dq",
+      "grupo": "Fechas",
+      "nombre": "periodoHasta",
+      "descripcion": "Fin del nuevo período de la renovación.",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmtu6qdn9242ic",
+      "grupo": "Fechas",
+      "nombre": "semanaAsignada",
+      "descripcion": "Lunes de la semana del calendario en que al expediente le toca ingresar.",
+      "ejemplo": "",
+      "tipo": "fecha"
+    },
+    {
+      "id": "pmrkumrwi2ayk3",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "antecedentes",
+      "descripcion": "Antecedentes del convenio (texto libre)",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrz7ptm7gx9xt",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "Cedularepresentate",
+      "descripcion": "Escribir la cédula del representante legal FIAS",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwieixpi",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "cronograma_pagos",
+      "descripcion": "Cronograma de pagos parciales",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwivluvb",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "garantia_tecnica",
+      "descripcion": "Duración de la garantía técnica",
+      "ejemplo": "un (1) año",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwioevql",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "institucion",
+      "descripcion": "Institución contraparte del convenio",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwi7gla4",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "justificacion",
+      "descripcion": "Justificación del ajuste (texto libre)",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwiso2xn",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "liquidacion",
+      "descripcion": "Detalle de liquidación (texto libre)",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwiavd0d",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "motivacion",
+      "descripcion": "Motivación de la terminación (texto libre)",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwi3x1a7",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "numero_documento",
+      "descripcion": "Número del documento genérico",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwiwyo29",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "representante_fias",
+      "descripcion": "Representante del FIAS que suscribe",
+      "ejemplo": "Director Ejecutivo del FIAS",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwi8fpct",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "representante_institucion",
+      "descripcion": "Representante de la institución contraparte",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwiga92y",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "tipo_proceso",
+      "descripcion": "Tipo de proceso",
+      "ejemplo": "comparación de precios / selección directa",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwi895pb",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "vigencia",
+      "descripcion": "Vigencia del convenio",
+      "ejemplo": "dos (2) años",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9lwxxr",
+      "grupo": "Montos e IVA",
+      "nombre": "consumoEjecutado",
+      "descripcion": "Consumo efectivamente ejecutado del período que termina. Es la base de la cotización del nuevo período, no el presupuesto del contrato vigente.",
+      "ejemplo": "9.120,45",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmtu6qdn9m6ex5",
+      "grupo": "Montos e IVA",
+      "nombre": "consumoEjecutadoLetras",
+      "descripcion": "Consumo ejecutado en letras — se calcula solo desde {{consumoEjecutado}}.",
+      "ejemplo": "",
+      "tipo": "letras",
+      "origen": "consumoEjecutado"
+    },
+    {
+      "id": "pmrkumrwiv218i",
+      "grupo": "Montos e IVA",
+      "nombre": "iva",
+      "descripcion": "Valor del IVA",
+      "ejemplo": "110,87",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwisnide",
+      "grupo": "Montos e IVA",
+      "nombre": "ivaPct",
+      "descripcion": "Porcentaje de IVA",
+      "ejemplo": "15",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmtu6qdn9cs3yk",
+      "grupo": "Montos e IVA",
+      "nombre": "monto",
+      "descripcion": "Monto adjudicado, el del proveedor que gana.",
+      "ejemplo": "850,00",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwitogrk",
+      "grupo": "Montos e IVA",
+      "nombre": "montoAumento",
+      "descripcion": "Valor del aumento (adenda)",
+      "ejemplo": "160,00",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwihyesb",
+      "grupo": "Montos e IVA",
+      "nombre": "montoAumentoLetras",
+      "descripcion": "Valor del aumento en letras — se calcula solo desde {{montoAumento}}",
+      "ejemplo": "",
+      "tipo": "letras",
+      "origen": "montoAumento"
+    },
+    {
+      "id": "pmrkumrwie9xzd",
+      "grupo": "Montos e IVA",
+      "nombre": "montoLetras",
+      "descripcion": "Monto adjudicado en letras",
+      "ejemplo": "",
+      "tipo": "letras"
+    },
+    {
+      "id": "pmrkumrwiyuoi7",
+      "grupo": "Montos e IVA",
+      "nombre": "montoOriginal",
+      "descripcion": "Monto original del contrato (docs 14/15)",
+      "ejemplo": "690,00",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwiv6exk",
+      "grupo": "Montos e IVA",
+      "nombre": "montoOriginalLetras",
+      "descripcion": "Monto original en letras — se calcula solo desde {{montoOriginal}}",
+      "ejemplo": "",
+      "tipo": "letras",
+      "origen": "montoOriginal"
+    },
+    {
+      "id": "pmrkumrwit5ox9",
+      "grupo": "Montos e IVA",
+      "nombre": "montoTotal",
+      "descripcion": "Monto total del contrato · regla: montoOriginal + montoAumento = montoTotal (columna Q del CRM; sobre estos se evalúan la regla del 25% y el tope del 150%)",
+      "ejemplo": "850,00",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwikur41",
+      "grupo": "Montos e IVA",
+      "nombre": "montoTotalLetras",
+      "descripcion": "Monto total en letras — se calcula solo desde {{montoTotal}}",
+      "ejemplo": "",
+      "tipo": "letras"
+    },
+    {
+      "id": "pmrkumrwi5sa0n",
+      "grupo": "Montos e IVA",
+      "nombre": "presupuesto",
+      "descripcion": "Presupuesto referencial",
+      "ejemplo": "850,00",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwil76if",
+      "grupo": "Montos e IVA",
+      "nombre": "presupuestoLetras",
+      "descripcion": "Presupuesto referencial en letras — se calcula solo desde {{presupuesto}}",
+      "ejemplo": "",
+      "tipo": "letras"
+    },
+    {
+      "id": "pmrkumrwimok4j",
+      "grupo": "Montos e IVA",
+      "nombre": "subtotal",
+      "descripcion": "Subtotal de la tabla de ítems",
+      "ejemplo": "739,13",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrkumrwi33km3",
+      "grupo": "Montos e IVA",
+      "nombre": "total",
+      "descripcion": "Total con IVA · en doc 15: valor total liquidado/pagado",
+      "ejemplo": "850,00",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmsf4ealv839s7",
+      "grupo": "Otros",
+      "nombre": "Fechainformeadenda",
+      "descripcion": "",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmt7gpjaamjnur",
+      "grupo": "Proceso",
+      "nombre": "añopresupuesto",
+      "descripcion": "Año del cual se va a presupuestar el gasto",
+      "ejemplo": "",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmtu6qdn9asg65",
+      "grupo": "Proceso",
+      "nombre": "causal",
+      "descripcion": "Causal de excepción elegida (selección directa por excepción).",
+      "ejemplo": "Único proveedor cerca del AP",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9cwgtj",
+      "grupo": "Proceso",
+      "nombre": "causalTexto",
+      "descripcion": "Texto completo de la causal, tal como va en el informe de justificación.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9qiie5",
+      "grupo": "Proceso",
+      "nombre": "codigo",
+      "descripcion": "Código del expediente: Siglas-Año-Número. Se arma solo.",
+      "ejemplo": "PNCC-2026-003",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9flwzc",
+      "grupo": "Proceso",
+      "nombre": "firmaDirector",
+      "descripcion": "Condición {#firmaDirector} para las órdenes sobre USD 8.000: verdadera cuando la firma el Director Ejecutivo.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwi1wfhb",
+      "grupo": "Proceso",
+      "nombre": "fuente",
+      "descripcion": "Fuente de financiamiento",
+      "ejemplo": "KfW",
+      "tipo": "texto"
+    },
+    {
+      "id": "pms4vhf7ujty1j",
+      "grupo": "Proceso",
+      "nombre": "garantiaenletras1",
+      "descripcion": "",
+      "ejemplo": "",
+      "tipo": "letras",
+      "origen": "montogarantia1"
+    },
+    {
+      "id": "pms4vhf7uzlivt",
+      "grupo": "Proceso",
+      "nombre": "garantiaenletras2",
+      "descripcion": "",
+      "ejemplo": "",
+      "tipo": "letras",
+      "origen": "montogarantia2"
+    },
+    {
+      "id": "pmtu6qdn93klsq",
+      "grupo": "Proceso",
+      "nombre": "garantiaMeses",
+      "descripcion": "Meses de garantía técnica del bien.",
+      "ejemplo": "12",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmtu6qdn9a45mi",
+      "grupo": "Proceso",
+      "nombre": "garantiaTexto",
+      "descripcion": "Párrafo de garantía técnica ya redactado, incluida la variante de «no aplica».",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwio68ge",
+      "grupo": "Proceso",
+      "nombre": "lineaNombre",
+      "descripcion": "Nombre de la línea presupuestaria",
+      "ejemplo": "Combustible",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwixlzdt",
+      "grupo": "Proceso",
+      "nombre": "lugar",
+      "descripcion": "Lugar de entrega / prestación",
+      "ejemplo": "Oficina técnica PNCC",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9qd3hx",
+      "grupo": "Proceso",
+      "nombre": "memoNro",
+      "descripcion": "Número del memorando del expediente: FAP-siglas-año-nnn. Se arma solo.",
+      "ejemplo": "FAP-PNCC-2026-003",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9t4hri",
+      "grupo": "Proceso",
+      "nombre": "modalidad",
+      "descripcion": "Modalidad del proceso ya redactada para el documento.",
+      "ejemplo": "Comparación de Precios",
+      "tipo": "texto"
+    },
+    {
+      "id": "pms4vhf7u4lurl",
+      "grupo": "Proceso",
+      "nombre": "montogarantia1",
+      "descripcion": "",
+      "ejemplo": "",
+      "tipo": "numero",
+      "origen": ""
+    },
+    {
+      "id": "pms4vhf7us8xe1",
+      "grupo": "Proceso",
+      "nombre": "montogarantia2",
+      "descripcion": "",
+      "ejemplo": "",
+      "tipo": "numero",
+      "origen": ""
+    },
+    {
+      "id": "pmt7flz2ubqxea",
+      "grupo": "Proceso",
+      "nombre": "Nombreinforme",
+      "descripcion": "El nombre del informe de justificación",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrzhvxj550m0d",
+      "grupo": "Proceso",
+      "nombre": "NroActa",
+      "descripcion": "El número del acta de calificación",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmsf65j7q7smyt",
+      "grupo": "Proceso",
+      "nombre": "nrodeinvitados",
+      "descripcion": "El número de proveedores invitados",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9dfppi",
+      "grupo": "Proceso",
+      "nombre": "numero",
+      "descripcion": "Número secuencial del proceso dentro del año.",
+      "ejemplo": "3",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkw7vonz2eae",
+      "grupo": "Proceso",
+      "nombre": "numero_documento_inicio",
+      "descripcion": "Este es el número del oficio o quípux con el que solicitaron el inicio de proceso",
+      "ejemplo": "",
+      "tipo": "texto",
+      "origen": ""
+    },
+    {
+      "id": "pmrkumrwib55li",
+      "grupo": "Proceso",
+      "nombre": "objeto",
+      "descripcion": "Objeto del proceso / detalle de lo contratado",
+      "ejemplo": "Abastecimiento de combustible…",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkw7von5xxl2",
+      "grupo": "Proceso",
+      "nombre": "oficionotificacion",
+      "descripcion": "Aquí se debe indicar el número de la notificación otorgada por FIAS",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwik108w",
+      "grupo": "Proceso",
+      "nombre": "partida",
+      "descripcion": "Código de la línea presupuestaria (PAG)",
+      "ejemplo": "3.1.3.1",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwigsu1b",
+      "grupo": "Proceso",
+      "nombre": "plazo",
+      "descripcion": "Plazo de entrega en días",
+      "ejemplo": "30",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmsf764ezfwoa7",
+      "grupo": "Proceso",
+      "nombre": "plazoenletras",
+      "descripcion": "El plazo de ejecución del contrato",
+      "ejemplo": "",
+      "tipo": "letras",
+      "origen": "plazo"
+    },
+    {
+      "id": "pms4vhf7uidz8u",
+      "grupo": "Proceso",
+      "nombre": "plazoentrega",
+      "descripcion": "",
+      "ejemplo": "",
+      "tipo": "texto",
+      "origen": ""
+    },
+    {
+      "id": "pmtu6qdn9sgc34",
+      "grupo": "Proceso",
+      "nombre": "tipoBien",
+      "descripcion": "Activo fijo o bien de control. Decide con qué acta se cierra el proceso.",
+      "ejemplo": "Activo fijo",
+      "tipo": "texto"
+    },
+    {
+      "id": "pms4vhf7ub9hf4",
+      "grupo": "Proceso",
+      "nombre": "ubicacionentrega",
+      "descripcion": "",
+      "ejemplo": "",
+      "tipo": "texto",
+      "origen": ""
+    },
+    {
+      "id": "pmrzcvcs028egl",
+      "grupo": "Proveedor",
+      "nombre": "cirepresentanteproveedor",
+      "descripcion": "Cédula del representante legal",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pms4vhf7ue8d4a",
+      "grupo": "Proveedor",
+      "nombre": "ciudadcontratista",
+      "descripcion": "",
+      "ejemplo": "",
+      "tipo": "texto",
+      "origen": ""
+    },
+    {
+      "id": "pmrm98eou7wjg6",
+      "grupo": "Proveedor",
+      "nombre": "correocontratista",
+      "descripcion": "Escribir el correo del contratista",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwiz0uly",
+      "grupo": "Proveedor",
+      "nombre": "formaPago",
+      "descripcion": "Documentos / condiciones para el pago",
+      "ejemplo": "Factura y acta de entrega-recepción",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwiadyoe",
+      "grupo": "Proveedor",
+      "nombre": "invitado",
+      "descripcion": "Razón social del proveedor invitado (invitaciones 3,4)",
+      "ejemplo": "Ferretería El Tornillo",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn958vdv",
+      "grupo": "Proveedor",
+      "nombre": "invitadoDir",
+      "descripcion": "Dirección del proveedor invitado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9zjn2f",
+      "grupo": "Proveedor",
+      "nombre": "invitadoRuc",
+      "descripcion": "RUC del proveedor invitado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9tkw7e",
+      "grupo": "Proveedor",
+      "nombre": "invitadoTel",
+      "descripcion": "Teléfono del proveedor invitado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwixg70m",
+      "grupo": "Proveedor",
+      "nombre": "proveedor",
+      "descripcion": "Razón social del proveedor adjudicado",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwirzray",
+      "grupo": "Proveedor",
+      "nombre": "proveedorRuc",
+      "descripcion": "RUC del proveedor adjudicado",
+      "ejemplo": "1791234567001",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrm97wg9ghpk9",
+      "grupo": "Proveedor",
+      "nombre": "proveedortelefono",
+      "descripcion": "Escribir el teléfono del contratista, ya sea de la oferta o del RUC",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrzcuaq5w7z5g",
+      "grupo": "Proveedor",
+      "nombre": "representanteproveedor",
+      "descripcion": "El nombre del representante legal de la empresa proveedora",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrm96ctayrvzk",
+      "grupo": "Proveedor",
+      "nombre": "ubicacioncontratista",
+      "descripcion": "Se deberá detallar la ubicación tributaria del contratista dispuesta en su RUC",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9zio4f",
+      "grupo": "Renovación (docs 19-21)",
+      "nombre": "analisisEconomico",
+      "descripcion": "Análisis económico: comparación con el mercado y variación frente al período anterior.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn920ckf",
+      "grupo": "Renovación (docs 19-21)",
+      "nombre": "analisisGeografico",
+      "descripcion": "Análisis geográfico: ubicación respecto al área, distancia, alternativas reales en el territorio.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9m7wv1",
+      "grupo": "Renovación (docs 19-21)",
+      "nombre": "analisisTecnico",
+      "descripcion": "Análisis técnico: cumplimiento del proveedor, capacidad instalada, calidad del servicio recibido.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn98zbjh",
+      "grupo": "Renovación (docs 19-21)",
+      "nombre": "clausulaRenovacion",
+      "descripcion": "Resultado de la verificación legal: si el contrato vigente contempla o no la cláusula de renovación. Sin cláusula no hay renovación y el expediente pasa a proceso nuevo.",
+      "ejemplo": "Sí, el contrato vigente la contempla",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9vn6mv",
+      "grupo": "Renovación (docs 19-21)",
+      "nombre": "clausulaTexto",
+      "descripcion": "El resultado de esa verificación ya redactado para el informe. Se arma solo desde {{clausulaRenovacion}} y {{contratoNro}}.",
+      "ejemplo": "",
+      "tipo": "texto",
+      "origen": "clausulaRenovacion"
+    },
+    {
+      "id": "pmrkumrwi6qxg0",
+      "grupo": "Área y firmantes",
+      "nombre": "ac",
+      "descripcion": "Nombre del/la Administrador/a Contador/a (FIAS)",
+      "ejemplo": "Yesenia Ruiz Vera",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwifs605",
+      "grupo": "Área y firmantes",
+      "nombre": "acCorreo",
+      "descripcion": "Correo del/la AC",
+      "ejemplo": "ac@fias.org.ec",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwiwk9y4",
+      "grupo": "Área y firmantes",
+      "nombre": "area",
+      "descripcion": "Nombre del área protegida",
+      "ejemplo": "Parque Nacional Cotacachi Cayapas",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwisov6s",
+      "grupo": "Área y firmantes",
+      "nombre": "cedulaAc",
+      "descripcion": "Cédula del/la AC",
+      "ejemplo": "1712345678",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9i0sgr",
+      "grupo": "Área y firmantes",
+      "nombre": "cedulaJefe",
+      "descripcion": "Cédula del jefe de área. Se usa en el acta de entrega al área protegida.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwibj4xz",
+      "grupo": "Área y firmantes",
+      "nombre": "ciudad",
+      "descripcion": "Ciudad",
+      "ejemplo": "Quito",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn95wttr",
+      "grupo": "Área y firmantes",
+      "nombre": "correoJefe",
+      "descripcion": "Correo del jefe de área.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9fsj1u",
+      "grupo": "Área y firmantes",
+      "nombre": "director",
+      "descripcion": "Director Ejecutivo del FIAS. Solo se imprime en las órdenes cuyo total con IVA supera USD 8.000, que son las que firma él.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9j5kpd",
+      "grupo": "Área y firmantes",
+      "nombre": "directorCargo",
+      "descripcion": "Cargo del representante del FIAS que firma la orden.",
+      "ejemplo": "Director Ejecutivo",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwiqaa0e",
+      "grupo": "Área y firmantes",
+      "nombre": "jefe",
+      "descripcion": "Nombre del responsable del AP (MAE)",
+      "ejemplo": "Juan Pérez",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu6qdn9eqtf2",
+      "grupo": "Área y firmantes",
+      "nombre": "jefeCargo",
+      "descripcion": "Cargo del responsable del AP (MAE).",
+      "ejemplo": "Jefe del Área Protegida",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmrkumrwiehuor",
+      "grupo": "Área y firmantes",
+      "nombre": "siglas",
+      "descripcion": "Siglas del área protegida",
+      "ejemplo": "PNCC",
+      "tipo": "texto"
+    },
+    {
+      "id": "pms4vhf7u2hs9q",
+      "grupo": "Ítems (repetible)",
+      "nombre": "item",
+      "descripcion": "Bloque repetible",
+      "ejemplo": "",
+      "tipo": "repetible",
+      "origen": ""
+    },
+    {
+      "id": "pmrkumrwinafal",
+      "grupo": "Ítems (repetible)",
+      "nombre": "items",
+      "descripcion": "Bloque repetible {#items}…{/items} de docxtemplater con campos n, cantidad, unidad, desc, punit, ptotal. Nota: en esta herramienta HTML insértalo como texto de referencia; el bucle lo ejecuta docxtemplater en las plantillas Word.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pms4vhf7uwf4z2",
+      "grupo": "Ítems (repetible)",
+      "nombre": "pago",
+      "descripcion": "Bloque repetible",
+      "ejemplo": "",
+      "tipo": "repetible",
+      "origen": ""
+    }
+  ]
+}

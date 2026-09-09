@@ -250,7 +250,67 @@ const idsRep=w.ST.exps.map(e=>e.id);
 ok(new Set(idsRep).size===2,'los ids repetidos de una versión anterior se separan: '+idsRep.join(', '));
 ok(w.ST.exps[0].id==='e1','el primero conserva el id al que apunta el historial');
 
-seccion('15 · Todas las pantallas se pintan, en las dos vías');
+seccion('15 · La Mágica habla el idioma del catálogo de variables');
+// El otro extremo de scripts/variables.py: aquel comprueba las plantillas, este
+// comprueba lo que La Mágica les entrega. Si divergen, una etiqueta queda vacía
+// en el Word sin que nadie se entere hasta que el documento está firmado.
+{
+  const cat=JSON.parse(fs.readFileSync(path.join(RAIZ,'generador','variables_fap.json'),'utf8'));
+  const conocidas=new Set(cat.variables.map(v=>v.nombre));
+  cat.variables.filter(v=>v.tipo==='repetible').forEach(v=>{
+    const m=/(?:[Cc]ampos:?)\s+([a-zA-Z0-9_,\s]+)/.exec(v.descripcion||'');
+    if(m) m[1].split(',').map(x=>x.trim()).filter(Boolean).forEach(c=>conocidas.add(c));
+  });
+  const w2=nuevoDom();
+  w2.ST.cfg.areas=[{id:'a1',ap:'PNY',siglas:'PNY',ciudad:'Quito',mae:'m',maeCargo:'c',lugar:'l'}];
+  w2.newExp('x'); w2.D().areaId='a1'; w2.D().tipoProceso='Renovación';
+  const datos=w2.buildTemplateData();
+  const fuera=Object.keys(datos).filter(k=>!conocidas.has(k));
+  ok(fuera.length===0,'las '+Object.keys(datos).length+' claves que emite buildTemplateData están catalogadas', fuera.join(', '));
+  const subItems=Object.keys((datos.items&&datos.items[0])||{});
+  const fueraItems=subItems.filter(k=>!conocidas.has(k));
+  ok(fueraItems.length===0,'y los subcampos de {#items} también', fueraItems.join(', '));
+}
+
+seccion('16 · Concordancia: el género se resuelve solo');
+{
+  const w3=nuevoDom();
+  w3.ST.cfg.ac='Lcda. María Salazar'; w3.ST.cfg.acGenero='F';
+  w3.ST.cfg.areas=[{id:'a1',ap:'Reserva Ecológica Cotacachi Cayapas',siglas:'RECC',ciudad:'Quito',
+    mae:'Ing. Rosa Tapia',maeCargo:'Jefa',maeGenero:'F',apGenero:'F',lugar:'Oficina'}];
+  w3.newExp('x');
+  const dd=w3.D();
+  Object.assign(dd,{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien',
+    fechaInicio:'2026-09-10',numero:'3',objeto:'Combustible',plazo:'20',
+    items:[{desc:'Diésel',unidad:'Galón',cantidad:'100',punit:'10'}]});
+  dd.provs[0]={razon:'Combustibles del Oriente S.A.',ruc:'1',dir:'',tel:'',monto:'1150',fof:'2026-09-15',genero:'E'};
+  dd.adjudicado='Combustibles del Oriente S.A.';
+  w3.save();
+  const t=w3.buildTemplateData();
+  ok(t.administradoracontadora==='administradora contadora','AC mujer → «administradora contadora»: '+t.administradoracontadora);
+  ok(t.ellaadministradorAP==='la administradora','jefa mujer → «la administradora»: '+t.ellaadministradorAP);
+  ok(t.dellaAP==='de la','Reserva → «de la»: '+t.dellaAP);
+  ok(t.proveedorTrato==='Señores','empresa → «Señores»: '+t.proveedorTrato);
+  ok(t.elLaProveedor==='la empresa proveedora','empresa → «la empresa proveedora»: '+t.elLaProveedor);
+  ok(t.elLosProducto==='el producto','un solo ítem → «el producto»: '+t.elLosProducto);
+  ok(t.diaContadoDiasContados==='días contados','plazo de 20 → «días contados»: '+t.diaContadoDiasContados);
+  ok(t.adquisicionContratacion==='adquisición','bien → «adquisición»: '+t.adquisicionContratacion);
+  // y el mismo expediente, cambiando solo lo que se elige
+  w3.ST.cfg.acGenero='M'; w3.D().provs[0].genero='F'; w3.D().plazo='1';
+  w3.D().items.push({desc:'Gasolina',unidad:'Galón',cantidad:'50',punit:'10'});
+  const t2=w3.buildTemplateData();
+  ok(t2.administradoracontadora==='administrador contador','AC hombre → «administrador contador»');
+  ok(t2.proveedorTrato==='Señora','proveedora mujer → «Señora»');
+  ok(t2.diaContadoDiasContados==='día contado','plazo de 1 → «día contado»');
+  ok(t2.elLosProducto==='los productos','dos ítems → «los productos»');
+  ok(t2.ellaadministradorAP==='la administradora','la jefa no cambió al cambiar la AC: son personas distintas');
+  // el género del área se propone desde su nombre
+  ok(w3.generoAreaInferido('Reserva Ecológica Cotacachi Cayapas')==='F','«Reserva…» se propone femenino');
+  ok(w3.generoAreaInferido('Parque Nacional Yasuní')==='M','«Parque…» se propone masculino');
+  ok(w3.generoAreaInferido('Estación Científica Coca')==='F','«Estación…» se propone femenino');
+}
+
+seccion('17 · Todas las pantallas se pintan, en las dos vías');
 function pintaTodo(w,etiqueta){
   ['guia','plantillas','captura','documentos','historial','datos','procesos','unidad'].forEach(function(nav){
     [0,1,2,3].forEach(function(step){
