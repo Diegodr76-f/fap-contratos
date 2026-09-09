@@ -1,7 +1,7 @@
 {
   "tipo": "variables_fap",
   "version": 1,
-  "exportado": "2026-09-09T14:19:51.573875Z",
+  "exportado": "2026-09-09T14:52:13.954390Z",
   "variables": [
     {
       "id": "pmrzmgq6fy1tua",
@@ -133,6 +133,14 @@
       "tipo": "repetible"
     },
     {
+      "id": "pmtu7w0eafnqch",
+      "grupo": "Concordancia",
+      "nombre": "adjudicadoA",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "adjudicado",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrzn070epvapd",
       "nombre": "AdminContador",
       "grupo": "Concordancia",
@@ -173,6 +181,14 @@
       "ejemplo": "administrador contador"
     },
     {
+      "id": "pmtu7w0eauykjg",
+      "grupo": "Concordancia",
+      "nombre": "administradorAP",
+      "descripcion": "Concordancia «Responsable del área protegida (MAE)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "administrador",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrkw7vonwxb0v",
       "nombre": "administradordecontrato",
       "grupo": "Concordancia",
@@ -181,12 +197,28 @@
       "ejemplo": "administrador de contrato"
     },
     {
+      "id": "pmtu7w0eah1n87",
+      "grupo": "Concordancia",
+      "nombre": "ADMINISTRADORorden",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "ADMINISTRADOR",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrkumrwksj0tq",
       "nombre": "alALaContratista",
       "grupo": "Concordancia",
       "tipo": "texto",
       "descripcion": "Concordancia «Contratista (persona natural o empresa)»: se elige en el formulario, no se escribe a mano.",
       "ejemplo": "al contratista"
+    },
+    {
+      "id": "pmtu7w0ea1d8xc",
+      "grupo": "Concordancia",
+      "nombre": "alALaProveedor",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "al proveedor",
+      "tipo": "texto"
     },
     {
       "id": "pmrm6ehdsk64ds",
@@ -381,6 +413,14 @@
       "ejemplo": "del oferente"
     },
     {
+      "id": "pmtu7w0eapyz27",
+      "grupo": "Concordancia",
+      "nombre": "delDeLaProveedor",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "del proveedor",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrkw7vonm6hy7",
       "nombre": "della",
       "grupo": "Concordancia",
@@ -477,6 +517,14 @@
       "ejemplo": "el Director"
     },
     {
+      "id": "pmtu7w0eaho90u",
+      "grupo": "Concordancia",
+      "nombre": "DirectorEjecutivo",
+      "descripcion": "Concordancia «Director/a Ejecutivo/a del FIAS»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Director Ejecutivo",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrkumrwk1kf72",
       "nombre": "elLaAdminContrato",
       "grupo": "Concordancia",
@@ -517,12 +565,36 @@
       "ejemplo": "el administrador contador"
     },
     {
+      "id": "pmtu7w0eagqswh",
+      "grupo": "Concordancia",
+      "nombre": "ElLaadministradorcontador",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "El administrador contador",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrm6ztw3pipf3",
       "nombre": "Ellaadministradordecontrato",
       "grupo": "Concordancia",
       "tipo": "texto",
       "descripcion": "Concordancia «Administrador/a del contrato»: se elige en el formulario, no se escribe a mano.",
       "ejemplo": "El administrador de contrato"
+    },
+    {
+      "id": "pmtu7w0eavvc1z",
+      "grupo": "Concordancia",
+      "nombre": "ellaadministradorOrden",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "el administrador",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaxtokn",
+      "grupo": "Concordancia",
+      "nombre": "ElLaadministradorOrden",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "El administrador",
+      "tipo": "texto"
     },
     {
       "id": "pmt7p56kvr28b2",
@@ -605,6 +677,30 @@
       "ejemplo": "el oferente"
     },
     {
+      "id": "pmtu7w0eaxmtjj",
+      "grupo": "Concordancia",
+      "nombre": "elLaOrdenador",
+      "descripcion": "Concordancia «Responsable del área protegida (MAE)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "el ordenador",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eag231d",
+      "grupo": "Concordancia",
+      "nombre": "elLaProveedor",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "el proveedor",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaytze1",
+      "grupo": "Concordancia",
+      "nombre": "ElLaProveedor",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "El proveedor",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrkw7vonagwf1",
       "nombre": "habilitacionContratista",
       "grupo": "Concordancia",
@@ -667,6 +763,150 @@
       "tipo": "texto",
       "descripcion": "Concordancia «Oferente / proponente»: se elige en el formulario, no se escribe a mano.",
       "ejemplo": "el señor"
+    },
+    {
+      "id": "pmtu7w0ea2jtpx",
+      "grupo": "Concordancia",
+      "nombre": "ordenadorA",
+      "descripcion": "Concordancia «Responsable del área protegida (MAE)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "ordenador",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eadx0he",
+      "grupo": "Concordancia",
+      "nombre": "PresidenteA",
+      "descripcion": "Concordancia «Responsable del área protegida (MAE)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Presidente",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ea7av56",
+      "grupo": "Concordancia",
+      "nombre": "ProveedorTitulo",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Proveedor",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eapp6hj",
+      "grupo": "Concordancia",
+      "nombre": "proveedorTrato",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Señor",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ea0f4pu",
+      "grupo": "Concordancia",
+      "nombre": "SecretarioA",
+      "descripcion": "Concordancia «Administrador/a Contador/a (FIAS)»: se elige una vez y gobierna todas sus apariciones; no se escribe a mano.",
+      "ejemplo": "Secretario",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eavkxj8",
+      "grupo": "Concordancia derivada",
+      "nombre": "actaInforme",
+      "descripcion": "Concordancia que no se elige: se deriva de tipo de proceso ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eas78r2",
+      "grupo": "Concordancia derivada",
+      "nombre": "adquisicionBienContratacionServicio",
+      "descripcion": "Concordancia que no se elige: se deriva de bien o servicio ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ear1dwi",
+      "grupo": "Concordancia derivada",
+      "nombre": "adquisicionContratacion",
+      "descripcion": "Concordancia que no se elige: se deriva de bien o servicio ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaiqgs1",
+      "grupo": "Concordancia derivada",
+      "nombre": "contadoContados",
+      "descripcion": "Concordancia que no se elige: se deriva de plazo en días ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0easvb4s",
+      "grupo": "Concordancia derivada",
+      "nombre": "cumpleCumplen",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaej87t",
+      "grupo": "Concordancia derivada",
+      "nombre": "delBienDelServicio",
+      "descripcion": "Concordancia que no se elige: se deriva de bien o servicio y número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ea3u0ej",
+      "grupo": "Concordancia derivada",
+      "nombre": "delDeLosBien",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaub6bd",
+      "grupo": "Concordancia derivada",
+      "nombre": "describeDescriben",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eav0y5a",
+      "grupo": "Concordancia derivada",
+      "nombre": "diaContadoDiasContados",
+      "descripcion": "Concordancia que no se elige: se deriva de plazo en días ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0ea5vs4g",
+      "grupo": "Concordancia derivada",
+      "nombre": "diaDias",
+      "descripcion": "Concordancia que no se elige: se deriva de plazo en días ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eanyjqb",
+      "grupo": "Concordancia derivada",
+      "nombre": "elLosProducto",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eaejrq9",
+      "grupo": "Concordancia derivada",
+      "nombre": "ElLosProducto",
+      "descripcion": "Concordancia que no se elige: se deriva de número de ítems ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtu7w0eae40zm",
+      "grupo": "Concordancia derivada",
+      "nombre": "finalizadoEntregado",
+      "descripcion": "Concordancia que no se elige: se deriva de bien o servicio ya capturado.",
+      "ejemplo": "",
+      "tipo": "texto"
     },
     {
       "id": "pmrkumrwirbhk0",

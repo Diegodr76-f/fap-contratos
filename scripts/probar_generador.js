@@ -272,7 +272,45 @@ seccion('15 · La Mágica habla el idioma del catálogo de variables');
   ok(fueraItems.length===0,'y los subcampos de {#items} también', fueraItems.join(', '));
 }
 
-seccion('16 · Todas las pantallas se pintan, en las dos vías');
+seccion('16 · Concordancia: el género se resuelve solo');
+{
+  const w3=nuevoDom();
+  w3.ST.cfg.ac='Lcda. María Salazar'; w3.ST.cfg.acGenero='F';
+  w3.ST.cfg.areas=[{id:'a1',ap:'Reserva Ecológica Cotacachi Cayapas',siglas:'RECC',ciudad:'Quito',
+    mae:'Ing. Rosa Tapia',maeCargo:'Jefa',maeGenero:'F',apGenero:'F',lugar:'Oficina'}];
+  w3.newExp('x');
+  const dd=w3.D();
+  Object.assign(dd,{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien',
+    fechaInicio:'2026-09-10',numero:'3',objeto:'Combustible',plazo:'20',
+    items:[{desc:'Diésel',unidad:'Galón',cantidad:'100',punit:'10'}]});
+  dd.provs[0]={razon:'Combustibles del Oriente S.A.',ruc:'1',dir:'',tel:'',monto:'1150',fof:'2026-09-15',genero:'E'};
+  dd.adjudicado='Combustibles del Oriente S.A.';
+  w3.save();
+  const t=w3.buildTemplateData();
+  ok(t.administradoracontadora==='administradora contadora','AC mujer → «administradora contadora»: '+t.administradoracontadora);
+  ok(t.ellaadministradorAP==='la administradora','jefa mujer → «la administradora»: '+t.ellaadministradorAP);
+  ok(t.dellaAP==='de la','Reserva → «de la»: '+t.dellaAP);
+  ok(t.proveedorTrato==='Señores','empresa → «Señores»: '+t.proveedorTrato);
+  ok(t.elLaProveedor==='la empresa proveedora','empresa → «la empresa proveedora»: '+t.elLaProveedor);
+  ok(t.elLosProducto==='el producto','un solo ítem → «el producto»: '+t.elLosProducto);
+  ok(t.diaContadoDiasContados==='días contados','plazo de 20 → «días contados»: '+t.diaContadoDiasContados);
+  ok(t.adquisicionContratacion==='adquisición','bien → «adquisición»: '+t.adquisicionContratacion);
+  // y el mismo expediente, cambiando solo lo que se elige
+  w3.ST.cfg.acGenero='M'; w3.D().provs[0].genero='F'; w3.D().plazo='1';
+  w3.D().items.push({desc:'Gasolina',unidad:'Galón',cantidad:'50',punit:'10'});
+  const t2=w3.buildTemplateData();
+  ok(t2.administradoracontadora==='administrador contador','AC hombre → «administrador contador»');
+  ok(t2.proveedorTrato==='Señora','proveedora mujer → «Señora»');
+  ok(t2.diaContadoDiasContados==='día contado','plazo de 1 → «día contado»');
+  ok(t2.elLosProducto==='los productos','dos ítems → «los productos»');
+  ok(t2.ellaadministradorAP==='la administradora','la jefa no cambió al cambiar la AC: son personas distintas');
+  // el género del área se propone desde su nombre
+  ok(w3.generoAreaInferido('Reserva Ecológica Cotacachi Cayapas')==='F','«Reserva…» se propone femenino');
+  ok(w3.generoAreaInferido('Parque Nacional Yasuní')==='M','«Parque…» se propone masculino');
+  ok(w3.generoAreaInferido('Estación Científica Coca')==='F','«Estación…» se propone femenino');
+}
+
+seccion('17 · Todas las pantallas se pintan, en las dos vías');
 function pintaTodo(w,etiqueta){
   ['guia','plantillas','captura','documentos','historial','datos','procesos','unidad'].forEach(function(nav){
     [0,1,2,3].forEach(function(step){

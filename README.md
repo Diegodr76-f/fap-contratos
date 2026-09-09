@@ -425,6 +425,36 @@ Por qué importa, con el caso que lo motivó: la vía de renovación nació usan
 el sinónimo convertía en tecleo de la administradora lo que podía ser precarga. Un quinto,
 `fechaNotificacion`, se separaba de `fechanotificacion` por una mayúscula.
 
+### Concordancia de género: se elige una vez, no en cada documento
+
+Las plantillas llevaban **187 cuadros combinados de Word** —«el proveedor / la
+proveedora», «Administrador / Administradora», «del / de la»— que la administradora
+elegía a mano, uno por uno, en cada documento. Con 13 expedientes en paralelo son más
+de mil clics por campaña, y el que se olvida no falla en silencio: imprime la barra
+(«Administrador/a Contador/a», «del/a») en un papel que se firma.
+
+**163 de esos 187 ya salen solos.** Lo que se elige, y dónde:
+
+| Qué | Dónde se elige | Cuántas veces |
+|---|---|---|
+| Género de la AC | Hoja de Datos | una vez |
+| Género del responsable del área | Hoja de Datos, por área | una vez por área |
+| Género del proveedor (o si es empresa) | junto al proveedor | una por proveedor |
+| Género del nombre del área | Hoja de Datos, **propuesto por el nombre** | se corrige si falla |
+| Número (bien/bienes, día/días) y naturaleza (adquisición/contratación) | — | **se derivan** |
+
+Los **24 controles que quedan no son concordancia y no se tocan**: «Cumple / No
+cumple» es un juicio sobre cada oferta, «Presencial / Virtual» es cómo asistió cada
+miembro, «solicitud / cotización» es qué documento se nombra, y el `el/la` delante de
+`{objeto}` depende de un texto libre que escribe la AC. `scripts/concordancia.py`
+trabaja con lista blanca —convierte solo lo que una regla nombra— y
+`--verificar` comprueba que esos 24 siguen ahí.
+
+De paso salió un defecto de las plantillas: el cuadro de «ordenador/a de gasto» ofrecía
+«ordenador de gasto» cuando el texto de alrededor ya decía «de gasto», así que elegir la
+opción dejaba **«en mi calidad de ordenador de gasto de gasto»** en los tres memorandos
+de inicio. Ya no.
+
 ### Cambiar o añadir una plantilla
 
 1. Deja el `.docx` en `generador/plantillas/`.

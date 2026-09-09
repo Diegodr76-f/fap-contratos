@@ -271,7 +271,7 @@ def informe_satisfaccion_renovacion():
             'contrato de renovación será elaborado por la Unidad Operativa del '
             'FAP.'])
 
-    c += dos_firmas(('{ac}', 'Administrador/a Contador/a', 'FIAS'),
+    c += dos_firmas(('{ac}', '{AdminContador}', 'FIAS'),
                     ('{jefe}', '{jefeCargo}', 'Ministerio del Ambiente y Energía'))
     return c
 
@@ -340,7 +340,7 @@ def solicitud_cotizacion_renovacion():
 
     c += p(['Con sentimientos de distinguida consideración,'], espacio_despues=200)
     c += p(['Atentamente,'], espacio_despues=0)
-    c += firma('{ac}', 'Administrador/a Contador/a', 'FIAS — Fondo de Áreas Protegidas')
+    c += firma('{ac}', '{AdminContador}', 'FIAS — Fondo de Áreas Protegidas')
     return c
 
 
@@ -398,7 +398,7 @@ def notificacion_renovacion():
             'suscripción.'], espacio_despues=240)
 
     c += p(['Atentamente,'], espacio_despues=0)
-    c += firma('{ac}', 'Administrador/a Contador/a', 'FIAS — Fondo de Áreas Protegidas')
+    c += firma('{ac}', '{AdminContador}', 'FIAS — Fondo de Áreas Protegidas')
     return c
 
 

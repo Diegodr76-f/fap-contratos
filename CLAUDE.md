@@ -40,6 +40,39 @@ Dos comprobaciones lo sostienen, y conviene correr ambas antes de dar algo por b
 mira lo que La Mágica les entrega. Además, `scripts/plantillas_renovacion.py` se
 niega a escribir un `.docx` con una etiqueta sin catalogar.
 
+## Concordancia de género: `scripts/concordancia.py`
+
+Las plantillas llevaban **187 cuadros combinados** que la AC elegía a mano en cada
+documento. El que se olvidaba no fallaba en silencio: imprimía la barra
+—«Administrador/a Contador/a», «del/a»— en un papel que se firma.
+
+Hoy **163 de esos 187 salen de variables**. Solo se elige el género de la AC y el
+del responsable del área (una vez, en la Hoja de Datos) y el del proveedor (una
+vez por proveedor, porque cada invitación va dirigida a uno distinto). El género
+del nombre del área se propone desde el propio nombre («la Reserva», «el
+Parque»), y el número —bien/bienes, día/días— y la naturaleza —adquisición/
+contratación— se derivan de lo ya capturado. El motor está en `concordancias()`
+dentro de `generador/index.html`.
+
+**Los 24 controles que quedan NO se tocan, y la razón importa:** «Cumple / No
+cumple» es un juicio sobre cada oferta, «Presencial / Virtual» es cómo asistió
+cada miembro a la sesión, «solicitud / cotización» es qué documento se nombra, y
+el `el/la` que va delante de `{objeto}` depende del género de un texto libre que
+escribe la AC — elegir uno sería adivinar.
+
+El conversor trabaja **con lista blanca**: convierte solo lo que una regla nombra
+explícitamente, y deja intacto todo lo demás. Si aparece un control sin regla,
+avisa y no lo toca.
+
+```bash
+python3 scripts/concordancia.py --revisar     qué se convertiría y qué no
+python3 scripts/concordancia.py --aplicar     reescribe las plantillas
+python3 scripts/concordancia.py --verificar   que lo que no es concordancia sigue ahí
+```
+
+Corre `--verificar` después de cualquier cambio en las plantillas: comprueba que
+los 24 controles de juicio siguen estando, uno por uno.
+
 ## La Mágica — `generador/index.html`
 
 Un solo archivo de ~2,4 MB: la aplicación y, embebidas en base64, las 19 plantillas
