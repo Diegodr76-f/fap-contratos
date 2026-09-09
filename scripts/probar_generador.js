@@ -340,6 +340,7 @@ seccion('17 · Concordancia: el género se resuelve solo');
   ok(t.elLosProducto==='el producto','un solo ítem → «el producto»: '+t.elLosProducto);
   ok(t.diaContadoDiasContados==='días contados','plazo de 20 → «días contados»: '+t.diaContadoDiasContados);
   ok(t.adquisicionContratacion==='adquisición','bien → «adquisición»: '+t.adquisicionContratacion);
+  ok(t.adquisicioncontrato==='adquirir','y en forma verbal, bien → «por adquirir»: '+t.adquisicioncontrato);
   // y el mismo expediente, cambiando solo lo que se elige
   w3.ST.cfg.acGenero='M'; w3.D().provs[0].genero='F'; w3.D().plazo='1';
   w3.D().items.push({desc:'Gasolina',unidad:'Galón',cantidad:'50',punit:'10'});
@@ -348,6 +349,8 @@ seccion('17 · Concordancia: el género se resuelve solo');
   ok(t2.proveedorTrato==='Señora','proveedora mujer → «Señora»');
   ok(t2.diaContadoDiasContados==='día contado','plazo de 1 → «día contado»');
   ok(t2.elLosProducto==='los productos','dos ítems → «los productos»');
+  w3.D().bienServicio='Servicio';
+  ok(w3.buildTemplateData().adquisicioncontrato==='contratar','servicio → «por contratar»');
   ok(t2.ellaadministradorAP==='la administradora','la jefa no cambió al cambiar la AC: son personas distintas');
   // el género del área se propone desde su nombre
   ok(w3.generoAreaInferido('Reserva Ecológica Cotacachi Cayapas')==='F','«Reserva…» se propone femenino');

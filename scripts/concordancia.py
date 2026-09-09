@@ -101,6 +101,7 @@ DERIVADAS = {
     'contadoContados':                     'plazo en días',
     'diaContadoDiasContados':              'plazo en días',
     'adquisicionContratacion':             'bien o servicio',
+    'adquisicioncontrato':                 'bien o servicio',
     'adquisicionBienContratacionServicio': 'bien o servicio',
     'delBienDelServicio':                  'bien o servicio y número de ítems',
     'finalizadoEntregado':                 'bien o servicio',

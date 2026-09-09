@@ -1,7 +1,7 @@
 {
   "tipo": "variables_fap",
   "version": 1,
-  "exportado": "2026-09-09T14:52:13.954390Z",
+  "exportado": "2026-09-09T21:09:51.910572Z",
   "variables": [
     {
       "id": "pmrzmgq6fy1tua",
@@ -826,6 +826,14 @@
       "nombre": "adquisicionContratacion",
       "descripcion": "Concordancia que no se elige: se deriva de bien o servicio ya capturado.",
       "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtuldndyhnsmt",
+      "grupo": "Concordancia derivada",
+      "nombre": "adquisicioncontrato",
+      "descripcion": "Concordancia que no se elige: se deriva de si es bien o servicio. Es la forma verbal — «el bien o servicio por adquirir» / «por contratar» —, no el sustantivo, que es {{adquisicionContratacion}}.",
+      "ejemplo": "adquirir",
       "tipo": "texto"
     },
     {
