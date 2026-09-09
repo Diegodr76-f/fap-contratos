@@ -29,6 +29,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO = os.path.join(RAIZ, 'generador', 'variables_fap.json')
@@ -130,11 +131,23 @@ def cmd_grupo(nombre):
             print('      se calcula desde {%s}' % v['origen'])
 
 
+def _norm(s):
+    """Sin acentos, sin espacios y en minúsculas.
+
+    Los nombres del catálogo van pegados (`ellaadministradorcontador`) y las
+    descripciones separadas («Administrador/a Contador/a»), así que buscar la
+    cadena tal cual no encuentra lo que uno tiene en la cabeza.
+    """
+    s = unicodedata.normalize('NFD', s.lower())
+    return ''.join(c for c in s if unicodedata.category(c) != 'Mn' and c.isalnum())
+
+
 def cmd_buscar(texto):
     cat = cargar()
-    t = texto.lower()
+    t = _norm(texto)
     hay = [v for v in cat['variables']
-           if t in v['nombre'].lower() or t in v.get('descripcion', '').lower()]
+           if t in _norm(v['nombre']) or t in _norm(v.get('descripcion', ''))
+           or t in _norm(v.get('ejemplo', ''))]
     if not hay:
         raise SystemExit('Nada coincide con «%s».' % texto)
     print('%d coincidencia(s) con «%s»\n' % (len(hay), texto))
@@ -212,4 +225,11 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    # Estas órdenes se canalizan a head o grep todo el tiempo; sin esto, cortar
+    # la tubería suelta un rastreo de error feo en medio del listado.
+    try:
+        sys.exit(main())
+    except BrokenPipeError:
+        try: sys.stdout.close()
+        except Exception: pass
+        sys.exit(0)
