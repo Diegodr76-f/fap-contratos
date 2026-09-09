@@ -201,11 +201,11 @@ def informe_satisfaccion_renovacion():
             'mantiene con ',
             ('{proveedor}', 'b'),
             ', con RUC {proveedorRuc}, el contrato Nro. ',
-            ('{contratoAnterior}', 'b'),
-            ', suscrito el {fechaSuscripcionAnt}, cuyo objeto es «',
+            ('{contratoNro}', 'b'),
+            ', suscrito el {fechaContrato}, cuyo objeto es «',
             ('{objeto}', 'b'),
-            '», por un monto de USD {montoAnterior}, con vigencia hasta el '
-            '{fechaFinAnterior}, para el {area}.'])
+            '», por un monto de USD {montoTotal}, con vigencia hasta el '
+            '{fechaFin}, para el {area}.'])
     c += p(['El servicio es de carácter recurrente y su continuidad es necesaria '
             'para la operación del área protegida: la interrupción del servicio '
             'a partir del {arranqueSucesor} afectaría directamente la gestión '
@@ -245,7 +245,7 @@ def informe_satisfaccion_renovacion():
     c += seccion('6. ANÁLISIS ECONÓMICO')
     c += p(['El consumo efectivamente ejecutado durante el período asciende a ',
             ('USD {consumoEjecutado}', 'b'),
-            ', frente a un valor contratado de USD {montoAnterior}. Este '
+            ', frente a un valor contratado de USD {montoTotal}. Este '
             'consumo ejecutado —no el presupuesto del contrato vigente— es la '
             'base sobre la cual se solicitará la cotización del nuevo período, '
             'para evitar la subestimación que obliga a tramitar adendas de '
@@ -258,7 +258,7 @@ def informe_satisfaccion_renovacion():
             'el servicio prestado por ',
             ('{proveedor}', 'b'),
             ' y ',
-            ('recomienda renovar el contrato Nro. {contratoAnterior}', 'b'),
+            ('recomienda renovar el contrato Nro. {contratoNro}', 'b'),
             ' para el período comprendido entre el {periodoDesde} y el '
             '{periodoHasta}, por una sola vez, conforme lo permite el '
             'instrumento vigente.'])
@@ -286,17 +286,17 @@ def solicitud_cotizacion_renovacion():
 
     c += p([('Asunto: ', 'b'),
             'Solicitud de cotización para el nuevo período — renovación del '
-            'contrato Nro. {contratoAnterior}'], espacio_despues=240)
+            'contrato Nro. {contratoNro}'], espacio_despues=240)
 
     c += p(['De mi consideración:'], espacio_despues=200)
 
     c += p(['El Fondo de Inversión Ambiental Sostenible (FIAS), administrador de '
             'los recursos del Fondo de Áreas Protegidas (FAP), mantiene con '
             'ustedes el contrato Nro. ',
-            ('{contratoAnterior}', 'b'),
+            ('{contratoNro}', 'b'),
             ', cuyo objeto es «',
             ('{objeto}', 'b'),
-            '», con vigencia hasta el {fechaFinAnterior}.'])
+            '», con vigencia hasta el {fechaFin}.'])
     c += p(['Verificada la satisfacción con el servicio prestado y la '
             'procedencia de la renovación, y aprobado el Plan Anual de Gasto '
             'del {area} —que fija el presupuesto disponible—, solicito a '
@@ -344,7 +344,7 @@ def solicitud_cotizacion_renovacion():
 def notificacion_renovacion():
     """21 — Bloque 2. Cierra lo que hace la AC; el contrato lo hace la Unidad Operativa."""
     c = ''
-    c += p(['{ciudad}, {fechaNotificacion}'], jc='right', espacio_despues=240)
+    c += p(['{ciudad}, {fechanotificacion}'], jc='right', espacio_despues=240)
     c += p([('Oficio Nro. ', 'b'), ('{memoNro}', 'b')], jc='left',
            espacio_despues=200)
     c += p([('Señores', 'b')], jc='left', espacio_despues=0)
@@ -353,7 +353,7 @@ def notificacion_renovacion():
     c += p(['Presente.-'], jc='left', espacio_despues=240)
 
     c += p([('Asunto: ', 'b'),
-            'Notificación de renovación del contrato Nro. {contratoAnterior}'],
+            'Notificación de renovación del contrato Nro. {contratoNro}'],
           espacio_despues=240)
 
     c += p(['De mi consideración:'], espacio_despues=200)
@@ -361,7 +361,7 @@ def notificacion_renovacion():
     c += p(['Por medio del presente notifico a ustedes que el Fondo de '
             'Inversión Ambiental Sostenible (FIAS), en calidad de administrador '
             'de los recursos del Fondo de Áreas Protegidas (FAP), ha resuelto ',
-            ('renovar el contrato Nro. {contratoAnterior}', 'b'),
+            ('renovar el contrato Nro. {contratoNro}', 'b'),
             ', cuyo objeto es «',
             ('{objeto}', 'b'),
             '», suscrito para el {area}.'])
@@ -370,7 +370,7 @@ def notificacion_renovacion():
     c += tabla([3200, 5720],
                ['CONCEPTO', 'DETALLE'],
                [[('Contrato que se renueva', 'left'),
-                 ('{contratoAnterior}', 'left')],
+                 ('{contratoNro}', 'left')],
                 [('Período del nuevo servicio', 'left'),
                  ('Del {periodoDesde} al {periodoHasta}', 'left')],
                 [('Inicio del servicio', 'left'), ('{arranqueSucesor}', 'left')],
