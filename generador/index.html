@@ -53,7 +53,13 @@ function dataDef(){return{
   fechaInicio:'', numero:'', fechaInvitacion:'', tipoProceso:'', bienServicio:'', tipoBien:'',
   causal:'', profesional:'', objeto:'',
   partida:'', partidaOtroCod:'', partidaOtroNom:'', fuente:'', formaPago:'', plazo:'', fechaLimite:'', presupuesto:'', ivaPct:'15',
-  pagoContraEntrega:false, garAnticipo:false, garFielCumpl:false,
+  // Cómo se ejecuta: una entrega puntual (plazo en días) o un servicio continuo
+  // (un período con fecha de inicio y fin). Es lo que decide si el proceso se
+  // resuelve con orden o con contrato, no las garantías.
+  tipoPlazo:'entrega', ejecDesde:'', ejecHasta:'',
+  // Garantías CONTRACTUALES. La garantía técnica del bien es otra cosa y vive en
+  // el Momento 3: esa no obliga a contrato, una orden puede llevarla.
+  garAnticipo:false, garFielCumpl:false,
   garantiaAplica:'', garantiaMeses:'',
   desierto:false,
   items:[{desc:'',unidad:'',cantidad:'',punit:''}],
@@ -389,17 +395,48 @@ function momentosNombres(){
 function momentoAlcanzado(){ var a=doneArr(),n=0; for(var i=0;i<4;i++){ if(a[i]) n=i+1; else break; } return n; }
 // Modalidad de pago / garantías. Con garantías (anticipo y/o fiel cumplimiento) el
 // proceso va por contrato: la orden no aplica. Contra entrega habilita la orden.
-function esContrato(){var d=D();return !!(d.garAnticipo||d.garFielCumpl);}
+// Días entre dos fechas, contando los dos extremos: del 1 de enero al 31 de
+// diciembre son 365 días de ejecución, no 364.
+function diasEntre(desde,hasta){
+  if(!desde||!hasta) return 0;
+  var a=new Date(desde+'T00:00:00'), b=new Date(hasta+'T00:00:00');
+  if(isNaN(a.getTime())||isNaN(b.getTime())) return 0;
+  var n=Math.round((b-a)/86400000)+1;
+  return n>0?n:0;
+}
+// El plazo de ejecución real, venga de donde venga.
+function diasEjecucion(){
+  var d=D();
+  if(d.tipoPlazo==='continuo') return diasEntre(d.ejecDesde,d.ejecHasta);
+  return num(d.plazo);
+}
+// El instrumento NO se marca: se deriva. Devuelve por qué va por contrato, o ''
+// si se puede resolver con una orden.
+function motivoContrato(){
+  var d=D();
+  if(esRenov()) return 'renovacion';
+  if(diasEjecucion()>30) return 'plazo';
+  if(d.garAnticipo||d.garFielCumpl) return 'garantias';
+  return '';
+}
+function esContrato(){ return !!motivoContrato(); }
 function montoConIva(){return itemTotals().total;}   // total con IVA (base del umbral de 8.000)
 function firmaDirector(){return montoConIva()>8000;}
 // ¿El proceso puede resolverse con una orden de compra/servicio? Si va por
 // contrato (garantías de anticipo y/o fiel cumplimiento) o el plazo supera los
 // 30 días, la orden NO aplica: el expediente se formaliza mediante contrato y
 // debe enviarse a la Unidad Operativa para la elaboración del instrumento jurídico.
-function puedeOrden(){ var d=D(); if(esRenov()) return false; if(d.desierto) return false; if(esContrato()) return false; if(num(d.plazo)>30) return false; return true; }
+function puedeOrden(){ var d=D(); if(d.desierto) return false; return !esContrato(); }
 function tituloUnidadOperativa(){ return esRenov()?'El contrato de renovación lo elabora la Unidad Operativa':(puedeOrden()?'Esta orden la firma el Director Ejecutivo':'Este proceso va por contrato'); }
 function requiereUnidadOperativa(){ var d=D(); return !d.desierto && !!d.tipoProceso && (!puedeOrden() || firmaDirector()); }
-function motivoUnidadOperativa(){ var d=D(); if(esRenov()) return 'El contrato de renovación lo elabora la Unidad Operativa: la administradora arma el expediente (informe de satisfacción, solicitud de cotización y notificación) y lo envía para la elaboración del instrumento.'; if(esContrato()) return 'Con garantías (anticipo y/o fiel cumplimiento) el proceso va por CONTRATO: la orden de compra/servicio no aplica.'; if(num(d.plazo)>30) return 'El plazo supera los 30 días: la orden de compra/servicio no aplica y el proceso se formaliza mediante contrato.'; if(firmaDirector()) return 'El monto supera USD 8.000 (con IVA): la orden la firma el Director Ejecutivo. El expediente va a la Unidad Operativa para la toma de firmas.'; return 'Este proceso se formaliza mediante contrato.'; }
+function motivoUnidadOperativa(){
+  var m=motivoContrato();
+  if(m==='renovacion') return 'El contrato de renovación lo elabora la Unidad Operativa: la administradora arma el expediente (informe de satisfacción, solicitud de cotización y notificación) y lo envía para la elaboración del instrumento.';
+  if(m==='plazo') return 'La ejecución dura '+diasEjecucion()+' días, más de 30: la orden de compra/servicio no aplica y el proceso se formaliza mediante contrato.';
+  if(m==='garantias') return 'El proceso lleva garantías contractuales (anticipo y/o fiel cumplimiento): se formaliza mediante contrato y la orden no aplica.';
+  if(firmaDirector()) return 'El monto supera USD 8.000 (con IVA): la orden la firma el Director Ejecutivo. El expediente va a la Unidad Operativa para la toma de firmas.';
+  return 'Este proceso se formaliza mediante contrato.';
+}
 
 //===================== DOCUMENTOS =====================
 function documents(){
@@ -424,9 +461,13 @@ function documents(){
     return{id:'entrega',m:4,name:name,tpl:tpl,note:note,ready:rdy};
   }
   function ordenDoc(){
-    var contrato=esContrato();
-    var note=contrato?'Con garantías (anticipo y/o fiel cumplimiento) el proceso va por CONTRATO: la orden no aplica.':'Se emite tras la adjudicación.';
-    return{id:'orden',m:2,name:ordenName,tpl:ordenTpl,note:note,ready:base&&hasAdj&&priced&&!!d.bienServicio&&!contrato,warn30:num(d.plazo)>30&&!contrato,warn8000:montoConIva()>8000&&!contrato};
+    var m=motivoContrato(), puede=puedeOrden();
+    var note = m==='plazo'    ? ('La ejecución dura '+diasEjecucion()+' días, más de 30: el proceso va por CONTRATO y la orden no aplica.')
+             : m==='garantias'? 'Con garantías contractuales (anticipo y/o fiel cumplimiento) el proceso va por CONTRATO: la orden no aplica.'
+             : 'Se emite tras la adjudicación.';
+    return{id:'orden',m:2,name:ordenName,tpl:ordenTpl,note:note,
+      ready:base&&hasAdj&&priced&&!!d.bienServicio&&puede,
+      warn8000:puede&&montoConIva()>8000};
   }
 
   if(tipo==='Renovación'){
@@ -512,7 +553,7 @@ function concordancias(gProv){
   var gP=gProv||generoProvAdj(), gDir=c.directorGenero||'M';
   var d=D();
   var varios=d.items.filter(function(it){return it.desc;}).length>1;
-  var unDia=num(d.plazo)===1;
+  var unDia=diasEjecucion()===1;
   var esBien=d.bienServicio==='Bien';
   return {
     // — Administrador/a Contador/a (FIAS) —
@@ -602,7 +643,7 @@ function buildTemplateData(extra){
     fechaInicio:fechaLarga(d.fechaInicio), fechaInvitacion:fechaLarga(d.fechaInvitacion),
     fechaLimite:fechaLarga(d.fechaLimite), fechaAdj:fechaLarga(d.fechaAdj), fechaRecepcion:fechaLarga(d.fechaRecepcion),
     fechaRecepOferta:adj&&adj.fof?fechaLarga(adj.fof):'',
-    plazo:String(d.plazo||''),
+    plazo:String(diasEjecucion()||d.plazo||''),
     causal:d.causal||'', causalTexto:cau?cau.full:'',
     partida:L.code, lineaNombre:L.name, fuente:d.fuente||'', formaPago:d.formaPago||'',
     presupuesto:d.presupuesto?moneyN(num(d.presupuesto)):'', presupuestoLetras:montoEnLetras(d.presupuesto),
@@ -842,6 +883,12 @@ function onField(el){
     if(changed) resetDocsOnShapeChange(k);
     // En cuanto se registra la fecha del PAG, el expediente deja de estar aparcado.
     if(k==='pagAprobado' && v){ d.esperandoPAG=false; }
+    // En servicio continuo el plazo no se escribe: sale de las dos fechas. Se
+    // guarda igualmente en d.plazo para que las plantillas y la lista de
+    // verificación lean siempre del mismo sitio.
+    if(k==='ejecDesde'||k==='ejecHasta'||k==='tipoPlazo'){
+      if(d.tipoPlazo==='continuo'){ var n=diasEntre(d.ejecDesde,d.ejecHasta); d.plazo=n?String(n):''; }
+    }
   }
   save();
   if(el.dataset.re){render();return;}
@@ -941,11 +988,12 @@ function capM1(){
     "<div class='gridf'>"+fSelect('partida','Línea presupuestaria',PARTIDAS.map(function(p){return{value:p.code,label:(p.code==='OTRO'?'Otros (especificar)':p.code+' — '+p.name)};}),{reender:true})
     +(d.partida==='OTRO'?fText('partidaOtroCod','Código de la línea (otro)',{ph:'Ej.: 3.4.5'})+fText('partidaOtroNom','Nombre de la línea (otro)',{ph:'Ej.: Capacitación al personal'}):fAuto('a_linea','Nombre de la línea',nombreLinea()||'—','Se llena solo al elegir el código.'))
     +fSelect('fuente','Fuente de financiamiento',FUENTE)
-    +fText('plazo','Plazo de entrega (días)',{type:'number',ph:'30',help:'Máx. 30 días. Sin anticipos.'})
     +fText('fechaLimite','Fecha límite de cotizaciones',{type:'date',show:invita()})
     +fText('presupuesto','Presupuesto referencial (USD)',{type:'number',ph:'0.00'})
     +fAuto('a_presletras','Presupuesto en letras',montoEnLetras(d.presupuesto)||'—')
-    +modalidadGroup()
+    +plazoGroup()
+    +instrumentoGroup()
+    +garantiasGroup()
     +fArea('formaPago','Documentos requeridos para el pago',{ph:'Ej.: Factura, acta de entrega-recepción, comprobante de retención…'})+"</div>");
   s+=block(nInv()>1?'4 · Proveedores a invitar':'4 · Proveedor a invitar', nInv()>1?'Registra los 3 proveedores. Solo el nombre — el RUC se pide después, cuando presenten oferta.':'Registra el proveedor a invitar (solo el nombre).', provRows('invite'));
   s+=block('5 · Detalle del requerimiento','Cantidad, unidad y descripción. <b>Sin valores</b> — los precios se completan en el Momento 2.', itemRows(false));
@@ -1099,29 +1147,69 @@ function capRen4(){
     cuerpo+"<button onclick=\"go('unidad')\" style='all:unset;cursor:pointer;display:inline-block;margin-top:14px;background:#00249C;color:#fff;font-weight:700;font-size:14px;padding:11px 20px;border-radius:10px'>"+(enviado?'Ver el envío':'Ir a Enviar a la Unidad Operativa →')+"</button>");
 }
 
-function modalidadGroup(){
+//---- plazo, instrumento y garantías ----
+// Antes, tres casillas de «modalidad de pago / garantías» decidían si el proceso
+// iba por orden o por contrato. Estaba mal: la regla es el plazo de ejecución
+// —más de 30 días, contrato—, y hay contratos de enero a diciembre que no llevan
+// ninguna garantía. La AC tenía que marcar algo falso para poder seguir.
+// Ahora el plazo se captura como lo que es, el instrumento se deriva y se
+// muestra, y las garantías son opcionales y no deciden nada por sí solas.
+var TIPO_PLAZO=[{value:'entrega',label:'Entrega puntual — se entrega una vez'},
+                {value:'continuo',label:'Servicio continuo — se presta durante un período'}];
+function plazoGroup(){
+  var d=D(), continuo=d.tipoPlazo==='continuo';
+  var campos = continuo
+    ? fText('ejecDesde','La ejecución empieza el',{type:'date'})
+      +fText('ejecHasta','y termina el',{type:'date'})
+      +fAuto('a_dias','Días de ejecución', diasEjecucion()?String(diasEjecucion()):'—','Contando los dos extremos. Del 1 de enero al 31 de diciembre son 365.')
+    : fText('plazo','Plazo de entrega (días)',{type:'number',ph:'30'});
+  return "<div style='grid-column:1/-1'><div class='gridf'>"
+   +fSelect('tipoPlazo','¿Cómo se ejecuta?',TIPO_PLAZO,{reender:true,help:'Un mantenimiento de enero a diciembre es servicio continuo; una compra de repuestos es entrega puntual.'})
+   +campos+"</div></div>";
+}
+// El cartel del instrumento: no se elige, se lee.
+function instrumentoGroup(){
+  var d=D();
+  if(!d.bienServicio) return '';
+  var dias=diasEjecucion();
+  if(!dias) return "<div style='grid-column:1/-1;font-size:12.5px;color:#9AA0B2;line-height:1.45'>Al registrar el plazo se sabrá si el proceso va por orden o por contrato.</div>";
+  var m=motivoContrato(), dir=firmaDirector();
+  var esOrden=puedeOrden();
+  var titulo, detalle, color, fondo, borde;
+  if(esOrden){
+    titulo=(d.bienServicio==='Bien'?'Orden de compra':'Orden de servicio');
+    detalle='La ejecución dura '+dias+' día'+(dias===1?'':'s')+', 30 o menos, y no hay garantías contractuales.'
+      +(dir?' Como el total con IVA supera los USD 8.000, la firma el Director Ejecutivo: el expediente va a la Unidad Operativa para la toma de firmas.':'');
+    color=dir?'#B4690E':'#1E7A4D'; fondo=dir?'#FBF1E1':'#E7F4EC'; borde=dir?'#F0E0C0':'#CDE8D6';
+  }else{
+    titulo='Contrato';
+    detalle = m==='plazo' ? ('La ejecución dura '+dias+' días, más de 30.')
+            : m==='garantias' ? 'Lleva garantías contractuales.'
+            : 'Es una renovación.';
+    detalle+=' La orden no aplica; el instrumento lo elabora la Unidad Operativa.';
+    color='#00249C'; fondo='#EEF1FB'; borde='#C7D0EC';
+  }
+  return "<div style='grid-column:1/-1'><label class='fl'>Instrumento que corresponde</label>"
+   +"<div style='background:"+fondo+";border:1.5px solid "+borde+";border-radius:9px;padding:11px 13px'>"
+   +"<div style='font-weight:700;font-size:14.5px;color:"+color+"'>"+titulo+"</div>"
+   +"<div style='font-size:12.5px;color:#5A6072;line-height:1.45;margin-top:2px'>"+esc(detalle)+"</div></div></div>";
+}
+function garantiasGroup(){
   var d=D();
   if(!d.bienServicio) return '';
   function opt(key,label){
     var on=!!d[key];
-    return "<button type='button' onclick=\"toggleModalidad('"+key+"')\" style='all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;padding:10px 13px;border:1.5px solid "+(on?'#00249C':'#E7EAF4')+";border-radius:9px;background:"+(on?'#EEF1FB':'#fff')+";font-size:13.5px;font-weight:600;color:"+(on?'#00249C':'#3A4050')+"'>"
+    return "<button type='button' onclick=\"toggleGarantia('"+key+"')\" style='all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;padding:10px 13px;border:1.5px solid "+(on?'#00249C':'#E7EAF4')+";border-radius:9px;background:"+(on?'#EEF1FB':'#fff')+";font-size:13.5px;font-weight:600;color:"+(on?'#00249C':'#3A4050')+"'>"
      +"<span style='width:17px;height:17px;flex:0 0 auto;border-radius:5px;border:2px solid "+(on?'#00249C':'#C7CCDC')+";background:"+(on?'#00249C':'#fff')+";display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:11px;line-height:1'>"+(on?'✓':'')+"</span>"+label+"</button>";
   }
-  var contrato=esContrato();
-  var nota;
-  if(contrato) nota="<div style='font-size:12.5px;color:#8A5210;background:#FBF1E1;border:1px solid #F0E0C0;border-radius:8px;padding:8px 10px;line-height:1.45'>Con garantías, el proceso va por <b>contrato</b>: la orden no aplica.</div>";
-  else if(d.pagoContraEntrega) nota="<div style='font-size:12.5px;color:#1E7A4D;background:#E7F4EC;border:1px solid #CDE8D6;border-radius:8px;padding:8px 10px;line-height:1.45'>Pago contra entrega: habilita la <b>orden</b> de compra/servicio.</div>";
-  else nota="<div style='font-size:12.5px;color:#9AA0B2;line-height:1.45'>Marca la modalidad para habilitar la orden.</div>";
-  return "<div style='grid-column:1/-1'><label class='fl'>Modalidad de pago / garantías</label>"
-   +"<div style='display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 8px'>"+opt('pagoContraEntrega','Pago contra entrega')+opt('garAnticipo','Garantía de buen uso de anticipo')+opt('garFielCumpl','Garantía de fiel cumplimiento')+"</div>"+nota+"</div>";
+  return "<div style='grid-column:1/-1'><label class='fl'>Garantías contractuales <span style='font-weight:600;color:#9AA0B2'>(si aplican)</span></label>"
+   +"<div style='display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 8px'>"+opt('garAnticipo','Garantía de buen uso de anticipo')+opt('garFielCumpl','Garantía de fiel cumplimiento')+"</div>"
+   +"<div style='font-size:12.5px;color:#9AA0B2;line-height:1.45'>La mayoría de los procesos no llevan ninguna: si no aplica, no marques nada. Cualquiera de las dos obliga a contrato."
+   +(d.bienServicio==='Bien'?" La <b>garantía técnica</b> del bien es otra cosa y se registra en el Momento 3 — esa no obliga a contrato: una orden de compra puede llevarla.":"")
+   +"</div></div>";
 }
-// Contra entrega excluye a las garantías y viceversa; las dos garantías pueden coexistir.
-function toggleModalidad(key){
-  var d=D(),v=!d[key];d[key]=v;
-  if(key==='pagoContraEntrega'){ if(v){d.garAnticipo=false;d.garFielCumpl=false;} }
-  else { if(v){d.pagoContraEntrega=false;} }
-  save();render();
-}
+function toggleGarantia(key){ var d=D(); d[key]=!d[key]; save(); render(); }
+
 function desiertoToggle(){
   var d=D(),on=!!d.desierto;
   return "<div style='display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap'>"
@@ -1410,8 +1498,8 @@ function checklistEnvio(){
       'Fecha de inicio, número, tipo de proceso, bien o servicio y objeto — código '+codigoProceso()+'.');
   chk(!!d.partida&&!!d.fuente,'Línea de gasto y fuente de financiamiento',
       d.partida?('Componente '+d.partida+' · '+(nombreLinea()||'sin nombre')):'Falta elegir la línea presupuestaria.');
-  chk(!!d.plazo&&!!d.formaPago,'Plazo y documentos requeridos para el pago',
-      d.plazo?('Plazo de '+d.plazo+' días.'):'Sin plazo no se puede redactar el instrumento.');
+  chk(diasEjecucion()>0&&!!d.formaPago,'Plazo y documentos requeridos para el pago',
+      diasEjecucion()>0?('Plazo de '+diasEjecucion()+' días.'):'Sin plazo no se puede redactar el instrumento.');
 
   if(d.tipoProceso==='Selección directa por excepción')
     chk(!!d.causal,'Causal de excepción registrada','La causal es lo que sostiene la selección directa ante la revisión legal.');
@@ -1426,8 +1514,10 @@ function checklistEnvio(){
     chk(!!d.periodoDesde&&!!d.periodoHasta&&!!d.arranqueSucesor,'Período del nuevo servicio definido',
         'Desde el arranque del sucesor corre la retroactividad si el contrato no está suscrito.');
   }else{
-    chk(!!(d.pagoContraEntrega||d.garAnticipo||d.garFielCumpl),'Modalidad de pago o garantías definida',
-        'Contra entrega, garantía de anticipo o de fiel cumplimiento: determina si va por orden o por contrato.');
+    chk(diasEjecucion()>0,'Plazo de ejecución definido',
+        diasEjecucion()>0
+          ? ('Ejecución de '+diasEjecucion()+' día'+(diasEjecucion()===1?'':'s')+': el proceso va por '+(puedeOrden()?'orden de compra/servicio':'contrato')+'.')
+          : 'Sin plazo no se sabe si el proceso se resuelve con orden o con contrato.');
   }
 
   chk(!!adjudicado(),'Proveedor identificado', adjudicado()||'Falta el proveedor del expediente.');

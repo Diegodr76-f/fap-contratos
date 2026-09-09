@@ -272,7 +272,52 @@ seccion('15 · La Mágica habla el idioma del catálogo de variables');
   ok(fueraItems.length===0,'y los subcampos de {#items} también', fueraItems.join(', '));
 }
 
-seccion('16 · Concordancia: el género se resuelve solo');
+seccion('16 · Orden o contrato: lo decide el plazo, no las garantías');
+{
+  function expediente(){
+    const w4=nuevoDom();
+    w4.ST.cfg.areas=[{id:'a1',ap:'PN Yasuní',siglas:'PNY',ciudad:'Quito',mae:'m',maeCargo:'c',maeGenero:'M',apGenero:'M',lugar:'l'}];
+    w4.newExp('x'); const dd=w4.D();
+    Object.assign(dd,{areaId:'a1',tipoProceso:'Selección directa por excepción',bienServicio:'Servicio',
+      fechaInicio:'2026-11-10',numero:'7',objeto:'Servicio',causal:'Único proveedor cerca del AP',
+      partida:'1.1.3',fuente:'Fondo de Áreas Protegidas - FAP',presupuesto:'12000',formaPago:'Contado',
+      fechaInvitacion:'2026-11-11',fechaLimite:'2026-11-18',fechaAdj:'2026-11-20',adjudicado:'P',
+      items:[{desc:'Limpieza',unidad:'Servicio',cantidad:'12',punit:'869.5652174'}]});
+    dd.provs[0]={razon:'P',ruc:'1',dir:'',tel:'',monto:'12000',fof:'2026-11-15',genero:'M'};
+    w4.save(); return w4;
+  }
+  // El caso que motivó el cambio: un contrato de enero a diciembre sin ninguna
+  // garantía. Antes la tarjeta de la orden quedaba ready:true y solo avisaba.
+  const anual=expediente();
+  Object.assign(anual.D(),{tipoPlazo:'continuo',ejecDesde:'2027-01-01',ejecHasta:'2027-12-31',plazo:'365'});
+  anual.save();
+  ok(anual.diasEntre('2027-01-01','2027-12-31')===365,'del 1 de enero al 31 de diciembre son 365 días, no 364');
+  ok(anual.esContrato()===true,'enero a diciembre sin garantías → contrato');
+  ok(anual.puedeOrden()===false,'y la orden no aplica');
+  ok(anual.documents().find(x=>x.id==='orden').ready===false,'la tarjeta de la orden queda BLOQUEADA, no solo avisada');
+  ok(anual.motivoContrato()==='plazo','el motivo es el plazo, no las garantías');
+
+  const corto=expediente();
+  Object.assign(corto.D(),{tipoPlazo:'entrega',plazo:'20'}); corto.save();
+  ok(corto.puedeOrden()===true && corto.documents().find(x=>x.id==='orden').ready===true,'entrega de 20 días → orden, sin marcar ninguna casilla');
+
+  const largo=expediente();
+  Object.assign(largo.D(),{tipoPlazo:'entrega',plazo:'45'}); largo.save();
+  ok(largo.motivoContrato()==='plazo','45 días de entrega → contrato');
+
+  const conGar=expediente();
+  Object.assign(conGar.D(),{tipoPlazo:'entrega',plazo:'20',garFielCumpl:true}); conGar.save();
+  ok(conGar.motivoContrato()==='garantias','20 días pero con fiel cumplimiento → contrato por la garantía');
+
+  // Y la lista de verificación ya no obliga a declarar una modalidad falsa
+  const pend=anual.checklistPendientes().map(x=>x.label);
+  ok(pend.indexOf('Modalidad de pago o garantías definida')<0,'ya no se exige marcar una modalidad de pago');
+  ok(pend.indexOf('Plazo de ejecución definido')<0,'y el plazo cuenta como definido: '+(pend.join(' | ')||'nada pendiente'));
+  const sinPlazo=expediente();
+  ok(sinPlazo.checklistPendientes().map(x=>x.label).indexOf('Plazo de ejecución definido')>=0,'sin plazo, la lista lo reclama');
+}
+
+seccion('17 · Concordancia: el género se resuelve solo');
 {
   const w3=nuevoDom();
   w3.ST.cfg.ac='Lcda. María Salazar'; w3.ST.cfg.acGenero='F';
@@ -310,7 +355,7 @@ seccion('16 · Concordancia: el género se resuelve solo');
   ok(w3.generoAreaInferido('Estación Científica Coca')==='F','«Estación…» se propone femenino');
 }
 
-seccion('17 · Todas las pantallas se pintan, en las dos vías');
+seccion('18 · Todas las pantallas se pintan, en las dos vías');
 function pintaTodo(w,etiqueta){
   ['guia','plantillas','captura','documentos','historial','datos','procesos','unidad'].forEach(function(nav){
     [0,1,2,3].forEach(function(step){
