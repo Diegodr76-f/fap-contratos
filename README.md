@@ -132,7 +132,7 @@ ese navegador); sin ella nadie que encuentre el link ve nada. No es cifrado real
 no una caja fuerte—, pero cumple su función: nadie entra sin la frase, y como las tareas nunca se
 publican, tampoco hay nada que robar aunque alguien la esquivara.
 
-## Confirmación de renovaciones — la pantalla de las administradoras
+## Contratos 2027 — la pantalla de las administradoras
 
 **`/renovaciones/index.html`** es donde cada administrador/a contador/a entra, elige su nombre y ve
 **sus contratos vigentes desplegados**, cada uno con su monto del año (adendas incluidas), el
@@ -516,7 +516,7 @@ nada.
 Cada herramienta tiene su propio enlace en GitHub Pages:
 
 - **CLM (plataforma unificada):** https://diegodr76-f.github.io/fap-contratos/clm/
-- Confirmación de renovaciones 2027 (para las ACs): https://diegodr76-f.github.io/fap-contratos/renovaciones/
+- Contratos 2027 (para las ACs): https://diegodr76-f.github.io/fap-contratos/renovaciones/
 - Planificador adaptativo: https://diegodr76-f.github.io/fap-contratos/planificador/
 - Calificador de Ofertas: https://diegodr76-f.github.io/fap-contratos/calificacion/
 - CRM directo: https://diegodr76-f.github.io/fap-contratos/crm/
