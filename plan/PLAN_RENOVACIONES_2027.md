@@ -329,8 +329,9 @@ Los sprints 1 a 3 están en el camino crítico; el 4 no.
 
 **Lo entregado en los sprints 1 a 3** está en `generador/index.html` y descrito en el
 [README](../README.md#la-mágica-para-las-renovaciones): la vía `Renovación` con captura por
-momentos y sus tres plantillas (`19_`, `20_` y `21_` en `generador/plantillas/`, generadas con
-`scripts/plantillas_renovacion.py`), el corte por el PAG —el Momento 1 se cierra sin monto y el
+momentos y sus dos plantillas (`19_` y `20_` en `generador/plantillas/`; la notificación al
+proveedor no es de la administradora, la hace el Director Ejecutivo con la Unidad Operativa), el
+corte por el PAG —el Momento 1 se cierra sin monto y el
 expediente queda *en espera*—, la pantalla *Mis procesos*, el respaldo y restauración de
 expedientes, el aviso visible cuando el navegador se queda sin espacio, las colas acotadas y la
 lista de verificación que deshabilita el envío hasta que el expediente esté completo. Las

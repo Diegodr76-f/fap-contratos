@@ -37,8 +37,7 @@ python3 scripts/variables.py --unir <export_del_sistema.json>
 
 Dos comprobaciones lo sostienen, y conviene correr ambas antes de dar algo por bueno:
 `scripts/variables.py --check` mira las plantillas, y `scripts/probar_generador.js`
-mira lo que La Mágica les entrega. Además, `scripts/plantillas_renovacion.py` se
-niega a escribir un `.docx` con una etiqueta sin catalogar.
+mira lo que La Mágica les entrega —y, de paso, rellena las 18 de verdad.
 
 ## Que los .docx se abran: `scripts/validar_docx.py`
 
@@ -57,6 +56,11 @@ oficial ISO/IEC 29500-4:2016, que está copiado en `scripts/esquemas/`.
 python3 scripts/validar_docx.py                    las plantillas del repo
 python3 scripts/validar_docx.py <carpeta|archivo>  lo que se le diga
 ```
+
+**Y que abra no basta: tiene que rellenarse.** `{monto (` —una llave sin cerrar— da
+un `.docx` que Word abre y el esquema aprueba, pero que docxtemplater rechaza al
+compilarlo: el documento no se puede generar. Eso lo ve `scripts/probar_generador.js`,
+que rellena las 18 plantillas con datos reales en cada corrida. Córrelo también.
 
 **Córrelo después de tocar cualquier .docx**, y también sobre los documentos ya
 rellenados, que es lo que la AC abre de verdad. `concordancia.py --aplicar` lo
@@ -105,6 +109,35 @@ python3 scripts/concordancia.py --verificar   que lo que no es concordancia sigu
 Corre `--verificar` después de cualquier cambio en las plantillas: comprueba que
 los 24 controles de juicio siguen estando, uno por uno.
 
+## Dos cosas de las plantillas que no se ven leyendo el Word
+
+**Los montos en letras ya traen el número.** `{montoLetras}`, `{presupuestoLetras}`,
+`{montoTotalLetras}` y compañía no son solo las palabras: `montoEnLetras()` devuelve
+`USD 1.150,00 (Mil ciento cincuenta con 00/100 dólares de los Estados Unidos de
+América) incluidos impuestos`. En la plantilla van **solos**; escribir
+`USD {monto} ({montoLetras})` —que es lo natural si uno viene del generador de
+instrumentos jurídicos, donde esa variable sí son solo las palabras— duplica el
+número en el documento firmado.
+
+**Las plantillas se editan en Word, a mano.** No hay script que las genere: el
+formato es de quien firma los documentos. Después de tocar una, siempre:
+
+```bash
+python3 scripts/validar_docx.py        # ¿abre en Word?
+node scripts/probar_generador.js       # ¿se rellena? ¿tiene dato cada etiqueta?
+python3 scripts/variables.py --check   # ¿usa nombres del catálogo?
+python3 scripts/concordancia.py --verificar
+python3 scripts/embeber_plantillas.py  # y el seed, en el mismo commit
+```
+
+## La renovación no lleva notificación
+
+La notificación al proveedor la hace el **Director Ejecutivo** con la Unidad Operativa,
+ya revisado el proceso y antes del contrato. La administradora arma el informe de
+satisfacción (Momento 1), pide la cotización (Momento 2), registra el monto en firme
+(Momento 3) y envía el expediente (Momento 4). Como así ningún documento cierra el
+expediente, el cierre lo registra `marcarEnviadoUO()` al salir hacia la Unidad.
+
 ## Orden o contrato: lo decide el plazo de ejecución
 
 **La regla es una sola: si la ejecución dura más de 30 días, va por contrato.**
@@ -135,7 +168,7 @@ la AC tenía que declarar algo falso para poder enviar.
 
 ## La Mágica — `generador/index.html`
 
-Un solo archivo de ~2,4 MB: la aplicación y, embebidas en base64, las 19 plantillas
+Un solo archivo de ~2,4 MB: la aplicación y, embebidas en base64, las 18 plantillas
 Word. Todo es JavaScript de navegador sin módulos ni transpilación; sigue el estilo
 que ya está (`var`, funciones sueltas, HTML como cadenas).
 
