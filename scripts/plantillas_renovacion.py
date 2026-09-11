@@ -178,11 +178,14 @@ def dos_firmas(izq, der):
                 '</w:tcPr>' + cont + '</w:tc>')
 
     return (vacio(200) + vacio(200)
+            # El orden de los hijos de <w:tblPr> no es libre: el esquema exige
+            # tblW → tblBorders → tblLayout → tblCellMar → tblLook. Con
+            # tblBorders detrás de tblLayout el documento queda inválido.
             + '<w:tbl><w:tblPr><w:tblW w:w="8920" w:type="dxa"/>'
-              '<w:tblLayout w:type="fixed"/>'
               '<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/>'
               '<w:bottom w:val="nil"/><w:right w:val="nil"/>'
               '<w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>'
+              '<w:tblLayout w:type="fixed"/>'
               '<w:tblLook w:val="0000"/></w:tblPr>'
               '<w:tblGrid><w:gridCol w:w="4460"/><w:gridCol w:w="4460"/></w:tblGrid>'
               '<w:tr>' + tc(bloque(*izq)) + tc(bloque(*der)) + '</w:tr></w:tbl>')

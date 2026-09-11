@@ -28,6 +28,8 @@ import re
 import sys
 import zipfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLANTILLAS = os.path.join(RAIZ, 'generador', 'plantillas')
 
@@ -101,6 +103,7 @@ DERIVADAS = {
     'contadoContados':                     'plazo en días',
     'diaContadoDiasContados':              'plazo en días',
     'adquisicionContratacion':             'bien o servicio',
+    'adquisicioncontrato':                 'bien o servicio',
     'adquisicionBienContratacionServicio': 'bien o servicio',
     'delBienDelServicio':                  'bien o servicio y número de ítems',
     'finalizadoEntregado':                 'bien o servicio',
@@ -295,18 +298,77 @@ def analizar(ruta):
 
 
 def _escribir(ruta, xml_nuevo):
+    """Escribe el .docx y lo valida; si no abriría en Word, lo deja como estaba.
+
+    Once plantillas llegaron a `main` rotas porque nadie comprobó el resultado:
+    el XML cerraba bien y nada protestaba. Ahora no se puede: si el documento
+    escrito no pasa la validación, se restaura el original y se avisa.
+    """
+    with open(ruta, 'rb') as f:
+        respaldo = f.read()
     tmp = ruta + '.tmp'
     with zipfile.ZipFile(ruta) as z, zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as out:
         for i in z.infolist():
             out.writestr(i, xml_nuevo.encode('utf8') if i.filename == 'word/document.xml'
                          else z.read(i.filename))
     os.replace(tmp, ruta)
+    try:
+        import validar_docx
+        with zipfile.ZipFile(ruta) as z:
+            fallos = validar_docx.revisar_estructura(z)
+            val, _ = validar_docx.cargar_validador()
+            if val is not None:
+                fallos += validar_docx.revisar_esquema(z, val)
+    except Exception as e:
+        fallos = ['no se pudo validar: %s' % e]
+    if fallos:
+        with open(ruta, 'wb') as f:
+            f.write(respaldo)
+        raise SystemExit('El documento escrito no abriría en Word, así que se dejó '
+                         'como estaba:\n  %s\n  %s'
+                         % (os.path.basename(ruta), '\n  '.join(fallos[:4])))
 
 
 def _rpr_de(sdt):
     m = re.search(r'<w:sdtContent>.*?<w:rPr>(.*?)</w:rPr>', sdt, re.S)
     return m.group(1) if m else ('<w:rFonts w:ascii="Titillium Web" w:hAnsi="Titillium Web"/>'
                                  '<w:sz w:val="22"/><w:szCs w:val="22"/>')
+
+
+def _reemplazo(sdt, tag):
+    """Con qué se sustituye un control: su propio contenido, con la etiqueta dentro.
+
+    De los 187 controles, 148 envuelven solo corridas pero 39 envuelven un
+    PÁRRAFO entero. Sustituir el control por una corrida dejaba una corrida
+    donde iba un párrafo: XML bien formado, y un documento que Word declara
+    dañado y no abre. Por eso no se sustituye el control por algo nuevo, sino
+    que se desenvuelve —se deja su contenido tal cual, con su párrafo, su
+    formato y sus propiedades— y solo se cambia el texto de dentro.
+
+    Los 39 casos de párrafo tienen un único <w:t>, comprobado, así que no hay
+    texto que se pierda al hacerlo.
+    """
+    m = re.search(r'<w:sdtContent>(.*?)</w:sdtContent>', sdt, re.S)
+    if not m:
+        return None
+    cont = m.group(1)
+    trozos = list(re.finditer(r'(<w:t[^>]*>)(.*?)(</w:t>)', cont, re.S))
+    if trozos:
+        out, pos = [], 0
+        for i, t in enumerate(trozos):
+            out.append(cont[pos:t.start()])
+            abre = t.group(1)
+            if 'xml:space' not in abre:                 # sin esto Word come los espacios
+                abre = abre[:-1] + ' xml:space="preserve">'
+            out.append(abre + (('{' + tag + '}') if i == 0 else '') + t.group(3))
+            pos = t.end()
+        out.append(cont[pos:])
+        return ''.join(out)
+    # Un control sin texto dentro: solo se puede resolver si es de nivel corrida.
+    if re.search(r'<w:(p|tc|tr)[ >]', cont):
+        return None
+    return ('<w:r><w:rPr>' + _rpr_de(sdt) + '</w:rPr>'
+            '<w:t xml:space="preserve">{' + tag + '}</w:t></w:r>')
 
 
 def convertir(ruta, escribir=False):
@@ -325,9 +387,11 @@ def convertir(ruta, escribir=False):
         for ini, fin, ops, cola, tag in ctrls:
             if not tag:
                 continue
+            trozo = _reemplazo(xml[ini:fin], tag)
+            if trozo is None:                # no se sabe sustituirlo sin romperlo
+                continue
             nuevo.append(xml[pos:ini])
-            nuevo.append('<w:r><w:rPr>%s</w:rPr><w:t xml:space="preserve">{%s}</w:t></w:r>'
-                         % (_rpr_de(xml[ini:fin]), tag))
+            nuevo.append(trozo)
             pos = fin
         nuevo.append(xml[pos:])
         salida, _ = sustituir_textos(''.join(nuevo))
@@ -371,8 +435,14 @@ def cmd_verificar():
     if mal:
         print('\nAlgo se llevó por delante un control que no es de concordancia.')
         return 1
-    print('\n  Los %d controles que no son concordancia siguen intactos.' % sum(INTOCABLES.values()))
-    return 0
+    print('  Los %d controles que no son concordancia siguen intactos.' % sum(INTOCABLES.values()))
+    print()
+    try:
+        import validar_docx
+        return validar_docx.validar(PLANTILLAS)
+    except ImportError:
+        print('  (no encontré validar_docx.py para comprobar que abren)')
+        return 0
 
 
 def main():

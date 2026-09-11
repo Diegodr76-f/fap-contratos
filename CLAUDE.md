@@ -40,6 +40,38 @@ Dos comprobaciones lo sostienen, y conviene correr ambas antes de dar algo por b
 mira lo que La Mágica les entrega. Además, `scripts/plantillas_renovacion.py` se
 niega a escribir un `.docx` con una etiqueta sin catalogar.
 
+## Que los .docx se abran: `scripts/validar_docx.py`
+
+**Un .docx puede ser un zip con XML impecable y aun así estar roto.** En
+septiembre de 2026 llegaron a `main` once plantillas que Word declaraba dañadas:
+al convertir los cuadros combinados en variables se sustituyó un `<w:sdt>` que
+envolvía un PÁRRAFO entero por una corrida suelta, y quedó un `<w:r>` donde iba
+un `<w:p>`.
+
+Lo peor no fue el fallo sino que **nada lo detectaba**: python-docx abría las
+once sin protestar y LibreOffice las convertía a PDF tan contento. Los dos son
+permisivos; Word no. Por eso hay un validador que contrasta contra el esquema
+oficial ISO/IEC 29500-4:2016, que está copiado en `scripts/esquemas/`.
+
+```bash
+python3 scripts/validar_docx.py                    las plantillas del repo
+python3 scripts/validar_docx.py <carpeta|archivo>  lo que se le diga
+```
+
+**Córrelo después de tocar cualquier .docx**, y también sobre los documentos ya
+rellenados, que es lo que la AC abre de verdad. `concordancia.py --aplicar` lo
+usa solo: si lo que escribe no abriría en Word, restaura el original y aborta.
+
+Dos reglas que se aprendieron ahí, por si hay que volver a manipular XML de Word:
+
+- Un `<w:sdt>` puede envolver corridas **o un párrafo entero**. No se sustituye
+  el control por algo nuevo: se desenvuelve, dejando su contenido con su
+  estructura, y solo se cambia el texto de dentro.
+- El orden de los hijos no es libre. En `<w:tblPr>` va tblW → tblBorders →
+  tblLayout → tblCellMar → tblLook; con tblBorders detrás de tblLayout el
+  documento queda inválido. Eso la comprobación de estructura no lo ve, el
+  esquema sí.
+
 ## Concordancia de género: `scripts/concordancia.py`
 
 Las plantillas llevaban **187 cuadros combinados** que la AC elegía a mano en cada
