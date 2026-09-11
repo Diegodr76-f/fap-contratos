@@ -449,6 +449,26 @@ Las **garantías contractuales** pasan a ser opcionales: si no aplican, no se ma
 bloquea nada. No se confunden con la **garantía técnica** del bien, que se registra en el
 Momento 3 y no obliga a contrato — una orden de compra puede llevarla.
 
+### Que los documentos se abran de verdad
+
+Un `.docx` puede ser un zip con XML impecable y aun así estar roto. Al automatizar la
+concordancia se sustituyeron controles de Word por variables, y en 39 casos ese control
+envolvía **un párrafo entero**: al reemplazarlo por una corrida, once plantillas quedaron
+con un `<w:r>` donde iba un `<w:p>`. Word las declaraba dañadas y no las abría.
+
+Lo grave fue que no había con qué notarlo: **python-docx las abría sin protestar y
+LibreOffice las convertía a PDF**. Los dos son permisivos; Word no. Ahora hay un validador
+que contrasta contra el esquema oficial **ISO/IEC 29500-4:2016**, copiado en
+`scripts/esquemas/`:
+
+```bash
+python3 scripts/validar_docx.py                    las 19 plantillas
+python3 scripts/validar_docx.py <carpeta|archivo>  también los documentos rellenados
+```
+
+`concordancia.py --aplicar` lo usa solo: si lo que escribe no abriría en Word, restaura el
+original y aborta. Y `--verificar` termina validando las 19.
+
 ### Concordancia de género: se elige una vez, no en cada documento
 
 Las plantillas llevaban **187 cuadros combinados de Word** —«el proveedor / la
