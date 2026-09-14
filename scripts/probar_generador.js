@@ -44,7 +44,7 @@ function nuevoDom(pre){
 // ---------------------------------------------------------------- 1
 seccion('1 · El seed ya no se copia a localStorage');
 let w=nuevoDom();
-ok(Object.keys(w.ST.tpls).length===19,'las 19 plantillas están en memoria', Object.keys(w.ST.tpls).length);
+ok(Object.keys(w.ST.tpls).length===18,'las 18 plantillas están en memoria', Object.keys(w.ST.tpls).length);
 ok(w.localStorage.getItem('fap_tpls')===null,'fap_tpls no existe (antes eran ~2 MB duplicados)');
 const usado=w.bytesGuardados();
 ok(usado<200*1024,'localStorage ocupa poco: '+w.kb(usado));
@@ -76,13 +76,13 @@ d.objeto='Servicio de mantenimiento de vehículos del área protegida';
 d.contratoAnterior='FIAS-FAP-2026-114'; d.fechaSuscripcionAnt='2026-02-12';
 d.fechaFinAnterior='2026-12-31'; d.montoAnterior='8400'; d.consumoEjecutado='9120.45';
 d.provs[0].razon='Talleres del Oriente Cía. Ltda.'; d.provs[0].ruc='1791234567001';
+d.provs[0].dir='Av. Quito y Napo, El Coca'; d.provs[0].genero='E';
 d.clausulaRenovacion='Sí, el contrato vigente la contempla';
 d.periodoDesde='2027-01-01'; d.periodoHasta='2027-12-31';
 d.arranqueSucesor='2027-01-01'; d.semanaAsignada='2026-10-19';
 d.partida='3.1.3.2'; d.fuente='Fondo de Áreas Protegidas - FAP'; d.plazo='30';
 d.formaPago='Factura, informe de conformidad y comprobante de retención';
-d.analisisTecnico='Cumplió sin observaciones.'; d.analisisGeografico='Único taller a menos de 90 km.';
-d.analisisEconomico='Precios sin variación frente al mercado.'; d.fechaInforme='2026-10-19';
+d.fechaInforme='2026-10-19';
 d.items=[{desc:'Mantenimiento preventivo camioneta 4x4',unidad:'Servicio',cantidad:'12',punit:''}];
 w.save();
 ok(w.esRenov(),'el expediente es de vía renovación');
@@ -90,8 +90,10 @@ ok(w.m1Done()===true,'Momento 1 completo SIN presupuesto ni monto');
 ok(!w.D().presupuesto && w.adjMonto()===0,'efectivamente no hay monto todavía');
 ok(w.m2Done()===false,'Momento 2 aún no');
 const docsRen=w.documents();
-ok(docsRen.length===4 && docsRen[0].id==='informeRen' && docsRen[0].ready===true,'el informe de satisfacción de renovación está listo');
-ok(docsRen[3].id==='contratoUO' && !docsRen[3].tpl,'el contrato de renovación queda del lado de la Unidad Operativa');
+ok(docsRen.length===3 && docsRen[0].id==='informeRen' && docsRen[0].ready===true,'el informe de satisfacción de renovación está listo');
+ok(!docsRen.some(x=>x.id==='notif'),'ya no hay documento de notificación: esa la hace el Director Ejecutivo con la Unidad');
+ok(docsRen[2].id==='contratoUO' && !docsRen[2].tpl,'el contrato de renovación queda del lado de la Unidad Operativa');
+ok(w.momentosNombres()[2]==='Cotización recibida','el Momento 3 es ahora la cotización recibida');
 ok(w.requiereUnidadOperativa()===true && w.puedeOrden()===false,'la renovación va por contrato, no por orden');
 
 seccion('4 · El expediente se aparca esperando el PAG');
@@ -111,28 +113,31 @@ seccion('6 · Sale el PAG: el expediente se reactiva y se completa');
 const d2=w.D();
 d2.pagAprobado='2027-01-15'; d2.esperandoPAG=false;
 d2.presupuesto='9500'; d2.fechaSolCotizacion='2027-01-20'; d2.fechaLimite='2027-01-27';
-d2.fechaCotizacion='2027-01-26'; d2.provs[0].monto='9240';
 d2.items[0].punit='669.5652174';   // 12 x punit x 1,15 = 9240,00 d2.ivaPct='15';
-d2.fechaNotificacion='2027-02-02';
 w.save();
 ok(w.enEsperaPAG()===false,'ya no está en espera');
-ok(w.m2Done()===true,'Momento 2 completo');
+ok(w.m2Done()===true,'Momento 2 completo con el PAG y la solicitud, sin la cotización');
+ok(w.m3Done()===false,'Momento 3 todavía no: falta la cotización');
+d2.fechaCotizacion='2027-01-26'; d2.provs[0].monto='9240';
+w.save();
 ok(w.m3Done()===true,'Momento 3 completo');
 ok(Math.abs(w.adjMonto()-9240)<0.01,'monto de la renovación: '+w.money(w.adjMonto()));
 const cuadra=Math.abs(w.adjMonto()-w.itemTotals().total);
 ok(cuadra<0.5,'el monto cuadra con el detalle de ítems (dif '+cuadra.toFixed(2)+')');
 const docs2=w.documents();
-ok(docs2[1].ready===true && docs2[2].ready===true,'solicitud de cotización y notificación quedan listas');
+ok(docs2[1].ready===true,'la solicitud de cotización queda lista');
 
-seccion('7 · Generación real de los tres documentos de renovación');
+seccion('7 · Generación real de los dos documentos de renovación');
 let descargas=[];
 w.URL.createObjectURL=()=>'blob:x'; w.URL.revokeObjectURL=()=>{};
 const realCreate=w.document.createElement.bind(w.document);
 w.document.createElement=function(t){ const el=realCreate(t); if(t==='a'){ el.click=function(){ descargas.push(el.download); }; } return el; };
-['informeRen','solCot','notif'].forEach(id=>{ w.gen(id); });
-ok(descargas.filter(x=>x&&x.indexOf('.docx')>0).length>=3,'se generaron los 3 .docx sin error de plantilla', descargas.join(' | '));
-ok(w.cur().generated.informeRen && w.cur().generated.solCot && w.cur().generated.notif,'quedan marcados como generados');
-ok(w.loadHistorial().length===1,'la notificación registró el cierre en el Historial');
+['informeRen','solCot'].forEach(id=>{ w.gen(id); });
+ok(descargas.filter(x=>x&&x.indexOf('.docx')>0).length>=2,'se generaron los 2 .docx sin error de plantilla', descargas.join(' | '));
+ok(w.cur().generated.informeRen && w.cur().generated.solCot,'quedan marcados como generados');
+ok(w.loadHistorial().length===0,'ningún documento cierra la renovación: el cierre es la salida a la Unidad');
+w.marcarEnviadoUO(4);
+ok(w.loadHistorial().length===1,'el envío a la Unidad Operativa sí registró el cierre en el Historial');
 
 seccion('8 · Con todo hecho, el envío se desbloquea');
 const pend2=w.checklistPendientes().map(x=>x.label);
@@ -146,7 +151,7 @@ ok(html.indexOf('FIAS-FAP-2026-114')>0,'muestra el contrato que reemplaza');
 ok(html.indexOf('01/01/2027')>0,'muestra cuándo arranca el sucesor');
 ok(html.indexOf('19/10/2026')>0,'muestra la semana asignada');
 const r=w.resumenExp(w.cur());
-ok(r.docsGen===3 && r.obligPend===0,'cuenta los documentos generados: '+r.docsGen+'/'+r.docsTot);
+ok(r.docsGen===2 && r.obligPend===0,'cuenta los documentos generados: '+r.docsGen+'/'+r.docsTot);
 w.go('procesos');
 ok(w.document.getElementById('app').innerHTML.indexOf('Mis procesos')>0,'la pantalla se pinta sin romper el render');
 
@@ -387,6 +392,75 @@ const capt=(w.ST.nav='captura', w.ST.step=0, w.render(), w.document.getElementBy
 ok(capt.indexOf('Sin cláusula no hay renovación')>0,'sin cláusula, la captura avisa que pasa a proceso nuevo');
 w.ST.step=1; w.render();
 ok(w.document.getElementById('app').innerHTML.indexOf('en espera del PAG')>0,'el Momento 2 explica la espera del PAG');
+
+seccion('19 · Las 18 plantillas se rellenan de verdad');
+// Esto es lo que faltaba el día que dos plantillas llegaron con «{monto (» —una
+// llave sin cerrar— y la orden de servicio no se podía generar: el .docx abría
+// perfecto en Word y validaba contra el esquema, pero docxtemplater lo rechaza
+// al compilarlo. Aquí se compilan las 18 con datos reales.
+{
+  const w4=nuevoDom();
+  w4.ST.cfg.areas=[{id:'a1',ap:'Reserva Ecológica Cotacachi',siglas:'RECC',ciudad:'Quito',
+    mae:'Ing. Rosa Tapia',maeCargo:'Jefa del Área Protegida',maeGenero:'F',apGenero:'F',lugar:'Otavalo'}];
+  w4.ST.cfg.ac='Lcda. María Salazar'; w4.ST.cfg.acCorreo='m@fias.org.ec';
+  w4.newExp('Plantillas');
+  const dp=w4.D();
+  Object.assign(dp,{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien',
+    tipoBien:'Activo fijo',fechaInicio:'2026-09-10',numero:'3',objeto:'Equipos de campo',
+    plazo:'20',presupuesto:'2000',partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',
+    presencialVirtual:'virtual',periodoDesde:'2027-01-01',periodoHasta:'2027-12-31',
+    montoAnterior:'8400',contratoAnterior:'FIAS-FAP-2026-114',
+    items:[{desc:'GPS',unidad:'Unidad',cantidad:'2',punit:'500'}]});
+  dp.provs[0]={razon:'Equipos del Norte S.A.',ruc:'1791234567001',dir:'Av. Amazonas N34',tel:'02',monto:'1150',fof:'2026-09-15',genero:'E'};
+  dp.adjudicado='Equipos del Norte S.A.';
+  w4.save();
+  const datos=w4.buildTemplateData({invitado:'Equipos del Norte S.A.'});
+  const slots=w4.TPL_SLOTS.map(x=>x.f);
+  ok(slots.length===18,'la app declara 18 plantillas: '+slots.length);
+  slots.forEach(function(f){
+    const b64=w4.ST.tpls[f];
+    if(!b64){ ok(false,f+' está en el seed'); return; }
+    try{
+      const doc=new Docxtemplater(new PizZip(b64,{base64:true}),
+        {paragraphLoop:true,linebreaks:true,nullGetter:()=>''});
+      doc.render(datos);
+      ok(true,f+' se rellena');
+    }catch(e){
+      let msg=e.message;
+      if(e.properties&&e.properties.errors) msg=e.properties.errors.map(x=>(x.properties&&x.properties.explanation)||x.message).join(' · ');
+      ok(false,f+' se rellena',msg);
+    }
+  });
+  // y las etiquetas que las plantillas nuevas estrenaron tienen dato
+  ok(datos.presencialVirtual==='virtual','el acta sabe cómo sesionó la Comisión: '+datos.presencialVirtual);
+  ok(datos.ubicacioncontratista==='Av. Amazonas N34','la ubicación tributaria del contratista llega a la plantilla');
+  ok(datos.allaadministradorAP==='a la administradora','concordancia «al/a la administrador/a del AP»: '+datos.allaadministradorAP);
+  ok(datos.ElLaContratista==='La empresa contratista','concordancia «El/La contratista»: '+datos.ElLaContratista);
+  ok(datos.anioRenovacion==='2027','el año de renovación sale del período, no de la plantilla: '+datos.anioRenovacion);
+  // {montoLetras} y compañía ya traen el número delante: «USD 8.400,00 (Ocho
+  // mil…) incluidos impuestos». Por eso en la plantilla van solos, sin un
+  // «USD {montoTotal} (» que los duplique.
+  ok(datos.montoTotalLetras.indexOf('USD 8.400,00 (Ocho mil cuatrocientos')===0,
+     'el monto del contrato original ya trae número y letras: '+datos.montoTotalLetras);
+}
+
+seccion('20 · Al cambiar de momento la vista sube');
+{
+  const w5=nuevoDom();
+  w5.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  w5.newExp('Subir');
+  Object.assign(w5.D(),{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Servicio',
+    fechaInicio:'2026-09-10',numero:'3',objeto:'Servicio'});
+  w5.ST.nav='captura'; w5.render();
+  const main=w5.document.querySelector('main');
+  main.scrollTop=900;                       // la AC estaba abajo, junto al botón
+  w5.setStep(1);
+  ok(w5.document.querySelector('main').scrollTop===0,'el contenedor vuelve al principio');
+  const foco=w5.document.activeElement;
+  ok(foco && foco.classList && foco.classList.contains('inp') && !foco.disabled,
+     'el cursor queda en un campo por llenar: '+(foco&&(foco.dataset.k||foco.dataset.pk||foco.dataset.ik||foco.tagName)));
+  ok(String(foco.value||'')==='','y ese campo está vacío, que es el que toca llenar');
+}
 
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
 process.exit(fallos?1:0);

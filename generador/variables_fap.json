@@ -101,6 +101,14 @@
       "tipo": "numero"
     },
     {
+      "id": "pmv5b9nkjlyz7t",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "presencialVirtual",
+      "descripcion": "Cómo sesionó la Comisión de Calificación: presencial o virtual. Se elige en el formulario. No confundir con cómo asistió cada miembro, que se anota uno por uno dentro del Word.",
+      "ejemplo": "presencial",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrkumrwimzw84",
       "grupo": "Adjudicación (doc 5)",
       "nombre": "prov1",
@@ -1744,6 +1752,14 @@
       "nombre": "analisisTecnico",
       "descripcion": "Análisis técnico: cumplimiento del proveedor, capacidad instalada, calidad del servicio recibido.",
       "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmho19w3vtlzn3",
+      "grupo": "Renovación (docs 19-21)",
+      "nombre": "anioRenovacion",
+      "descripcion": "Año calendario que se renueva. Se calcula solo desde {{periodoDesde}}: el informe no debe llevar el año escrito a mano.",
+      "ejemplo": "2027",
       "tipo": "texto"
     },
     {
