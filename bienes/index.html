@@ -222,20 +222,92 @@
    ===================================================================== */
 
 /* ================= CONFIG ================= */
-// URL del flujo de Power Automate que agrega la fila a la Lista de SharePoint
-// y avisa a la administradora de bienes. El paso a paso está en CONECTAR.md.
-// Si se deja vacía (''), la herramienta funciona igual: calcula todo y
-// permite descargar la fila, pero no la envía. No necesita frase ni login:
-// solo escribe, nunca devuelve datos de nadie.
-/* TEMPORAL — este flujo está sin protección de Azure AD («Cualquier persona»)
+// Flujo de Power Automate que agrega la fila a la Lista de SharePoint y avisa a
+// la administradora de bienes. El paso a paso está en CONECTAR.md. Sin flujo
+// configurado la herramienta funciona igual: calcula todo y permite descargar la
+// fila, pero no la envía. No necesita frase ni login: solo escribe, nunca
+// devuelve datos de nadie.
+/* ===== URL DEL FLUJO (no viaja en el repositorio) =====
+   La firma `sig` de un disparador de Power Automate es su ÚNICA llave: quien la
+   lee puede disparar el flujo. Este sitio es público, así que una URL firmada
+   escrita aquí queda a la vista de cualquiera —y también en el historial de git
+   para siempre. Por eso ya no se guardan en el código.
+
+   Cada administradora pega la URL una vez (se la da la Unidad Legal) y queda en
+   el localStorage de SU navegador. Mientras no esté configurada, la herramienta
+   funciona igual: el envío cae al respaldo de siempre.
+
+   Se aceptan solo URLs https de Microsoft. Ahora que la pega una persona, una
+   URL enviada por engaño podría llevarse los documentos a otra parte: la lista
+   de dominios lo impide. */
+var FLOW_HOSTS = /(^|\.)(powerplatform\.com|logic\.azure\.com|azure-apihub\.net)$/;
+
+function flujoValido(u){
+  try{
+    var x = new URL(String(u||'').trim());
+    return x.protocol === 'https:' && FLOW_HOSTS.test(x.hostname.toLowerCase());
+  }catch(e){ return false; }
+}
+// Devuelve '' si no está configurada o si lo guardado no es una URL aceptable.
+function flujoUrl(clave){
+  var u = '';
+  try{ u = (localStorage.getItem(clave)||'').trim(); }catch(e){ return ''; }
+  return flujoValido(u) ? u : '';
+}
+// No pasa por lsSet(): esta escritura no es silenciosa aunque falle —el diálogo
+// se queda abierto y dice por qué—, y guarda una cadena suelta, no estado de la
+// herramienta. lsSet() además no existe igual en las cinco herramientas.
+function guardarFlujo(clave, u){
+  u = String(u||'').trim();
+  if(u && !flujoValido(u)) return false;
+  try{ if(u) localStorage.setItem(clave, u); else localStorage.removeItem(clave); return true; }
+  catch(e){ return false; }
+}
+// Pide la URL a la AC. Resuelve con la URL guardada, o con '' si cancela: quien
+// llama sigue con su respaldo de siempre, nunca se queda sin salida.
+function pedirFlujo(clave, titulo, texto){
+  return new Promise(function(resolve){
+    var wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,21,63,.45);font-family:system-ui,-apple-system,\'Segoe UI\',sans-serif;padding:24px';
+    wrap.innerHTML='<form style="background:#fff;border:1px solid #E3E8F5;border-radius:18px;padding:28px;max-width:520px;width:100%;box-shadow:0 18px 50px rgba(11,21,63,.2)">'
+      +'<h2 style="font-size:19px;font-weight:700;margin:0 0 6px;color:#0B153F">'+esc(titulo)+'</h2>'
+      +'<p style="margin:0 0 14px;color:#5A6484;font-size:14px;line-height:1.5">'+esc(texto)+'</p>'
+      +'<div data-err style="display:none;background:#FDECEC;color:#B3261E;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:10px"></div>'
+      +'<input type="url" autofocus placeholder="https://…powerplatform.com/…&amp;sig=…" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #D6DCEC;border-radius:11px;font-size:13px;color:#0B153F;outline:none" />'
+      +'<p style="margin:10px 0 0;color:#7A84A0;font-size:12px;line-height:1.45">Se guarda solo en este navegador. No se sube al repositorio ni se comparte.</p>'
+      +'<div style="display:flex;gap:10px;margin-top:16px">'
+      +'<button type="button" data-cancel style="all:unset;cursor:pointer;flex:1;text-align:center;padding:12px;border:1.5px solid #D6DCEC;border-radius:11px;font-weight:600;font-size:14px;color:#5A6484">Ahora no</button>'
+      +'<button type="submit" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:12px;background:#00249C;color:#fff;border-radius:11px;font-weight:700;font-size:14px">Guardar</button>'
+      +'</div></form>';
+    var input=wrap.querySelector('input'), err=wrap.querySelector('[data-err]');
+    function cerrar(v){ wrap.remove(); resolve(v); }
+    wrap.querySelector('[data-cancel]').addEventListener('click', function(){ cerrar(''); });
+    wrap.querySelector('form').addEventListener('submit', function(e){
+      e.preventDefault();
+      var v=input.value.trim();
+      if(!guardarFlujo(clave, v)){
+        err.textContent = flujoValido(v)
+          ? 'No se pudo guardar en este navegador. Revisa que no esté en modo privado.'
+          : 'Esa no parece la URL del flujo. Debe empezar por https:// y ser de Power Automate.';
+        err.style.display='block';
+        return;
+      }
+      cerrar(flujoUrl(clave));
+    });
+    document.body.appendChild(wrap);
+    input.focus();
+  });
+}
+
+/* TEMPORAL — este flujo sigue sin protección de Azure AD («Cualquier persona»)
    porque el permiso de Power Automate espera el consentimiento de un
-   administrador (ver PARA_IT.md). La firma `sig` de esta URL es su única
-   llave, y como el navegador la descarga, queda a la vista de cualquiera que
-   mire el código de la página. El daño posible es acotado: solo escribe,
-   nunca devuelve datos — a lo sumo filas basura y correos de más a la
-   administradora. EN CUANTO IT APRUEBE: volver el disparador a «Cualquier
-   usuario de mi inquilino» y reemplazar esta URL por la nueva (sin `sig`). */
-var FLOW_BIENES_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/10/workflows/1fcaa33f545a4660829fe6440e9372c4/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=dQ6SuFoKkMAGwBl4sCIUwN9PHWMFmcegEP9akunAhoE';
+   administrador (ver PARA_IT.md). Su firma `sig` es la única llave, así que ya
+   no se guarda aquí: la pega cada administradora en su navegador. Eso la quita
+   del sitio público y del historial de git, pero no la vuelve secreta para
+   quien la tenga. EN CUANTO IT APRUEBE: volver el disparador a «Cualquier
+   usuario de mi inquilino», que usa el token de la sesión y no necesita `sig`,
+   y borrar de aquí toda esta configuración. */
+var LS_FLOW_BIENES = 'fap_flow_bienes_url';
 
 /* Inicio de sesión con la cuenta de Microsoft (Entra ID) de FIAS. Reemplaza
    al sistema de frases: quien entra aquí demuestra ser un empleado real, y
@@ -1160,12 +1232,17 @@ async function enviar(){
   S.enviados.unshift(fila); if(S.enviados.length>200) S.enviados.length=200;
   lsSet(LS_ENVIADOS, S.enviados);
 
-  if(!FLOW_BIENES_URL){
+  // La primera vez se pide la URL; si prefiere no ponerla, se descarga el
+  // registro como antes y nada se pierde.
+  var flujo = flujoUrl(LS_FLOW_BIENES) || await pedirFlujo(LS_FLOW_BIENES,
+    'Configura el envío a la matriz',
+    'Pega la URL del flujo de Power Automate que te dio la administradora de bienes. Se pide una sola vez en este navegador.');
+  if(!flujo){
     download(JSON.stringify(fila,null,2), 'BIEN_'+(fila.codigo||'nuevo').replace(/[^\w-]+/g,'_')+'.json', 'application/json');
     toast('Registro guardado y descargado. Falta configurar el flujo para que llegue solo a la matriz.', 5200);
   }else{
     try{
-      var r = await fetchFlow(FLOW_BIENES_URL, fila);
+      var r = await fetchFlow(flujo, fila);
       // 401/403 no es falta de internet: el flujo rechazó la identidad.
       // Encolarlo sería mentir — reintentaría para siempre sin arreglarse
       // solo. El registro igual queda en «Lo que envié», no se pierde.
@@ -1193,12 +1270,13 @@ async function enviar(){
 }
 // Reintento silencioso de lo que quedó sin enviar por falta de internet.
 async function vaciarCola(){
-  if(!FLOW_BIENES_URL) return;
+  var flujo=flujoUrl(LS_FLOW_BIENES);
+  if(!flujo) return;
   var cola=lsGet(LS_COLA,[]); if(!cola.length) return;
   var fallan=[];
   for(var i=0;i<cola.length;i++){
     try{
-      var r=await fetchFlow(FLOW_BIENES_URL, cola[i]);
+      var r=await fetchFlow(flujo, cola[i]);
       if(!r.ok) throw new Error();
     }catch(e){ fallan.push(cola[i]); }
   }
@@ -1434,7 +1512,7 @@ function vistaRegistrar(){
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">'+
       '<button class="btn big" id="btn-enviar">Enviar a la matriz</button>'+
       '<button class="btn line" id="btn-limpiar">Limpiar</button>'+
-      (FLOW_BIENES_URL?'':'<span style="align-self:center;font-size:12px;color:var(--muted)">El envío automático aún no está configurado: por ahora se descarga el registro.</span>')+
+      (flujoUrl(LS_FLOW_BIENES)?'':'<span style="align-self:center;font-size:12px;color:var(--muted)">El envío automático aún no está configurado: por ahora se descarga el registro.</span>')+
     '</div>'+
   '</div>';
 }

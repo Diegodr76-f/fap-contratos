@@ -388,5 +388,59 @@ ok(capt.indexOf('Sin cláusula no hay renovación')>0,'sin cláusula, la captura
 w.ST.step=1; w.render();
 ok(w.document.getElementById('app').innerHTML.indexOf('en espera del PAG')>0,'el Momento 2 explica la espera del PAG');
 
+// ---------------------------------------------------------------- 19
+seccion('19 · La URL firmada del flujo no viaja en el archivo');
+ok(!/[?&]sig=[A-Za-z0-9_%-]{10,}/.test(HTML),'no queda ninguna URL con firma dentro del HTML');
+
+w=nuevoDom();
+ok(w.flujoUrl(w.LS_FLOW_DOCS)==='','sin configurar, la URL de documentos es vacía');
+ok(w.flujoUrl(w.LS_FLOW_REG)==='','sin configurar, la URL del registro es vacía');
+
+// Solo se aceptan destinos de Microsoft: la URL ya no la escribe quien mantiene
+// el repositorio sino la AC, y una pegada por engaño se llevaría los documentos.
+const BUENA='https://default5e23.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/08/workflows/abc/triggers/manual/paths/invoke?api-version=1&sig=xxx';
+ok(w.flujoValido(BUENA),'acepta una URL de Power Automate');
+ok(w.flujoValido('https://prod-12.westus.logic.azure.com/workflows/x/triggers/manual/paths/invoke?sig=y'),'acepta la forma clásica de Logic Apps');
+ok(!w.flujoValido('https://evil.example.com/robar?sig=x'),'rechaza un dominio ajeno');
+ok(!w.flujoValido('https://powerplatform.com.evil.example/x'),'rechaza un dominio que solo simula el sufijo');
+ok(!w.flujoValido('http://default5e23.87.environment.api.powerplatform.com/x'),'rechaza http sin cifrar');
+ok(!w.flujoValido(''),'rechaza el vacío');
+
+ok(w.guardarFlujo(w.LS_FLOW_DOCS,BUENA),'guarda una URL válida');
+ok(w.flujoUrl(w.LS_FLOW_DOCS)===BUENA,'y la devuelve tal cual');
+ok(!w.guardarFlujo(w.LS_FLOW_DOCS,'https://evil.example.com/x'),'no guarda una URL de otro dominio');
+ok(w.flujoUrl(w.LS_FLOW_DOCS)===BUENA,'y la buena sigue en su sitio');
+// Aunque alguien escriba directo en localStorage, al leer se vuelve a validar.
+w.localStorage.setItem(w.LS_FLOW_DOCS,'https://evil.example.com/x');
+ok(w.flujoUrl(w.LS_FLOW_DOCS)==='','lo escrito a mano en localStorage también se valida al leer');
+
+// El diálogo que la pide: rechaza lo que no sea de Microsoft y no se cierra
+// hasta tener algo válido (o hasta que la AC diga «Ahora no»).
+w=nuevoDom();
+const clave='fap_prueba_flujo';
+let resuelto=null;
+w.pedirFlujo(clave,'Configura el envío','Pega la URL').then(v=>{resuelto=v;});
+let campo=w.document.querySelector('form input[type=url]');
+ok(!!campo,'el diálogo se pinta');
+if(campo){
+  const enviar=()=>campo.closest('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+  campo.value='https://evil.example.com/x'; enviar();
+  const err=w.document.querySelector('[data-err]');
+  ok(err && err.style.display==='block','una URL de otro dominio muestra el error');
+  ok(!!w.document.querySelector('form input[type=url]'),'y el diálogo sigue abierto');
+  ok(w.localStorage.getItem(clave)===null,'no se guardó nada');
+  campo.value=BUENA; enviar();
+  ok(!w.document.querySelector('form input[type=url]'),'con una URL válida el diálogo se cierra');
+  ok(w.localStorage.getItem(clave)===BUENA,'y queda guardada en este navegador');
+}
+
+// ---------------------------------------------------------------- 20
+seccion('20 · Sin flujo configurado, el registro central se encola en vez de perderse');
+w=nuevoDom();
+ok(w.flujoUrl(w.LS_FLOW_REG)==='','el registro arranca sin configurar');
+w.enviarRegistro({idRegistro:'X|2026-09-14',codigoProceso:'FIAS-FAP-2026-001'});
+const enCola=w.loadPendientes();
+ok(enCola.length===1 && enCola[0].codigoProceso==='FIAS-FAP-2026-001','el cierre queda en la cola local');
+
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
 process.exit(fallos?1:0);

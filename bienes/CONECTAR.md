@@ -111,11 +111,15 @@ Al final, igual que antes: acción **Respuesta** (código 200) y el correo a la
 administradora de bienes con **Office 365 Outlook → Enviar un correo (V2)**. El
 cuerpo del correo puede quedar tal cual estaba en la versión anterior de esta guía.
 
-Copia la URL del disparador y pégala en `bienes/index.html`:
+Copia la URL del disparador.
 
-```js
-var FLOW_BIENES_URL = '';   // ← aquí
-```
+**La URL no se pega en el archivo.** Lleva una firma (`…&sig=…`) que es la llave
+del flujo, y este repositorio es público: lo que se escriba ahí lo descarga
+cualquiera que abra la página. En su lugar, la herramienta la pide sola la primera
+vez que alguien registra un bien, y la guarda en el navegador de esa persona. Lo
+único que hay que hacer es **repartir la URL a quien vaya a registrar bienes** (por
+un canal privado: correo interno, Teams; nunca en el repositorio ni en un ticket
+público). Ver *Las URLs de los flujos* en el README.
 
 ---
 

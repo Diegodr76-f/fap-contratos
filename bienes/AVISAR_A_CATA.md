@@ -188,14 +188,15 @@ entrado.
 
 ### 1.8 Conectar la herramienta
 
-**Guardar**. El disparador ahora muestra una **URL HTTP POST**. Cópiala y
-pégala en `bienes/index.html`, en la línea:
+**Guardar**. El disparador ahora muestra una **URL HTTP POST**. Cópiala.
 
-```js
-var FLOW_BIENES_URL = '';
-```
-
-entre las comillas.
+**La URL no se pega en el archivo.** Lleva una firma (`…&sig=…`) que es la llave
+del flujo, y este repositorio es público: lo que se escriba ahí lo descarga
+cualquiera que abra la página. En su lugar, la herramienta la pide sola la primera
+vez que alguien registra un bien, y la guarda en el navegador de esa persona. Lo
+único que hay que hacer es **repartir la URL a quien vaya a registrar bienes** (por
+un canal privado: correo interno, Teams; nunca en el repositorio ni en un ticket
+público). Ver *Las URLs de los flujos* en el README.
 
 > **Por qué ahora pide iniciar sesión al registrar.** Como en el paso 1.2 se
 > protegió el flujo para que solo entre gente de FIAS, la herramienta necesita

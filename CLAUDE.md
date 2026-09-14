@@ -172,9 +172,34 @@ contrato tampoco va en los documentos del repositorio — vive en el anexo que g
 
 ## Los flujos de Power Automate
 
-Dos URLs con firma dentro de `generador/index.html`: `FLOW_DOCS_URL` (envío de
-documentos a la Unidad Operativa) y `FLOW_URL` (registro central en un Microsoft
-List). Los dos disparadores aceptan texto libre en `tipoProceso`. El registro
+**Ninguna URL firmada vive en el repositorio, y ninguna debe volver a entrar.** La
+firma `sig` de un disparador HTTP *es* la llave del flujo: quien tiene la URL lo
+dispara. Este sitio es público y estático, así que una URL escrita en un HTML se la
+descarga cualquier visitante —y queda en el historial de git para siempre. Pasó: en
+septiembre de 2026 GitGuardian avisó de cuatro, repartidas por La Mágica, el CRM, el
+CLM, Contratos 2027 y Bienes.
+
+Hoy cada administradora pega la URL una vez y queda en el `localStorage` de su
+navegador (`fap_flow_docs_url`, `fap_flow_registro_url`, `fap_flow_renovaciones_url`,
+`fap_flow_bienes_url`). El acceso pasa siempre por `flujoUrl(clave)`, que valida antes
+de devolver, y `pedirFlujo()` es el diálogo que la pide. **Solo se aceptan URLs https
+de Microsoft**: ahora la pega una persona, y una URL enviada por engaño se llevaría los
+documentos a otra parte.
+
+Sin flujo configurado **nada se rompe**: cada herramienta cae a su respaldo (CSV,
+descarga, o envío preparado sin subir) y La Mágica encola los cierres hasta que se
+configure. Si tocas un envío, mantén ese camino.
+
+```bash
+python3 scripts/revisar_secretos.py    # corre solo en cada push; falla si algo entró
+```
+
+Lo que el detector no puede hacer es rotar: una firma que se publicó una vez ya está
+copiada fuera, y solo se arregla regenerándola en Power Automate. El arreglo definitivo
+es proteger los disparadores con Entra ID («Cualquier usuario de mi inquilino»), que no
+usa `sig` — `API_MIS_BIENES_URL` ya funciona así. Está pedido en `bienes/PARA_IT.md`.
+
+Los dos disparadores de La Mágica aceptan texto libre en `tipoProceso`. El registro
 central recibe `D().tipoProceso` **en crudo**, sin pasar por `uoTipoForms()`: por
 eso las renovaciones se pueden contar aparte, y por eso no conviene mapearlas a
 «contratación directa» para salir del paso.

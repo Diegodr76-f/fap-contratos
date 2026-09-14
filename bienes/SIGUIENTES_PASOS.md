@@ -38,8 +38,10 @@ después; solo hay que volver a apuntar los flujos.
 
 Todo el paso a paso está en [`AVISAR_A_CATA.md`](AVISAR_A_CATA.md), flujo 1.
 
-Al terminar te da una URL. Se pega en `bienes/index.html`, en la línea
-`var FLOW_BIENES_URL = '';`, entre las comillas.
+Al terminar te da una URL. **No se pega en el archivo:** lleva una firma que es
+la llave del flujo y este repositorio es público. La herramienta la pide sola la
+primera vez que alguien registra un bien y la guarda en su navegador; solo hay que
+repartirla por un canal privado. Ver *Las URLs de los flujos* en el README.
 
 Desde ese momento el circuito ya sirve: la AC llena el formulario → la fila
 entra sola al Excel → a Cata le llega el correo. **Eso es lo que se pidió al

@@ -190,15 +190,84 @@
 
    Las decisiones se guardan en el navegador mientras se trabaja y salen de
    dos maneras, para no depender de que exista un flujo:
-     · si FLOW_URL está configurada, se envían a Power Automate y de ahí a
-       la tabla de Excel en línea;
+     · si el flujo está configurado en este navegador, se envían a Power
+       Automate y de ahí a la tabla de Excel en línea;
      · siempre se pueden descargar como CSV y responder el correo con él.
    ===================================================================== */
 
-// Pega aquí la URL del flujo de Power Automate («cuando se recibe una
-// solicitud HTTP») cuando exista. Mientras esté vacía, la pantalla funciona
-// igual y las respuestas salen por CSV.
-var FLOW_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/18/workflows/b1ce5454c95341b6b63a7a1926e87f93/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=w1opaDufPLpX8pKLQho_O5OjJxH5a7iqH8SXuyM6rv4';
+/* ===== URL DEL FLUJO (no viaja en el repositorio) =====
+   La firma `sig` de un disparador de Power Automate es su ÚNICA llave: quien la
+   lee puede disparar el flujo. Este sitio es público, así que una URL firmada
+   escrita aquí queda a la vista de cualquiera —y también en el historial de git
+   para siempre. Por eso ya no se guardan en el código.
+
+   Cada administradora pega la URL una vez (se la da la Unidad Legal) y queda en
+   el localStorage de SU navegador. Mientras no esté configurada, la herramienta
+   funciona igual: el envío cae al respaldo de siempre.
+
+   Se aceptan solo URLs https de Microsoft. Ahora que la pega una persona, una
+   URL enviada por engaño podría llevarse los documentos a otra parte: la lista
+   de dominios lo impide. */
+var FLOW_HOSTS = /(^|\.)(powerplatform\.com|logic\.azure\.com|azure-apihub\.net)$/;
+
+function flujoValido(u){
+  try{
+    var x = new URL(String(u||'').trim());
+    return x.protocol === 'https:' && FLOW_HOSTS.test(x.hostname.toLowerCase());
+  }catch(e){ return false; }
+}
+// Devuelve '' si no está configurada o si lo guardado no es una URL aceptable.
+function flujoUrl(clave){
+  var u = '';
+  try{ u = (localStorage.getItem(clave)||'').trim(); }catch(e){ return ''; }
+  return flujoValido(u) ? u : '';
+}
+// No pasa por lsSet(): esta escritura no es silenciosa aunque falle —el diálogo
+// se queda abierto y dice por qué—, y guarda una cadena suelta, no estado de la
+// herramienta. lsSet() además no existe igual en las cinco herramientas.
+function guardarFlujo(clave, u){
+  u = String(u||'').trim();
+  if(u && !flujoValido(u)) return false;
+  try{ if(u) localStorage.setItem(clave, u); else localStorage.removeItem(clave); return true; }
+  catch(e){ return false; }
+}
+// Pide la URL a la AC. Resuelve con la URL guardada, o con '' si cancela: quien
+// llama sigue con su respaldo de siempre, nunca se queda sin salida.
+function pedirFlujo(clave, titulo, texto){
+  return new Promise(function(resolve){
+    var wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,21,63,.45);font-family:system-ui,-apple-system,\'Segoe UI\',sans-serif;padding:24px';
+    wrap.innerHTML='<form style="background:#fff;border:1px solid #E3E8F5;border-radius:18px;padding:28px;max-width:520px;width:100%;box-shadow:0 18px 50px rgba(11,21,63,.2)">'
+      +'<h2 style="font-size:19px;font-weight:700;margin:0 0 6px;color:#0B153F">'+esc(titulo)+'</h2>'
+      +'<p style="margin:0 0 14px;color:#5A6484;font-size:14px;line-height:1.5">'+esc(texto)+'</p>'
+      +'<div data-err style="display:none;background:#FDECEC;color:#B3261E;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:10px"></div>'
+      +'<input type="url" autofocus placeholder="https://…powerplatform.com/…&amp;sig=…" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #D6DCEC;border-radius:11px;font-size:13px;color:#0B153F;outline:none" />'
+      +'<p style="margin:10px 0 0;color:#7A84A0;font-size:12px;line-height:1.45">Se guarda solo en este navegador. No se sube al repositorio ni se comparte.</p>'
+      +'<div style="display:flex;gap:10px;margin-top:16px">'
+      +'<button type="button" data-cancel style="all:unset;cursor:pointer;flex:1;text-align:center;padding:12px;border:1.5px solid #D6DCEC;border-radius:11px;font-weight:600;font-size:14px;color:#5A6484">Ahora no</button>'
+      +'<button type="submit" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:12px;background:#00249C;color:#fff;border-radius:11px;font-weight:700;font-size:14px">Guardar</button>'
+      +'</div></form>';
+    var input=wrap.querySelector('input'), err=wrap.querySelector('[data-err]');
+    function cerrar(v){ wrap.remove(); resolve(v); }
+    wrap.querySelector('[data-cancel]').addEventListener('click', function(){ cerrar(''); });
+    wrap.querySelector('form').addEventListener('submit', function(e){
+      e.preventDefault();
+      var v=input.value.trim();
+      if(!guardarFlujo(clave, v)){
+        err.textContent = flujoValido(v)
+          ? 'No se pudo guardar en este navegador. Revisa que no esté en modo privado.'
+          : 'Esa no parece la URL del flujo. Debe empezar por https:// y ser de Power Automate.';
+        err.style.display='block';
+        return;
+      }
+      cerrar(flujoUrl(clave));
+    });
+    document.body.appendChild(wrap);
+    input.focus();
+  });
+}
+
+var LS_FLOW_REN = 'fap_flow_renovaciones_url';
 
 var DATA_URL = '../crm/contratos_export.json';
 var LS_PASS  = 'fap_data_key';      // la misma frase que el CRM y el CLM
@@ -624,10 +693,15 @@ function descargar(){
 async function enviar(btn){
   var filas = filasResp();
   if(!filas.length){ toast('Todavía no has decidido ningún contrato.'); return; }
-  if(!FLOW_URL){ descargar(); return; }
+  // La primera vez se pide la URL; si la AC prefiere no ponerla, sale por CSV
+  // como siempre. El envío nunca depende de que el flujo esté configurado.
+  var url = flujoUrl(LS_FLOW_REN) || await pedirFlujo(LS_FLOW_REN,
+    'Configura el envío de decisiones',
+    'Pega la URL del flujo de Power Automate que te dio la Unidad Legal. Se pide una sola vez en este navegador. Si prefieres, salta este paso y responde por CSV.');
+  if(!url){ descargar(); return; }
   btn.disabled = true; btn.textContent = 'Enviando…';
   try{
-    var res = await fetch(FLOW_URL, {
+    var res = await fetch(url, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ ac: YO, enviado: new Date().toISOString(), respuestas: filas })
     });

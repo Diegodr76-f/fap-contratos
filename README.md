@@ -79,8 +79,8 @@ plantillas Word reales (`crm/plantillas/`).
 oficiales): modificación con reglas 25 % (adenda) / 50 % (bloqueo) e informe
 FAP-2026-11; terminación con causal y acta FAP-2026-12; calificación de proveedor
 FO-AD-ABC-017 (13 criterios, 40/30/5/25) con CSV para el banco de calificaciones;
-y envío a la Unidad Operativa por el mismo flujo de Power Automate
-(`FLOW_DOCS_URL`) que usan La Mágica y el CRM.
+y envío a la Unidad Operativa por el mismo flujo de Power Automate que usan
+La Mágica y el CRM (ver **[Las URLs de los flujos](#las-urls-de-los-flujos)**).
 
 El **Mapa de áreas** es autónomo como el resto del CLM: la silueta del país es un
 trazado SVG incrustado (Natural Earth, dominio público) y las coordenadas de las
@@ -148,9 +148,9 @@ pregunta, la que corresponde:
 Lee la **misma base cifrada** que el CRM y el CLM (`crm/contratos_export.json`, que el robot diario
 regenera), con la misma frase de acceso, así que no hay una segunda lista que mantener. Las
 decisiones se guardan solas en el navegador mientras trabaja —puede cerrar y volver— y salen por
-dos vías: **descargando un CSV** que responde por correo, o **enviándose a Power Automate** si se
-configura `FLOW_URL` en el archivo. Sin flujo configurado la pantalla funciona igual: el CSV no
-depende de nada.
+dos vías: **descargando un CSV** que responde por correo, o **enviándose a Power Automate** si el
+flujo está configurado en ese navegador (ver **[Las URLs de los flujos](#las-urls-de-los-flujos)**).
+Sin flujo configurado la pantalla funciona igual: el CSV no depende de nada.
 
 ### Prioridad por fecha de arranque
 
@@ -526,8 +526,9 @@ nada.
   garantías de anticipo/fiel cumplimiento o plazo mayor a 30 días), la vista **Documentos**
   habilita el botón **"Enviar a la Unidad Operativa"**, que abre un formulario ya prellenado
   con los datos del proceso para adjuntar los archivos y subirlos a un flujo de Power Automate
-  (subida de documentos a revisión). La URL de ese flujo se configura en la constante
-  `FLOW_DOCS_URL` dentro de `generador/index.html`.
+  (subida de documentos a revisión). La URL de ese flujo la configura cada administradora en su
+  navegador la primera vez que envía; no se guarda en el repositorio
+  (ver **[Las URLs de los flujos](#las-urls-de-los-flujos)**).
   Lo que la campaña de renovaciones 2027 añadió está en
   [La Mágica para las renovaciones](#la-mágica-para-las-renovaciones).
 
@@ -578,3 +579,62 @@ solo ve un bloque cifrado ilegible.
 > bruta sin conexión y sin que nadie se entere. Los 250 000 ciclos de PBKDF2 encarecen cada intento,
 > pero no salvan una frase corta o predecible. La frase debe ser larga —cuatro o cinco palabras al
 > azar— y conviene rotarla cuando alguien deja el equipo.
+
+## Las URLs de los flujos
+
+Un disparador de Power Automate del tipo «cuando se recibe una solicitud HTTP» se
+protege con una firma en su propia URL (`…&sig=…`). Esa firma **es** la llave: quien
+tiene la URL completa puede disparar el flujo, sin cuenta ni contraseña.
+
+Cuatro de esas URLs estuvieron escritas dentro de los HTML —La Mágica, el CRM, el
+CLM, Contratos 2027 y Bienes—. Como el sitio es público y estático, el navegador de
+cualquier visitante se las descargaba junto con la página, y además quedaron en el
+historial de git. GitGuardian lo avisó el 12 de septiembre de 2026.
+
+**Hoy ninguna URL firmada vive en el repositorio.** Cada administradora la pega una
+vez, la primera vez que envía, y queda en el `localStorage` de **su** navegador:
+
+| Herramienta | Qué envía | Clave en `localStorage` |
+|---|---|---|
+| La Mágica, CRM, CLM | Documentos a la Unidad Operativa | `fap_flow_docs_url` |
+| La Mágica | Registro central (Microsoft List) | `fap_flow_registro_url` |
+| Contratos 2027 | Decisiones de renovación | `fap_flow_renovaciones_url` |
+| Bienes | Fila nueva de la matriz | `fap_flow_bienes_url` |
+
+Mientras no esté configurada, **cada herramienta funciona igual** y el envío cae al
+respaldo de siempre: CSV en Contratos 2027, descarga del registro en Bienes, envío
+preparado pero no subido en las demás. En La Mágica los cierres se guardan en la cola
+local y salen solos en cuanto se configure, así que no se pierde ningún registro.
+
+Solo se aceptan URLs **https** de `powerplatform.com`, `logic.azure.com` o
+`azure-apihub.net`. Ahora que la pega una persona, una URL enviada por engaño podría
+llevarse los documentos a otra parte; la lista de dominios lo impide.
+
+### Lo que esto arregla y lo que no
+
+Sacar la firma del repositorio la quita del sitio público y de todo lo que se publique
+de aquí en adelante. **No la vuelve secreta hacia atrás:** lo que estuvo un mes en un
+repositorio público hay que darlo por copiado.
+
+> **Las cuatro firmas expuestas hay que rotarlas en Power Automate.** Eso no se puede
+> hacer desde el código: se abre cada flujo → *Cuando se recibe una solicitud HTTP* →
+> **Regenerar/actualizar la firma de acceso compartido**, y la URL nueva se reparte a
+> las administradoras. Hasta que se rote, la URL vieja sigue funcionando para quien la
+> tenga. Borrar el historial de git **no** sustituye a rotar.
+
+El arreglo definitivo es otro: proteger los disparadores con **«Cualquier usuario de mi
+inquilino»** (Entra ID), que usa el token de la sesión y no necesita `sig` ninguna. El
+flujo `API_MIS_BIENES_URL` de la herramienta de bienes ya funciona así y no tiene firma.
+Los demás esperan un clic de consentimiento de IT — está pedido en
+[`bienes/PARA_IT.md`](bienes/PARA_IT.md).
+
+### Que no vuelva a pasar
+
+```bash
+python3 scripts/revisar_secretos.py              # todo el repositorio
+python3 scripts/revisar_secretos.py <archivo…>   # solo lo que se le diga
+```
+
+Busca URLs firmadas, claves de API, tokens de GitHub/Slack/AWS, claves privadas y datos
+de contratos en claro. Corre solo en cada push y en cada pull request
+(`.github/workflows/secretos.yml`), y sale con código 1 si encuentra algo.
