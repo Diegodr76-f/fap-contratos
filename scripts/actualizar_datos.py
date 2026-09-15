@@ -70,6 +70,10 @@ C = dict(
     firmaAdenda=col("fecha de firma2"),
     ac=col("administrador/a de contrato"), correo=col("correo electrónico ac"),
     montoTotal=col("valor o plazo total"),
+    # Liquidación de los contratos cerrados (hoja "2026")
+    fcierre=col("fecha de cierre"),
+    liquidado=col("valor liquidado"),
+    saldo=col("saldo no ejecutado", "saldo"),
 )
 estado_cols = [j for j, h in enumerate(hdr) if "estado" in h and "gesti" in h] \
               or [j for j, h in enumerate(hdr) if "estado" in h]
@@ -97,6 +101,18 @@ def num(v):
         return float(v)
     except (TypeError, ValueError):
         return None
+
+def val(row, key):
+    """Lee una columna opcional: None si el Excel no la tiene (no rompe el robot)."""
+    j = C.get(key)
+    if j is None or j >= len(row):
+        return None
+    return row[j]
+
+def num2(v):
+    """Número redondeado a 2 decimales (el Excel arrastra colas como 0.6799999998)."""
+    n = num(v)
+    return None if n is None else round(n, 2)
 
 out = []
 for row in ws.iter_rows(min_row=3, values_only=True):
@@ -130,6 +146,9 @@ for row in ws.iter_rows(min_row=3, values_only=True):
         ac=str(row[C["ac"]] or "").strip(),
         correo=str(correo).strip(),
         link=e.get("link"),
+        fcierre=iso(val(row, "fcierre")),
+        liquidado=num2(val(row, "liquidado")),
+        saldo=num2(val(row, "saldo")),
     ))
 
 if len(out) < 10:
@@ -141,6 +160,12 @@ sobre = cifrar(plaintext, DATA_KEY)
 with open("crm/contratos_export.json", "w", encoding="utf-8") as f:
     json.dump(sobre, f, ensure_ascii=False)
 
+faltan = [k for k in ("fcierre", "liquidado", "saldo") if C.get(k) is None]
+if faltan:
+    print("AVISO: no encontré en la hoja 2026 las columnas de liquidación:", ", ".join(faltan))
+    print("       Encabezados disponibles (fila 2):", [h for h in hdr if h])
+
 print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['link'])} con link, "
-      f"{sum(1 for c in out if c['cerrado'])} cerrados.")
+      f"{sum(1 for c in out if c['cerrado'])} cerrados, "
+      f"{sum(1 for c in out if c['liquidado'] is not None)} con liquidación.")
