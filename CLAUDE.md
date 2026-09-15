@@ -96,6 +96,14 @@ cada miembro a la sesión, «solicitud / cotización» es qué documento se nomb
 el `el/la` que va delante de `{objeto}` depende del género de un texto libre que
 escribe la AC — elegir uno sería adivinar.
 
+**Lo que la conversión no vio: el género escrito a mano.** El conversor solo mira
+cuadros combinados, así que una plantilla que ya traía «Señores» o «ustedes»
+escritos pasó intacta — y la solicitud de cotización le decía «Señores / José
+Lecaro … mantiene con ustedes» a una persona natural. Van `{proveedorTrato}`
+(Señor/Señora/Señores) y `{ustedUstedes}`, y delante de `{area}` nunca un
+artículo a mano: `{dellaAP}`, `{ellaAP}` o `{allaAP}`. `probar_generador.js`
+rastrea las tres trampas en las 18 plantillas.
+
 El conversor trabaja **con lista blanca**: convierte solo lo que una regla nombra
 explícitamente, y deja intacto todo lo demás. Si aparece un control sin regla,
 avisa y no lo toca.

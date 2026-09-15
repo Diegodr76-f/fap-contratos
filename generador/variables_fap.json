@@ -813,6 +813,14 @@
       "tipo": "texto"
     },
     {
+      "id": "pmpebnq6f7sjsk",
+      "grupo": "Concordancia",
+      "nombre": "ustedUstedes",
+      "descripcion": "Concordancia «Proveedor (persona natural o empresa)»: «usted» o «ustedes» según a quién se dirige la carta. Se elige una vez por proveedor, no se escribe a mano.",
+      "ejemplo": "usted",
+      "tipo": "texto"
+    },
+    {
       "id": "pmtu7w0eavkxj8",
       "grupo": "Concordancia derivada",
       "nombre": "actaInforme",
