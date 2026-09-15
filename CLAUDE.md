@@ -195,7 +195,9 @@ python3 scripts/revisar_secretos.py    # corre solo en cada push; falla si algo 
 ```
 
 Lo que el detector no puede hacer es rotar: una firma que se publicó una vez ya está
-copiada fuera, y solo se arregla regenerándola en Power Automate. El arreglo definitivo
+copiada fuera, y solo se arregla regenerándola en Power Automate. Eso no obliga a
+recrear el flujo —hay un procedimiento oficial que solo cambia la llave—, y el paso a
+paso está en `scripts/ROTAR_FIRMAS.md`. El arreglo definitivo
 es proteger los disparadores con Entra ID («Cualquier usuario de mi inquilino»), que no
 usa `sig` — `API_MIS_BIENES_URL` ya funciona así. Está pedido en `bienes/PARA_IT.md`.
 

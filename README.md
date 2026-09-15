@@ -617,10 +617,13 @@ de aquí en adelante. **No la vuelve secreta hacia atrás:** lo que estuvo un me
 repositorio público hay que darlo por copiado.
 
 > **Las cuatro firmas expuestas hay que rotarlas en Power Automate.** Eso no se puede
-> hacer desde el código: se abre cada flujo → *Cuando se recibe una solicitud HTTP* →
-> **Regenerar/actualizar la firma de acceso compartido**, y la URL nueva se reparte a
-> las administradoras. Hasta que se rote, la URL vieja sigue funcionando para quien la
-> tenga. Borrar el historial de git **no** sustituye a rotar.
+> hacer desde el código, pero **no hay que recrear ni tocar los flujos**: Microsoft
+> tiene un procedimiento oficial que solo regenera la llave —el flujo conserva su
+> identificador, sus pasos, sus conexiones y su historial— y hasta se pueden rotar los
+> cuatro de una vez. El paso a paso está en
+> **[`scripts/ROTAR_FIRMAS.md`](scripts/ROTAR_FIRMAS.md)**. Hasta que se rote, la URL
+> vieja sigue funcionando para quien la tenga; borrar el historial de git **no**
+> sustituye a rotar.
 
 El arreglo definitivo es otro: proteger los disparadores con **«Cualquier usuario de mi
 inquilino»** (Entra ID), que usa el token de la sesión y no necesita `sig` ninguna. El
