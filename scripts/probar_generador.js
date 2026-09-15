@@ -444,7 +444,57 @@ seccion('19 · Las 18 plantillas se rellenan de verdad');
      'el monto del contrato original ya trae número y letras: '+datos.montoTotalLetras);
 }
 
-seccion('20 · Al cambiar de momento la vista sube');
+seccion('20 · Nadie trata de «Señores» a una persona natural');
+// La solicitud de cotización salía «Señores / José Lecaro … mantiene con
+// ustedes»: la plantilla llevaba el trato y el número escritos a mano, y ningún
+// control lo miraba porque las etiquetas que sí tenía estaban todas bien.
+{
+  const w6=nuevoDom();
+  const texto=b64=>{
+    const zip=new PizZip(b64,{base64:true}); let t='';
+    zip.file(/word\/(document|header\d*|footer\d*)\.xml/).forEach(f=>{
+      t+=f.asText().replace(/<\/w:p>/g,'\n').replace(/<(?!\/?w:t[ >])[^>]*>/g,'').replace(/<\/?w:t[^>]*>/g,'')+'\n';
+    });
+    return t;
+  };
+  const trampas=[
+    [/\bustedes?\b/i,'«usted/ustedes» escrito a mano (va {ustedUstedes})'],
+    [/\bSeñor(?:es|a)?\b/,'«Señor/es/a» escrito a mano (va {proveedorTrato})'],
+    [/\b(?:del|al|el|la)\s+\{area\}/,'artículo escrito a mano delante de {area} (va {dellaAP}, {ellaAP} o {allaAP})'],
+  ];
+  Object.keys(w6.ST.tpls).sort().forEach(function(f){
+    const t=texto(w6.ST.tpls[f]);
+    const malas=trampas.filter(([re])=>re.test(t)).map(([re,msg])=>msg+': «'+(t.match(re)||[''])[0]+'»');
+    ok(malas.length===0, f+' no le pone género ni número a mano', malas.join(' · '));
+  });
+  // y el resultado, de punta a punta
+  w6.ST.cfg.areas=[{id:'a1',ap:'Reserva Ecológica Cotacachi',siglas:'RECC',ciudad:'Quito',mae:'R. Tapia',maeCargo:'Jefa',maeGenero:'F',apGenero:'F',lugar:'Otavalo'}];
+  w6.ST.cfg.ac='Lcda. María Salazar';
+  w6.newExp('Combustible');
+  const dc=w6.D();
+  Object.assign(dc,{areaId:'a1',tipoProceso:'Renovación',bienServicio:'Servicio',
+    fechaInicio:'2026-11-11',numero:'2',objeto:'Abastecimiento de combustible',
+    contratoAnterior:'FIAS-FAP-2026-014',periodoDesde:'2027-01-01',periodoHasta:'2027-12-31',
+    items:[{desc:'Combustible',unidad:'Galón',cantidad:'1200',punit:''}]});
+  dc.provs[0]={razon:'José Lecaro',ruc:'1723551758001',dir:'Quito',tel:'',monto:'',fof:'',genero:'M'};
+  w6.save();
+  const sale=()=>{
+    const doc=new Docxtemplater(new PizZip(w6.ST.tpls['20_Solicitud_cotizacion_renovacion.docx'],{base64:true}),
+      {paragraphLoop:true,linebreaks:true,nullGetter:()=>''});
+    doc.render(w6.buildTemplateData());
+    return texto(doc.getZip().generate({type:'base64'}));
+  };
+  let out=sale();
+  ok(out.indexOf('Señor')>0 && out.indexOf('Señores')<0,'a una persona natural, «Señor» — no «Señores»');
+  ok(out.indexOf('mantiene con usted el contrato')>0,'y «mantiene con usted», no «con ustedes»');
+  ok(out.indexOf('Plan Anual de Gasto de la Reserva')>0,'«de la Reserva», no «del Reserva»');
+  dc.provs[0].genero='E'; dc.provs[0].razon='Combustibles del Oriente S.A.'; w6.save();
+  out=sale();
+  ok(out.indexOf('Señores')>0 && out.indexOf('mantiene con ustedes el contrato')>0,
+     'y a una empresa, «Señores» y «con ustedes»');
+}
+
+seccion('21 · Al cambiar de momento la vista sube');
 {
   const w5=nuevoDom();
   w5.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
