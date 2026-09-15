@@ -138,6 +138,19 @@ python3 scripts/concordancia.py --verificar
 python3 scripts/embeber_plantillas.py  # y el seed, en el mismo commit
 ```
 
+## Un documento «listo» no puede salir con un hueco
+
+El informe de renovación imprimía «suscrito el **,** cuyo objeto es…» porque el
+Momento 1 se cerraba sin la fecha de suscripción: el dato se imprime, pero nada
+lo exigía. La regla, entonces: **si una plantilla imprime un dato, el momento
+que lo captura no se cierra sin él** —`renM1Done()` y compañía—, y si además
+condiciona el envío, va también a `checklistEnvio()`.
+
+`probar_generador.js` lo vigila para las cuatro vías: llena solo lo que la app
+exige para cerrar cada momento, y comprueba que toda etiqueta de todo documento
+marcado listo tenga dato. Si añades una etiqueta a una plantilla, esa
+comprobación te dirá si dejaste el hueco abierto.
+
 ## La renovación no lleva notificación
 
 La notificación al proveedor la hace el **Director Ejecutivo** con la Unidad Operativa,
