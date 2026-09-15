@@ -376,8 +376,12 @@ function itemsPriced(){var its=D().items.filter(function(it){return it.desc;});r
 function base6(){var d=D();return !!(d.fechaInicio&&d.numero&&A().siglas&&d.tipoProceso&&d.bienServicio&&d.objeto);}
 // Momento 1 de la renovación: TODO lo del bloque 1, y a propósito SIN presupuesto
 // ni monto. Un expediente puede quedar completo aquí y esperar meses al PAG.
+// Los cuatro datos del contrato vigente y la ubicación del contratista están
+// aquí porque el informe los IMPRIME: sin la fecha de suscripción salía
+// «suscrito el , cuyo objeto es…» en un documento que se firma.
 function renM1Done(){var d=D();var p0=d.provs[0]||{};
-  return !!(base6() && d.contratoAnterior && d.fechaFinAnterior && p0.razon && p0.ruc
+  return !!(base6() && d.contratoAnterior && d.fechaSuscripcionAnt && d.fechaFinAnterior
+    && d.montoAnterior && p0.razon && p0.ruc && p0.dir
     && d.clausulaRenovacion && d.periodoDesde && d.periodoHasta && d.arranqueSucesor
     && d.partida && d.fuente && d.plazo && d.formaPago && d.consumoEjecutado && d.fechaInforme
     && d.items.some(function(it){return it.desc&&it.cantidad&&it.unidad;}));}
@@ -1548,6 +1552,11 @@ function checklistEnvio(){
         String(d.clausulaRenovacion||'').indexOf('No')===0
           ? 'El contrato vigente NO la contempla: esto no puede ir como renovación, pásalo a proceso nuevo.'
           : 'La Matriz condiciona la renovación a que el contrato original la contemple.');
+    chk(!!(d.contratoAnterior&&d.fechaSuscripcionAnt&&d.fechaFinAnterior&&d.montoAnterior),
+        'Datos del contrato vigente completos',
+        (d.contratoAnterior&&d.fechaSuscripcionAnt&&d.fechaFinAnterior&&d.montoAnterior)
+          ? ('Contrato '+d.contratoAnterior+', suscrito el '+fechaLarga(d.fechaSuscripcionAnt)+'.')
+          : 'Número, fecha de suscripción, vencimiento y monto: los cuatro van impresos en el informe.');
     chk(!!d.pagAprobado,'PAG del nuevo período aprobado','Sin PAG no hay presupuesto asignado y la cotización no es en firme.');
     chk(!!d.consumoEjecutado,'Consumo ejecutado del período registrado',
         'Es la base del monto. De las 13 adendas de 2026, 11 fueron aumentos por consumo subestimado.',false);
