@@ -447,6 +447,13 @@ function longDate(iso){if(!iso)iso=new Date().toISOString().slice(0,10);const [y
 function todayISO(){const t=new Date();const p=n=>String(n).padStart(2,"0");return t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate());}
 function diasRestantes(c){if(!c.fin)return null;const t=new Date(todayISO()+"T00:00:00");const f=new Date(c.fin+"T00:00:00");return Math.round((f-t)/86400000);}
 function montoDe(c){return (c.montoTotal!=null&&c.montoTotal>0)?c.montoTotal:(c.monto||0);}
+/* Liquidación del cierre (hoja "2026": Fecha de cierre / Valor liquidado / Saldo no ejecutado) */
+function liqDe(c){
+  if(c.liquidado==null&&c.saldo==null&&!c.fcierre)return null;
+  const tot=montoDe(c)||0;
+  const pct=(tot>0&&c.liquidado!=null)?Math.min(100,Math.round(c.liquidado/tot*1000)/10):null;
+  return {f:c.fcierre,liq:c.liquidado,sal:c.saldo,tot,pct};
+}
 function tieneAdenda(c){return norm(c.adenda).startsWith("s");}
 function montoAdenda(c){const d=montoDe(c)-(c.monto||0);return d>0.009?d:0;}
 function manualDocx(txt){return `«COMPLETAR: ${txt}»`;}
@@ -965,9 +972,10 @@ function cardsHTML(list){
 }
 function tableHTML(list){
   if(!list.length)return emptyHTML();
+  const ter=ST.filter==="ter";   // en "Terminados" interesa cuánto se liquidó
   return `<div class="tablewrap"><table class="list">
-    <thead><tr><th>N.º</th><th>Objeto</th><th>Categoría</th><th>Área</th><th>Proveedor</th><th>Monto</th><th>Vence</th><th>Estado</th></tr></thead>
-    <tbody>${list.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c);
+    <thead><tr><th>N.º</th><th>Objeto</th><th>Categoría</th><th>Área</th><th>Proveedor</th><th>Monto</th>${ter?"<th>Liquidado</th><th>Cierre</th>":"<th>Vence</th>"}<th>Estado</th></tr></thead>
+    <tbody>${list.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c),L=ter?liqDe(c):null;
       return `<tr data-open="${i}">
         <td class="td-nro">${esc(c.nro)}</td>
         <td class="td-obj">${esc(c.detalle)}</td>
@@ -975,7 +983,10 @@ function tableHTML(list){
         <td>${esc(c.area||"—")}</td>
         <td>${esc(c.proveedor||"—")}</td>
         <td style="white-space:nowrap">${money(montoDe(c))}</td>
-        <td style="white-space:nowrap">${fdate(c.fin)}</td>
+        ${ter?`<td style="white-space:nowrap">${(L&&L.liq!=null)
+          ?`<b style="color:var(--teal)">${money(L.liq)}</b>${(L.sal!=null&&L.sal>=0.01)?`<div style="font-size:11px;font-weight:700;color:var(--amber)">saldo ${money(L.sal)}</div>`:""}`
+          :`<span style="color:var(--muted)">—</span>`}</td>`:""}
+        <td style="white-space:nowrap">${ter?fdate(c.fcierre||ov(c).fter):fdate(c.fin)}</td>
         <td style="white-space:nowrap"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(vigenciaText(c))}</td>
       </tr>`;}).join("")}</tbody></table></div>`;
 }
@@ -986,6 +997,7 @@ function vDetalle(){
   if(!c){go("contratos");return;}
   const o=ov(c),s=statusLive(c),consult=isConsultoria(c);
   const done=o.terminado||c.cerrado;
+  const L=liqDe(c);
   const timeline=contractTimeline(c);
   $("#view").innerHTML=`<div class="up">
     <button class="back" id="back">← Volver al repositorio</button>
@@ -1026,6 +1038,23 @@ function vDetalle(){
             ${o.evaluado?`<div class="full"><div class="k">Calificación del proveedor</div><div class="v">${esc(o.score)}/100 · ${esc(o.sem)}</div></div>`:""}
           </div>
         </div>
+        ${L?`<div class="panel" style="margin-top:14px">
+          <p class="ptitle">Liquidación del contrato</p>
+          <p class="psub">Cifras del cierre registradas en la base institucional.</p>
+          <div class="dl" style="margin-bottom:${L.pct!=null?"16px":"0"}">
+            <div><div class="k">Fecha de cierre</div><div class="v">${fdate(L.f)}</div></div>
+            <div><div class="k">Valor liquidado</div><div class="v" style="color:var(--teal)">${L.liq!=null?money(L.liq):"—"}</div></div>
+            <div><div class="k">Saldo no ejecutado</div><div class="v" style="color:${(L.sal!=null&&L.sal>=0.01)?"var(--amber)":"var(--muted)"}">${L.sal!=null?money(L.sal):"—"}</div></div>
+          </div>
+          ${L.pct!=null?`<div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">
+              <span>Ejecutado</span><span style="color:var(--ink)">${L.pct}% de ${money(L.tot)}</span>
+            </div>
+            <div style="height:9px;border-radius:99px;background:var(--line);overflow:hidden">
+              <div style="height:100%;width:${L.pct}%;border-radius:99px;background:${L.pct>=99?"var(--teal)":"var(--navy)"}"></div>
+            </div>
+          </div>`:""}
+        </div>`:""}
         <div class="panel" style="margin-top:14px">
           <p class="ptitle">Línea de tiempo</p>
           <ul class="tl">${timeline.map(e=>`<li><div class="t">${esc(e.t)}</div><div class="s">${esc(e.s)}</div></li>`).join("")}</ul>
@@ -1074,6 +1103,7 @@ function contractTimeline(c){
   if(c.inicio)ev.push({d:c.inicio,t:"▶️ Inicio de la ejecución",s:longDate(c.inicio)});
   if(tieneAdenda(c)&&c.firmaAdenda)ev.push({d:c.firmaAdenda,t:"📎 Adenda firmada — "+(c.tipoAdenda||"modificación"),s:longDate(c.firmaAdenda)+(montoAdenda(c)?" · +"+money(montoAdenda(c)):"")});
   CLM.log.filter(l=>l.ref===c.nro).forEach(l=>ev.push({d:l.ts.slice(0,10),t:l.icon+" "+l.txt,s:l.user+" · "+new Date(l.ts).toLocaleDateString("es-EC")}));
+  if(c.fcierre)ev.push({d:c.fcierre,t:"⚫ Contrato cerrado y liquidado",s:longDate(c.fcierre)+(c.liquidado!=null?" · liquidado "+money(c.liquidado):"")});
   if(!o.terminado&&!c.cerrado&&c.fin)ev.push({d:c.fin,t:"🏁 Fin de vigencia "+(diasRestantes(c)>=0?"(previsto)":"(vencido)"),s:longDate(c.fin)});
   return ev.sort((a,b)=>String(a.d).localeCompare(String(b.d)));
 }

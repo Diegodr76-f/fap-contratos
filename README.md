@@ -323,15 +323,21 @@ esperando el PAG. Eso obligó a cuatro cosas (secciones 8.1 a 8.4 del
 
 ### La vía de renovación
 
-`Renovación` es un cuarto tipo de proceso, con su propia captura por momentos y **tres plantillas
+`Renovación` es un cuarto tipo de proceso, con su propia captura por momentos y **dos plantillas
 Word** en `generador/plantillas/`:
 
 | Momento | Documento | Bloque |
 |---|---|---|
-| 1 · Análisis (sin PAG) | `19_Informe_satisfaccion_renovacion.docx` — informe de satisfacción con la verificación de la cláusula y los análisis técnico, geográfico y económico | **1** — no necesita el PAG |
-| 2 · Cotización (con PAG) | `20_Solicitud_cotizacion_renovacion.docx` — solicitud de cotización del nuevo período | 2 |
-| 3 · Notificación | `21_Notificacion_renovacion.docx` — notificación de renovación al proveedor | 2 |
+| 1 · Análisis (sin PAG) | `19_Informe_satisfaccion_renovacion.docx` — informe de satisfacción y análisis de renovación | **1** — no necesita el PAG |
+| 2 · Solicitud (con PAG) | `20_Solicitud_cotizacion_renovacion.docx` — solicitud de cotización del nuevo período | 2 |
+| 3 · Cotización recibida | Sin documento: se registra el monto en firme, que es el que lleva el contrato | 2 |
 | 4 · Contrato | Lo elabora la **Unidad Operativa**; desde aquí solo se envía el expediente | — |
+
+**La notificación al proveedor no es de la administradora.** La hace el Director Ejecutivo junto
+con la Unidad Operativa, una vez revisado el proceso y antes del contrato; por eso la vía no la
+genera ni la pide. Y como entonces ningún documento cierra el expediente, el cierre —historial,
+archivo de sincronización y registro central— se registra al **enviarlo a la Unidad Operativa**,
+que es donde de verdad termina la parte de la administradora.
 
 **El corte por el PAG es el punto del diseño.** El Momento 1 se cierra entero **sin monto y sin
 presupuesto**: la administradora marca *«en espera del PAG»*, el expediente queda guardado y los
@@ -341,9 +347,9 @@ su fecha en el Momento 2 y el expediente se reactiva solo.
 Si la verificación legal dice que el contrato vigente **no** contempla la cláusula, la captura lo
 avisa en el sitio: ese contrato pasa a proceso nuevo y cambia de semana en el calendario.
 
-Las tres plantillas se generan con `scripts/plantillas_renovacion.py`, que hereda el membrete, el
-pie de página, los estilos y las fuentes de una plantilla existente y solo reemplaza el cuerpo, para
-que el formato sea idéntico al del resto de documentos.
+Las plantillas se mantienen **a mano, en Word**, como el resto: el formato es de quien firma los
+documentos. Lo que las cuida es la verificación —esquema, concordancia, catálogo y rellenado real—
+descrita más abajo.
 
 > **Los dos flujos de Power Automate aceptan la vía nueva sin cambios.** El de envío a la Unidad
 > Operativa declara `tipoProceso` como cadena libre en el esquema de su disparador HTTP, y la
@@ -415,9 +421,9 @@ python3 scripts/variables.py --unir <a.json>  # traer lo que se creó en el sist
 
 Que no se desincronice no depende de acordarse, sino de tres comprobaciones:
 `scripts/variables.py --check` contrasta las plantillas contra el catálogo,
-`scripts/probar_generador.js` contrasta las 73 claves que La Mágica entrega a las plantillas, y
-`scripts/plantillas_renovacion.py` **se niega a escribir un `.docx`** con una etiqueta sin
-catalogar. Una copia en git se queda vieja sin avisar; estas tres avisan.
+`scripts/probar_generador.js` contrasta las claves que La Mágica entrega a las plantillas y además
+**rellena las 18 de verdad**, y `scripts/validar_docx.py` comprueba que el `.docx` abriría en Word.
+Una copia en git se queda vieja sin avisar; estas avisan.
 
 Por qué importa, con el caso que lo motivó: la vía de renovación nació usando `contratoAnterior`,
 `fechaSuscripcionAnt`, `fechaFinAnterior` y `montoAnterior`, que el catálogo ya llamaba
@@ -462,12 +468,17 @@ que contrasta contra el esquema oficial **ISO/IEC 29500-4:2016**, copiado en
 `scripts/esquemas/`:
 
 ```bash
-python3 scripts/validar_docx.py                    las 19 plantillas
+python3 scripts/validar_docx.py                    las 18 plantillas
 python3 scripts/validar_docx.py <carpeta|archivo>  también los documentos rellenados
 ```
 
 `concordancia.py --aplicar` lo usa solo: si lo que escribe no abriría en Word, restaura el
-original y aborta. Y `--verificar` termina validando las 19.
+original y aborta. Y `--verificar` termina validando las 18.
+
+**Que abra en Word no basta: también tiene que rellenarse.** Una plantilla con `{monto (` —una
+llave sin cerrar— es un `.docx` impecable para Word y para el esquema, y aun así docxtemplater la
+rechaza al compilarla, así que el documento no se puede generar. Por eso
+`scripts/probar_generador.js` rellena las 18 plantillas con datos reales en cada corrida.
 
 ### Concordancia de género: se elige una vez, no en cada documento
 

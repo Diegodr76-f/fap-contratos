@@ -48,7 +48,6 @@ ORDEN = [
     '17_Orden_de_servicio.docx',
     '19_Informe_satisfaccion_renovacion.docx',
     '20_Solicitud_cotizacion_renovacion.docx',
-    '21_Notificacion_renovacion.docx',
 ]
 
 
