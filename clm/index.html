@@ -901,7 +901,7 @@ function tableHTML(list){
   if(!list.length)return emptyHTML();
   const ter=ST.filter==="ter";   // en "Terminados" interesa cuánto se liquidó
   return `<div class="tablewrap"><table class="list">
-    <thead><tr><th>N.º</th><th>Objeto</th><th>Categoría</th><th>Área</th><th>Proveedor</th><th>Monto</th>${ter?"<th>Liquidado</th>":""}<th>Vence</th><th>Estado</th></tr></thead>
+    <thead><tr><th>N.º</th><th>Objeto</th><th>Categoría</th><th>Área</th><th>Proveedor</th><th>Monto</th>${ter?"<th>Liquidado</th><th>Cierre</th>":"<th>Vence</th>"}<th>Estado</th></tr></thead>
     <tbody>${list.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c),L=ter?liqDe(c):null;
       return `<tr data-open="${i}">
         <td class="td-nro">${esc(c.nro)}</td>
@@ -913,7 +913,7 @@ function tableHTML(list){
         ${ter?`<td style="white-space:nowrap">${(L&&L.liq!=null)
           ?`<b style="color:var(--teal)">${money(L.liq)}</b>${(L.sal!=null&&L.sal>=0.01)?`<div style="font-size:11px;font-weight:700;color:var(--amber)">saldo ${money(L.sal)}</div>`:""}`
           :`<span style="color:var(--muted)">—</span>`}</td>`:""}
-        <td style="white-space:nowrap">${fdate(c.fin)}</td>
+        <td style="white-space:nowrap">${ter?fdate(c.fcierre||ov(c).fter):fdate(c.fin)}</td>
         <td style="white-space:nowrap"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(vigenciaText(c))}</td>
       </tr>`;}).join("")}</tbody></table></div>`;
 }
