@@ -374,30 +374,145 @@ function codigoProceso(){var d=D(),sg=A().siglas;if(sg&&d.fechaInicio&&d.numero)
 function itemTotals(){var d=D();var sub=d.items.reduce(function(a,it){return a+num(it.cantidad)*num(it.punit);},0);var iva=sub*ivaPct()/100;return{sub:sub,iva:iva,total:sub+iva};}
 function itemsPriced(){var its=D().items.filter(function(it){return it.desc;});return its.length>0&&its.every(function(it){return num(it.punit)>0;});}
 function base6(){var d=D();return !!(d.fechaInicio&&d.numero&&A().siglas&&d.tipoProceso&&d.bienServicio&&d.objeto);}
-// Momento 1 de la renovación: TODO lo del bloque 1, y a propósito SIN presupuesto
-// ni monto. Un expediente puede quedar completo aquí y esperar meses al PAG.
-// Los cuatro datos del contrato vigente y la ubicación del contratista están
-// aquí porque el informe los IMPRIME: sin la fecha de suscripción salía
-// «suscrito el , cuyo objeto es…» en un documento que se firma.
-function renM1Done(){var d=D();var p0=d.provs[0]||{};
-  return !!(base6() && d.contratoAnterior && d.fechaSuscripcionAnt && d.fechaFinAnterior
-    && d.montoAnterior && p0.razon && p0.ruc && p0.dir
-    && d.clausulaRenovacion && d.periodoDesde && d.periodoHasta && d.arranqueSucesor
-    && d.partida && d.fuente && d.plazo && d.formaPago && d.consumoEjecutado && d.fechaInforme
-    && d.items.some(function(it){return it.desc&&it.cantidad&&it.unidad;}));}
-// Momento 2: el PAG y la solicitud de cotización. Termina cuando la solicitud
-// está lista para salir; la respuesta del proveedor es el momento siguiente.
-function renM2Done(){var d=D();
-  return !!(d.pagAprobado && d.presupuesto && d.fechaSolCotizacion && d.fechaLimite);}
-// Momento 3: la cotización ya recibida, que es la que fija el monto del
-// contrato que elaborará la Unidad Operativa.
-function renM3Done(){var d=D(); return !!(d.fechaCotizacion && adjMonto()>0 && itemsPriced());}
-function renM4Done(){var c=cur(); return !!(c && c.enviadoUO);}
-function m1Done(){if(esRenov())return renM1Done();var d=D();var base=base6()&&d.partida&&d.fuente&&d.plazo&&d.presupuesto&&d.formaPago;var inv=invita()?(d.fechaInvitacion&&d.fechaLimite):true;var cond=d.tipoProceso==='Selección directa por excepción'?!!d.causal:true;var prov=namedInvCount()>=1;var item=d.items.some(function(it){return it.desc&&it.cantidad&&it.unidad;});var tb=d.bienServicio==='Bien'?!!d.tipoBien:true;return !!(base&&inv&&cond&&prov&&item&&tb);}
-function m2Done(){if(esRenov())return renM2Done();var d=D();if(d.desierto)return true;if(esCD())return !!(d.provs[0].razon&&d.provs[0].monto&&itemsPriced());var provs=offeredProvs().length>=1;return !!(provs&&d.fechaAdj&&d.adjudicado&&itemsPriced());}
-function m3Done(){if(esRenov())return renM3Done();var d=D();if(d.desierto)return true;var g=d.bienServicio==='Bien'?!!d.garantiaAplica:true;return !!(d.fechaRecepcion&&g);}
-function m4Done(){if(esRenov())return renM4Done();var d=D();if(d.desierto)return true;if(d.bienServicio!=='Bien')return true;return !!(d.cedulaJefe&&d.correoJefe);}
+
+//---- lo que falta por llenar ----
+// UNA sola lista por momento, y de ella salen las tres cosas: el ✓ del momento,
+// el aviso de arriba con lo que falta, y la marca en cada campo. Antes el ✓ era
+// una expresión booleana suelta, así que la AC veía el momento sin palomita y
+// tenía que adivinar cuál de los veinte campos era.
+//
+// Cada requisito: {ok, campo, label}. `campo` es la clave con la que se pinta el
+// input (data-k) para poder marcarlo; '' cuando no es un campo suelto —los
+// ítems, el envío a la Unidad—.
+function requisitos(step){
+  var d=D(), ar=A(), c=cur(), L=[];
+  function req(ok, campo, label, nav){ L.push({ok:!!ok, campo:campo||'', label:label, nav:nav||''}); }
+  function comunes1(){
+    if(areasList().length>1) req(d.areaId,'areaId','Área protegida de este proceso');
+    req(d.tipoProceso,'tipoProceso','Tipo de proceso');
+    req(d.bienServicio,'bienServicio','¿Bien o servicio?');
+    req(d.fechaInicio,'fechaInicio','Fecha de inicio');
+    req(d.numero,'numero','Número del proceso');
+    var fd=faltanDeDatos();
+    req(fd.length===0,'', fd.length?('Hoja de Datos: '+fd.map(function(x){return x.label;}).join(', ')):'Hoja de Datos completa','datos');
+    req(d.objeto,'objeto', esRenov()?'Objeto del contrato':'Objeto del proceso');
+    req(d.partida,'partida','Línea presupuestaria');
+    req(d.fuente,'fuente','Fuente de financiamiento');
+    req(d.formaPago,'formaPago','Documentos requeridos para el pago');
+    req(d.items.some(function(it){return it.desc&&it.cantidad&&it.unidad;}),'','Al menos un ítem con descripción, unidad y cantidad');
+  }
+  if(esRenov()){
+    if(step===0){
+      comunes1();
+      req(d.plazo,'plazo','Plazo de entrega o prestación (días)');
+      // Los cuatro del contrato vigente y la ubicación: el informe los IMPRIME.
+      req(d.contratoAnterior,'contratoAnterior','Número del contrato vigente');
+      req(d.fechaSuscripcionAnt,'fechaSuscripcionAnt','Fecha de suscripción del contrato vigente');
+      req(d.fechaFinAnterior,'fechaFinAnterior','Fecha de vencimiento del contrato vigente');
+      req(d.montoAnterior,'montoAnterior','Monto contratado');
+      req(d.consumoEjecutado,'consumoEjecutado','Consumo ejecutado del período');
+      req((d.provs[0]||{}).razon,'p0.razon','Razón social del proveedor');
+      req((d.provs[0]||{}).ruc,'p0.ruc','RUC / Cédula del proveedor');
+      req((d.provs[0]||{}).dir,'p0.dir','Ubicación tributaria del proveedor');
+      req(d.clausulaRenovacion,'clausulaRenovacion','Verificación de la cláusula de renovación');
+      req(d.periodoDesde,'periodoDesde','Inicio del nuevo período');
+      req(d.periodoHasta,'periodoHasta','Fin del nuevo período');
+      req(d.arranqueSucesor,'arranqueSucesor','Fecha en que arranca el servicio');
+      req(d.fechaInforme,'fechaInforme','Fecha del informe');
+    }
+    else if(step===1){
+      req(d.pagAprobado,'pagAprobado','Fecha de aprobación del PAG');
+      req(d.presupuesto,'presupuesto','Presupuesto asignado (USD)');
+      req(d.fechaSolCotizacion,'fechaSolCotizacion','Fecha de la solicitud de cotización');
+      req(d.fechaLimite,'fechaLimite','Fecha límite para cotizar');
+    }
+    else if(step===2){
+      req(d.fechaCotizacion,'fechaCotizacion','Fecha de la cotización');
+      req(adjMonto()>0,'p0.monto','Monto cotizado');
+      req(itemsPriced(),'','Precio unitario de cada ítem');
+    }
+    else req(c&&c.enviadoUO,'','Enviar el expediente a la Unidad Operativa');
+    return L;
+  }
+  if(step===0){
+    comunes1();
+    if(d.bienServicio==='Bien') req(d.tipoBien,'tipoBien','Tipo de bien');
+    if(d.tipoProceso==='Selección directa por excepción') req(d.causal,'causal','Causal de excepción');
+    req(diasEjecucion()>0, d.tipoPlazo==='continuo'?'ejecHasta':'plazo',
+        d.tipoPlazo==='continuo'?'Fechas de ejecución (inicio y fin)':'Plazo de entrega (días)');
+    req(d.presupuesto,'presupuesto','Presupuesto referencial (USD)');
+    if(invita()){
+      req(d.fechaInvitacion,'fechaInvitacion','Fecha de invitación');
+      req(d.fechaLimite,'fechaLimite','Fecha límite de cotizaciones');
+    }
+    req(namedInvCount()>=1,'p0.razon', invita()?'Al menos un proveedor a invitar':'Proveedor');
+    return L;
+  }
+  if(step===1){
+    if(d.desierto) return L;
+    // El acta dice «se reúnen de manera…», así que la sesión es un dato suyo.
+    if(d.tipoProceso==='Comparación de precios') req(d.presencialVirtual,'presencialVirtual','Cómo sesionó la Comisión');
+    if(esCD()){
+      req((d.provs[0]||{}).razon,'p0.razon','Proveedor');
+      req((d.provs[0]||{}).monto,'p0.monto','Monto del proveedor');
+    } else {
+      req(offeredProvs().length>=1,'p0.fof','Al menos un proveedor con oferta (fecha y razón social)');
+      req(d.fechaAdj,'fechaAdj','Fecha de adjudicación');
+      req(d.adjudicado,'adjudicado','Proveedor adjudicado');
+    }
+    req(itemsPriced(),'','Precio unitario de cada ítem');
+    return L;
+  }
+  if(step===2){
+    if(d.desierto) return L;
+    req(d.fechaRecepcion,'fechaRecepcion','Fecha de terminación / recepción');
+    if(d.bienServicio==='Bien') req(d.garantiaAplica,'garantiaAplica','Garantía técnica');
+    return L;
+  }
+  if(d.desierto || d.bienServicio!=='Bien') return L;
+  req(d.cedulaJefe,'cedulaJefe','Cédula del jefe de área');
+  req(d.correoJefe,'correoJefe','Correo del jefe de área');
+  return L;
+}
+// La Hoja de Datos también sale impresa: el nombre de la AC va en la firma de
+// TODOS los documentos, y las siglas arman el código del expediente. Se llena
+// una vez, pero si falta algo no falla en el formulario: falla en el papel.
+function requisitosDatos(area){
+  var c=ST.cfg, ar=area||A(), L=[];
+  function req(ok, campo, label){ L.push({ok:!!ok, campo:campo||'', label:label, nav:'datos'}); }
+  req(c.ac,'cfg.ac','Nombre de la administradora contadora');
+  req(c.acCorreo,'cfg.acCorreo','Correo de la administradora contadora');
+  req(ar&&ar.ap,'','Nombre del área protegida');
+  req(ar&&ar.siglas,'','Siglas del área');
+  req(ar&&ar.mae,'','Jefe de área (MAE)');
+  req(ar&&ar.maeCargo,'','Cargo del jefe de área');
+  req(ar&&ar.ciudad,'','Ciudad');
+  return L;
+}
+function faltanDeDatos(area){ return requisitosDatos(area).filter(function(x){ return !x.ok; }); }
+function faltan(step){ return requisitos(step).filter(function(x){ return !x.ok; }); }
+// Lo mismo en una línea, para donde no cabe una lista.
+function resumenFaltan(step){
+  var f=faltan(step).map(function(x){ return x.label; });
+  if(f.length<=3) return f.join(' · ');
+  return f.slice(0,3).join(' · ')+' · y '+(f.length-3)+' más';
+}
+function pasoHecho(step){ return faltan(step).length===0; }
+// Un momento de la renovación se cierra a propósito SIN presupuesto ni monto:
+// un expediente puede quedar completo en el Momento 1 y esperar meses al PAG.
+function m1Done(){return pasoHecho(0);}
+function m2Done(){return pasoHecho(1);}
+function m3Done(){return pasoHecho(2);}
+function m4Done(){return pasoHecho(3);}
 function doneArr(){return[m1Done(),m2Done(),m3Done(),m4Done()];}
+// El momento en que vive cada campo, para poder decir «está en el Momento 2».
+function momentoDelCampo(campo){
+  for(var i=0;i<4;i++){
+    var r=requisitos(i);
+    for(var j=0;j<r.length;j++) if(r[j].campo===campo) return i;
+  }
+  return -1;
+}
 // Los cuatro momentos no se llaman igual en las dos vías.
 function momentosNombres(){
   if(esRenov()) return ['Análisis (sin PAG)','Solicitud (con PAG)','Cotización recibida','Contrato · U. Operativa'];
@@ -489,7 +604,7 @@ function documents(){
     list.push({id:'informeRen',m:1,name:'Informe de satisfacción y análisis de renovación',
       tpl:'19_Informe_satisfaccion_renovacion.docx',
       note:'Bloque 1: no necesita el PAG. Es el que sustenta la renovación ante la Unidad Operativa.',
-      ready:baseRen&&renM1Done()});
+      ready:baseRen&&m1Done()});
     list.push({id:'solCot',m:2,name:'Solicitud de cotización del nuevo período',
       tpl:'20_Solicitud_cotizacion_renovacion.docx',
       note:'Bloque 2: necesita el PAG aprobado, que es el que fija el presupuesto del área.'+(espera?notaEspera:''),
@@ -903,10 +1018,37 @@ function delTpl(slot){
   render();
 }
 
+//---- avisar de lo que falta ----
+// Un campo pendiente se marca en el sitio, no solo en la lista de arriba: un
+// punto ámbar junto al rótulo y el borde del recuadro del mismo color.
+function faltaCampo(campo){
+  if(!campo||!cur()) return false;
+  var f=faltan(ST.step);
+  for(var i=0;i<f.length;i++) if(f[i].campo===campo) return true;
+  return false;
+}
+function marcaFalta(campo){
+  return faltaCampo(campo)?" <span title='Falta por llenar' style='color:#B4690E;font-size:11px'>●</span>":'';
+}
+function bordeFalta(campo){
+  return faltaCampo(campo)?" style='border-color:#E5C98A;background:#FFFCF5'":'';
+}
+// De la lista de arriba al campo: «Fecha de adjudicación» lleva el cursor ahí.
+function selectorCampo(campo){
+  if(campo.indexOf('p0.')===0) return "[data-p='0'][data-pk='"+campo.slice(3)+"']";
+  return "[data-k='"+campo+"']";
+}
+function irACampo(campo){
+  var el=document.querySelector(selectorCampo(campo));
+  if(!el) return;
+  try{ el.focus({preventScroll:true}); }catch(e){ try{ el.focus(); }catch(e2){} }
+  try{ el.scrollIntoView({block:'center'}); }catch(e3){}
+}
+
 //---- campos ----
-function fSelect(key,label,arr,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';var opts="<option value=''>— elige —</option>"+arr.map(function(x){var val=x.value!==undefined?x.value:x;var lab=x.label!==undefined?x.label:x;return "<option value=\""+esc(val)+"\" "+(v===val?'selected':'')+">"+esc(lab)+"</option>";}).join('');var re=o.reender?' data-re="1"':'';return "<div><label class='fl'>"+label+"</label><select class='inp' data-k='"+key+"'"+re+" onchange='onField(this)'>"+opts+"</select>"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
-function fText(key,label,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';var t=o.type||'text';return "<div><label class='fl'>"+label+"</label><input class='inp' type='"+t+"' data-k='"+key+"' value=\""+esc(v)+"\" placeholder=\""+esc(o.ph||'')+"\" oninput='onField(this)'>"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
-function fArea(key,label,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';return "<div style='grid-column:1/-1'><label class='fl'>"+label+"</label><textarea class='inp' data-k='"+key+"' rows='2' placeholder=\""+esc(o.ph||'')+"\" oninput='onField(this)'>"+esc(v)+"</textarea>"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
+function fSelect(key,label,arr,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';var opts="<option value=''>— elige —</option>"+arr.map(function(x){var val=x.value!==undefined?x.value:x;var lab=x.label!==undefined?x.label:x;return "<option value=\""+esc(val)+"\" "+(v===val?'selected':'')+">"+esc(lab)+"</option>";}).join('');var re=o.reender?' data-re="1"':'';return "<div><label class='fl'>"+label+marcaFalta(key)+"</label><select class='inp' data-k='"+key+"'"+re+" onchange='onField(this)'"+bordeFalta(key)+">"+opts+"</select>"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
+function fText(key,label,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';var t=o.type||'text';return "<div><label class='fl'>"+label+marcaFalta(key)+"</label><input class='inp' type='"+t+"' data-k='"+key+"' value=\""+esc(v)+"\" placeholder=\""+esc(o.ph||'')+"\" oninput='onField(this)'"+bordeFalta(key)+">"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
+function fArea(key,label,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';return "<div style='grid-column:1/-1'><label class='fl'>"+label+marcaFalta(key)+"</label><textarea class='inp' data-k='"+key+"' rows='2' placeholder=\""+esc(o.ph||'')+"\" oninput='onField(this)'"+bordeFalta(key)+">"+esc(v)+"</textarea>"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
 function fAuto(id,label,val,help){return "<div><label class='fl'>"+label+"</label><input class='inp auto' id='"+id+"' value=\""+esc(val)+"\" disabled>"+(help?"<div class='help'>"+help+"</div>":"")+"</div>";}
 
 function onField(el){
@@ -979,6 +1121,33 @@ function renderRail(){
    +"<button onclick=\"go('documentos')\" style='all:unset;cursor:pointer;width:100%;text-align:center;box-sizing:border-box;background:#EEF1FB;color:#00249C;font-weight:700;font-size:14px;padding:11px;border-radius:9px;margin-top:14px'>Ir a Documentos →</button></div>";
 }
 
+// El aviso de arriba de cada momento: qué falta, con el mismo nombre que tiene
+// el campo en el formulario y un enlace que lleva el cursor hasta él.
+function avisoMomento(){
+  var f=faltan(ST.step), n=f.length;
+  if(!n){
+    return "<div class='card' style='margin-bottom:16px;border:1.5px solid #CDE8D6;background:#F4FBF6;padding:13px 16px;display:flex;gap:11px;align-items:center'>"
+     +"<span style='width:24px;height:24px;flex:0 0 auto;border-radius:50%;background:#E7F4EC;color:#1E7A4D;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px'>✓</span>"
+     +"<span style='font-size:13.5px;color:#1E7A4D;font-weight:700'>Este momento está completo.</span></div>";
+  }
+  var filas=f.map(function(x){
+    var texto=esc(x.label);
+    var enlace=x.campo
+      ? "<a href='#' onclick=\"irACampo('"+x.campo+"');return false\" style='color:#8A5210;font-weight:700;text-decoration:underline'>"+texto+"</a>"
+      : (x.nav
+        ? "<a href='#' onclick=\"go('"+x.nav+"');return false\" style='color:#8A5210;font-weight:700;text-decoration:underline'>"+texto+" \u2192</a>"
+        : "<span style='font-weight:700'>"+texto+"</span>");
+    return "<li style='margin:0 0 5px'>"+enlace+"</li>";
+  }).join('');
+  return "<div class='card' style='margin-bottom:16px;border:1.5px solid #E5C98A;background:#FBF1E1;padding:13px 16px'>"
+   +"<div style='display:flex;gap:11px;align-items:flex-start'>"
+   +"<span style='width:24px;height:24px;flex:0 0 auto;border-radius:50%;background:#F6E2BC;color:#8A5210;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px'>!</span>"
+   +"<div style='min-width:0'>"
+   +"<div style='font-weight:700;font-size:14.5px;color:#8A5210'>"+(n===1?'Falta 1 dato':'Faltan '+n+' datos')+" en este momento</div>"
+   +"<div style='font-size:12.5px;color:#8A5210;opacity:.85;line-height:1.45;margin:2px 0 8px'>Sin "+(n===1?'ese dato':'esos datos')+" los documentos de este momento no se pueden generar. Toca uno para ir al campo.</div>"
+   +"<ul style='margin:0;padding-left:18px;font-size:13px;color:#8A5210;line-height:1.5'>"+filas+"</ul>"
+   +"</div></div></div>";
+}
 function renderCaptura(){
   var done=doneArr();
   var stepper="<div style='display:flex;gap:4px;background:#fff;border:1px solid #E7EAF4;border-radius:13px;padding:6px;margin-bottom:20px'>"
@@ -994,7 +1163,7 @@ function renderCaptura(){
   setTimeout(renderRail,0);
   return "<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Captura — "+esc(cur().nombre)+"</h1>"
    +"<p style='font-size:15px;color:#6B7180;margin:0 0 18px'>Llena este momento. Elige siempre de las listas.</p>"+stepper
-   +"<div style='display:grid;grid-template-columns:1fr 330px;gap:22px;align-items:start'><div style='display:flex;flex-direction:column;gap:16px;min-width:0'>"+sections+nav+"</div><aside id='rail' style='position:sticky;top:8px'></aside></div>";
+   +"<div style='display:grid;grid-template-columns:1fr 330px;gap:22px;align-items:start'><div style='display:flex;flex-direction:column;gap:16px;min-width:0'>"+avisoMomento()+sections+nav+"</div><aside id='rail' style='position:sticky;top:8px'></aside></div>";
 }
 function block(title,help,inner){return "<div class='card'><div style='font-weight:700;font-size:16px;color:#0B153F;margin-bottom:3px'>"+title+"</div>"+(help?"<div style='font-size:12.5px;color:#7A8090;margin-bottom:14px;line-height:1.45'>"+help+"</div>":"<div style='height:8px'></div>")+inner+"</div>";}
 
@@ -1279,8 +1448,8 @@ function provRows(modo){
 }
 // El género va por proveedor, no por expediente: en comparación de precios cada
 // invitación se dirige a uno distinto.
-function psel(i,key,label,arr,valor){return "<div><label class='fl'>"+label+"</label><select class='inp' data-p='"+i+"' data-pk='"+key+"' onchange='onProv(this)'>"+arr.map(function(o){return "<option value='"+o.value+"' "+(valor===o.value?'selected':'')+">"+esc(o.label)+"</option>";}).join('')+"</select></div>";}
-function pf(i,key,label,val,type){type=type||'text';return "<div><label class='fl'>"+label+"</label><input class='inp' type='"+type+"' data-p='"+i+"' data-pk='"+key+"' value=\""+esc(val)+"\" oninput='onProv(this)'></div>";}
+function psel(i,key,label,arr,valor){return "<div><label class='fl'>"+label+(i===0?marcaFalta('p0.'+key):'')+"</label><select class='inp' data-p='"+i+"' data-pk='"+key+"' onchange='onProv(this)'"+(i===0?bordeFalta('p0.'+key):'')+">"+arr.map(function(o){return "<option value='"+o.value+"' "+(valor===o.value?'selected':'')+">"+esc(o.label)+"</option>";}).join('')+"</select></div>";}
+function pf(i,key,label,val,type){type=type||'text';return "<div><label class='fl'>"+label+(i===0?marcaFalta('p0.'+key):'')+"</label><input class='inp' type='"+type+"' data-p='"+i+"' data-pk='"+key+"' value=\""+esc(val)+"\" oninput='onProv(this)'"+(i===0?bordeFalta('p0.'+key):'')+"></div>";}
 function onProv(el){var i=+el.dataset.p,k=el.dataset.pk;D().provs[i][k]=el.value;save();recompute();}
 
 function itemRows(withPrice){
@@ -1493,6 +1662,7 @@ function renderDocumentos(){
       html+="<div class='card' style='padding:16px;border:1.5px solid "+(gen?'#1E7A4D':(x.ready?'#C7D0EC':'#E7EAF4'))+";display:flex;flex-direction:column;gap:11px'>"
        +"<div style='display:flex;justify-content:space-between;gap:8px'><span style='font-weight:700;font-size:14.5px;color:#0B153F;line-height:1.35'>"+esc(x.name)+"</span><span style='flex:0 0 auto;font-size:11px;font-weight:700;color:"+(gen?'#1E7A4D':(x.ready?'#00249C':'#9AA0B2'))+";background:"+(gen?'#E7F4EC':(x.ready?'#EEF1FB':'#F2F4FB'))+";padding:3px 8px;border-radius:99px;height:fit-content'>"+(gen?'Generado ✓':(x.ready?'Listo':(x.espera?'Espera el PAG':'Bloqueado')))+"</span></div>"
        +"<div style='font-size:12.5px;color:#7A8090;line-height:1.45;min-height:34px'>"+esc(x.note)+(x.ready&&!hasTpl?" <b style='color:#B4690E'>· falta cargar la plantilla</b>":"")+"</div>"
+       +(!x.ready&&!x.espera&&x.tpl?"<div style='font-size:12px;color:#8A5210;background:#FBF1E1;border:1px solid #F0E0C0;border-radius:8px;padding:8px 10px;line-height:1.45'><b>Falta por llenar:</b> "+esc(resumenFaltan(x.m-1))+"</div>":"")
        +(x.warn30?"<div style='font-size:12px;color:#8A5210;background:#FBF1E1;border:1px solid #F0E0C0;border-radius:8px;padding:8px 10px;line-height:1.4'><b>⚠ Plazo mayor a 30 días.</b> Las órdenes aplican solo cuando el tiempo de entrega o prestación no supera los 30 días. Coordina con Cata y Diego antes de emitirla.</div>":"")
        +(x.warn8000?"<div style='font-size:12px;color:#8A5210;background:#FBF1E1;border:1px solid #F0E0C0;border-radius:8px;padding:8px 10px;line-height:1.4'><b>⚠ Monto mayor a USD 8.000 (con IVA).</b> Esta orden la firma el Director Ejecutivo. Envíala a la Unidad Operativa para la toma de firmas.</div>":"")
        +(x.ready?"<button onclick='gen(\""+x.id+"\")' style='all:unset;cursor:pointer;text-align:center;box-sizing:border-box;font-weight:700;font-size:14px;padding:10px;border-radius:9px;background:"+(gen?'#E7F4EC':'#00249C')+";color:"+(gen?'#1E7A4D':'#fff')+"'>"+(gen?'Generado ✓ · volver a generar':'▶  Generar .docx')+"</button>"
@@ -1987,6 +2157,9 @@ function resumenExp(e){
       area:A().ap||'—', siglas:A().siglas||'', codigo:codigoProceso(),
       via:esRenov()?'Renovación':(d.tipoProceso||'—'), esRenovacion:esRenov(),
       momento:m, etapa:momentosNombres()[m>=4?3:m],
+      // Cuántos datos le faltan al momento en el que está parado, para que la
+      // fila diga por qué no avanza sin tener que entrar a mirarlo.
+      faltanDatos:m>=4?0:faltan(m).length,
       docsGen:docs.filter(function(x){return x.tpl&&gen[x.id];}).length,
       docsTot:docs.filter(function(x){return x.tpl;}).length,
       obligPend:oblig.filter(function(x){return !gen[x.id];}).length,
@@ -2091,7 +2264,8 @@ function renderProcesos(){
     return "<div style='display:grid;grid-template-columns:"+cols+";gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid #F0F2F8;font-size:13px'>"
      +"<span style='min-width:0'><b style='color:#0B153F'>"+esc(r.nombre)+"</b><div style='color:#9AA0B2;font-size:12px;overflow:hidden;text-overflow:ellipsis'>"+esc(r.codigo)+" · "+esc(r.area)+"</div></span>"
      +"<span><span style='font-size:11.5px;font-weight:700;color:"+(r.esRenovacion?'#1E7A4D':'#B4690E')+";background:"+(r.esRenovacion?'#E7F4EC':'#FBF1E1')+";padding:3px 9px;border-radius:99px'>"+(r.esRenovacion?'Renovación':'Proceso nuevo')+"</span><div style='color:#9AA0B2;font-size:11.5px;margin-top:3px'>"+esc(r.esRenovacion?'':r.via)+"</div></span>"
-     +"<span style='color:#3A4050'><b>"+r.momento+" de 4</b><div style='color:#9AA0B2;font-size:11.5px'>"+esc(r.etapa)+"</div></span>"
+     +"<span style='color:#3A4050'><b>"+r.momento+" de 4</b><div style='color:#9AA0B2;font-size:11.5px'>"+esc(r.etapa)+"</div>"
+      +(r.faltanDatos?"<div style='font-size:11px;font-weight:700;color:#B4690E'>faltan "+r.faltanDatos+" dato"+(r.faltanDatos===1?'':'s')+"</div>":"")+"</span>"
      +"<span style='text-align:center;font-weight:700;color:"+docsColor+"'>"+r.docsGen+"/"+r.docsTot+(r.obligPend?"<div style='font-size:11px;font-weight:600;color:#B4690E'>faltan "+r.obligPend+"</div>":"")+"</span>"
      +"<span style='color:#3A4050;overflow:hidden;text-overflow:ellipsis'>"+esc(r.contrato||'—')+"</span>"
      +"<span style='color:"+(alerta?'#B23B3B':'#3A4050')+";font-weight:"+(alerta?'700':'400')+"'>"+esc(fechaCorta(r.arranque)||'—')+"</span>"
@@ -2187,8 +2361,20 @@ function renderDatos(){
       +af(i,'lugar','Lugar de entrega / prestación','')+af(i,'ciudad','Ciudad','Quito')
      +"</div></div>";
   }).join('');
+  var fd=faltanDeDatos();
+  var aviso = fd.length
+    ? "<div class='card' style='margin-bottom:16px;border:1.5px solid #E5C98A;background:#FBF1E1;padding:13px 16px'>"
+      +"<div style='display:flex;gap:11px;align-items:flex-start'>"
+      +"<span style='width:24px;height:24px;flex:0 0 auto;border-radius:50%;background:#F6E2BC;color:#8A5210;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px'>!</span>"
+      +"<div><div style='font-weight:700;font-size:14.5px;color:#8A5210'>"+(fd.length===1?'Falta 1 dato aquí':'Faltan '+fd.length+' datos aquí')+"</div>"
+      +"<div style='font-size:12.5px;color:#8A5210;opacity:.85;line-height:1.45;margin:2px 0 8px'>Esto sale impreso en todos los documentos: el nombre de la AC va en cada firma y las siglas arman el código del expediente.</div>"
+      +"<ul style='margin:0;padding-left:18px;font-size:13px;color:#8A5210;line-height:1.5'>"
+      +fd.map(function(x){return "<li style='margin:0 0 5px'><b>"+esc(x.label)+"</b></li>";}).join('')
+      +"</ul></div></div></div>"
+    : "";
   return "<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Hoja de Datos</h1>"
    +"<p style='font-size:15px;color:#6B7180;margin:0 0 22px;max-width:640px;line-height:1.5'>Configura tus datos una sola vez. Si administras varias áreas protegidas, agrégalas todas aquí; al crear un proceso podrás elegir a cuál pertenece. Tus datos personales de AC son únicos y no se repiten por área.</p>"
+   +aviso
    +"<div class='card' style='margin-bottom:16px'><div style='font-weight:700;font-size:15px;color:#0B153F;margin-bottom:14px'>Tus datos (Administrador/a contador/a)</div><div class='gridf'>"
    +cf('ac','Administrador/a contador/a (AC)','')+cf('acCorreo','Correo de la AC','ac@fias.org.ec')
    +cs('acGenero','¿Cómo debes aparecer en los documentos?',GENERO,'Con esto los documentos dicen «administradora contadora» o «administrador contador» donde toca, sin que tengas que elegirlo en Word cada vez.')+"</div></div>"

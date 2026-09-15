@@ -151,6 +151,24 @@ exige para cerrar cada momento, y comprueba que toda etiqueta de todo documento
 marcado listo tenga dato. Si añades una etiqueta a una plantilla, esa
 comprobación te dirá si dejaste el hueco abierto.
 
+## Decir QUÉ falta, no solo que falta algo
+
+Los requisitos de cada momento son **una sola lista**, `requisitos(step)`, con el
+rótulo de cada campo tal y como aparece en el formulario. De ahí salen las cinco
+cosas, así que no pueden contradecirse:
+
+- el ✓ del momento (`m1Done()`…`m4Done()` cuelgan de `pasoHecho()`),
+- el aviso ámbar de arriba de la captura, con enlace que lleva el cursor al campo,
+- el punto y el borde ámbar del propio campo (`marcaFalta`, `bordeFalta`),
+- el «Falta por llenar: …» de cada documento bloqueado en Documentos,
+- el «faltan N datos» de cada fila de Mis procesos.
+
+**Al añadir un requisito se añade a `requisitos()`, nunca a un `mXDone()`**, y el
+rótulo tiene que ser el mismo que el del campo en pantalla: si el aviso dice
+«Objeto del contrato» y el formulario dice «Objeto del proceso», la AC busca algo
+que no existe. `requisitosDatos()` hace lo propio con la Hoja de Datos, que sale
+impresa en todo: el nombre de la AC va en cada firma y las siglas arman el código.
+
 ## La renovación no lleva notificación
 
 La notificación al proveedor la hace el **Director Ejecutivo** con la Unidad Operativa,

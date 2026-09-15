@@ -222,6 +222,11 @@ c.provs[2]={razon:'Proveedor C',ruc:'3',dir:'',tel:'',monto:'4800',fof:'2026-09-
 c.items=[{desc:'Diésel',unidad:'Galón',cantidad:'100',punit:'34.7826087'}];
 c.fechaAdj='2026-09-16'; c.adjudicado='Proveedor A';
 w.save();
+// El acta dice «se reúnen de manera…», así que sin ese dato el Momento 2 no cierra.
+ok(w.m1Done()===true && w.m2Done()===false,'sin saber cómo sesionó la Comisión, el Momento 2 no cierra');
+ok(w.faltan(1).some(x=>x.campo==='presencialVirtual'),'y el aviso lo nombra',
+   w.faltan(1).map(x=>x.label).join(' | '));
+c.presencialVirtual='presencial'; w.save();
 ok(w.m1Done()===true && w.m2Done()===true,'comparación de precios: momentos 1 y 2 siguen cerrando');
 const dc=w.documents();
 ok(dc.map(x=>x.id).join(',')==='inicio,invit,acta,orden,recep,entrega','los documentos de siempre siguen ahí: '+dc.map(x=>x.id).join(','));
@@ -579,7 +584,81 @@ seccion('21 · Ningún documento se marca LISTO con un hueco dentro');
   });
 }
 
-seccion('22 · Al cambiar de momento la vista sube');
+seccion('22 · El aviso dice QUÉ falta, no solo que falta algo');
+// Antes la AC veía el momento sin palomita y tenía que adivinar cuál de los
+// veinte campos era. Ahora la lista de requisitos es una sola: de ella salen el
+// ✓ del momento, el aviso de arriba y la marca de cada campo, así que no pueden
+// contradecirse.
+{
+  const w8=nuevoDom();
+  w8.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  w8.newExp('Aviso');
+  const da=w8.D();
+  Object.assign(da,{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien'});
+  w8.save();
+  // el ✓ y el aviso no pueden decir cosas distintas, en ningún momento
+  [0,1,2,3].forEach(i=>ok(w8.doneArr()[i]===(w8.faltan(i).length===0),
+    'momento '+(i+1)+': el ✓ y la lista de lo que falta coinciden'));
+  const pendientes=w8.faltan(0).map(x=>x.label);
+  ok(pendientes.indexOf('Objeto del proceso')>=0,'el aviso nombra el objeto con el mismo rótulo que el formulario', pendientes.join(' | '));
+  ok(pendientes.indexOf('Tipo de bien')>=0,'y el tipo de bien, que solo aplica a bienes');
+  ok(w8.faltan(0).every(x=>x.label&&x.label.length>3),'todo lo que falta tiene nombre legible');
+  w8.ST.nav='captura'; w8.ST.step=0; w8.render();
+  let html=w8.document.getElementById('app').innerHTML;
+  ok(html.indexOf('Faltan '+pendientes.length+' datos en este momento')>0,
+     'la captura lo anuncia arriba: «Faltan '+pendientes.length+' datos»');
+  ok(html.indexOf('Objeto del proceso')>0,'y lista el campo por su nombre');
+  // el campo pendiente queda marcado en su sitio
+  const objeto=w8.document.querySelector("[data-k='objeto']");
+  ok(objeto && /E5C98A/.test(objeto.getAttribute('style')||''),'el campo pendiente se marca en el formulario');
+  // y al llenarlo, deja de estar marcado y desaparece de la lista
+  da.objeto='Adquisición de combustible'; w8.save(); w8.render();
+  ok(w8.faltan(0).every(x=>x.campo!=='objeto'),'al llenarlo, sale de la lista');
+  const objeto2=w8.document.querySelector("[data-k='objeto']");
+  ok(objeto2 && !/E5C98A/.test(objeto2.getAttribute('style')||''),'y el campo deja de estar marcado');
+  // en Documentos se dice por qué está bloqueado
+  w8.ST.nav='documentos'; w8.render();
+  html=w8.document.getElementById('app').innerHTML;
+  ok(html.indexOf('Falta por llenar:')>0,'en Documentos, cada documento bloqueado dice qué falta');
+  // momento completo: el aviso cambia de tono
+  Object.assign(da,{tipoBien:'Activo fijo',fechaInicio:'2026-09-10',numero:'3',plazo:'20',
+    presupuesto:'2000',partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura',
+    fechaInvitacion:'2026-09-11',fechaLimite:'2026-09-18',
+    items:[{desc:'Diésel',unidad:'Galón',cantidad:'100',punit:'20'}]});
+  da.provs[0]={razon:'Proveedor A',ruc:'1',dir:'',tel:'',monto:'2000',fof:'2026-09-15',genero:'E'};
+  w8.save();
+  ok(w8.faltan(0).length===0,'con todo lleno no falta nada', w8.faltan(0).map(x=>x.label).join(' | '));
+  w8.ST.nav='captura'; w8.render();
+  ok(w8.document.getElementById('app').innerHTML.indexOf('Este momento está completo')>0,
+     'y el aviso lo dice: «Este momento está completo»');
+}
+
+seccion('23 · La Hoja de Datos avisa de lo suyo: sale impresa en todo');
+{
+  const w9=nuevoDom();
+  // La app viene con un área y una AC de ejemplo; esto simula a quien las borra.
+  w9.ST.cfg.ac=''; w9.ST.cfg.acCorreo='';
+  w9.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  w9.newExp('Sin hoja de datos');
+  Object.assign(w9.D(),{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Servicio'});
+  w9.save();
+  const fd=w9.faltanDeDatos().map(x=>x.label);
+  ok(fd.indexOf('Nombre de la administradora contadora')>=0,'sin AC, la Hoja de Datos lo pide', fd.join(' | '));
+  ok(fd.indexOf('Siglas del área')>=0,'y las siglas, que arman el código del expediente');
+  w9.ST.nav='datos'; w9.render();
+  ok(w9.document.getElementById('app').innerHTML.indexOf('Faltan '+fd.length+' datos aquí')>0,
+     'la Hoja de Datos lo anuncia arriba');
+  // y desde el Momento 1 se ve que el problema está allá
+  ok(w9.faltan(0).some(x=>x.nav==='datos'),'el Momento 1 remite a la Hoja de Datos',
+     w9.faltan(0).map(x=>x.label).join(' | '));
+  w9.ST.cfg.ac='Lcda. María Salazar'; w9.ST.cfg.acCorreo='m@fias.org.ec';
+  w9.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  w9.D().areaId='a1'; w9.save(); w9.render();
+  ok(w9.faltanDeDatos().length===0,'completa, ya no falta nada', w9.faltanDeDatos().map(x=>x.label).join(' | '));
+  ok(!w9.faltan(0).some(x=>x.nav==='datos'),'y el Momento 1 deja de remitir allá');
+}
+
+seccion('24 · Al cambiar de momento la vista sube');
 {
   const w5=nuevoDom();
   w5.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
