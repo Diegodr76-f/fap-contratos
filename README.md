@@ -67,9 +67,9 @@ plantillas Word reales (`crm/plantillas/`).
 |--------|----------|
 | **Panel** | KPIs en vivo, estado del portafolio, vencimientos a 12 meses, valor por categoría, alertas urgentes y actividad reciente |
 | **Pipeline** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado |
-| **Contratos** | Repositorio central con búsqueda global, filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases y línea de tiempo |
+| **Contratos** | Repositorio central con búsqueda global (también por n.º de carpeta y código del proceso), filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases, bloque **Expediente** y línea de tiempo |
 | **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa |
-| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar |
+| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar, contratos sin carpeta de elaboración |
 | **Reportes** | Analítica por categoría/área/AC + exportación CSV del portafolio |
 | **Mapa de áreas** | Mapa del Ecuador con las áreas protegidas que tienen contratos: cada círculo es un área, su tamaño el monto (o el n.º de contratos) y su color el estado más urgente; al tocar una se listan sus contratos y montos, con salida a CSV |
 | **Bitácora** | Registro de auditoría de cada acción (autor, fecha, contrato) |
@@ -92,6 +92,57 @@ unifica y cómo agregar un área están en **[`clm/MAPA_AREAS.md`](clm/MAPA_AREA
 **Roles de ingreso:** Administradora (AC), Área protegida o Unidad Operativa
 (portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
 calificaciones, bitácora) se guarda en el navegador (`localStorage`).
+
+### El expediente: del contrato a su carpeta
+
+El número de contrato (`FIAS-FAP-2026-089`) se asigna **al final**, cuando la Unidad Operativa
+ya elaboró el documento. La carpeta donde se elaboró está numerada por **orden de llegada** —la
+1 es la primera que se elaboró—, así que su número no dice nada del contrato, ni del área, ni
+del proveedor: solo dice *cuándo tocó*. Nada ata una cosa con la otra, y por eso revisar «el
+mantenimiento de Chimborazo» era buscar el contrato en el CLM y después la carpeta a ojo, entre
+las que se parecieran.
+
+Esa correspondencia no se puede deducir: solo la sabe quien elaboró los contratos. Así que se
+escribe, una vez, en **dos columnas de la hoja `2026` del Excel maestro**:
+
+| Columna | Qué lleva |
+|---|---|
+| `Elaboracion` | El número de la carpeta del expediente (`47`) |
+| `CodigoProceso` | El código del expediente de la AC que arma La Mágica (`RPFCH-2026-007`) |
+
+Las dos son opcionales y el robot no se rompe si no están (lee con el mismo `col()`/`val()`
+tolerante que usa para la liquidación). No hace falta llenarlas de una sentada: cada vez que se
+busca una carpeta se escribe su número en esa fila, y esa búsqueda no se repite nunca más.
+
+Con eso, el CLM deja de ser un callejón sin salida:
+
+- **Bloque «Expediente»** en el detalle del contrato, con los tres números que hasta ahora vivían
+  en sistemas distintos —contrato, código del proceso y n.º de elaboración— en una sola fila.
+  Los que faltan dicen *sin registrar*; no se esconden.
+- **Búsqueda en las dos direcciones**: escribir `47` encuentra el contrato de esa carpeta, y
+  escribir `Chimborazo` muestra su n.º de carpeta sin abrir el detalle. Ese es el camino que
+  antes se hacía a ojo.
+- **El número en el listado y en las tarjetas**, bajo el número de contrato.
+- **Filtro «Sin carpeta» y una alerta agregada** —una sola, no una por contrato— para ir bajando
+  lo que falta. Las dos son de la Unidad Operativa, que es quien tiene las carpetas, y solo
+  aparecen cuando ya hay alguna carpeta registrada: antes de empezar serían un cartel permanente
+  que no dice nada.
+
+> **Por qué «n.º de elaboración» y no «n.º de expediente»:** en el catálogo de variables,
+> `{codigo}` ya está descrito como «código del expediente» y es el de la administradora. Si los
+> dos se llamaran igual se perdería justo lo que el bloque quiere mostrar — que son dos cosas
+> distintas del mismo caso.
+
+Cuando se toque esta parte del CLM:
+
+```bash
+npm install jsdom
+node scripts/probar_clm.js
+```
+
+Carga el CLM en un DOM de mentira y lo maneja desde fuera. Cubre el bloque, la búsqueda, el
+listado, el filtro, la alerta y —lo que más importa— que un portafolio **sin ninguna carpeta
+registrada** se siga pintando exactamente igual que antes.
 
 ## Centro de mando diario — herramienta personal
 
@@ -562,6 +613,11 @@ El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el rob
 (`scripts/actualizar_datos.py`) todas las mañanas a partir de la hoja "Export" del Excel maestro. Si el
 flujo falla, la AC puede seguir usando el botón "Actualizar base desde Excel" dentro de la app como
 respaldo manual.
+
+Todas las columnas que el robot lee son **opcionales**: si una no está en el Excel, publica ese campo
+vacío y sigue. Vale para las de liquidación (`Fecha de cierre`, `Valor liquidado`, `Saldo no ejecutado`)
+y para las del expediente (`Elaboracion`, `CodigoProceso`). El robot dice en su resumen cuántos
+contratos traen cada cosa, así que se ve de una si una columna se renombró o se movió.
 
 ## Seguridad de los datos (frase de acceso)
 

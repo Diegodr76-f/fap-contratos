@@ -74,6 +74,14 @@ C = dict(
     fcierre=col("fecha de cierre"),
     liquidado=col("valor liquidado"),
     saldo=col("saldo no ejecutado", "saldo"),
+    # El puente con el expediente. El número de contrato se asigna al final, así
+    # que nada lo ata a la carpeta donde se elaboró: esa correspondencia solo la
+    # sabe quien la vivió, y estas dos columnas son donde se escribe.
+    #  · elaboracion    -> el número de la carpeta en OneDrive (el orden de llegada)
+    #  · codigoProceso  -> el código del expediente de la AC (RPFCH-2026-007)
+    elaboracion=col("elaboracion", "elaboración", "n.º de elaboración",
+                    "nro. de elaboración", "carpeta"),
+    codigoProceso=col("codigoproceso", "código del proceso", "codigo del proceso"),
 )
 estado_cols = [j for j, h in enumerate(hdr) if "estado" in h and "gesti" in h] \
               or [j for j, h in enumerate(hdr) if "estado" in h]
@@ -114,6 +122,15 @@ def num2(v):
     n = num(v)
     return None if n is None else round(n, 2)
 
+def texto(v):
+    """Un código que se escribe a mano. La carpeta «47» llega desde Excel como
+    número y publicarla como «47.0» rompería la búsqueda en el CLM."""
+    if v is None:
+        return None
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return str(v).strip() or None
+
 out = []
 for row in ws.iter_rows(min_row=3, values_only=True):
     correo, nro = row[C["correo"]], row[C["nro"]]
@@ -149,6 +166,8 @@ for row in ws.iter_rows(min_row=3, values_only=True):
         fcierre=iso(val(row, "fcierre")),
         liquidado=num2(val(row, "liquidado")),
         saldo=num2(val(row, "saldo")),
+        elaboracion=texto(val(row, "elaboracion")),
+        codigoProceso=texto(val(row, "codigoProceso")),
     ))
 
 if len(out) < 10:
@@ -168,4 +187,5 @@ if faltan:
 print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['link'])} con link, "
       f"{sum(1 for c in out if c['cerrado'])} cerrados, "
-      f"{sum(1 for c in out if c['liquidado'] is not None)} con liquidación.")
+      f"{sum(1 for c in out if c['liquidado'] is not None)} con liquidación, "
+      f"{sum(1 for c in out if c['elaboracion'])} con carpeta de elaboración.")
