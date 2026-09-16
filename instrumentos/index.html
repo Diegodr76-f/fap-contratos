@@ -13378,9 +13378,20 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 #preview:not(.editando) .ph-pend,#preview:not(.editando) .ph-ok{cursor:pointer}
 .ph-foco{outline:2px solid var(--azul);outline-offset:1px;border-radius:3px;animation:latido .9s ease-out 1}
 @keyframes latido{0%{box-shadow:0 0 0 0 rgba(0,36,156,.45)}100%{box-shadow:0 0 0 12px rgba(0,36,156,0)}}
-/* Campo que quedo vacio al intentar descargar */
+/* Campo que quedo vacio al intentar descargar. Dos niveles: ambar para lo que
+   solo se advierte, rojo para lo obligatorio, que ademas bloquea la descarga. */
 .campo.falta-mk input,.campo.falta-mk textarea,.campo.falta-mk select{border-color:var(--warn);background:#FFFBEB}
 .campo.falta-mk > label{color:var(--warn)}
+.campo.falta-oblig input,.campo.falta-oblig textarea,.campo.falta-oblig select{border-color:var(--peligro);background:#FDECEA}
+.campo.falta-oblig > label{color:var(--peligro)}
+.oblig-ast{color:var(--peligro);font-weight:700;margin-left:2px}
+.pill-oblig{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;border-radius:4px;background:#FDECEA;color:var(--peligro);white-space:nowrap}
+.var-fila.sel .pill-oblig{background:rgba(255,255,255,.2);color:#fff}
+/* Lista de obligatorios que faltan, en el modal que bloquea la descarga */
+.lista-oblig{display:flex;flex-direction:column;gap:6px;margin:10px 0 0}
+.lista-oblig li{display:flex;align-items:center;gap:8px;border:1px solid var(--borde);border-left:3px solid var(--peligro);border-radius:7px;padding:7px 10px;font-size:13px}
+.lista-oblig li b{flex:1}
+.lista-oblig code{font-size:11.5px;color:var(--gris)}
 .membrete-prev{border-bottom:1px dashed var(--borde);padding-bottom:10px;margin-bottom:16px}
 .membrete-prev img{max-width:100%;display:block}
 .membrete-prev .mb-txt{font-weight:700;font-size:12.5px;margin-top:4px}
@@ -13415,6 +13426,13 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .prog.completo .barra > div{background:var(--ok)}
 .prog .txt .pend{color:var(--warn);cursor:pointer;border-bottom:1px dotted currentColor}
 .prog .txt .pend:hover{color:var(--peligro)}
+.prog .txt .pend.oblig{color:var(--peligro);font-weight:700}
+.prog.bloqueado .barra > div{background:var(--peligro)}
+
+/* Formulario dentro del modal (sustituye a las cadenas de prompt del navegador) */
+.m-form .campo:last-of-type{margin-bottom:0}
+.m-form .ayuda{font-size:12.5px;color:var(--gris);line-height:1.5;margin-bottom:12px}
+.m-form .err{display:none;background:#FDECEA;color:var(--peligro);border-radius:7px;padding:8px 10px;font-size:12.5px;font-weight:600;margin-top:10px}
 
 /* Borrador recuperado (lo que se habia llenado antes de recargar) */
 .aviso-borrador{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#E7F6EE;border:1px solid #8FD3B0;color:#0B5E3C;font-size:12.5px;font-weight:600;border-radius:8px;padding:8px 12px;margin-bottom:12px}
@@ -13539,10 +13557,16 @@ tr:hover td{background:var(--azul-claro)}
 .lote-tabla input{width:100%;min-width:110px;border:1px solid transparent;background:transparent;font-family:inherit;font-size:12.5px;padding:3px 5px;border-radius:4px}
 .lote-tabla input:hover,.lote-tabla input:focus{border-color:var(--borde);background:#fff;outline:none}
 .lote-tabla input.falta{background:#FEF3C7}
+.lote-tabla input.falta-ob{background:#FDECEA;box-shadow:inset 2px 0 0 var(--peligro)}
 .lote-tabla td{padding:3px 5px}
 .pegar-caja{width:100%;min-height:80px;border:1px dashed var(--borde);border-radius:8px;padding:10px;font-family:inherit;font-size:12.5px;background:#fff}
 
 /* ---------- Modal ---------- */
+/* Aviso breve que no bloquea: para confirmar algo que ya pasó o avisar de un
+   requisito menor, donde un alert() del navegador corta el trabajo sin motivo. */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(14px);background:var(--texto);color:#fff;font-size:13px;font-weight:600;line-height:1.45;padding:10px 16px;border-radius:9px;box-shadow:0 6px 24px rgba(16,26,61,.28);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;z-index:80;max-width:min(560px,92vw);text-align:center}
+#toast.visible{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{background:var(--peligro)}
 #modal-fondo{display:none;position:fixed;inset:0;background:rgba(16,26,61,.45);z-index:50;align-items:center;justify-content:center;padding:20px}
 #modal-fondo.abierto{display:flex}
 #modal{background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(16,26,61,.3)}
@@ -13992,9 +14016,16 @@ function avisoIdentificacion(val){
 const esIdVar = v => /cedula|ruc|identificacion/i.test(v);
 
 /* ============ Repositorio de variables (Catálogo de Tags FAP + locales) ============ */
+/* Obligatorias de fábrica: los datos sin los cuales el instrumento sale
+   defectuoso —número, las dos partes, objeto, monto y fecha de suscripción—.
+   Todo lo demás se advierte al generar pero no bloquea. La marca vive en el
+   repositorio de variables, así que se quita o se pone desde la pestaña
+   Variables (o desde el propio aviso de bloqueo) y vale para todas las
+   plantillas que usen ese tag. Esta lista solo siembra el valor inicial. */
+const REQUERIDAS_BASE = ['contratoNro','proveedor','proveedorRuc','objeto','montoTotal','fechaContrato'];
 function variablesSemilla(){
   const V = (grupo, nombre, descripcion, ejemplo, tipo) => ({ id: uid(), grupo, nombre, descripcion, ejemplo: ejemplo||'', tipo: tipo||'texto' });
-  return [
+  const lista = [
     // — Catálogo FAP (docxtemplater / La Mágica / CRM) —
     V('Área y firmantes','area','Nombre del área protegida','Parque Nacional Cotacachi Cayapas'),
     V('Área y firmantes','siglas','Siglas del área protegida','PNCC'),
@@ -14063,6 +14094,15 @@ function variablesSemilla(){
     V('Locales (plantillas HTML)','liquidacion','Detalle de liquidación (texto libre)',''),
     V('Locales (plantillas HTML)','numero_documento','Número del documento genérico','')
   ];
+  lista.forEach(v => { if(REQUERIDAS_BASE.includes(v.nombre)) v.requerido = true; });
+  return lista;
+}
+/* Una variable es obligatoria solo si el repositorio lo dice. Las que se
+   calculan solas (letras) o las gobierna un grupo de concordancia nunca
+   entran: el formulario ya las llena por su cuenta. */
+function esRequerido(v){
+  const r = buscarVar(v);
+  return !!(r && r.requerido);
 }
 
 function clausulasSemilla(){
@@ -14306,7 +14346,7 @@ function gruposConcordanciaDuplicados(){
    masculino/femenino/empresa dejaría el índice de opciones sin sentido. */
 function consolidarConcordanciasDuplicadas(){
   const grupos = gruposConcordanciaDuplicados();
-  if(!grupos.length){ alert('No hay grupos de concordancia repetidos: cada tag pertenece a un solo grupo.'); return; }
+  if(!grupos.length){ avisar('No hay grupos de concordancia repetidos: cada tag pertenece a un solo grupo.'); return; }
   const mismasOpciones = g => JSON.stringify(g.opciones);
   const compatibles = grupos.filter(g => g.every(x => mismasOpciones(x) === mismasOpciones(g[0])));
   const incompatibles = grupos.filter(g => !compatibles.includes(g));
@@ -14623,6 +14663,15 @@ async function cargar(){
   // Añade del/de la, al/a la a los grupos sembrados en bibliotecas anteriores.
   let enriquecido = false;
   if(!store.get('fap_gen_conc_enriquecido')){ enriquecido = enriquecerConcordancias(); store.set('fap_gen_conc_enriquecido','1'); }
+  // Campos obligatorios: en una biblioteca anterior ninguna variable trae la
+  // marca. Se siembra el mínimo defensible una sola vez y de ahí en adelante
+  // manda lo que el usuario decida en la pestaña Variables.
+  let requeridosSembrados = false;
+  if(!store.get('fap_gen_requeridos_v1')){
+    REQUERIDAS_BASE.forEach(n => { const v = buscarVar(n); if(v && v.requerido === undefined) v.requerido = true; });
+    store.set('fap_gen_requeridos_v1','1');
+    requeridosSembrados = true;
+  }
   // Carpetas: la primera vez, cada "categoría" plana existente se vuelve una
   // carpeta raíz y cada plantilla/cláusula queda archivada en la que le tocaba.
   let migradoCarpetas = false;
@@ -14642,7 +14691,7 @@ async function cargar(){
   // Con el almacenamiento ya lleno, el primer guardado tiene que salir liviano
   // o falla: por eso los blobs se empujan a IndexedDB (y se espera) ANTES.
   if(hayBlobsSinMigrar) await precargarBlobsAIdb();
-  if(!p || !cl || !vr || !co || enriquecido || migradoCarpetas || (idbOK && hayBlobsSinMigrar)) guardar();
+  if(!p || !cl || !vr || !co || enriquecido || requeridosSembrados || migradoCarpetas || (idbOK && hayBlobsSinMigrar)) guardar();
   limpiarBorradoresHuerfanos();
   // Recargar no debe costar volver a buscar la plantilla en el árbol: se vuelve
   // a la última que se estaba usando y se restaura su borrador. Va al final de
@@ -14880,19 +14929,30 @@ function toggleCarpeta(cual, id){
   if(s.has(id)) s.delete(id); else s.add(id);
   refrescarArbol(cual);
 }
-function crearSubcarpeta(cual, padreId){
-  const nombre = prompt(padreId ? 'Nombre de la subcarpeta:' : 'Nombre de la nueva carpeta:');
-  if(!nombre || !nombre.trim()) return;
+async function crearSubcarpeta(cual, padreId){
+  const r = await pedirDatos({
+    titulo: padreId ? 'Nueva subcarpeta' : 'Nueva carpeta',
+    ok: 'Crear carpeta',
+    campos: [{ nombre:'nombre', etiqueta:'Nombre de la carpeta', ejemplo: cual === 'cl' ? 'Garantías' : 'Contratos 2026' }],
+    validar: v => v.nombre ? '' : 'Ponle un nombre a la carpeta.'
+  });
+  if(!r) return;
+  const nombre = r.nombre;
   crearCarpeta(cual, nombre, padreId);
   if(padreId) abiertasDe(cual).add(padreId);
   guardar();
   refrescarArbol(cual);
 }
-function renombrarCarpetaUI(cual, id){
+async function renombrarCarpetaUI(cual, id){
   const f = arbolCarpetas(cual).find(c => c.id === id); if(!f) return;
-  const nombre = prompt('Nuevo nombre de la carpeta:', f.nombre);
-  if(!nombre || !nombre.trim()) return;
-  renombrarCarpeta(cual, id, nombre);
+  const r = await pedirDatos({
+    titulo: 'Renombrar carpeta',
+    ok: 'Renombrar',
+    campos: [{ nombre:'nombre', etiqueta:'Nuevo nombre', valor: f.nombre }],
+    validar: v => v.nombre ? '' : 'El nombre no puede quedar vacío.'
+  });
+  if(!r) return;
+  renombrarCarpeta(cual, id, r.nombre);
   guardar();
   refrescarArbol(cual);
 }
@@ -15292,7 +15352,8 @@ function renderGenerar(c, p){
     const tagFijo = fijos[v] ? ' <span class="tag-auto">fijo</span>' : '';
     const nota = reg && reg.descripcion ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
     const warn = esIdVar(v) ? `<div class="warn-txt" id="w_${v}">${avisoIdentificacion(datosForm[v])}</div>` : '';
-    return `<div class="campo"><label>${esc(etiqueta(v))} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${tagFijo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)">${nota}${warn}</div>`;
+    const ast = esRequerido(v) ? '<span class="oblig-ast" title="Obligatorio: sin este dato no se genera el documento">*</span>' : '';
+    return `<div class="campo"><label>${esc(etiqueta(v))}${ast} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${tagFijo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)">${nota}${warn}</div>`;
   }).join('');
 
   c.innerHTML = `
@@ -15304,9 +15365,10 @@ function renderGenerar(c, p){
     </div>
     <div class="gen-grid">
       <div>
-        <div class="prog ${pct===100?'completo':''}" id="prog-gen">
+        <div class="prog ${pct===100?'completo':''} ${est.pendientesOblig.length?'bloqueado':''}" id="prog-gen">
           <div class="txt"><span>Datos del documento</span><span id="prog-txt">${htmlProgreso(est)}</span></div>
           <div class="barra"><div id="prog-barra" style="width:${pct}%"></div></div>
+          ${est.editables.some(esRequerido) ? '<div class="nota" style="margin-top:6px">Los campos con <span class="oblig-ast">*</span> son obligatorios: sin ellos no se genera el Word. Se definen en la pestaña <b>Variables</b>.</div>' : ''}
         </div>
         ${selectoresConc ? `<div class="card card-conc"><h3 style="margin:0 0 8px">Concordancia (género / tipo de parte)</h3>${selectoresConc}</div>` : ''}
         <div class="card">
@@ -15356,7 +15418,10 @@ function refrescarProgreso(){
   const pt = document.getElementById('prog-txt'), pb = document.getElementById('prog-barra'), pg = document.getElementById('prog-gen');
   if(pt) pt.innerHTML = htmlProgreso(est);
   if(pb) pb.style.width = pct + '%';
-  if(pg) pg.classList.toggle('completo', pct === 100);
+  if(pg){
+    pg.classList.toggle('completo', pct === 100);
+    pg.classList.toggle('bloqueado', est.pendientesOblig.length > 0);
+  }
 }
 function actualizarCampo(v, val){
   datosForm[v] = val;
@@ -15410,33 +15475,46 @@ function estadoCampos(p){
   };
   const lleno = v => String(datosForm[v] == null ? '' : datosForm[v]).trim() !== '';
   const editables = varsDe(p).filter(cuenta);
-  return { editables, llenos: editables.filter(lleno).length, pendientes: editables.filter(v => !lleno(v)) };
+  const pendientes = editables.filter(v => !lleno(v));
+  return {
+    editables, pendientes,
+    llenos: editables.filter(lleno).length,
+    pendientesOblig: pendientes.filter(esRequerido)
+  };
 }
 function htmlProgreso(est){
   const total = est.editables.length;
   if(!est.pendientes.length) return `<span class="listo">✓ ${total} de ${total} campos</span>`;
-  return `${est.llenos} de ${total} campos · <span class="pend" onclick="irAPrimerFaltante()" title="Marcar los campos que faltan y saltar al primero">${est.pendientes.length} sin llenar →</span>`;
+  const n = est.pendientesOblig.length;
+  const cola = n
+    ? `<span class="pend oblig" onclick="irAPrimerFaltante()" title="Sin estos datos no se genera el documento">${n} obligatorio${n===1?'':'s'} sin llenar →</span>`
+    : `<span class="pend" onclick="irAPrimerFaltante()" title="Marcar los campos que faltan y saltar al primero">${est.pendientes.length} sin llenar →</span>`;
+  return `${est.llenos} de ${total} campos · ${cola}`;
 }
 function marcarFaltantes(lista){
   camposFaltantes = new Set(lista);
   aplicarMarcasFaltantes();
 }
 /* Pinta las marcas sobre el formulario ya dibujado, sin rehacerlo: rehacerlo
-   perdería el foco y la posición del cursor justo cuando hace falta escribir. */
+   perdería el foco y la posición del cursor justo cuando hace falta escribir.
+   Rojo lo obligatorio (bloquea), ámbar lo que solo se advierte. */
 function aplicarMarcasFaltantes(){
-  document.querySelectorAll('#contenido .campo.falta-mk').forEach(el => el.classList.remove('falta-mk'));
+  document.querySelectorAll('#contenido .campo.falta-mk, #contenido .campo.falta-oblig')
+    .forEach(el => el.classList.remove('falta-mk', 'falta-oblig'));
   camposFaltantes.forEach(v => {
     const inp = document.getElementById('f_' + v);
     const campo = inp && inp.closest ? inp.closest('.campo') : null;
-    if(campo) campo.classList.add('falta-mk');
+    if(campo) campo.classList.add(esRequerido(v) ? 'falta-oblig' : 'falta-mk');
   });
 }
 function irAPrimerFaltante(){
   const p = plActual(); if(!p) return;
-  const { pendientes } = estadoCampos(p);
-  marcarFaltantes(pendientes);
-  if(!pendientes.length) return;
-  const inp = document.getElementById('f_' + pendientes[0]);
+  const est = estadoCampos(p);
+  marcarFaltantes(est.pendientes);
+  // Lo obligatorio primero: es lo único que impide descargar.
+  const objetivo = (est.pendientesOblig[0] || est.pendientes[0]);
+  if(!objetivo) return;
+  const inp = document.getElementById('f_' + objetivo);
   if(!inp) return;
   acercarEnContenido(inp.closest('.campo') || inp);
   inp.focus({ preventScroll:true });
@@ -15445,14 +15523,46 @@ function irAPrimerFaltante(){
    sola línea: con quince variables era ilegible y, al decir que no, dejaba al
    usuario en la misma pantalla sin señalar cuáles faltaban. */
 function confirmarPendientes(p){
-  const { pendientes } = estadoCampos(p);
-  if(!pendientes.length){ marcarFaltantes([]); return true; }
-  marcarFaltantes(pendientes);
-  const lista = pendientes.slice(0, 8).map(v => '\u2022 ' + etiqueta(v)).join('\n');
-  const resto = pendientes.length > 8 ? `\n…y ${pendientes.length - 8} más` : '';
-  const ok = confirm(`Faltan ${pendientes.length} campo(s) por llenar:\n\n${lista}${resto}\n\nQuedan marcados en amarillo en el formulario.\n\n¿Generar de todas formas? (saldrán como líneas en blanco)`);
+  const est = estadoCampos(p);
+  if(!est.pendientes.length){ marcarFaltantes([]); return true; }
+  marcarFaltantes(est.pendientes);
+  // Los obligatorios no se pueden saltar desde aquí: la salida es llenarlos o
+  // decidir que ese dato deja de ser obligatorio, y eso se hace explícito.
+  if(est.pendientesOblig.length){ bloquearPorObligatorios(est.pendientesOblig); return false; }
+  const lista = est.pendientes.slice(0, 8).map(v => '\u2022 ' + etiqueta(v)).join('\n');
+  const resto = est.pendientes.length > 8 ? `\n…y ${est.pendientes.length - 8} más` : '';
+  const ok = confirm(`Faltan ${est.pendientes.length} campo(s) por llenar:\n\n${lista}${resto}\n\nQuedan marcados en ámbar en el formulario.\n\n¿Generar de todas formas? (saldrán como líneas en blanco)`);
   if(!ok) irAPrimerFaltante();
   return ok;
+}
+/* Aviso de bloqueo. En vez de un «¿generar de todas formas?» que enseña a
+   pulsar aceptar sin leer, cada dato trae al lado la única salida legítima:
+   decidir que deja de ser obligatorio, lo cual cambia la regla para todas las
+   plantillas y queda registrado en el repositorio. */
+function bloquearPorObligatorios(lista){
+  abrirModal(`
+    <div class="m-cab"><h3>⛔ Faltan datos obligatorios</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <p style="font-size:13px;line-height:1.55">Sin ${lista.length === 1 ? 'este dato' : 'estos datos'} el instrumento saldría defectuoso, así que el Word no se genera:</p>
+      <ul class="lista-oblig">
+        ${lista.map(v => `<li><b>${esc(etiqueta(v))}</b> <code>{{${esc(v)}}}</code>
+          <button class="btn sec mini" onclick="quitarObligatorio('${esc(v)}')" title="Deja de ser obligatoria en todas las plantillas">Ya no es obligatorio</button></li>`).join('')}
+      </ul>
+      <p class="nota" style="margin-top:12px">Si alguno no aplica a este tipo de instrumento, quítale la marca aquí: dejará de bloquear en todas las plantillas y podrás volver a activarlo en la pestaña <b>Variables</b>.</p>
+    </div>
+    <div class="m-pie">
+      <button class="btn" onclick="cerrarModal();irAPrimerFaltante()">Ir al primero que falta</button>
+    </div>`);
+}
+function quitarObligatorio(nombre){
+  const v = buscarVar(nombre);
+  if(v){ v.requerido = false; guardar(); }
+  avisar(`{{${nombre}}} ya no es obligatoria: si falta, solo se advierte.`);
+  const p = plActual();
+  const est = estadoCampos(p);
+  if(est.pendientesOblig.length){ bloquearPorObligatorios(est.pendientesOblig); aplicarMarcasFaltantes(); return; }
+  cerrarModal();
+  renderContenido();
 }
 /* Casillero de una sección opcional: cambia qué campos cuentan como pendientes,
    así que además de repintar el Word hay que rehacer el contador. */
@@ -15735,7 +15845,7 @@ function aplicarContraparte(x){
   aplicarFijos(vars, datosForm);
 }
 function usarContraparte(i){
-  if(!plActual()){ alert('Primero elige una plantilla en la lista de la izquierda.'); return; }
+  if(!plActual()){ avisar('Primero elige una plantilla en la lista de la izquierda.'); return; }
   aplicarContraparte(contrapartes[i]);
   tabActual = 'generar';
   pedirResetScroll();   // cambias de pestaña al formulario: empieza arriba
@@ -15766,11 +15876,11 @@ function renderLote(c, p){
 
   const tablaLote = loteFilas.length ? `
     <div class="tabla-scroll"><table class="lote-tabla"><thead><tr>
-      <th>#</th>${columnas.map(v => `<th>${esc(etiqueta(v))}</th>`).join('')}<th></th>
+      <th>#</th>${columnas.map(v => `<th>${esc(etiqueta(v))}${esRequerido(v)?' *':''}</th>`).join('')}<th></th>
     </tr></thead><tbody>
       ${loteFilas.map((fila,i) => `<tr>
         <td style="color:var(--gris);padding-top:7px">${i+1}</td>
-        ${columnas.map(v => `<td><input class="${String(fila[v]||'').trim()?'':'falta'}" value="${esc(fila[v]||'')}" oninput="editarCeldaLote(${i},'${v}',this)"></td>`).join('')}
+        ${columnas.map(v => `<td><input class="${String(fila[v]||'').trim()?'':(esRequerido(v)?'falta falta-ob':'falta')}" value="${esc(fila[v]||'')}" oninput="editarCeldaLote(${i},'${v}',this)"></td>`).join('')}
         <td><button class="btn peligro mini" onclick="loteFilas.splice(${i},1);guardar();renderContenido()">✕</button></td>
       </tr>`).join('')}
     </tbody></table></div>` : '<div style="font-size:13px;color:var(--gris);background:#fff;border:1px dashed var(--borde);border-radius:8px;padding:16px">El lote está vacío. Añade contratos desde el registro o pega filas desde Excel.</div>';
@@ -15806,7 +15916,7 @@ function renderLote(c, p){
     </div>
     <div class="lote-sec">
       <div class="paso-tit"><span class="num">3</span> Revisar y corregir (${loteFilas.length} documento${loteFilas.length===1?'':'s'})</div>
-      <div style="font-size:12px;color:var(--gris);margin-bottom:8px">Las celdas amarillas están vacías y saldrán como «__________» en el Word. Los montos en letras y las fechas largas se escriben solos al generar.</div>
+      <div style="font-size:12px;color:var(--gris);margin-bottom:8px">Las celdas amarillas están vacías y saldrán como «__________» en el Word; las <b style="color:var(--peligro)">rojas son obligatorias</b> e impiden generar el lote. Los montos en letras y las fechas largas se escriben solos al generar.</div>
       ${concsLote.length ? `<div class="nota" style="margin-bottom:8px">⚥ Concordancia: todos los documentos del lote saldrán con ${concsLote.map(g => `<b>${esc(g.etiqueta)}</b> = «${esc((g.opciones||[])[indiceConc(g.nombre)]||'')}»`).join(' · ')} (se elige en la pestaña Generar).</div>` : ''}
       ${tablaLote}
     </div>
@@ -15818,7 +15928,9 @@ function renderLote(c, p){
 }
 function editarCeldaLote(i, v, inp){
   loteFilas[i][v] = inp.value;
-  inp.classList.toggle('falta', !String(inp.value).trim());
+  const vacia = !String(inp.value).trim();
+  inp.classList.toggle('falta', vacia);
+  inp.classList.toggle('falta-ob', vacia && esRequerido(v));
   guardar();
 }
 function renderLoteRegistro(){
@@ -15847,16 +15959,16 @@ function agregarMarcadosAlLote(){
     const datos = aplicarFijos(vars, aplicarFilaRegistro(row, {}));
     loteFilas.push(datos); n++;
   });
-  if(!n){ alert('Marca al menos un contrato de la lista.'); return; }
+  if(!n){ avisar('Marca al menos un contrato de la lista.'); return; }
   guardar(); renderContenido();
 }
 function procesarPegado(){
   const p = plActual(); if(!p) return;
   const vars = varsDe(p);
   const texto = document.getElementById('lt-pegar').value.trim();
-  if(!texto){ alert('Pega primero las filas copiadas desde Excel (incluye la fila de encabezados).'); return; }
+  if(!texto){ avisar('Pega primero las filas copiadas desde Excel (incluye la fila de encabezados).', 'err'); return; }
   const filas = texto.split(/\r?\n/).map(l => l.split('\t'));
-  if(filas.length < 2){ alert('Necesito al menos dos filas: la de encabezados y una de datos.'); return; }
+  if(filas.length < 2){ avisar('Necesito al menos dos filas: la de encabezados y una de datos.', 'err'); return; }
   const encabezados = filas[0].map(normalizar);
   // Empareja cada columna pegada con una variable de la plantilla
   const mapaCol = encabezados.map(h => vars.find(v => normalizar(v) === h || normalizar(etiqueta(v)) === h) || null);
@@ -15888,6 +16000,16 @@ async function generarLote(){
   const vars = varsDe(p);
   const gobern = tagsGobernados();
   const columnas = vars.filter(v => !esLetras(v) && !gobern.has(v));
+  // Igual que en la descarga individual: lo obligatorio bloquea, lo demás avisa.
+  const obligatorias = columnas.filter(esRequerido);
+  const sinOblig = obligatorias.length
+    ? loteFilas.filter(f => obligatorias.some(v => !String(f[v]||'').trim())).length : 0;
+  if(sinOblig){
+    alert(`${sinOblig} de ${loteFilas.length} fila(s) no tienen todos los datos obligatorios.\n\n` +
+      `Obligatorios en esta plantilla: ${obligatorias.map(etiqueta).join(', ')}.\n\n` +
+      'Complétalos en la tabla (las celdas en rojo) y vuelve a generar. Si alguno no aplica, quítale la marca en la pestaña Variables.');
+    return;
+  }
   const incompletas = loteFilas.filter(f => columnas.some(v => !String(f[v]||'').trim())).length;
   if(incompletas && !confirm(`${incompletas} de ${loteFilas.length} documentos tienen campos vacíos (saldrán como líneas en blanco).\n\n¿Generar de todas formas?`)) return;
   try{
@@ -16117,7 +16239,7 @@ function inferirNombreVariante(clId, varId){
    las plantillas se reapuntan para que ningún bloque vinculado se rompa. */
 function consolidarClausulasDuplicadas(){
   const grupos = gruposDuplicadosClausulas();
-  if(!grupos.length){ alert('No hay cláusulas repetidas: cada título aparece una sola vez.'); return; }
+  if(!grupos.length){ avisar('No hay cláusulas repetidas: cada título aparece una sola vez.'); return; }
   const totalCopias = grupos.reduce((n, g) => n + g.length, 0);
   const muestra = grupos.slice(0, 12).map(g => {
     const nv = g.reduce((n, c) => n + c.variantes.length, 0);
@@ -16544,7 +16666,7 @@ function registrarTagsFaltantes(){
     n++;
   });
   guardar(); renderContenido();
-  alert(n ? `Se registraron ${n} tags en el repositorio de variables. Complétales descripción y tipo en la pestaña Variables.` : 'Todos los tags ya estaban registrados.');
+  avisar(n ? `Se registraron ${n} tags en el repositorio de variables. Complétales descripción y tipo en la pestaña Variables.` : 'Todos los tags ya estaban registrados.');
 }
 /* Bloques de UI para condiciones y listas en Generar */
 function htmlCondiciones(p){
@@ -17169,8 +17291,23 @@ async function aplicarMembrete(blob, datos){
   return zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 
+/* ============ Aviso breve (toast) ============
+   Reemplaza a los alert() que solo confirmaban algo o recordaban un requisito
+   menor («selecciona primero el texto»): interrumpían el trabajo y obligaban a
+   un clic para nada. Los errores de verdad siguen en alert. */
+let tToast = null;
+function avisar(texto, tipo){
+  let el = document.getElementById('toast');
+  if(!el){ el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.textContent = texto;
+  el.className = (tipo === 'err' ? 'err ' : '') + 'visible';
+  clearTimeout(tToast);
+  tToast = setTimeout(() => el.classList.remove('visible'), tipo === 'err' ? 6000 : 3800);
+}
+
 /* ============ Modal genérico ============ */
 function abrirModal(html){
+  soltarPedirDatos(null);   // si el modal traía un formulario pendiente, se da por cancelado
   const m = document.getElementById('modal');
   const fondo = document.getElementById('modal-fondo');
   // Si el modal ya estaba abierto, es un re-dibujo (p. ej. tras guardar un
@@ -17183,7 +17320,86 @@ function abrirModal(html){
   if(top){ const nuevo = m.querySelector('.m-cuerpo'); if(nuevo) nuevo.scrollTop = top; }
 }
 function cerrarModal(){
+  soltarPedirDatos(null);
   document.getElementById('modal-fondo').classList.remove('abierto');
+}
+
+/* ============ Formulario en el modal (en vez de prompt()) ============
+   Las altas cortas (nombre de carpeta, de cláusula, de variante, tamaño de una
+   tabla) se pedían con prompt() del navegador, encadenando hasta cuatro
+   ventanas seguidas para una sola variable: sin volver atrás, sin validar hasta
+   el final y perdiendo lo escrito al cancelar en el tercer paso. pedirDatos()
+   presenta un único formulario dentro del modal de la herramienta, valida antes
+   de cerrar y devuelve una promesa con los valores (o null si se cancela).
+   Enter confirma y Escape cancela, como en un prompt. */
+let resolverPedirDatos = null;
+function soltarPedirDatos(valor){
+  if(!resolverPedirDatos) return;
+  const r = resolverPedirDatos;
+  resolverPedirDatos = null;
+  r(valor);
+}
+function campoPedirHTML(c){
+  const id = 'pd_' + c.nombre;
+  const val = c.valor == null ? '' : String(c.valor);
+  const ph = c.ejemplo ? ` placeholder="${esc(c.ejemplo)}"` : '';
+  let control;
+  if(c.tipo === 'area')
+    control = `<textarea id="${id}" rows="${c.filas || 3}"${ph}>${esc(val)}</textarea>`;
+  else if(c.tipo === 'select')
+    control = `<select id="${id}">${(c.opciones||[]).map(o => {
+      const [v, t] = Array.isArray(o) ? o : [o, o];
+      return `<option value="${esc(v)}" ${String(v) === val ? 'selected' : ''}>${esc(t)}</option>`;
+    }).join('')}</select>`;
+  else if(c.tipo === 'numero')
+    control = `<input type="number" id="${id}" value="${esc(val)}"${c.min != null ? ` min="${c.min}"` : ''}${c.max != null ? ` max="${c.max}"` : ''}>`;
+  else
+    control = `<input type="text" id="${id}" value="${esc(val)}"${ph}${c.lista ? ` list="${esc(c.lista)}"` : ''}>`;
+  return `<div class="campo"><label>${esc(c.etiqueta)}</label>${control}${c.datalist || ''}${c.nota ? `<div class="nota">${c.nota}</div>` : ''}</div>`;
+}
+function pedirDatos(cfg){
+  // abrirModal() suelta cualquier petición anterior; el resolver se guarda
+  // DESPUÉS para que no se cancele a sí misma.
+  abrirModal(`
+    <div class="m-cab"><h3>${esc(cfg.titulo)}</h3><button onclick="cerrarModal()">✕</button></div>
+    <form class="m-cuerpo m-form" onsubmit="event.preventDefault();aceptarPedirDatos()">
+      ${cfg.ayuda ? `<div class="ayuda">${cfg.ayuda}</div>` : ''}
+      ${(cfg.campos || []).map(campoPedirHTML).join('')}
+      <div class="err" id="pedir-err"></div>
+      <button type="submit" style="display:none" aria-hidden="true"></button>
+    </form>
+    <div class="m-pie">
+      <button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn" onclick="aceptarPedirDatos()">${esc(cfg.ok || 'Guardar')}</button>
+    </div>`);
+  pedirCfg = cfg;
+  const primero = document.getElementById('pd_' + (cfg.campos[0] || {}).nombre);
+  if(primero){ primero.focus(); if(primero.select) primero.select(); }
+  return new Promise((resolve) => { resolverPedirDatos = resolve; });
+}
+let pedirCfg = null;
+function leerPedirDatos(){
+  const vals = {};
+  (pedirCfg.campos || []).forEach(c => {
+    const el = document.getElementById('pd_' + c.nombre);
+    if(!el) return;
+    vals[c.nombre] = c.tipo === 'numero' ? el.value : el.value.trim();
+  });
+  return vals;
+}
+function aceptarPedirDatos(){
+  if(!pedirCfg) return;
+  const vals = leerPedirDatos();
+  const err = pedirCfg.validar ? pedirCfg.validar(vals) : '';
+  if(err){
+    // El error se muestra dentro del formulario y lo escrito se conserva; antes
+    // un alert obligaba a repetir toda la cadena de prompts desde cero.
+    const caja = document.getElementById('pedir-err');
+    if(caja){ caja.textContent = err; caja.style.display = 'block'; }
+    return;
+  }
+  soltarPedirDatos(vals);
+  cerrarModal();
 }
 
 /* ============ Editor de plantillas ============ */
@@ -17199,6 +17415,20 @@ function tituloClausulaLimpio(txt){
     .replace(/^\s*CL[ÁA]USULA\s+[\wÁÉÍÓÚÑáéíóúñ]+(\s+[\wÁÉÍÓÚÑáéíóúñ]+)?/i,'')  // «CLÁUSULA ORDINAL»
     .replace(/^[\s.:\-–—]+/,'')                                          // separadores sobrantes (. - – :)
     .trim();
+}
+/* Nombre que se propone al guardar una selección como cláusula: el encabezado
+   que traiga dentro; si no lo hay, el título del bloque desde el que se está
+   guardando. Nunca la primera frase del texto: un nombre así no sirve para
+   reconocer la cláusula en el repositorio, y es mejor dejar el campo vacío con
+   su ejemplo a la vista. */
+function nombrePropuestoClausula(html, respaldo){
+  const d = document.createElement('div'); d.innerHTML = html || '';
+  const h = d.querySelector('h1,h2,h3');
+  if(h){
+    const t = tituloClausulaLimpio(h.textContent || '').slice(0, 70).trim();
+    if(t) return t;
+  }
+  return String(respaldo || '').slice(0, 70).trim();
 }
 /* Divide el HTML de una plantilla en bloques cortando por los encabezados de
    cláusula (<h2>CLÁUSULA …</h2>). Lo previo a la primera cláusula = encabezado. */
@@ -17537,7 +17767,7 @@ function aplicarTamano(target, pt){
   const el = document.getElementById(target);
   el.focus({ preventScroll: true });
   const sel = window.getSelection();
-  if(!sel.rangeCount || sel.isCollapsed){ alert('Selecciona primero el texto al que quieres cambiar el tamaño.'); return; }
+  if(!sel.rangeCount || sel.isCollapsed){ avisar('Selecciona primero el texto al que quieres cambiar el tamaño.'); return; }
   document.execCommand('styleWithCSS', false, false);
   document.execCommand('fontSize', false, '7');
   el.querySelectorAll('font[size="7"]').forEach(f => {
@@ -17564,10 +17794,24 @@ function listaLetras(target){
   while(n && n !== cont && n.nodeName !== 'OL') n = n.parentNode;
   if(n && n.nodeName === 'OL') n.style.listStyleType = 'lower-alpha';
 }
-function insertarTabla(target){
-  const f = parseInt(prompt('Número de filas (incluye encabezado):','3')) || 0;
-  const c = parseInt(prompt('Número de columnas:','3')) || 0;
-  if(f < 1 || c < 1) return;
+async function insertarTabla(target){
+  const r = await pedirDatos({
+    titulo: 'Insertar tabla',
+    ok: 'Insertar',
+    ayuda: 'La primera fila se crea como encabezado. Después puedes escribir dentro de cada celda.',
+    campos: [
+      { nombre:'filas', etiqueta:'Filas (incluye el encabezado)', tipo:'numero', valor:3, min:1, max:60 },
+      { nombre:'cols',  etiqueta:'Columnas', tipo:'numero', valor:3, min:1, max:15 }
+    ],
+    validar: v => {
+      const f = parseInt(v.filas, 10), c = parseInt(v.cols, 10);
+      if(!(f >= 1) || !(c >= 1)) return 'Indica al menos una fila y una columna.';
+      if(f > 60 || c > 15) return 'Máximo 60 filas y 15 columnas.';
+      return '';
+    }
+  });
+  if(!r) return;
+  const f = parseInt(r.filas, 10), c = parseInt(r.cols, 10);
   let t = '<table><tbody>';
   for(let i = 0; i < f; i++){
     t += '<tr>';
@@ -17580,7 +17824,7 @@ function insertarTabla(target){
 }
 function mayusculas(target){
   const sel = window.getSelection();
-  if(!sel.rangeCount || sel.isCollapsed){ alert('Selecciona primero el texto que quieres convertir a mayúsculas.'); return; }
+  if(!sel.rangeCount || sel.isCollapsed){ avisar('Selecciona primero el texto que quieres convertir a mayúsculas.'); return; }
   document.getElementById(target).focus({ preventScroll: true });
   document.execCommand('insertText', false, sel.toString().toUpperCase());
 }
@@ -17642,21 +17886,54 @@ function insertarVariableEnDoc(nombre){
   if(el) document.execCommand('insertText', false, `{{${nombre}}}`);
   cerrarModal();
 }
-function registrarVariableDesdeModal(){
-  const v = registrarVariable(document.getElementById('busq-var').value.trim());
+async function registrarVariableDesdeModal(){
+  const busq = document.getElementById('busq-var');
+  const v = await registrarVariable(busq ? busq.value.trim() : '');
   if(v) insertarVariableEnDoc(v.nombre);
 }
-function registrarVariable(sugerido){
-  const n = prompt('Nombre de la variable (sin espacios; usa camelCase para tags del catálogo FAP o guion_bajo para locales):', sugerido || '');
-  if(!n) return null;
-  const nombre = n.trim().replace(/\s+/g,'_').replace(/[{}]/g,'');
-  if(buscarVar(nombre)){ alert(`La variable {{${nombre}}} ya existe en el repositorio.`); return buscarVar(nombre); }
-  const descripcion = prompt('Descripción breve (qué contiene):','') || '';
-  let tipo = (prompt('Tipo: texto / numero / fecha / letras','texto') || 'texto').toLowerCase();
-  if(!['texto','numero','fecha','letras','repetible'].includes(tipo)) tipo = 'texto';
-  const grupo = prompt('Grupo o categoría:','Locales (plantillas HTML)') || 'Otros';
-  const v = { id: uid(), grupo: grupo.trim(), nombre, descripcion: descripcion.trim(), ejemplo: '', tipo };
+/* Alta de una variable: antes eran cuatro prompt() encadenados (nombre →
+   descripción → tipo → grupo), sin volver atrás, sin validar hasta el final y
+   perdiendo lo escrito si se cancelaba en el tercero. Ahora es un solo
+   formulario que valida antes de cerrar. */
+const TIPOS_VAR = ['texto','numero','fecha','letras','repetible'];
+const limpiarNombreVar = s => String(s||'').trim().replace(/\s+/g,'_').replace(/[{}]/g,'');
+async function registrarVariable(sugerido){
+  const gruposExistentes = gruposVar().filter(g => g !== 'Todos');
+  const r = await pedirDatos({
+    titulo: '+ Registrar variable nueva',
+    ok: 'Registrar variable',
+    ayuda: 'El repositorio es el diccionario único del ecosistema FAP: usa <b>camelCase</b> para los tags del Catálogo (<code>montoTotal</code>) y <b>guion_bajo</b> para las locales de esta herramienta (<code>representante_fias</code>).',
+    campos: [
+      { nombre:'nombre', etiqueta:'Nombre (tag, sin espacios)', valor: limpiarNombreVar(sugerido), ejemplo:'montoGarantia' },
+      { nombre:'descripcion', etiqueta:'Descripción — guía el formulario al generar', tipo:'area', filas:2, ejemplo:'Valor de la garantía de fiel cumplimiento' },
+      { nombre:'ejemplo', etiqueta:'Ejemplo (opcional)', ejemplo:'850,00' },
+      { nombre:'tipo', etiqueta:'Tipo', tipo:'select', valor:'texto', opciones:[
+          ['texto','Texto'], ['numero','Número / monto'], ['fecha','Fecha'],
+          ['letras','Cantidad en letras (se calcula sola)'], ['repetible','Bloque repetible {#tag}']
+        ] },
+      { nombre:'grupo', etiqueta:'Grupo', valor:'Locales (plantillas HTML)', lista:'dl-grupos-var',
+        datalist: `<datalist id="dl-grupos-var">${gruposExistentes.map(g => `<option value="${esc(g)}">`).join('')}</datalist>` },
+      { nombre:'requerido', etiqueta:'¿Obligatoria?', tipo:'select', valor:'no', opciones:[
+          ['no','No — si falta, solo se advierte'],
+          ['si','Sí — sin este dato no se puede descargar el documento']
+        ] }
+    ],
+    validar: v => {
+      const nombre = limpiarNombreVar(v.nombre);
+      if(!nombre) return 'La variable necesita un nombre.';
+      if(buscarVar(nombre)) return `Ya existe {{${nombre}}} en el repositorio. Búscala en la lista en vez de duplicarla.`;
+      return '';
+    }
+  });
+  if(!r) return null;
+  const v = {
+    id: uid(), grupo: r.grupo || 'Otros', nombre: limpiarNombreVar(r.nombre),
+    descripcion: r.descripcion, ejemplo: r.ejemplo,
+    tipo: TIPOS_VAR.includes(r.tipo) ? r.tipo : 'texto',
+    requerido: r.requerido === 'si'
+  };
   variablesRepo.push(v); guardar();
+  avisar(`Variable {{${v.nombre}}} registrada en el repositorio.`);
   return v;
 }
 
@@ -17692,7 +17969,7 @@ function renderVariables(c){
         ${filtradas.length ? '' : `<p style="font-size:13px;color:var(--gris)">Ninguna variable coincide${q?` con «${esc(busqVarTab)}»`:''}${grupoVarFiltro!=='Todos'?` en el grupo «${esc(grupoVarFiltro)}»`:''}.</p>`}
         ${Object.keys(grupos).map(g => `
           <div class="rep-cat-titulo">${esc(g)}</div>
-          ${grupos[g].map(v => `<div class="var-fila ${varSelId===v.id?'sel':''}" onclick="varSelId='${v.id}';renderContenido()"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${esc(v.descripcion||'')}</span><span class="tipo-pill">${esc(v.tipo)}</span></div>`).join('')}`
+          ${grupos[g].map(v => `<div class="var-fila ${varSelId===v.id?'sel':''}" onclick="varSelId='${v.id}';renderContenido()"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${esc(v.descripcion||'')}</span>${v.requerido?'<span class="pill-oblig" title="Sin este dato no se genera el documento">oblig.</span>':''}<span class="tipo-pill">${esc(v.tipo)}</span></div>`).join('')}`
         ).join('')}
       </div>
       <div>
@@ -17703,6 +17980,13 @@ function renderVariables(c){
           <div class="campo"><label>Grupo</label><input id="var-ed-grupo" list="grupos-dl" value="${esc(sel.grupo)}"><datalist id="grupos-dl">${gruposVar().filter(x=>x!=='Todos').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
           <div class="campo"><label>Descripción</label><textarea id="var-ed-desc" rows="3">${esc(sel.descripcion||'')}</textarea></div>
           <div class="campo"><label>Ejemplo (se muestra como guía en el formulario)</label><input id="var-ed-ejemplo" value="${esc(sel.ejemplo||'')}"></div>
+          <div class="campo"><label>¿Obligatoria?</label>
+            <select id="var-ed-req">
+              <option value="no" ${sel.requerido?'':'selected'}>No — si falta, solo se advierte</option>
+              <option value="si" ${sel.requerido?'selected':''}>Sí — sin este dato no se puede descargar</option>
+            </select>
+            <div class="nota">Vale para todas las plantillas que usen <code>{{${esc(sel.nombre)}}}</code>. Márcala solo si su ausencia deja el instrumento defectuoso.</div>
+          </div>
           <div class="campo"><label>Tipo</label><select id="var-ed-tipo" onchange="document.getElementById('var-ed-origen-wrap').style.display = this.value==='letras' ? '' : 'none'">${['texto','numero','fecha','letras','repetible'].map(t=>`<option ${sel.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div>
           <div class="campo" id="var-ed-origen-wrap" style="${sel.tipo==='letras'?'':'display:none'}">
             <label>Variable de origen (el monto en números)</label>
@@ -17717,7 +18001,7 @@ function renderVariables(c){
           </div>
         </div>` : `<div class="card"><h3>Detalle</h3><p style="font-size:13px;color:var(--gris)">Selecciona una variable de la lista para editarla, o crea una nueva.</p></div>`}
         <div class="acciones-gen">
-          <button class="btn" onclick="if(registrarVariable()){renderContenido()}">+ Nueva variable</button>
+          <button class="btn" onclick="registrarVariable().then(v => { if(v){ varSelId = v.id; renderContenido(); } })">+ Nueva variable</button>
           <button class="btn sec" onclick="exportarVariables()">Exportar variables</button>
         </div>
         <div class="card" style="margin-top:12px">
@@ -17885,6 +18169,8 @@ function guardarVariableEd(){
   v.descripcion = document.getElementById('var-ed-desc').value.trim();
   v.ejemplo = document.getElementById('var-ed-ejemplo').value.trim();
   v.tipo = document.getElementById('var-ed-tipo').value;
+  const reqEl = document.getElementById('var-ed-req');
+  if(reqEl) v.requerido = reqEl.value === 'si';
   const origenEl = document.getElementById('var-ed-origen');
   v.origen = origenEl ? origenEl.value.trim().replace(/[{}]/g,'') : '';
   guardar(); renderContenido();
@@ -17904,7 +18190,7 @@ const ORDINALES = ['PRIMERA','SEGUNDA','TERCERA','CUARTA','QUINTA','SEXTA','SÉP
 function renumerarClausulas(target){
   const cont = document.getElementById(target);
   const h2s = Array.from(cont.querySelectorAll('h2'));
-  if(!h2s.length){ alert('No se encontraron cláusulas (encabezados de nivel 2) para renumerar.'); return; }
+  if(!h2s.length){ avisar('No se encontraron cláusulas (encabezados de nivel 2) para renumerar.'); return; }
   const primerTexto = h2s[0].textContent.trim();
   const esNumerico = /^\d+\s*\./.test(primerTexto);
   h2s.forEach((h, i) => {
@@ -18052,31 +18338,51 @@ function sincronizarClausulaEnPlantillas(cl, v){
   guardar(); renderLista();
   alert(`Cláusula actualizada en ${actualizadas} lugar(es).${desvinculadas ? ` ${desvinculadas} se conservaron con su versión editada (desvinculadas).` : ''}`);
 }
-function guardarSeleccionComoClausula(target){
+async function guardarSeleccionComoClausula(target){
   const cont = document.getElementById(target);
   const sel = window.getSelection();
   if(!sel.rangeCount || sel.isCollapsed || !cont.contains(sel.getRangeAt(0).commonAncestorContainer)){
-    alert('Selecciona primero, dentro del texto, la cláusula que quieres guardar en el repositorio.');
+    avisar('Selecciona primero, dentro del texto, la cláusula que quieres guardar en el repositorio.');
     return;
   }
   const div = document.createElement('div');
   div.appendChild(sel.getRangeAt(0).cloneContents());
   const cuerpo = div.innerHTML;
-  const nombre = prompt('Nombre de la cláusula:');
-  if(!nombre) return;
-  const variante = prompt('Nombre de esta variante (ej. «Versión convenios»):', 'Variante 1') || 'Variante 1';
+  // Desde el editor por bloques, el título del bloque abierto es el mejor respaldo.
+  let respaldo = '';
+  const pl = plActual();
+  if(target === 'editor' && bloqueEditando && pl && pl.bloques){
+    const b = pl.bloques.find(x => x.id === bloqueEditando);
+    if(b) respaldo = tituloClausulaLimpio(b.titulo || '');
+  }
+  const titulo = nombrePropuestoClausula(cuerpo, respaldo);
+  const r = await pedirDatos({
+    titulo: '📌 Guardar la selección como cláusula',
+    ok: 'Guardar en el repositorio',
+    ayuda: 'Si ya existe una cláusula con ese nombre, el texto entra como <b>una variante más</b> de ella, no como una cláusula suelta.',
+    campos: [
+      { nombre:'nombre',   etiqueta:'Nombre de la cláusula', valor: titulo, ejemplo:'Garantía técnica',
+        nota:'El nombre agrupa las variantes: usa el mismo para versiones distintas de la misma cláusula.' },
+      { nombre:'variante', etiqueta:'Nombre de esta variante', valor:'Variante 1', ejemplo:'Versión convenios' }
+    ],
+    validar: v => v.nombre ? '' : 'Ponle un nombre a la cláusula.'
+  });
+  if(!r) return;
+  const nombre = r.nombre, variante = r.variante || 'Variante 1';
   // Si ya existe una cláusula con ese nombre, el texto entra como variante nueva
   const existente = clausulas.find(c => normalizar(c.nombre) === normalizar(nombre));
   if(existente){
-    existente.variantes.push({ id: uid(), nombre: variante.trim(), cuerpo });
+    existente.variantes.push({ id: uid(), nombre: variante, cuerpo });
     clausulaAbierta = existente.id;
   } else {
-    const cl = { id: uid(), carpetaId: null, nombre: nombre.trim(), variantes: [{ id: uid(), nombre: variante.trim(), cuerpo }] };
+    const cl = { id: uid(), carpetaId: null, nombre, variantes: [{ id: uid(), nombre: variante, cuerpo }] };
     clausulas.unshift(cl);
     clausulaAbierta = cl.id;
   }
   guardar();
-  alert(`Cláusula guardada en el repositorio (${nombre.trim()} · ${variante.trim()}).`);
+  avisar(existente
+    ? `Se añadió «${variante}» como variante nueva de «${nombre}».`
+    : `Cláusula «${nombre}» guardada en el repositorio.`);
 }
 
 /* ============ Repositorio de cláusulas ============ */
@@ -18168,20 +18474,43 @@ function refrescarChipsVariante(){
   const vars = extraerVariables(document.getElementById('rep-editor').innerHTML);
   chips.innerHTML = vars.length ? vars.map(x => `<span class="chip-var">${esc(x)}</span>`).join('') : '<span style="font-size:12px;color:var(--gris)">Ninguna (texto fijo)</span>';
 }
-function nuevaCategoriaClausula(){
-  const nombre = prompt('Nombre de la cláusula (ej. Garantía técnica):');
-  if(!nombre) return;
-  const cl = { id: uid(), carpetaId: null, nombre: nombre.trim(),
+async function nuevaCategoriaClausula(){
+  const r = await pedirDatos({
+    titulo: 'Nueva cláusula',
+    ok: 'Crear cláusula',
+    ayuda: 'Se crea con una primera variante vacía, lista para redactar.',
+    campos: [{ nombre:'nombre', etiqueta:'Nombre de la cláusula', ejemplo:'Garantía técnica' }],
+    validar: v => {
+      if(!v.nombre) return 'Ponle un nombre a la cláusula.';
+      if(clausulas.some(c => normalizar(c.nombre) === normalizar(v.nombre)))
+        return `Ya existe una cláusula «${v.nombre}». Ábrela y añádele una variante en vez de duplicarla.`;
+      return '';
+    }
+  });
+  if(!r) return;
+  const nombre = r.nombre;
+  const cl = { id: uid(), carpetaId: null, nombre,
     variantes: [{ id: uid(), nombre: 'Variante 1', cuerpo: '<h2>NOMBRE DE LA CLÁUSULA</h2><p>Redacta aquí el texto. Puedes usar variables como {{variable}}.</p>' }] };
   clausulas.unshift(cl); guardar();
   clausulaAbierta = cl.id; varianteSel = { clId: cl.id, varId: cl.variantes[0].id };
   renderContenido();
 }
-function nuevaVariante(clId){
+async function nuevaVariante(clId){
   const cl = clausulas.find(c => c.id === clId); if(!cl) return;
-  const nombre = prompt('Nombre de la nueva variante:', 'Variante ' + (cl.variantes.length + 1));
-  if(!nombre) return;
-  const v = { id: uid(), nombre: nombre.trim(), cuerpo: '<p>Redacta aquí el texto de esta variante. Puedes usar variables como {{variable}}.</p>' };
+  const r = await pedirDatos({
+    titulo: `Nueva variante de «${cl.nombre}»`,
+    ok: 'Crear variante',
+    ayuda: 'Una variante es otra redacción de la misma cláusula (p. ej. garantía con letra de cambio frente a garantía técnica). Al insertarla eliges cuál usar.',
+    campos: [{ nombre:'nombre', etiqueta:'Nombre de la variante', valor:'Variante ' + (cl.variantes.length + 1) }],
+    validar: v => {
+      if(!v.nombre) return 'Ponle un nombre a la variante.';
+      if(cl.variantes.some(x => normalizar(x.nombre) === normalizar(v.nombre)))
+        return `«${cl.nombre}» ya tiene una variante con ese nombre.`;
+      return '';
+    }
+  });
+  if(!r) return;
+  const v = { id: uid(), nombre: r.nombre, cuerpo: '<p>Redacta aquí el texto de esta variante. Puedes usar variables como {{variable}}.</p>' };
   cl.variantes.push(v); guardar();
   clausulaAbierta = clId; varianteSel = { clId, varId: v.id };
   renderContenido();
@@ -18429,7 +18758,7 @@ function importarBiblioteca(ev){
           if(Array.isArray(data.concordancias)) concordancias = data.concordancias;
           fijarSeleccion(null); varianteSel = null; clausulaAbierta = null; varSelId = null;
         }
-        alert('Biblioteca importada correctamente.');
+        avisar('Biblioteca importada correctamente.');
       } else { alert('El archivo no tiene un formato reconocido.'); return; }
       // Las plantillas importadas conservan su id: hay que invalidar la caché de
       // estructuras Word para releer los tags del contenido importado.
@@ -18456,6 +18785,10 @@ window.addEventListener('beforeunload', () => { try{ asegurarBloqueGuardado(); g
 /* Tab dentro de un editor = sangría (como Word), no saltar al final del documento.
    Shift+Tab la reduce. En listas anida/desanida el ítem. */
 document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape' && document.getElementById('modal-fondo').classList.contains('abierto')){
+    cerrarModal();
+    return;
+  }
   if(e.key !== 'Tab') return;
   const el = e.target && e.target.closest ? e.target.closest('[contenteditable="true"]') : null;
   if(!el) return;

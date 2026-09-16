@@ -84,6 +84,21 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
     previa (y la desplaza si estaba fuera de pantalla); al hacer clic en un marcador de la
     vista previa, el foco salta a su campo. Sirve para ver dónde cae en el texto lo que se
     está escribiendo sin leer el documento entero.
+  - **Campos obligatorios**: cada variable del repositorio puede marcarse como obligatoria
+    (pestaña **Variables → ¿Obligatoria?**). Salen con `*` rojo en el formulario y, si
+    faltan, **no se genera el Word** —ni el documento suelto ni el lote—: el aviso los
+    lista y lleva al primero. La única salida es llenarlos o decidir, desde el mismo aviso,
+    que ese dato **deja de ser obligatorio** (cambia la regla para todas las plantillas y
+    queda registrado), en vez de un «generar de todas formas» que se pulsa sin leer. Vienen
+    marcados de fábrica los datos sin los que el instrumento sale defectuoso: `contratoNro`,
+    `proveedor`, `proveedorRuc`, `objeto`, `montoTotal` y `fechaContrato`. Lo demás sigue
+    avisando en ámbar sin bloquear.
+  - **Sin ventanas del navegador para las altas cortas**: crear una carpeta, una cláusula,
+    una variante, insertar una tabla o registrar una variable se hacen en **un solo
+    formulario** dentro de la herramienta, que valida antes de cerrar y conserva lo escrito
+    si algo está mal (registrar una variable encadenaba cuatro `prompt()` sin vuelta atrás).
+    Enter confirma, Escape cancela. Los avisos que solo confirman algo —«variable
+    registrada», «selecciona primero el texto»— son notas breves que no interrumpen.
   - **Motor nativo de Word**: los instrumentos redactados con plantillas HTML se
     construyen con las piezas reales de Word (párrafos, numeración `numbering.xml`,
     tablas y estilos OOXML), no traduciendo HTML. Las viñetas y numeraciones del
