@@ -6,7 +6,7 @@
    nuevas lleguen solas) y se cae al caché si no hay señal. Los íconos y las
    tipografías se sirven del caché y se refrescan por detrás. */
 
-var VERSION = "planificador-v1";
+var VERSION = "planificador-v2";
 var CASCARA = [
   "./",
   "./index.html",
