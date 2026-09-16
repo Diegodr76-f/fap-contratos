@@ -43,10 +43,10 @@ function contratos(){
     tipoAdenda:null, modificacion:null, firmaAdenda:null,
     ac:'Ana Pérez', correo:'ana@fias.org.ec', link:null,
     fcierre:null, liquidado:null, saldo:null,
-    carpeta:null, codigoProceso:null
+    carpeta:null
   },extra);
   return [
-    base(1,{carpeta:'47', codigoProceso:'RPFCH-2026-007'}),
+    base(1,{carpeta:'47'}),
     base(2,{carpeta:'48'}),
     base(3,{carpeta:'12'}),
     base(4,{}),
@@ -91,12 +91,10 @@ w.go('detalle',0);
 let t=texto(w);
 ok(/Expediente/.test(t),'el bloque aparece');
 ok(/N\.º de contrato\s*FIAS-FAP-2026-001/.test(t),'muestra el número de contrato');
-ok(/Código del proceso\s*RPFCH-2026-007/.test(t),'muestra el código del proceso de La Mágica');
 ok(/N\.º de carpeta interna\s*carpeta 47/.test(t),'muestra el número de la carpeta');
 
 w.go('detalle',1);
 t=texto(w);
-ok(/Código del proceso\s*sin registrar/.test(t),'sin código del proceso lo dice, no lo esconde');
 ok(/N\.º de carpeta interna\s*carpeta 48/.test(t),'y la carpeta sigue saliendo');
 
 w.go('detalle',3);
@@ -111,8 +109,6 @@ w.go('contratos');
 w.eval("ST.q='47'");
 let r=w.filteredContracts();
 ok(r.length===1 && r[0].nro==='FIAS-FAP-2026-001','buscar el número de carpeta encuentra su contrato',r.length);
-w.eval("ST.q='RPFCH-2026-007'");
-ok(w.filteredContracts().length===1,'buscar el código del proceso también');
 w.eval("ST.q='Chimborazo'");
 ok(w.filteredContracts().length===5,'buscar por área sigue trayendo todo el portafolio');
 w.eval("ST.q=''");
@@ -152,7 +148,7 @@ ok(w.eval('ST.view')==='contratos' && w.eval('ST.sinCarpeta')===true,'y lleva al
 
 // ---------------------------------------------------------------- 6
 seccion('6 · El portafolio de hoy: ninguna carpeta registrada todavía');
-const sinNada=contratos().map(c=>Object.assign({},c,{carpeta:null,codigoProceso:null}));
+const sinNada=contratos().map(c=>Object.assign({},c,{carpeta:null}));
 w=await listo(nuevoDom(sinNada));
 w.go('contratos');
 ok(!w.document.getElementById('chipSinCarp'),

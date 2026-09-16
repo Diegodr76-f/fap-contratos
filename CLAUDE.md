@@ -238,9 +238,9 @@ tocas la app, corre esto; si añades comportamiento, añade la comprobación.
 
 El número de contrato se asigna al final; la carpeta donde se elaboró está numerada por orden
 de llegada. Nada ata una cosa con la otra y **no se puede deducir**: solo lo sabe quien elaboró
-los contratos. Por eso se escribe a mano en la hoja `2026` del Excel maestro: la columna
-`Numero de carpeta interna` —que el robot publica como `carpeta`— y, opcional y todavía
-inexistente, `CodigoProceso`. Los 138 contratos de 2026 ya la traen llena.
+los contratos. Por eso se escribe a mano en la columna `Numero de carpeta interna` de la hoja
+`2026` del Excel maestro, que el robot publica como `carpeta`. Los 138 contratos de 2026 ya la
+traen llena.
 
 Se consideró emparejarlo solo, por fecha y por orden, y se descartó: el orden de elaboración no
 sigue al de firma, así que estaría adivinando — y un emparejado equivocado es peor que el vacío,

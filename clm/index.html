@@ -835,10 +835,10 @@ function filteredContracts(){
     if(ST.catFilter!=="all"&&(c.cat||"—")!==ST.catFilter)return false;
     if(ST.areaFilter!=="all"&&(c.area||"—")!==ST.areaFilter)return false;
     if(ST.sinCarpeta&&c.carpeta)return false;
-    // La carpeta y el código del proceso entran a la búsqueda para que sirva en
-    // las dos direcciones: del objeto a la carpeta, y del número de carpeta al
-    // contrato — que es el camino que antes se hacía a ojo.
-    if(ST.q){const hay=norm(c.detalle+" "+c.nro+" "+c.area+" "+c.proveedor+" "+c.cat+" "+(c.carpeta||"")+" "+(c.codigoProceso||""));if(!hay.includes(norm(ST.q)))return false;}
+    // La carpeta entra a la búsqueda para que sirva en las dos direcciones: del
+    // objeto a la carpeta, y del número de carpeta al contrato — que es el
+    // camino que antes se hacía a ojo.
+    if(ST.q){const hay=norm(c.detalle+" "+c.nro+" "+c.area+" "+c.proveedor+" "+c.cat+" "+(c.carpeta||""));if(!hay.includes(norm(ST.q)))return false;}
     return true;
   });
   const dias=c=>{const d=diasRestantes(c);return d==null?1e9:d;};
@@ -972,7 +972,6 @@ function vDetalle(){
           <div class="expbox">
             <div class="expt">Expediente</div>
             <div class="exprow"><span class="k">N.º de contrato</span><span class="v">${esc(c.nro)}</span></div>
-            <div class="exprow"><span class="k">Código del proceso</span>${c.codigoProceso?`<span class="v">${esc(c.codigoProceso)}</span>`:`<span class="v none">sin registrar</span>`}</div>
             <div class="exprow"><span class="k">N.º de carpeta interna</span>${c.carpeta?`<span class="v">carpeta ${esc(c.carpeta)}</span>`:`<span class="v none">sin registrar</span>`}</div>
             ${(!c.carpeta&&SES.rol==="uo")?`<div style="font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.45">La carpeta de este contrato no está registrada. Se escribe una sola vez, en la columna <b>Numero de carpeta interna</b> del Excel maestro, y no se vuelve a buscar.</div>`:""}
           </div>

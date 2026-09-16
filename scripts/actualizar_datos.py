@@ -76,12 +76,10 @@ C = dict(
     saldo=col("saldo no ejecutado", "saldo"),
     # El puente con el expediente. El número de contrato se asigna al final, así
     # que nada lo ata a la carpeta donde se elaboró: esa correspondencia solo la
-    # sabe quien la vivió, y estas dos columnas son donde se escribe.
-    #  · carpeta        -> "Numero de carpeta interna" en la hoja 2026
-    #  · codigoProceso  -> el código del expediente de la AC (RPFCH-2026-007)
+    # sabe quien la vivió, y esa columna es donde se escribe.
+    #  · carpeta -> "Numero de carpeta interna" en la hoja 2026
     carpeta=col("numero de carpeta", "número de carpeta", "n.º de carpeta",
                 "carpeta interna", "carpeta"),
-    codigoProceso=col("codigoproceso", "código del proceso", "codigo del proceso"),
 )
 estado_cols = [j for j, h in enumerate(hdr) if "estado" in h and "gesti" in h] \
               or [j for j, h in enumerate(hdr) if "estado" in h]
@@ -167,7 +165,6 @@ for row in ws.iter_rows(min_row=3, values_only=True):
         liquidado=num2(val(row, "liquidado")),
         saldo=num2(val(row, "saldo")),
         carpeta=texto(val(row, "carpeta")),
-        codigoProceso=texto(val(row, "codigoProceso")),
     ))
 
 if len(out) < 10:
