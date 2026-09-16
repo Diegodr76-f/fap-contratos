@@ -103,21 +103,24 @@ mantenimiento de Chimborazo» era buscar el contrato en el CLM y después la car
 las que se parecieran.
 
 Esa correspondencia no se puede deducir: solo la sabe quien elaboró los contratos. Así que se
-escribe, una vez, en **dos columnas de la hoja `2026` del Excel maestro**:
+escribe en **columnas de la hoja `2026` del Excel maestro**:
 
 | Columna | Qué lleva |
 |---|---|
-| `Elaboracion` | El número de la carpeta del expediente (`47`) |
-| `CodigoProceso` | El código del expediente de la AC que arma La Mágica (`RPFCH-2026-007`) |
+| `Numero de carpeta interna` | El número de la carpeta del expediente (`47`) |
+| `CodigoProceso` | El código del expediente de la AC que arma La Mágica (`RPFCH-2026-007`) — opcional, todavía no existe |
 
 Las dos son opcionales y el robot no se rompe si no están (lee con el mismo `col()`/`val()`
-tolerante que usa para la liquidación). No hace falta llenarlas de una sentada: cada vez que se
+tolerante que usa para la liquidación). Tampoco hay que llenarlas de una sentada: cada vez que se
 busca una carpeta se escribe su número en esa fila, y esa búsqueda no se repite nunca más.
+
+**Los 138 contratos de 2026 ya la tienen llena**, del 1 al 141 y sin repetidos, así que el
+histórico entero quedó conectado de entrada.
 
 Con eso, el CLM deja de ser un callejón sin salida:
 
 - **Bloque «Expediente»** en el detalle del contrato, con los tres números que hasta ahora vivían
-  en sistemas distintos —contrato, código del proceso y n.º de elaboración— en una sola fila.
+  en sistemas distintos —contrato, código del proceso y n.º de carpeta interna— en una sola fila.
   Los que faltan dicen *sin registrar*; no se esconden.
 - **Búsqueda en las dos direcciones**: escribir `47` encuentra el contrato de esa carpeta, y
   escribir `Chimborazo` muestra su n.º de carpeta sin abrir el detalle. Ese es el camino que
@@ -127,11 +130,6 @@ Con eso, el CLM deja de ser un callejón sin salida:
   lo que falta. Las dos son de la Unidad Operativa, que es quien tiene las carpetas, y solo
   aparecen cuando ya hay alguna carpeta registrada: antes de empezar serían un cartel permanente
   que no dice nada.
-
-> **Por qué «n.º de elaboración» y no «n.º de expediente»:** en el catálogo de variables,
-> `{codigo}` ya está descrito como «código del expediente» y es el de la administradora. Si los
-> dos se llamaran igual se perdería justo lo que el bloque quiere mostrar — que son dos cosas
-> distintas del mismo caso.
 
 Cuando se toque esta parte del CLM:
 
@@ -616,7 +614,7 @@ respaldo manual.
 
 Todas las columnas que el robot lee son **opcionales**: si una no está en el Excel, publica ese campo
 vacío y sigue. Vale para las de liquidación (`Fecha de cierre`, `Valor liquidado`, `Saldo no ejecutado`)
-y para las del expediente (`Elaboracion`, `CodigoProceso`). El robot dice en su resumen cuántos
+y para las del expediente (`Numero de carpeta interna`, `CodigoProceso`). El robot dice en su resumen cuántos
 contratos traen cada cosa, así que se ve de una si una columna se renombró o se movió.
 
 ## Seguridad de los datos (frase de acceso)

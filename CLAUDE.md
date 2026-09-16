@@ -199,8 +199,9 @@ tocas la app, corre esto; si añades comportamiento, añade la comprobación.
 
 El número de contrato se asigna al final; la carpeta donde se elaboró está numerada por orden
 de llegada. Nada ata una cosa con la otra y **no se puede deducir**: solo lo sabe quien elaboró
-los contratos. Por eso se escribe a mano en dos columnas de la hoja `2026` del Excel maestro,
-`Elaboracion` y `CodigoProceso`, que el robot publica como `elaboracion` y `codigoProceso`.
+los contratos. Por eso se escribe a mano en la hoja `2026` del Excel maestro: la columna
+`Numero de carpeta interna` —que el robot publica como `carpeta`— y, opcional y todavía
+inexistente, `CodigoProceso`. Los 138 contratos de 2026 ya la traen llena.
 
 Se consideró emparejarlo solo, por fecha y por orden, y se descartó: el orden de elaboración no
 sigue al de firma, así que estaría adivinando — y un emparejado equivocado es peor que el vacío,
@@ -214,9 +215,9 @@ Dos reglas que sostienen esto:
 - **La carpeta `47` llega de Excel como número.** Pasa por `texto()`, que la publica como `'47'`
   y no como `'47.0'` — si no, la búsqueda del CLM no la encuentra.
 
-Se llama *n.º de elaboración*, no *n.º de expediente*: en el catálogo, `{codigo}` ya es «código
-del expediente» y es el de la AC. Son dos cosas distintas del mismo caso y el bloque
-**Expediente** del CLM existe precisamente para mostrarlas juntas.
+Se llama *carpeta interna*, que es como se llama la columna y como lo dice quien la creó. No
+*expediente*: en el catálogo, `{codigo}` ya es «código del expediente» y es el de la AC. Son dos
+cosas distintas del mismo caso, y el bloque **Expediente** del CLM existe para mostrarlas juntas.
 
 ```bash
 npm install jsdom

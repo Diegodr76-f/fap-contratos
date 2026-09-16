@@ -1,7 +1,7 @@
 /*
  * Comprobaciones del CLM (clm/index.html).
  *
- * Cubren el puente entre el contrato y su carpeta de elaboración: que el número
+ * Cubren el puente entre el contrato y su carpeta interna: que el número
  * de carpeta se vea en el detalle y en el listado, que la búsqueda funcione en
  * las dos direcciones (del objeto a la carpeta y de la carpeta al contrato) y
  * que el filtro y la alerta de «sin carpeta» solo aparezcan cuando tienen algo
@@ -43,12 +43,12 @@ function contratos(){
     tipoAdenda:null, modificacion:null, firmaAdenda:null,
     ac:'Ana Pérez', correo:'ana@fias.org.ec', link:null,
     fcierre:null, liquidado:null, saldo:null,
-    elaboracion:null, codigoProceso:null
+    carpeta:null, codigoProceso:null
   },extra);
   return [
-    base(1,{elaboracion:'47', codigoProceso:'RPFCH-2026-007'}),
-    base(2,{elaboracion:'48'}),
-    base(3,{elaboracion:'12'}),
+    base(1,{carpeta:'47', codigoProceso:'RPFCH-2026-007'}),
+    base(2,{carpeta:'48'}),
+    base(3,{carpeta:'12'}),
     base(4,{}),
     base(5,{})
   ];
@@ -92,17 +92,17 @@ let t=texto(w);
 ok(/Expediente/.test(t),'el bloque aparece');
 ok(/N\.º de contrato\s*FIAS-FAP-2026-001/.test(t),'muestra el número de contrato');
 ok(/Código del proceso\s*RPFCH-2026-007/.test(t),'muestra el código del proceso de La Mágica');
-ok(/N\.º de elaboración\s*carpeta 47/.test(t),'muestra el número de la carpeta');
+ok(/N\.º de carpeta interna\s*carpeta 47/.test(t),'muestra el número de la carpeta');
 
 w.go('detalle',1);
 t=texto(w);
 ok(/Código del proceso\s*sin registrar/.test(t),'sin código del proceso lo dice, no lo esconde');
-ok(/N\.º de elaboración\s*carpeta 48/.test(t),'y la carpeta sigue saliendo');
+ok(/N\.º de carpeta interna\s*carpeta 48/.test(t),'y la carpeta sigue saliendo');
 
 w.go('detalle',3);
 t=texto(w);
-ok(/N\.º de elaboración\s*sin registrar/.test(t),'un contrato sin carpeta lo dice');
-ok(/columna Elaboracion del Excel maestro/.test(t),'y le dice a la U.O. dónde se escribe');
+ok(/N\.º de carpeta interna\s*sin registrar/.test(t),'un contrato sin carpeta lo dice');
+ok(/columna Numero de carpeta interna del Excel maestro/.test(t),'y le dice a la U.O. dónde se escribe');
 
 // ---------------------------------------------------------------- 2
 seccion('2 · La búsqueda, en las dos direcciones');
@@ -136,7 +136,7 @@ w.document.getElementById('chipSinCarp').onclick();
 ok(w.eval('ST.sinCarpeta')===true,'al pulsarlo se enciende');
 r=w.filteredContracts();
 ok(r.length===2,'deja solo los dos que faltan',r.length);
-ok(r.every(c=>!c.elaboracion),'y ninguno tiene carpeta');
+ok(r.every(c=>!c.carpeta),'y ninguno tiene carpeta');
 w.eval('ST.sinCarpeta=false');
 
 // ---------------------------------------------------------------- 5
@@ -152,7 +152,7 @@ ok(w.eval('ST.view')==='contratos' && w.eval('ST.sinCarpeta')===true,'y lleva al
 
 // ---------------------------------------------------------------- 6
 seccion('6 · El portafolio de hoy: ninguna carpeta registrada todavía');
-const sinNada=contratos().map(c=>Object.assign({},c,{elaboracion:null,codigoProceso:null}));
+const sinNada=contratos().map(c=>Object.assign({},c,{carpeta:null,codigoProceso:null}));
 w=await listo(nuevoDom(sinNada));
 w.go('contratos');
 ok(!w.document.getElementById('chipSinCarp'),
@@ -160,7 +160,7 @@ ok(!w.document.getElementById('chipSinCarp'),
 ok(w.alertList().filter(a=>a.fn==='carp').length===0,'y la alerta tampoco');
 ok(w.filteredContracts().length===5,'el listado se pinta completo, como siempre');
 w.go('detalle',0);
-ok(/N\.º de elaboración\s*sin registrar/.test(texto(w)),'el detalle lo dice sin estorbar');
+ok(/N\.º de carpeta interna\s*sin registrar/.test(texto(w)),'el detalle lo dice sin estorbar');
 
 // ---------------------------------------------------------------- 7
 seccion('7 · Una AC no carga con el mantenimiento de la Unidad Operativa');
@@ -169,8 +169,8 @@ ok(w.myContracts().length===5,'la AC sí ve sus cinco contratos');
 ok(w.alertList().filter(a=>a.fn==='carp').length===0,
    'pero la alerta es de quien tiene las carpetas, no suya');
 w.go('detalle',0);
-ok(/N\.º de elaboración\s*carpeta 47/.test(texto(w)),'y el número lo ve igual, que para eso está');
-ok(!/columna Elaboracion del Excel maestro/.test(texto(w)),'sin la nota de dónde se escribe, que no le toca');
+ok(/N\.º de carpeta interna\s*carpeta 47/.test(texto(w)),'y el número lo ve igual, que para eso está');
+ok(!/columna Numero de carpeta interna del Excel maestro/.test(texto(w)),'sin la nota de dónde se escribe, que no le toca');
 
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
 process.exit(fallos?1:0);

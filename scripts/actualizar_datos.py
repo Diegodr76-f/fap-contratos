@@ -77,10 +77,10 @@ C = dict(
     # El puente con el expediente. El número de contrato se asigna al final, así
     # que nada lo ata a la carpeta donde se elaboró: esa correspondencia solo la
     # sabe quien la vivió, y estas dos columnas son donde se escribe.
-    #  · elaboracion    -> el número de la carpeta en OneDrive (el orden de llegada)
+    #  · carpeta        -> "Numero de carpeta interna" en la hoja 2026
     #  · codigoProceso  -> el código del expediente de la AC (RPFCH-2026-007)
-    elaboracion=col("elaboracion", "elaboración", "n.º de elaboración",
-                    "nro. de elaboración", "carpeta"),
+    carpeta=col("numero de carpeta", "número de carpeta", "n.º de carpeta",
+                "carpeta interna", "carpeta"),
     codigoProceso=col("codigoproceso", "código del proceso", "codigo del proceso"),
 )
 estado_cols = [j for j, h in enumerate(hdr) if "estado" in h and "gesti" in h] \
@@ -166,7 +166,7 @@ for row in ws.iter_rows(min_row=3, values_only=True):
         fcierre=iso(val(row, "fcierre")),
         liquidado=num2(val(row, "liquidado")),
         saldo=num2(val(row, "saldo")),
-        elaboracion=texto(val(row, "elaboracion")),
+        carpeta=texto(val(row, "carpeta")),
         codigoProceso=texto(val(row, "codigoProceso")),
     ))
 
@@ -188,4 +188,4 @@ print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['link'])} con link, "
       f"{sum(1 for c in out if c['cerrado'])} cerrados, "
       f"{sum(1 for c in out if c['liquidado'] is not None)} con liquidación, "
-      f"{sum(1 for c in out if c['elaboracion'])} con carpeta de elaboración.")
+      f"{sum(1 for c in out if c['carpeta'])} con carpeta interna.")
