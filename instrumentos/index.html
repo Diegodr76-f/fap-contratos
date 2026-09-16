@@ -13372,6 +13372,15 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 #preview li{text-align:justify}
 #preview ul,#preview ol{margin:0 0 8px 22px}
 .ph-pend{background:#FEF3C7;color:#92400E;border-radius:3px;padding:0 3px;font-weight:600}
+/* Puente campo <-> documento: el marcador de la vista previa es clicable (lleva
+   a su campo) y se ilumina cuando el campo correspondiente tiene el foco, para
+   no tener que adivinar dónde cae en el texto lo que se esta escribiendo. */
+#preview:not(.editando) .ph-pend,#preview:not(.editando) .ph-ok{cursor:pointer}
+.ph-foco{outline:2px solid var(--azul);outline-offset:1px;border-radius:3px;animation:latido .9s ease-out 1}
+@keyframes latido{0%{box-shadow:0 0 0 0 rgba(0,36,156,.45)}100%{box-shadow:0 0 0 12px rgba(0,36,156,0)}}
+/* Campo que quedo vacio al intentar descargar */
+.campo.falta-mk input,.campo.falta-mk textarea,.campo.falta-mk select{border-color:var(--warn);background:#FFFBEB}
+.campo.falta-mk > label{color:var(--warn)}
 .membrete-prev{border-bottom:1px dashed var(--borde);padding-bottom:10px;margin-bottom:16px}
 .membrete-prev img{max-width:100%;display:block}
 .membrete-prev .mb-txt{font-weight:700;font-size:12.5px;margin-top:4px}
@@ -13404,6 +13413,12 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .prog .barra{height:7px;background:var(--azul-claro);border-radius:6px;overflow:hidden}
 .prog .barra > div{height:100%;background:var(--azul);border-radius:6px;transition:width .25s}
 .prog.completo .barra > div{background:var(--ok)}
+.prog .txt .pend{color:var(--warn);cursor:pointer;border-bottom:1px dotted currentColor}
+.prog .txt .pend:hover{color:var(--peligro)}
+
+/* Borrador recuperado (lo que se habia llenado antes de recargar) */
+.aviso-borrador{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#E7F6EE;border:1px solid #8FD3B0;color:#0B5E3C;font-size:12.5px;font-weight:600;border-radius:8px;padding:8px 12px;margin-bottom:12px}
+.aviso-borrador .btn{padding:4px 10px;font-size:12px}
 
 /* ---------- Aviso de tags mal escritos en plantilla Word ---------- */
 .aviso-tags{background:#FDF0D2;border:1px solid #E9C46A;border-left:4px solid var(--warn);border-radius:10px;padding:14px 16px;margin-bottom:14px;color:#7A4B12;font-size:13px}
@@ -13667,6 +13682,24 @@ const store = {
       if(av){ av.style.display='block'; av.innerHTML = '⚠ <b>El almacenamiento del navegador está lleno</b>: los últimos cambios NO quedaron guardados. Elimina plantillas Word que no uses o haz <b>Exportar biblioteca</b> ya para no perder nada.'; }
       if(!avisoQuotaDado){ avisoQuotaDado = true; alert('El almacenamiento del navegador está lleno y los últimos cambios NO se pudieron guardar.\n\nElimina plantillas Word que no uses (pesan mucho) o usa «Exportar biblioteca» ahora mismo como respaldo.'); }
     }
+  },
+  del(k){
+    if(usarIdbParaTodo){ delete memStore[k]; programarGuardadoIdb(); return; }
+    delete memStore[k];
+    try { if(storageOK) localStorage.removeItem(k); } catch(e){}
+  },
+  /* Claves guardadas que empiezan por un prefijo. Lo usan los borradores del
+     formulario para limpiar los de plantillas que ya no existen. */
+  claves(prefijo){
+    if(usarIdbParaTodo || !storageOK) return Object.keys(memStore).filter(k => k.startsWith(prefijo));
+    try {
+      const out = [];
+      for(let i = 0; i < localStorage.length; i++){
+        const k = localStorage.key(i);
+        if(k && k.startsWith(prefijo)) out.push(k);
+      }
+      return out;
+    } catch(e){ return Object.keys(memStore).filter(k => k.startsWith(prefijo)); }
   }
 };
 
@@ -13777,6 +13810,9 @@ function programarGuardadoIdb(){
    página se vuelca de inmediato: es el momento que los navegadores garantizan
    (beforeunload ya no sirve para trabajo asíncrono). */
 function volcarAlmacenAhora(){
+  // Primero el borrador del formulario: escribe en el mismo almacén, así que
+  // tiene que estar puesto ANTES de volcarlo, no en otro listener posterior.
+  try{ guardarBorrador(); }catch(e){}
   if(!usarIdbParaTodo) return;
   clearTimeout(tGuardadoIdb);
   idbSet('estado', { ...memStore });
@@ -14404,6 +14440,7 @@ function conConcordancias(datos, vars){
 /* Desde el selector del formulario: aplica y refresca la vista previa. */
 function aplicarConcordanciaUI(nombre, idx){
   aplicarConcordancia(nombre, idx);
+  programarGuardadoBorrador();
   const p = plActual(); if(!p) return;
   if(p.tipo === 'docx') actualizarPreviewDocx(); else refrescarPreviewHTML();
 }
@@ -14447,6 +14484,95 @@ let clausulaAbierta = null;
 let varianteSel = null;
 let insertTarget = null;
 let repoFiltro = '';
+let borradorAviso = null;   // { fecha } del borrador que se acaba de recuperar, para avisarlo una vez
+
+/* ============ Borrador del formulario ============
+   guardar() persiste la BIBLIOTECA (plantillas, cláusulas, variables, lote…),
+   pero lo que se está llenando ahora mismo —datosForm, casilleros de secciones
+   opcionales, tablas repetibles, concordancia y el documento final retocado a
+   mano— vivía solo en memoria: una recarga, un cierre por accidente o una
+   actualización del service worker se llevaban por delante veinte minutos de
+   tipeo. Aquí se guarda un borrador por plantilla, se restaura al volver a
+   elegirla y se borra solo cuando se limpia el formulario.
+   No entra en exportarBiblioteca(): es trabajo en curso, no biblioteca. */
+const PREF_BORRADOR = 'fap_gen_borrador_';
+const TOPE_DOC_EDITADO = 400000;   // un documento retocado a mano pesa ~30 KB; más que esto no se guarda
+function hayAlgoQueGuardar(){
+  return Object.values(datosForm).some(v => String(v == null ? '' : v).trim())
+      || Object.keys(condForm).length > 0
+      || Object.values(listasForm).some(f => Array.isArray(f) && f.some(x => Object.values(x||{}).some(y => String(y||'').trim())))
+      || (editandoDoc && !!docEditado);
+}
+function guardarBorrador(){
+  if(!seleccion) return;
+  const clave = PREF_BORRADOR + seleccion;
+  if(!hayAlgoQueGuardar()){ store.del(clave); return; }
+  const b = {
+    v: 1, fecha: new Date().toISOString(),
+    datos: datosForm, cond: condForm, listas: listasForm, conc: concSel,
+    editandoDoc, docEditado: (editandoDoc && docEditado.length <= TOPE_DOC_EDITADO) ? docEditado : ''
+  };
+  try{ store.set(clave, JSON.stringify(b)); }catch(e){}
+}
+/* Se difiere para no escribir en cada tecla; el volcado al ocultar la página
+   (visibilitychange / pagehide, ya existentes) cubre el cierre dentro de esa
+   ventana solo si el borrador ya está en el almacén, así que también se guarda
+   ahí de inmediato. */
+let tBorrador = null;
+function programarGuardadoBorrador(){
+  clearTimeout(tBorrador);
+  tBorrador = setTimeout(guardarBorrador, 400);
+}
+function borradorDe(id){
+  const s = store.get(PREF_BORRADOR + id);
+  if(!s) return null;
+  try{
+    const b = JSON.parse(s);
+    return (b && b.v === 1 && b.datos) ? b : null;
+  }catch(e){ return null; }
+}
+/* Devuelve true si restauró algo, para que quien selecciona la plantilla sepa
+   que no debe pisar datosForm con un formulario en blanco. */
+function restaurarBorrador(id){
+  const b = borradorDe(id);
+  if(!b) return false;
+  datosForm = b.datos || {};
+  condForm = b.cond || {};
+  listasForm = b.listas || {};
+  concSel = b.conc || {};
+  editandoDoc = !!b.editandoDoc && !!b.docEditado;
+  docEditado = editandoDoc ? b.docEditado : '';
+  borradorAviso = { fecha: b.fecha };
+  return true;
+}
+function olvidarBorrador(id){
+  clearTimeout(tBorrador);
+  store.del(PREF_BORRADOR + (id || seleccion));
+  borradorAviso = null;
+}
+/* Descarta lo recuperado y deja el formulario en blanco (con los datos fijos). */
+function descartarBorrador(){
+  olvidarBorrador();
+  limpiarForm();
+}
+function ocultarAvisoBorrador(){
+  borradorAviso = null;
+  renderContenido();
+}
+/* Borradores de plantillas que ya no existen: se limpian al arrancar para que
+   no se queden ocupando espacio para siempre. */
+function limpiarBorradoresHuerfanos(){
+  const vivos = new Set(plantillas.map(p => p.id));
+  store.claves(PREF_BORRADOR).forEach(k => {
+    if(!vivos.has(k.slice(PREF_BORRADOR.length))) store.del(k);
+  });
+}
+function fechaBorradorCorta(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  const p2 = n => String(n).padStart(2, '0');
+  return `${p2(d.getDate())}/${p2(d.getMonth()+1)} a las ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+}
 
 async function cargar(){
   // Deja el almacén listo ANTES de leer nada: decide si se usa IndexedDB
@@ -14517,6 +14643,19 @@ async function cargar(){
   // o falla: por eso los blobs se empujan a IndexedDB (y se espera) ANTES.
   if(hayBlobsSinMigrar) await precargarBlobsAIdb();
   if(!p || !cl || !vr || !co || enriquecido || migradoCarpetas || (idbOK && hayBlobsSinMigrar)) guardar();
+  limpiarBorradoresHuerfanos();
+  // Recargar no debe costar volver a buscar la plantilla en el árbol: se vuelve
+  // a la última que se estaba usando y se restaura su borrador. Va al final de
+  // cargar() porque varsDe() de una plantilla Word necesita el .docx ya
+  // hidratado desde IndexedDB.
+  const ultima = store.get('fap_gen_ultima_seleccion');
+  if(ultima && plantillas.some(x => x.id === ultima)){
+    seleccion = ultima;
+    const pl = plActual();
+    restaurarBorrador(ultima);
+    aplicarFijos(varsDe(pl), datosForm);
+    if(pl.carpetaId) abrirAncestros('pl', pl.carpetaId);
+  }
 }
 /* Trae de vuelta a memoria los .docx que guardar() dejó en IndexedDB (marcados
    con archivoEnIdb/docxEnIdb) para que el resto del código los use exactamente
@@ -14969,7 +15108,10 @@ function seleccionar(id){
     return;
   }
   asegurarBloqueGuardado();
-  seleccion = id; datosForm = {}; condForm = {}; listasForm = {}; editandoDoc = false; docEditado = ''; bloqueEditando = null;
+  guardarBorrador();          // lo que se estaba llenando en la plantilla anterior no se pierde al cambiar
+  fijarSeleccion(id);
+  datosForm = {}; condForm = {}; listasForm = {}; editandoDoc = false; docEditado = ''; bloqueEditando = null;
+  restaurarBorrador(id);      // si había trabajo a medias con esta plantilla, vuelve tal cual
   const p = plActual();
   if(p) aplicarFijos(varsDe(p), datosForm);
   if(p && p.carpetaId) abrirAncestros('pl', p.carpetaId);   // que quede visible dentro de su carpeta, no oculta
@@ -14978,6 +15120,14 @@ function seleccionar(id){
   renderLista(); renderTabs(); renderContenido();
 }
 function plActual(){ return plantillas.find(p => p.id === seleccion) || null; }
+/* Todo cambio de plantilla activa pasa por aquí: así recargar vuelve a la misma
+   plantilla y no quedan colgando las marcas ni el aviso de la anterior. */
+function fijarSeleccion(id){
+  seleccion = id || null;
+  camposFaltantes = new Set();
+  borradorAviso = null;
+  store.set('fap_gen_ultima_seleccion', id || '');
+}
 /* Expande la carpeta dada y todas sus carpetas ancestras, para que un ítem
    dentro de ellas quede visible en el árbol en vez de escondido colapsado. */
 function abrirAncestros(cual, carpetaId){
@@ -15098,12 +15248,13 @@ function renderContenidoInterno(){
 function renderGenerar(c, p){
   if(editandoDoc){
     c.innerHTML = `
+      ${htmlAvisoBorrador()}
       <div class="banner-edicion">✏ Estás editando el documento final: lo que ves es exactamente lo que se descargará. Puedes insertar cláusulas del repositorio (📋) y renumerar (🔢).
         <button class="btn sec mini" style="margin-left:auto" onclick="salirEdicionDoc()">← Volver al formulario</button>
       </div>
       ${membreteHTMLPreview(datosForm) ? `<div style="background:#fff;border:1px solid var(--borde);border-radius:8px;padding:12px 32px 2px;margin-bottom:10px">${membreteHTMLPreview(datosForm)}</div>` : ''}
       ${buildToolbar('preview', false, false)}
-      <div id="preview" class="editando" contenteditable="true">${docEditado}</div>
+      <div id="preview" class="editando" contenteditable="true" oninput="sincronizarDocEditado()">${docEditado}</div>
       <div class="acciones-gen">
         <button class="btn" onclick="descargarWord()">⬇ Descargar Word (.docx)</button>
       </div>`;
@@ -15115,9 +15266,8 @@ function renderGenerar(c, p){
   asegurarConcordancias(vars);          // fija un valor por defecto a cada grupo
   const gobern = tagsGobernados();
   const varsCampo = vars.filter(v => !gobern.has(v));   // tags sueltos (no gobernados por un grupo)
-  const editables = varsCampo.filter(v => !esLetras(v));
-  const llenos = editables.filter(v => String(datosForm[v]||'').trim()).length;
-  const pct = editables.length ? Math.round(llenos/editables.length*100) : 100;
+  const est = estadoCampos(p);
+  const pct = est.editables.length ? Math.round(est.llenos/est.editables.length*100) : 100;
   const tieneNumero = vars.some(v => /numero|nro$/i.test(v));
 
   const selectoresConc = concs.map(g => {
@@ -15146,6 +15296,7 @@ function renderGenerar(c, p){
   }).join('');
 
   c.innerHTML = `
+    ${htmlAvisoBorrador()}
     <div class="rapidas">
       <button class="btn sec" onclick="abrirPickerRegistro()" ${registroEstado!=='ok'?'title="El registro aún no está cargado"':''}>📇 Tomar datos del registro</button>
       <button class="btn sec" onclick="abrirPickerContraparte()">👤 Usar contraparte guardada</button>
@@ -15154,7 +15305,7 @@ function renderGenerar(c, p){
     <div class="gen-grid">
       <div>
         <div class="prog ${pct===100?'completo':''}" id="prog-gen">
-          <div class="txt"><span>Datos del documento</span><span class="${pct===100?'listo':''}" id="prog-txt">${llenos} de ${editables.length} campos</span></div>
+          <div class="txt"><span>Datos del documento</span><span id="prog-txt">${htmlProgreso(est)}</span></div>
           <div class="barra"><div id="prog-barra" style="width:${pct}%"></div></div>
         </div>
         ${selectoresConc ? `<div class="card card-conc"><h3 style="margin:0 0 8px">Concordancia (género / tipo de parte)</h3>${selectoresConc}</div>` : ''}
@@ -15178,7 +15329,34 @@ function renderGenerar(c, p){
       </div>
     </div>`;
   c.querySelectorAll('.campo textarea[readonly]').forEach(ajustarAlturaLetras);
-  if(esDocx) actualizarPreviewDocx();
+  aplicarMarcasFaltantes();   // el innerHTML nuevo no trae las marcas de lo que faltaba
+  programarGuardadoBorrador();
+  if(esDocx) actualizarPreviewDocx(); else resaltarVarEnPreview(false);
+}
+/* Aviso de que se recuperó lo que se estaba llenando antes de recargar. */
+function htmlAvisoBorrador(){
+  if(!borradorAviso) return '';
+  const cuando = fechaBorradorCorta(borradorAviso.fecha);
+  return `<div class="aviso-borrador">↩ Recuperamos lo que habías llenado${cuando ? ' el ' + esc(cuando) : ''}.
+    <button class="btn sec" onclick="ocultarAvisoBorrador()">Entendido</button>
+    <button class="btn sec peligro" onclick="descartarBorrador()">Descartar y empezar en blanco</button></div>`;
+}
+/* El documento final retocado a mano solo se leía del DOM al descargar: una
+   recarga se llevaba esos retoques. Ahora se vuelca al borrador mientras se escribe. */
+function sincronizarDocEditado(){
+  const prev = document.getElementById('preview');
+  if(!prev || !editandoDoc) return;
+  docEditado = prev.innerHTML;
+  programarGuardadoBorrador();
+}
+function refrescarProgreso(){
+  const p = plActual(); if(!p) return;
+  const est = estadoCampos(p);
+  const pct = est.editables.length ? Math.round(est.llenos/est.editables.length*100) : 100;
+  const pt = document.getElementById('prog-txt'), pb = document.getElementById('prog-barra'), pg = document.getElementById('prog-gen');
+  if(pt) pt.innerHTML = htmlProgreso(est);
+  if(pb) pb.style.width = pct + '%';
+  if(pg) pg.classList.toggle('completo', pct === 100);
 }
 function actualizarCampo(v, val){
   datosForm[v] = val;
@@ -15195,24 +15373,182 @@ function actualizarCampo(v, val){
     const w = document.getElementById('w_' + v);
     if(w) w.textContent = avisoIdentificacion(val);
   }
-  const gobern = tagsGobernados();
-  const editables = vars.filter(x => !esLetras(x) && !gobern.has(x));
-  const llenos = editables.filter(x => String(datosForm[x]||'').trim()).length;
-  const pct = editables.length ? Math.round(llenos/editables.length*100) : 100;
-  const pt = document.getElementById('prog-txt'), pb = document.getElementById('prog-barra'), pg = document.getElementById('prog-gen');
-  if(pt){ pt.textContent = `${llenos} de ${editables.length} campos`; pt.classList.toggle('listo', pct===100); }
-  if(pb) pb.style.width = pct + '%';
-  if(pg) pg.classList.toggle('completo', pct===100);
+  // Un campo marcado como "falta" deja de estarlo en cuanto se escribe en él.
+  if(camposFaltantes.has(v) && String(val||'').trim()){
+    camposFaltantes.delete(v);
+    const el = document.getElementById('f_' + v);
+    const campo = el && el.closest ? el.closest('.campo') : null;
+    if(campo) campo.classList.remove('falta-mk');
+  }
+  refrescarProgreso();
+  programarGuardadoBorrador();
   if(p.tipo === 'docx'){ actualizarPreviewDocx(); return; }
   refrescarPreviewHTML();
 }
 function refrescarPreviewHTML(){
   const p = plActual(); if(!p || p.tipo === 'docx') return;
   const prev = document.getElementById('preview');
-  if(prev && !editandoDoc) prev.innerHTML = membreteHTMLPreview(datosForm) + limpiarHtmlDoc(rellenarDatos(p.cuerpo, datosForm, true));
+  if(prev && !editandoDoc){
+    prev.innerHTML = membreteHTMLPreview(datosForm) + limpiarHtmlDoc(rellenarDatos(p.cuerpo, datosForm, true));
+    resaltarVarEnPreview();   // el marcador enfocado se pierde al repintar
+  }
+}
+
+/* ============ Campos sin llenar ============
+   Un campo cuenta como "hay que llenarlo" salvo que lo escriba un grupo de
+   concordancia, se calcule solo (los "en letras") o viva dentro de una sección
+   opcional desmarcada, que no llega a salir en el Word. */
+let camposFaltantes = new Set();
+function estadoCampos(p){
+  if(!p) return { editables: [], llenos: 0, pendientes: [] };
+  const gobern = tagsGobernados();
+  const condDe = p.tipo === 'docx' ? (estructuraDocx(p).condDe || {}) : {};
+  const cuenta = v => {
+    if(gobern.has(v) || esLetras(v)) return false;
+    const anc = condDe[v];
+    return !(anc && anc.length && anc.some(cn => condForm[cn] === false));
+  };
+  const lleno = v => String(datosForm[v] == null ? '' : datosForm[v]).trim() !== '';
+  const editables = varsDe(p).filter(cuenta);
+  return { editables, llenos: editables.filter(lleno).length, pendientes: editables.filter(v => !lleno(v)) };
+}
+function htmlProgreso(est){
+  const total = est.editables.length;
+  if(!est.pendientes.length) return `<span class="listo">✓ ${total} de ${total} campos</span>`;
+  return `${est.llenos} de ${total} campos · <span class="pend" onclick="irAPrimerFaltante()" title="Marcar los campos que faltan y saltar al primero">${est.pendientes.length} sin llenar →</span>`;
+}
+function marcarFaltantes(lista){
+  camposFaltantes = new Set(lista);
+  aplicarMarcasFaltantes();
+}
+/* Pinta las marcas sobre el formulario ya dibujado, sin rehacerlo: rehacerlo
+   perdería el foco y la posición del cursor justo cuando hace falta escribir. */
+function aplicarMarcasFaltantes(){
+  document.querySelectorAll('#contenido .campo.falta-mk').forEach(el => el.classList.remove('falta-mk'));
+  camposFaltantes.forEach(v => {
+    const inp = document.getElementById('f_' + v);
+    const campo = inp && inp.closest ? inp.closest('.campo') : null;
+    if(campo) campo.classList.add('falta-mk');
+  });
+}
+function irAPrimerFaltante(){
+  const p = plActual(); if(!p) return;
+  const { pendientes } = estadoCampos(p);
+  marcarFaltantes(pendientes);
+  if(!pendientes.length) return;
+  const inp = document.getElementById('f_' + pendientes[0]);
+  if(!inp) return;
+  acercarEnContenido(inp.closest('.campo') || inp);
+  inp.focus({ preventScroll:true });
+}
+/* Aviso previo a generar. Antes era un confirm con todos los nombres en una
+   sola línea: con quince variables era ilegible y, al decir que no, dejaba al
+   usuario en la misma pantalla sin señalar cuáles faltaban. */
+function confirmarPendientes(p){
+  const { pendientes } = estadoCampos(p);
+  if(!pendientes.length){ marcarFaltantes([]); return true; }
+  marcarFaltantes(pendientes);
+  const lista = pendientes.slice(0, 8).map(v => '\u2022 ' + etiqueta(v)).join('\n');
+  const resto = pendientes.length > 8 ? `\n…y ${pendientes.length - 8} más` : '';
+  const ok = confirm(`Faltan ${pendientes.length} campo(s) por llenar:\n\n${lista}${resto}\n\nQuedan marcados en amarillo en el formulario.\n\n¿Generar de todas formas? (saldrán como líneas en blanco)`);
+  if(!ok) irAPrimerFaltante();
+  return ok;
+}
+/* Casillero de una sección opcional: cambia qué campos cuentan como pendientes,
+   así que además de repintar el Word hay que rehacer el contador. */
+function alternarCondicion(nombre, marcado){
+  condForm[nombre] = marcado;
+  programarGuardadoBorrador();
+  refrescarProgreso();
+  actualizarPreviewDocx();
+}
+
+/* ============ Puente campo <-> documento ============
+   El formulario de la izquierda y el documento de la derecha no se hablaban:
+   había que adivinar en qué parte del texto cae lo que se está escribiendo.
+   Ahora el campo enfocado ilumina su lugar en la vista previa, y al revés:
+   un marcador de la vista previa lleva a su campo. En las plantillas HTML el
+   puente son los <span data-var> que ya pone rellenarDatos(); en las Word, los
+   marcadores de hueco que inserta datosDocx() en modo vista previa, más la
+   búsqueda por texto para los valores ya escritos. */
+let varEnfocada = null;
+/* Desplaza SOLO el contenedor de contenido (nunca la ventana) y solo lo justo
+   para que el destino entre en pantalla: scrollIntoView movería también los
+   ancestros y devolvería el «sube y baja» que ya estaba corregido. */
+function acercarEnContenido(el){
+  const cont = document.getElementById('contenido');
+  if(!cont || !el || !el.getBoundingClientRect) return;
+  const rc = cont.getBoundingClientRect(), re = el.getBoundingClientRect();
+  const margen = 48;
+  if(re.top < rc.top + margen) cont.scrollTop -= (rc.top + margen - re.top);
+  else if(re.bottom > rc.bottom - margen) cont.scrollTop += (re.bottom - (rc.bottom - margen));
+}
+function limpiarResaltados(){
+  const prev = document.getElementById('preview'); if(!prev) return;
+  prev.querySelectorAll('.ph-foco').forEach(x => x.classList.remove('ph-foco'));
+  // Los envoltorios de la búsqueda por texto se deshacen: no son parte del documento.
+  prev.querySelectorAll('.ph-busca').forEach(x => x.replaceWith(document.createTextNode(x.textContent)));
+  prev.normalize();
+}
+/* acercar=true solo cuando el usuario acaba de enfocar algo; al repintar la
+   vista previa en cada tecla se vuelve a iluminar, pero sin mover el scroll. */
+function resaltarVarEnPreview(acercar){
+  limpiarResaltados();
+  if(!varEnfocada || editandoDoc || tabActual !== 'generar') return;
+  const prev = document.getElementById('preview'); if(!prev) return;
+  const marcas = prev.querySelectorAll('[data-var="' + varEnfocada + '"]');
+  if(marcas.length){
+    marcas.forEach(m => m.classList.add('ph-foco'));
+    if(acercar) acercarEnContenido(marcas[0]);
+    return;
+  }
+  resaltarTextoEnPreview(prev, valorDe(datosForm, varEnfocada), acercar);
+}
+function resaltarTextoEnPreview(prev, texto, acercar){
+  texto = String(texto == null ? '' : texto).trim();
+  if(texto.length < 2) return;
+  const walker = document.createTreeWalker(prev, NodeFilter.SHOW_TEXT);
+  let n;
+  while((n = walker.nextNode())){
+    const i = n.nodeValue.indexOf(texto);
+    if(i < 0) continue;
+    const rango = document.createRange();
+    rango.setStart(n, i); rango.setEnd(n, i + texto.length);
+    const span = document.createElement('span');
+    span.className = 'ph-busca ph-foco';
+    try{ rango.surroundContents(span); }catch(e){ return; }
+    if(acercar) acercarEnContenido(span);
+    return;
+  }
+}
+/* Marcadores de hueco de las plantillas Word: datosDocx() los inserta como
+   texto «⟦tag⟧» y aquí se convierten en la misma etiqueta amarilla que usan
+   las plantillas HTML, para que faltar un dato se vea igual en los dos modos. */
+function marcarPendientesEnPreview(raiz){
+  const walker = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
+  const nodos = [];
+  let n;
+  while((n = walker.nextNode())) if(n.nodeValue && n.nodeValue.indexOf('\u27E6') >= 0) nodos.push(n);
+  nodos.forEach(nodo => {
+    const frag = document.createDocumentFragment();
+    nodo.nodeValue.split(/(\u27E6[^\u27E7]*\u27E7)/).forEach(t => {
+      if(!t) return;
+      const m = t.match(/^\u27E6([^\u27E7]*)\u27E7$/);
+      if(m){
+        const span = document.createElement('span');
+        span.className = 'ph-pend';
+        span.setAttribute('data-var', m[1]);
+        span.textContent = etiqueta(m[1]);
+        frag.appendChild(span);
+      } else frag.appendChild(document.createTextNode(t));
+    });
+    nodo.replaceWith(frag);
+  });
 }
 function limpiarForm(){
   datosForm = {}; condForm = {}; listasForm = {}; concSel = {}; editandoDoc = false; docEditado = '';
+  camposFaltantes = new Set();
+  olvidarBorrador();
   const p = plActual();
   if(p) aplicarFijos(varsDe(p), datosForm);
   renderContenido();
@@ -15221,11 +15557,13 @@ function editarDocumento(){
   const p = plActual(); if(!p) return;
   docEditado = limpiarHtmlDoc(rellenarDatos(p.cuerpo, datosForm, false));
   editandoDoc = true;
+  guardarBorrador();
   renderContenido();
 }
 function salirEdicionDoc(){
   if(!confirm('Al volver al formulario se descartan los cambios manuales hechos al documento. ¿Continuar?')) return;
   editandoDoc = false; docEditado = '';
+  guardarBorrador();
   renderContenido();
 }
 function aplicarNumeroSugerido(){
@@ -15253,7 +15591,10 @@ function rellenarDatos(html, datos, preview){
   return html.replace(/\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g, (m, v) => {
     const val = valorDe(datos, v);
     if(preview){
-      return val ? `<span class="ph-ok">${esc(val)}</span>` : `<span class="ph-pend">{{${esc(v)}}}</span>`;
+      // data-var: enlaza el marcador con su campo del formulario en los dos sentidos.
+      return val
+        ? `<span class="ph-ok" data-var="${esc(v)}">${esc(val)}</span>`
+        : `<span class="ph-pend" data-var="${esc(v)}">${esc(etiqueta(v))}</span>`;
     }
     // Sin <strong>: el valor hereda el formato que la variable tenga en la
     // plantilla (si {{proveedor}} está en negrita, sale en negrita; si no, no).
@@ -15880,7 +16221,7 @@ function importarDocxAComposicion(p){
   nueva.cuerpo = ensamblarCuerpo(nueva);
   plantillas.unshift(nueva);
   guardar();
-  seleccion = nueva.id; datosForm = {}; condForm = {}; listasForm = {}; bloqueEditando = null; tabActual = 'editar';
+  fijarSeleccion(nueva.id); datosForm = {}; condForm = {}; listasForm = {}; bloqueEditando = null; tabActual = 'editar';
   abrirAncestros('pl', nueva.carpetaId);   // que la carpeta «Indexada» quede visible, no colapsada
   renderCats(); renderLista(); renderTabs(); renderContenido();
   alert(`✓ «${nueva.nombre}» creada como composición editable.\n\n${nCl} cláusulas detectadas:\n`
@@ -15985,7 +16326,7 @@ function traducirDocxErr(s){
    para cláusulas opcionales) y listas ({#tag} registrado como «repetible»). */
 function estructuraDocx(p){
   if(cacheEstructura[p.id]) return cacheEstructura[p.id];
-  const vacia = { escalares:[], condiciones:[], listas:[] };
+  const vacia = { escalares:[], condiciones:[], listas:[], condDe:{} };
   const b64 = archivoDocxDe(p);
   if(!b64) return vacia;
   let texto = '';
@@ -16027,22 +16368,29 @@ function estructuraDocx(p){
     return (hijosDirectos[nombre] ? hijosDirectos[nombre].size : 0) >= 2;
   }
 
-  const est = { escalares:[], condiciones:[], listas:[] };
+  // condDe: por cada tag suelto, las secciones {#x} que lo envuelven. Un tag que
+  // solo existe dentro de una sección desmarcada no sale en el Word, así que no
+  // tiene sentido reclamarlo como campo sin llenar. Si el tag aparece alguna vez
+  // fuera de toda sección, manda esa aparición: siempre hace falta.
+  const est = { escalares:[], condiciones:[], listas:[], condDe:{} };
   const pila = [];
   tokens.forEach(({ marca, nombre }) => {
     if(marca === '#' || marca === '^'){
       const esLista = decidirLista(nombre);
       let bloque = (esLista ? est.listas : est.condiciones).find(b => b.nombre === nombre);
       if(!bloque){ bloque = { nombre, campos: [] }; (esLista ? est.listas : est.condiciones).push(bloque); }
-      pila.push({ bloque, esLista });
+      pila.push({ bloque, esLista, marca });
     } else if(marca === '/'){
       pila.pop();
     } else {
       const top = pila[pila.length - 1];
       if(top && top.esLista){
         if(!top.bloque.campos.includes(nombre)) top.bloque.campos.push(nombre);
-      } else if(!est.escalares.includes(nombre)){
-        est.escalares.push(nombre);
+      } else {
+        if(!est.escalares.includes(nombre)) est.escalares.push(nombre);
+        const anc = pila.filter(x => !x.esLista && x.marca === '#').map(x => x.bloque.nombre);
+        if(est.condDe[nombre] === undefined) est.condDe[nombre] = anc;
+        else if(!anc.length) est.condDe[nombre] = [];
       }
     }
   });
@@ -16050,7 +16398,7 @@ function estructuraDocx(p){
   return est;
 }
 /* Arma el objeto de datos que docxtemplater inyecta (ver Catálogo de Tags §9) */
-function datosDocx(p, base, enLote){
+function datosDocx(p, base, enLote, marcarVacios){
   const est = estructuraDocx(p);
   const datos = {};
   est.escalares.forEach(t => {
@@ -16080,6 +16428,11 @@ function datosDocx(p, base, enLote){
     // Los precios de las filas salen con formato de miles/decimales
     filas.forEach(f => ['punit','ptotal'].forEach(cmp => { if(l.campos.includes(cmp) && f[cmp]) f[cmp] = fmtMonto(f[cmp]); }));
   });
+  // Solo para la vista previa: un dato que falta sale como «⟦tag⟧» y la vista lo
+  // pinta como etiqueta amarilla clicable. Al descargar no se marca nada: el
+  // Word sale con el hueco en blanco, como siempre. Va al final, después de los
+  // totales automáticos, que comprueban si subtotal/iva/total siguen vacíos.
+  if(marcarVacios) est.escalares.forEach(t => { if(datos[t] === '') datos[t] = '\u27E6' + t + '\u27E7'; });
   return datos;
 }
 function explicarErrorDocx(e){
@@ -16111,7 +16464,7 @@ function actualizarPreviewDocx(){
     const probs = validarTagsDocx(p);
     if(probs.length){ el.innerHTML = avisoTagsHTML(probs); return; }
     try{
-      const blob = generarBlobDocx(p, datosDocx(p, datosForm));
+      const blob = generarBlobDocx(p, datosDocx(p, datosForm, false, true));
       if(window.docx && window.docx.renderAsync){
         // Se dibuja en un contenedor oculto y se intercambia de una sola vez:
         // #preview nunca queda vacío mientras se genera. Con el papel
@@ -16123,8 +16476,10 @@ function actualizarPreviewDocx(){
         buffer.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;width:${el.clientWidth}px`;
         document.body.appendChild(buffer);
         await window.docx.renderAsync(blob, buffer, null, { inWrapper:false, ignoreLastRenderedPageBreak:true, breakPages:false, experimental:true });
+        marcarPendientesEnPreview(buffer);
         el.replaceChildren(...buffer.childNodes);
         buffer.remove();
+        resaltarVarEnPreview(false);
       } else {
         el.innerHTML = '<p style="color:var(--gris)">Vista previa no disponible; el Word se genera igual.</p>';
       }
@@ -16148,7 +16503,7 @@ function crearPlantillaDesdeDocx(ev){
     // escribe la versión liviana. Sin esto, el primer guardado metía el archivo
     // entero en localStorage y podía llenar la cuota justo al subir la plantilla.
     guardarTrasRespaldar(p.id, 'pl_' + p.id, b64);
-    seleccion = p.id; datosForm = {}; condForm = {}; listasForm = {}; tabActual = 'editar';
+    fijarSeleccion(p.id); datosForm = {}; condForm = {}; listasForm = {}; tabActual = 'editar';
     renderCats(); renderLista(); renderTabs(); renderContenido();
   };
   reader.readAsDataURL(file);
@@ -16198,7 +16553,7 @@ function htmlCondiciones(p){
   return `<div class="card" style="margin-top:12px"><h3>Cláusulas / secciones opcionales</h3>${est.condiciones.map(cn => {
     const reg = buscarVar(cn.nombre);
     const marcado = condForm[cn.nombre] !== false;
-    return `<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-bottom:8px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${marcado?'checked':''} onchange="condForm['${cn.nombre}']=this.checked;actualizarPreviewDocx()"><span><b>${esc(etiqueta(cn.nombre))}</b> <span style="color:var(--gris)">{#${esc(cn.nombre)}}</span>${reg && reg.descripcion ? `<br><span style="color:var(--gris);font-size:12px">${esc(reg.descripcion)}</span>` : ''}</span></label>`;
+    return `<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-bottom:8px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${marcado?'checked':''} onchange="alternarCondicion('${cn.nombre}', this.checked)"><span><b>${esc(etiqueta(cn.nombre))}</b> <span style="color:var(--gris)">{#${esc(cn.nombre)}}</span>${reg && reg.descripcion ? `<br><span style="color:var(--gris);font-size:12px">${esc(reg.descripcion)}</span>` : ''}</span></label>`;
   }).join('')}</div>`;
 }
 function htmlListas(p){
@@ -16207,7 +16562,7 @@ function htmlListas(p){
     const filas = listasForm[l.nombre] || (listasForm[l.nombre] = [{}]);
     return `<div class="card" style="margin-top:12px"><h3>${esc(etiqueta(l.nombre))} · tabla repetible</h3>
       <div class="tabla-scroll"><table class="lote-tabla"><thead><tr>${l.campos.map(cmp => `<th>${esc(etiqueta(cmp))}</th>`).join('')}<th></th></tr></thead><tbody>
-      ${filas.map((f,i) => `<tr>${l.campos.map(cmp => `<td><input value="${esc(f[cmp]||'')}" oninput="listasForm['${l.nombre}'][${i}]['${cmp}']=this.value;actualizarPreviewDocx()"></td>`).join('')}<td><button class="btn peligro mini" onclick="listasForm['${l.nombre}'].splice(${i},1);renderContenido()">✕</button></td></tr>`).join('')}
+      ${filas.map((f,i) => `<tr>${l.campos.map(cmp => `<td><input value="${esc(f[cmp]||'')}" oninput="listasForm['${l.nombre}'][${i}]['${cmp}']=this.value;programarGuardadoBorrador();actualizarPreviewDocx()"></td>`).join('')}<td><button class="btn peligro mini" onclick="listasForm['${l.nombre}'].splice(${i},1);renderContenido()">✕</button></td></tr>`).join('')}
       </tbody></table></div>
       <div style="margin-top:8px"><button class="btn sec mini" onclick="listasForm['${l.nombre}'].push({});renderContenido()">+ Fila</button></div>
       ${l.campos.includes('ptotal') ? '<div class="nota" style="margin-top:6px">«P. total», subtotal, IVA y total se calculan solos al generar si los dejas vacíos.</div>' : ''}
@@ -16542,7 +16897,6 @@ function descargarBlob(blob, nombre){
 }
 async function descargarWord(){
   const p = plActual(); if(!p) return;
-  const vars = varsDe(p);
   if(p.tipo === 'docx'){
     const problemas = validarTagsDocx(p);
     if(problemas.length){
@@ -16551,8 +16905,7 @@ async function descargarWord(){
         '\n\nCorrígelos en Word y vuelve a subir la plantilla.');
       return;
     }
-    const pendientes = vars.filter(v => !valorDe(datosForm, v) && !(esLetras(v) && datosForm[origenDe(v)]));
-    if(pendientes.length && !confirm('Campos sin completar: ' + pendientes.map(etiqueta).join(', ') + '.\n\n¿Generar de todas formas? (aparecerán como líneas en blanco)')) return;
+    if(!confirmarPendientes(p)) return;
     try{
       const datos = datosDocx(p, datosForm);
       const blob = generarBlobDocx(p, datos);
@@ -16573,10 +16926,10 @@ async function descargarWord(){
   let cuerpoOverride;
   if(editandoDoc){
     docEditado = document.getElementById('preview').innerHTML;
+    guardarBorrador();
     cuerpoOverride = docEditado;
   } else {
-    const pendientes = vars.filter(v => !valorDe(datosForm, v));
-    if(pendientes.length && !confirm('Campos sin completar: ' + pendientes.map(etiqueta).join(', ') + '.\n\n¿Generar de todas formas? (aparecerán como líneas en blanco)')) return;
+    if(!confirmarPendientes(p)) return;
   }
   try{
     const blob = await construirDocx(p, datosForm, cuerpoOverride);
@@ -17941,7 +18294,7 @@ function nuevaPlantilla(){
   const p = { id: uid(), nombre: 'Nueva plantilla', carpetaId: null, descripcion: '', actualizado: hoy(),
     cuerpo: '<h1>TÍTULO DEL INSTRUMENTO N.º {{numero_documento}}</h1><h2>CLÁUSULA PRIMERA: COMPARECIENTES</h2><p>Redacta aquí el contenido e inserta variables como {{proveedor}} donde corresponda.</p>' };
   plantillas.unshift(p); guardar();
-  seleccion = p.id; tabActual = 'editar';
+  fijarSeleccion(p.id); tabActual = 'editar';
   renderCats(); renderLista(); renderTabs(); renderContenido();
 }
 function duplicarPlantilla(){
@@ -17949,7 +18302,7 @@ function duplicarPlantilla(){
   const copia = JSON.parse(JSON.stringify(p));
   copia.id = uid(); copia.nombre = p.nombre + ' (copia)'; copia.actualizado = hoy();
   plantillas.unshift(copia); guardar();
-  seleccion = copia.id;
+  fijarSeleccion(copia.id);
   renderLista(); renderContenido();
 }
 function eliminarPlantilla(){
@@ -17957,7 +18310,8 @@ function eliminarPlantilla(){
   if(!confirm(`¿Eliminar la plantilla «${p.nombre}»? Esta acción no se puede deshacer.`)) return;
   plantillas = plantillas.filter(x => x.id !== p.id);
   if(p.tipo === 'docx') idbDelete('pl_' + p.id);   // que no quede el .docx huérfano en IndexedDB
-  seleccion = null; guardar();
+  olvidarBorrador(p.id);                           // ni su borrador en el almacén
+  fijarSeleccion(null); guardar();
   renderCats(); renderLista(); renderContenido();
 }
 function exportarPlantilla(){
@@ -17986,12 +18340,15 @@ function reusar(i){
   const h = historial[i]; if(!h) return;
   const p = plantillas.find(x => x.nombre === h.plantilla);
   if(!p){ alert('La plantilla original ya no existe en la biblioteca.'); return; }
-  seleccion = p.id; datosForm = {}; condForm = {}; listasForm = {}; editandoDoc = false; docEditado = '';
+  guardarBorrador();
+  fijarSeleccion(p.id);
+  datosForm = {}; condForm = {}; listasForm = {}; editandoDoc = false; docEditado = '';
   Object.entries(h.datos||{}).forEach(([k,v]) => {
     if(Array.isArray(v)) listasForm[k] = JSON.parse(JSON.stringify(v));
     else if(typeof v === 'boolean') condForm[k] = v;
     else datosForm[k] = v;
   });
+  guardarBorrador();
   tabActual = 'generar'; bloqueEditando = null;
   pedirResetScroll();   // vienes del historial a un documento distinto: empieza arriba
   renderLista(); renderTabs(); renderContenido();
@@ -18070,7 +18427,7 @@ function importarBiblioteca(ev){
           if(data.fijos) fijos = data.fijos;
           if(data.membrete) membrete = data.membrete;
           if(Array.isArray(data.concordancias)) concordancias = data.concordancias;
-          seleccion = null; varianteSel = null; clausulaAbierta = null; varSelId = null;
+          fijarSeleccion(null); varianteSel = null; clausulaAbierta = null; varSelId = null;
         }
         alert('Biblioteca importada correctamente.');
       } else { alert('El archivo no tiene un formato reconocido.'); return; }
@@ -18094,7 +18451,7 @@ function toggleAside(){
 }
 
 /* Red de seguridad: si cierras o recargas con un bloque abierto, se guarda. */
-window.addEventListener('beforeunload', () => { try{ asegurarBloqueGuardado(); }catch(e){} });
+window.addEventListener('beforeunload', () => { try{ asegurarBloqueGuardado(); guardarBorrador(); }catch(e){} });
 
 /* Tab dentro de un editor = sangría (como Word), no saltar al final del documento.
    Shift+Tab la reduce. En listas anida/desanida el ítem. */
@@ -18104,6 +18461,32 @@ document.addEventListener('keydown', (e) => {
   if(!el) return;
   e.preventDefault();
   sangria(el.id, !e.shiftKey);
+});
+
+/* Puente campo -> documento: al entrar en un campo del formulario se ilumina
+   su lugar en la vista previa. Se delega en document porque #contenido se
+   repinta entero muchas veces y los manejadores directos se perderían. */
+document.addEventListener('focusin', (e) => {
+  const el = e.target;
+  if(!el || !el.id || el.id.indexOf('f_') !== 0) return;
+  varEnfocada = el.id.slice(2);
+  resaltarVarEnPreview(true);
+});
+document.addEventListener('focusout', (e) => {
+  const el = e.target;
+  if(!el || !el.id || el.id.indexOf('f_') !== 0) return;
+  varEnfocada = null;
+  limpiarResaltados();
+});
+/* Y al revés: un marcador de la vista previa lleva a su campo. */
+document.addEventListener('click', (e) => {
+  if(editandoDoc) return;
+  const m = e.target && e.target.closest ? e.target.closest('#preview [data-var]') : null;
+  if(!m) return;
+  const inp = document.getElementById('f_' + m.getAttribute('data-var'));
+  if(!inp) return;
+  acercarEnContenido(inp.closest('.campo') || inp);
+  inp.focus({ preventScroll:true });
 });
 
 /* Recuerda la posición del cursor dentro de cualquier editor (contenteditable),

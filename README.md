@@ -66,6 +66,24 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
     variable estaba en negrita) y los montos salen con formato de miles (USD 1.000,00).
   - **Editar documento final**: tras llenar el formulario se puede retocar a mano el texto
     exacto que se descargará, con barra completa de formato (tablas, sangrías, mayúsculas).
+  - **El trabajo a medias no se pierde**: lo que se está llenando (campos, casilleros de
+    secciones opcionales, filas de tablas repetibles, concordancia y el documento final
+    retocado a mano) se guarda solo como **borrador de esa plantilla**. Al recargar, cerrar
+    por accidente o volver otro día, la herramienta abre la última plantilla usada y
+    devuelve todo tal cual, con un aviso que permite **descartarlo y empezar en blanco**.
+    El borrador es trabajo en curso: no entra en «Exportar biblioteca» y desaparece al
+    usar «Limpiar campos».
+  - **Los campos que faltan se ven**: el contador de progreso lleva al primer campo vacío,
+    y al intentar descargar los que falten quedan marcados en ámbar dentro del formulario
+    (en vez de nombrarlos en una sola línea de aviso). En la **vista previa** cada dato que
+    falta sale como una etiqueta amarilla con el nombre del campo —igual en plantillas HTML
+    y Word—; el Word descargado sale con el hueco en blanco, sin marcas. No se reclama un
+    campo que vive dentro de una sección opcional desmarcada, porque ese texto no llega
+    al documento.
+  - **Campo ↔ documento enlazados**: al entrar en un campo se ilumina su lugar en la vista
+    previa (y la desplaza si estaba fuera de pantalla); al hacer clic en un marcador de la
+    vista previa, el foco salta a su campo. Sirve para ver dónde cae en el texto lo que se
+    está escribiendo sin leer el documento entero.
   - **Motor nativo de Word**: los instrumentos redactados con plantillas HTML se
     construyen con las piezas reales de Word (párrafos, numeración `numbering.xml`,
     tablas y estilos OOXML), no traduciendo HTML. Las viñetas y numeraciones del
