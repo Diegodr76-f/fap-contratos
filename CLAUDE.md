@@ -96,6 +96,14 @@ cada miembro a la sesión, «solicitud / cotización» es qué documento se nomb
 el `el/la` que va delante de `{objeto}` depende del género de un texto libre que
 escribe la AC — elegir uno sería adivinar.
 
+**Lo que la conversión no vio: el género escrito a mano.** El conversor solo mira
+cuadros combinados, así que una plantilla que ya traía «Señores» o «ustedes»
+escritos pasó intacta — y la solicitud de cotización le decía «Señores / José
+Lecaro … mantiene con ustedes» a una persona natural. Van `{proveedorTrato}`
+(Señor/Señora/Señores) y `{ustedUstedes}`, y delante de `{area}` nunca un
+artículo a mano: `{dellaAP}`, `{ellaAP}` o `{allaAP}`. `probar_generador.js`
+rastrea las tres trampas en las 18 plantillas.
+
 El conversor trabaja **con lista blanca**: convierte solo lo que una regla nombra
 explícitamente, y deja intacto todo lo demás. Si aparece un control sin regla,
 avisa y no lo toca.
@@ -129,6 +137,37 @@ python3 scripts/variables.py --check   # ¿usa nombres del catálogo?
 python3 scripts/concordancia.py --verificar
 python3 scripts/embeber_plantillas.py  # y el seed, en el mismo commit
 ```
+
+## Un documento «listo» no puede salir con un hueco
+
+El informe de renovación imprimía «suscrito el **,** cuyo objeto es…» porque el
+Momento 1 se cerraba sin la fecha de suscripción: el dato se imprime, pero nada
+lo exigía. La regla, entonces: **si una plantilla imprime un dato, el momento
+que lo captura no se cierra sin él** —`renM1Done()` y compañía—, y si además
+condiciona el envío, va también a `checklistEnvio()`.
+
+`probar_generador.js` lo vigila para las cuatro vías: llena solo lo que la app
+exige para cerrar cada momento, y comprueba que toda etiqueta de todo documento
+marcado listo tenga dato. Si añades una etiqueta a una plantilla, esa
+comprobación te dirá si dejaste el hueco abierto.
+
+## Decir QUÉ falta, no solo que falta algo
+
+Los requisitos de cada momento son **una sola lista**, `requisitos(step)`, con el
+rótulo de cada campo tal y como aparece en el formulario. De ahí salen las cinco
+cosas, así que no pueden contradecirse:
+
+- el ✓ del momento (`m1Done()`…`m4Done()` cuelgan de `pasoHecho()`),
+- el aviso ámbar de arriba de la captura, con enlace que lleva el cursor al campo,
+- el punto y el borde ámbar del propio campo (`marcaFalta`, `bordeFalta`),
+- el «Falta por llenar: …» de cada documento bloqueado en Documentos,
+- el «faltan N datos» de cada fila de Mis procesos.
+
+**Al añadir un requisito se añade a `requisitos()`, nunca a un `mXDone()`**, y el
+rótulo tiene que ser el mismo que el del campo en pantalla: si el aviso dice
+«Objeto del contrato» y el formulario dice «Objeto del proceso», la AC busca algo
+que no existe. `requisitosDatos()` hace lo propio con la Hoja de Datos, que sale
+impresa en todo: el nombre de la AC va en cada firma y las siglas arman el código.
 
 ## La renovación no lleva notificación
 

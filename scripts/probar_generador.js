@@ -222,6 +222,11 @@ c.provs[2]={razon:'Proveedor C',ruc:'3',dir:'',tel:'',monto:'4800',fof:'2026-09-
 c.items=[{desc:'Diésel',unidad:'Galón',cantidad:'100',punit:'34.7826087'}];
 c.fechaAdj='2026-09-16'; c.adjudicado='Proveedor A';
 w.save();
+// El acta dice «se reúnen de manera…», así que sin ese dato el Momento 2 no cierra.
+ok(w.m1Done()===true && w.m2Done()===false,'sin saber cómo sesionó la Comisión, el Momento 2 no cierra');
+ok(w.faltan(1).some(x=>x.campo==='presencialVirtual'),'y el aviso lo nombra',
+   w.faltan(1).map(x=>x.label).join(' | '));
+c.presencialVirtual='presencial'; w.save();
 ok(w.m1Done()===true && w.m2Done()===true,'comparación de precios: momentos 1 y 2 siguen cerrando');
 const dc=w.documents();
 ok(dc.map(x=>x.id).join(',')==='inicio,invit,acta,orden,recep,entrega','los documentos de siempre siguen ahí: '+dc.map(x=>x.id).join(','));
@@ -444,7 +449,216 @@ seccion('19 · Las 18 plantillas se rellenan de verdad');
      'el monto del contrato original ya trae número y letras: '+datos.montoTotalLetras);
 }
 
-seccion('20 · Al cambiar de momento la vista sube');
+seccion('20 · Nadie trata de «Señores» a una persona natural');
+// La solicitud de cotización salía «Señores / José Lecaro … mantiene con
+// ustedes»: la plantilla llevaba el trato y el número escritos a mano, y ningún
+// control lo miraba porque las etiquetas que sí tenía estaban todas bien.
+{
+  const w6=nuevoDom();
+  const texto=b64=>{
+    const zip=new PizZip(b64,{base64:true}); let t='';
+    zip.file(/word\/(document|header\d*|footer\d*)\.xml/).forEach(f=>{
+      t+=f.asText().replace(/<\/w:p>/g,'\n').replace(/<(?!\/?w:t[ >])[^>]*>/g,'').replace(/<\/?w:t[^>]*>/g,'')+'\n';
+    });
+    return t;
+  };
+  const trampas=[
+    [/\bustedes?\b/i,'«usted/ustedes» escrito a mano (va {ustedUstedes})'],
+    [/\bSeñor(?:es|a)?\b/,'«Señor/es/a» escrito a mano (va {proveedorTrato})'],
+    [/\b(?:del|al|el|la)\s+\{area\}/,'artículo escrito a mano delante de {area} (va {dellaAP}, {ellaAP} o {allaAP})'],
+  ];
+  Object.keys(w6.ST.tpls).sort().forEach(function(f){
+    const t=texto(w6.ST.tpls[f]);
+    const malas=trampas.filter(([re])=>re.test(t)).map(([re,msg])=>msg+': «'+(t.match(re)||[''])[0]+'»');
+    ok(malas.length===0, f+' no le pone género ni número a mano', malas.join(' · '));
+  });
+  // y el resultado, de punta a punta
+  w6.ST.cfg.areas=[{id:'a1',ap:'Reserva Ecológica Cotacachi',siglas:'RECC',ciudad:'Quito',mae:'R. Tapia',maeCargo:'Jefa',maeGenero:'F',apGenero:'F',lugar:'Otavalo'}];
+  w6.ST.cfg.ac='Lcda. María Salazar';
+  w6.newExp('Combustible');
+  const dc=w6.D();
+  Object.assign(dc,{areaId:'a1',tipoProceso:'Renovación',bienServicio:'Servicio',
+    fechaInicio:'2026-11-11',numero:'2',objeto:'Abastecimiento de combustible',
+    contratoAnterior:'FIAS-FAP-2026-014',periodoDesde:'2027-01-01',periodoHasta:'2027-12-31',
+    items:[{desc:'Combustible',unidad:'Galón',cantidad:'1200',punit:''}]});
+  dc.provs[0]={razon:'José Lecaro',ruc:'1723551758001',dir:'Quito',tel:'',monto:'',fof:'',genero:'M'};
+  w6.save();
+  const sale=()=>{
+    const doc=new Docxtemplater(new PizZip(w6.ST.tpls['20_Solicitud_cotizacion_renovacion.docx'],{base64:true}),
+      {paragraphLoop:true,linebreaks:true,nullGetter:()=>''});
+    doc.render(w6.buildTemplateData());
+    return texto(doc.getZip().generate({type:'base64'}));
+  };
+  let out=sale();
+  ok(out.indexOf('Señor')>0 && out.indexOf('Señores')<0,'a una persona natural, «Señor» — no «Señores»');
+  ok(out.indexOf('mantiene con usted el contrato')>0,'y «mantiene con usted», no «con ustedes»');
+  ok(out.indexOf('Plan Anual de Gasto de la Reserva')>0,'«de la Reserva», no «del Reserva»');
+  dc.provs[0].genero='E'; dc.provs[0].razon='Combustibles del Oriente S.A.'; w6.save();
+  out=sale();
+  ok(out.indexOf('Señores')>0 && out.indexOf('mantiene con ustedes el contrato')>0,
+     'y a una empresa, «Señores» y «con ustedes»');
+}
+
+seccion('21 · Ningún documento se marca LISTO con un hueco dentro');
+// El informe de renovación decía «suscrito el , cuyo objeto es…»: la fecha de
+// suscripción se IMPRIME pero el Momento 1 se cerraba sin ella, así que el
+// documento quedaba listo con el hueco dentro. Esto llena solo lo que la app
+// exige para cerrar cada momento —nada de más— y comprueba que cada etiqueta de
+// cada documento listo tenga dato.
+{
+  const etiquetasDe=b64=>{
+    const zip=new PizZip(b64,{base64:true}); let t='';
+    zip.file(/word\/(document|header\d*|footer\d*)\.xml/).forEach(f=>{
+      t+=f.asText().replace(/<\/w:p>/g,'\n').replace(/<(?!\/?w:t[ >])[^>]*>/g,'').replace(/<\/?w:t[^>]*>/g,'')+'\n';
+    });
+    const out=[]; let m, dentro=null; const re=/\{([^{}]+)\}/g;
+    while((m=re.exec(t))){ const g=m[1].trim();
+      if(g[0]==='#'||g[0]==='^'){dentro=g.slice(1);continue;}
+      if(g[0]==='/'){dentro=null;continue;}
+      if(!dentro) out.push(g); }
+    return [...new Set(out)];
+  };
+  // Vacíos legítimos: el acta compara hasta tres ofertas y puede haber una sola.
+  const PERDONADAS={'5_Acta_adjudicacion.docx':['monto2','monto3']};
+  const base=w7=>{
+    w7.ST.cfg.areas=[{id:'a1',ap:'Reserva Ecológica Cotacachi',siglas:'RECC',ciudad:'Quito',
+      mae:'R. Tapia',maeCargo:'Jefa del Área',maeGenero:'F',apGenero:'F',lugar:'Otavalo'}];
+    w7.ST.cfg.ac='Lcda. María Salazar'; w7.ST.cfg.acCorreo='m@fias.org.ec';
+    w7.ST.cfg.director='Ing. Luis Vega'; w7.ST.cfg.directorCargo='Director Ejecutivo';
+  };
+  const revisa=(nombre,llena,extra,despues)=>{
+    const w7=nuevoDom(); base(w7); w7.newExp(nombre); llena(w7.D(), w7);
+    if(despues) despues(w7);
+    w7.save();
+    ok(w7.doneArr().every(Boolean), nombre+': los cuatro momentos se cierran con lo que la app exige',
+       w7.doneArr().join('·'));
+    const datos=w7.buildTemplateData(extra||{});
+    w7.documents().filter(x=>x.tpl&&x.ready).forEach(doc=>{
+      const perdon=PERDONADAS[doc.tpl]||[];
+      const vacias=etiquetasDe(w7.ST.tpls[doc.tpl]).filter(t=>
+        perdon.indexOf(t)<0 && (datos[t]===undefined||String(datos[t]).trim()===''));
+      ok(vacias.length===0, nombre+' · '+doc.tpl+' sale sin huecos',
+         vacias.map(x=>'{'+x+'}').join(', '));
+    });
+  };
+
+  revisa('Renovación', d=>{
+    Object.assign(d,{areaId:'a1',tipoProceso:'Renovación',bienServicio:'Servicio',
+      fechaInicio:'2026-11-11',numero:'2',objeto:'Abastecimiento de combustible',
+      contratoAnterior:'FIAS-FAP-2026-014',fechaSuscripcionAnt:'2026-02-12',fechaFinAnterior:'2026-12-31',
+      montoAnterior:'10000',clausulaRenovacion:'Sí, el contrato vigente la contempla',
+      periodoDesde:'2027-01-01',periodoHasta:'2027-12-31',arranqueSucesor:'2027-01-01',
+      partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',plazo:'365',formaPago:'Factura',
+      consumoEjecutado:'9120.45',fechaInforme:'2026-11-11',
+      pagAprobado:'2027-01-15',presupuesto:'12000',fechaSolCotizacion:'2026-11-11',
+      fechaLimite:'2026-11-20',fechaCotizacion:'2026-11-19',
+      items:[{desc:'Combustible',unidad:'Galón',cantidad:'1200',punit:'8.3333333'}]});
+    d.provs[0]={razon:'José Lecaro',ruc:'1723551758001',dir:'Quito, Av. Amazonas',tel:'',monto:'11500',fof:'',genero:'M'};
+  }, null, w7=>{ w7.cur().enviadoUO={fecha:new Date().toISOString(),archivos:3,por:'AC'}; });
+  revisa('Comparación de precios', d=>{
+    Object.assign(d,{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien',tipoBien:'Activo fijo',
+      fechaInicio:'2026-09-10',numero:'3',objeto:'Equipos de campo',plazo:'20',presupuesto:'2000',
+      partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura',
+      fechaInvitacion:'2026-09-11',fechaLimite:'2026-09-18',fechaAdj:'2026-09-20',
+      adjudicado:'Equipos del Norte S.A.',fechaRecepcion:'2026-10-01',
+      garantiaAplica:'Aplica',garantiaMeses:'12',cedulaJefe:'1712345678',correoJefe:'j@mae.gob.ec',
+      presencialVirtual:'presencial',items:[{desc:'GPS',unidad:'Unidad',cantidad:'2',punit:'500'}]});
+    d.provs[0]={razon:'Equipos del Norte S.A.',ruc:'1791234567001',dir:'Av. Amazonas',tel:'02',monto:'1150',fof:'2026-09-15',genero:'E'};
+  }, {invitado:'Equipos del Norte S.A.'});
+  revisa('Selección directa', d=>{
+    Object.assign(d,{areaId:'a1',tipoProceso:'Selección directa por excepción',bienServicio:'Servicio',
+      fechaInicio:'2026-09-10',numero:'4',objeto:'Mantenimiento',plazo:'20',presupuesto:'2000',
+      causal:'Proveedor único',partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura',
+      fechaInvitacion:'2026-09-11',fechaLimite:'2026-09-18',fechaAdj:'2026-09-20',
+      adjudicado:'Talleres del Oriente',fechaRecepcion:'2026-10-01',
+      items:[{desc:'Mantenimiento',unidad:'Servicio',cantidad:'1',punit:'1000'}]});
+    d.provs[0]={razon:'Talleres del Oriente',ruc:'1791234567001',dir:'Napo y Quito',tel:'02',monto:'1150',fof:'2026-09-15',genero:'E'};
+  }, {invitado:'Talleres del Oriente'});
+  revisa('Compra directa', d=>{
+    Object.assign(d,{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Bien',tipoBien:'Bien de control',
+      fechaInicio:'2026-09-10',numero:'5',objeto:'Insumos de oficina',plazo:'10',presupuesto:'500',
+      partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura',
+      fechaRecepcion:'2026-10-01',garantiaAplica:'No aplica',cedulaJefe:'1712345678',correoJefe:'j@mae.gob.ec',
+      items:[{desc:'Insumos',unidad:'Unidad',cantidad:'5',punit:'20'}]});
+    d.provs[0]={razon:'Bazar Central',ruc:'1791234567001',dir:'Sucre y Bolívar',tel:'02',monto:'115',fof:'',genero:'E'};
+  });
+}
+
+seccion('22 · El aviso dice QUÉ falta, no solo que falta algo');
+// Antes la AC veía el momento sin palomita y tenía que adivinar cuál de los
+// veinte campos era. Ahora la lista de requisitos es una sola: de ella salen el
+// ✓ del momento, el aviso de arriba y la marca de cada campo, así que no pueden
+// contradecirse.
+{
+  const w8=nuevoDom();
+  w8.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  w8.newExp('Aviso');
+  const da=w8.D();
+  Object.assign(da,{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien'});
+  w8.save();
+  // el ✓ y el aviso no pueden decir cosas distintas, en ningún momento
+  [0,1,2,3].forEach(i=>ok(w8.doneArr()[i]===(w8.faltan(i).length===0),
+    'momento '+(i+1)+': el ✓ y la lista de lo que falta coinciden'));
+  const pendientes=w8.faltan(0).map(x=>x.label);
+  ok(pendientes.indexOf('Objeto del proceso')>=0,'el aviso nombra el objeto con el mismo rótulo que el formulario', pendientes.join(' | '));
+  ok(pendientes.indexOf('Tipo de bien')>=0,'y el tipo de bien, que solo aplica a bienes');
+  ok(w8.faltan(0).every(x=>x.label&&x.label.length>3),'todo lo que falta tiene nombre legible');
+  w8.ST.nav='captura'; w8.ST.step=0; w8.render();
+  let html=w8.document.getElementById('app').innerHTML;
+  ok(html.indexOf('Faltan '+pendientes.length+' datos en este momento')>0,
+     'la captura lo anuncia arriba: «Faltan '+pendientes.length+' datos»');
+  ok(html.indexOf('Objeto del proceso')>0,'y lista el campo por su nombre');
+  // el campo pendiente queda marcado en su sitio
+  const objeto=w8.document.querySelector("[data-k='objeto']");
+  ok(objeto && /E5C98A/.test(objeto.getAttribute('style')||''),'el campo pendiente se marca en el formulario');
+  // y al llenarlo, deja de estar marcado y desaparece de la lista
+  da.objeto='Adquisición de combustible'; w8.save(); w8.render();
+  ok(w8.faltan(0).every(x=>x.campo!=='objeto'),'al llenarlo, sale de la lista');
+  const objeto2=w8.document.querySelector("[data-k='objeto']");
+  ok(objeto2 && !/E5C98A/.test(objeto2.getAttribute('style')||''),'y el campo deja de estar marcado');
+  // en Documentos se dice por qué está bloqueado
+  w8.ST.nav='documentos'; w8.render();
+  html=w8.document.getElementById('app').innerHTML;
+  ok(html.indexOf('Falta por llenar:')>0,'en Documentos, cada documento bloqueado dice qué falta');
+  // momento completo: el aviso cambia de tono
+  Object.assign(da,{tipoBien:'Activo fijo',fechaInicio:'2026-09-10',numero:'3',plazo:'20',
+    presupuesto:'2000',partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura',
+    fechaInvitacion:'2026-09-11',fechaLimite:'2026-09-18',
+    items:[{desc:'Diésel',unidad:'Galón',cantidad:'100',punit:'20'}]});
+  da.provs[0]={razon:'Proveedor A',ruc:'1',dir:'',tel:'',monto:'2000',fof:'2026-09-15',genero:'E'};
+  w8.save();
+  ok(w8.faltan(0).length===0,'con todo lleno no falta nada', w8.faltan(0).map(x=>x.label).join(' | '));
+  w8.ST.nav='captura'; w8.render();
+  ok(w8.document.getElementById('app').innerHTML.indexOf('Este momento está completo')>0,
+     'y el aviso lo dice: «Este momento está completo»');
+}
+
+seccion('23 · La Hoja de Datos avisa de lo suyo: sale impresa en todo');
+{
+  const w9=nuevoDom();
+  // La app viene con un área y una AC de ejemplo; esto simula a quien las borra.
+  w9.ST.cfg.ac=''; w9.ST.cfg.acCorreo='';
+  w9.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  w9.newExp('Sin hoja de datos');
+  Object.assign(w9.D(),{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Servicio'});
+  w9.save();
+  const fd=w9.faltanDeDatos().map(x=>x.label);
+  ok(fd.indexOf('Nombre de la administradora contadora')>=0,'sin AC, la Hoja de Datos lo pide', fd.join(' | '));
+  ok(fd.indexOf('Siglas del área')>=0,'y las siglas, que arman el código del expediente');
+  w9.ST.nav='datos'; w9.render();
+  ok(w9.document.getElementById('app').innerHTML.indexOf('Faltan '+fd.length+' datos aquí')>0,
+     'la Hoja de Datos lo anuncia arriba');
+  // y desde el Momento 1 se ve que el problema está allá
+  ok(w9.faltan(0).some(x=>x.nav==='datos'),'el Momento 1 remite a la Hoja de Datos',
+     w9.faltan(0).map(x=>x.label).join(' | '));
+  w9.ST.cfg.ac='Lcda. María Salazar'; w9.ST.cfg.acCorreo='m@fias.org.ec';
+  w9.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  w9.D().areaId='a1'; w9.save(); w9.render();
+  ok(w9.faltanDeDatos().length===0,'completa, ya no falta nada', w9.faltanDeDatos().map(x=>x.label).join(' | '));
+  ok(!w9.faltan(0).some(x=>x.nav==='datos'),'y el Momento 1 deja de remitir allá');
+}
+
+seccion('24 · Al cambiar de momento la vista sube');
 {
   const w5=nuevoDom();
   w5.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
