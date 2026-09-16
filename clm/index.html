@@ -161,6 +161,12 @@
   .dl .v{font-size:14px;font-weight:600}
   .dl .full{grid-column:1/-1}
   .linkbar{display:flex;align-items:center;gap:10px;background:var(--tint);border:1px solid #D7DEF6;border-radius:11px;padding:11px 13px;margin:14px 0 4px}
+  .expbox{border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin:10px 0 4px}
+  .expbox .expt{font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px}
+  .expbox .exprow{display:flex;align-items:baseline;gap:10px;padding:3px 0;font-size:13.5px}
+  .expbox .exprow .k{flex:0 0 152px;color:var(--muted);font-weight:600}
+  .expbox .exprow .v{font-weight:700;color:var(--ink)}
+  .expbox .exprow .v.none{font-weight:600;color:var(--muted2)}
   .phase{display:flex;align-items:center;margin:16px 0 4px;flex-wrap:wrap;row-gap:8px}
   .step{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;color:var(--muted2)}
   .step .d{width:24px;height:24px;border-radius:7px;background:#EEF0F5;color:var(--muted2);display:flex;align-items:center;justify-content:center;font-size:12px}
@@ -477,7 +483,7 @@ function mySolicitudes(){
 }
 
 /* ================= ROUTER ================= */
-let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:"table",repQ:""};
+let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:"table",repQ:"",sinCarpeta:false};
 const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",mapa:"Mapa de áreas protegidas",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
 function go(view,cur){ST.view=view;if(cur!==undefined)ST.cur=cur;location.hash="#/"+view+(view==="detalle"&&ST.cur!=null?"/"+ST.cur:"");render();window.scrollTo(0,0);}
 window.addEventListener("hashchange",()=>{
@@ -663,6 +669,14 @@ function alertList(){
     if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
     if((o.terminado||c.cerrado)&&!o.evaluado)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
   });
+  // Una sola alerta agregada, no una por contrato: lo que falta por registrar es
+  // mantenimiento del portafolio, no un pendiente de cada expediente. Es de la
+  // Unidad Operativa, que es quien tiene las carpetas, y solo aparece cuando la
+  // práctica ya arrancó — antes de la primera carpeta no habría nada que decir.
+  if(SES&&SES.rol==="uo"){
+    const todos=myContracts(),sin=todos.filter(c=>!c.carpeta).length;
+    if(sin&&sin<todos.length)out.push({sev:2,icon:"📁",col:"var(--navy)",bg:"var(--tint)",t:`${sin} contrato${sin===1?"":"s"} sin carpeta interna registrada`,d:"El número de la carpeta se escribe en la columna «Numero de carpeta interna» del Excel maestro",i:null,act:"Ver",fn:"carp"});
+  }
   mySolicitudes().forEach(s=>{
     if(s.estado==="borrador")out.push({sev:2,icon:"📝",col:"var(--navy)",bg:"var(--tint)",t:`Solicitud sin iniciar — ${s.objeto.slice(0,48)}`,d:`Vía sugerida: ${s.via==="contrato"?"contrato (Unidad Operativa)":"orden de compra/servicio"}`,i:null,act:"Ver",fn:"sol"});
   });
@@ -748,6 +762,7 @@ function bindAlertRows(){
   $("#view").querySelectorAll(".alert-row .go").forEach(b=>b.onclick=()=>{
     const fn=b.dataset.fn;
     if(fn==="sol"){go("solicitudes");return;}
+    if(fn==="carp"){ST.sinCarpeta=true;ST.filter="all";go("contratos");return;}
     const i=+b.dataset.i;const c=CONTRACTS[i];
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
     else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
@@ -819,7 +834,11 @@ function filteredContracts(){
     }
     if(ST.catFilter!=="all"&&(c.cat||"—")!==ST.catFilter)return false;
     if(ST.areaFilter!=="all"&&(c.area||"—")!==ST.areaFilter)return false;
-    if(ST.q){const hay=norm(c.detalle+" "+c.nro+" "+c.area+" "+c.proveedor+" "+c.cat);if(!hay.includes(norm(ST.q)))return false;}
+    if(ST.sinCarpeta&&c.carpeta)return false;
+    // La carpeta y el código del proceso entran a la búsqueda para que sirva en
+    // las dos direcciones: del objeto a la carpeta, y del número de carpeta al
+    // contrato — que es el camino que antes se hacía a ojo.
+    if(ST.q){const hay=norm(c.detalle+" "+c.nro+" "+c.area+" "+c.proveedor+" "+c.cat+" "+(c.carpeta||"")+" "+(c.codigoProceso||""));if(!hay.includes(norm(ST.q)))return false;}
     return true;
   });
   const dias=c=>{const d=diasRestantes(c);return d==null?1e9:d;};
@@ -834,7 +853,13 @@ function filteredContracts(){
   return list;
 }
 function vContratos(){
-  const mine=myContracts(),list=filteredContracts();
+  const mine=myContracts();
+  // El contador de lo que falta por emparejar. El filtro solo aparece cuando la
+  // práctica ya arrancó (hay carpetas registradas) y todavía no está completa:
+  // antes de empezar sería un cartel rojo permanente que no dice nada.
+  const sinCarp=mine.filter(c=>!c.carpeta).length, conCarp=mine.length-sinCarp;
+  if(!sinCarp)ST.sinCarpeta=false;   // sin nada que filtrar, no dejar la lista vacía
+  const list=filteredContracts();
   const cats=[...new Set(mine.map(c=>c.cat||"—"))].sort((a,b)=>a.localeCompare(b));
   const areas=[...new Set(mine.map(c=>c.area||"—"))].sort((a,b)=>a.localeCompare(b));
   const areaCount={};mine.forEach(c=>{const a=c.area||"—";areaCount[a]=(areaCount[a]||0)+1;});
@@ -844,7 +869,7 @@ function vContratos(){
     <div class="toolbar">
       <div class="search">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input id="q" placeholder="Buscar por contrato, proveedor o área…" value="${esc(ST.q)}">
+        <input id="q" placeholder="Buscar por contrato, proveedor, área o carpeta…" value="${esc(ST.q)}">
       </div>
       <select id="areaSel" title="Filtrar por área protegida" style="${sel};max-width:240px">
         <option value="all"${ST.areaFilter==="all"?" selected":""}>📍 Todas las áreas · ${mine.length}</option>
@@ -860,6 +885,7 @@ function vContratos(){
     </div>
     <div class="chips">
       ${[["all","Todos"],["vig","Vigentes"],["avi","Por vencer"],["ven","Vencidos"],["ter","Terminados"]].map(([k,l])=>`<button class="chip ${ST.filter===k?"on":""}" data-f="${k}">${l}</button>`).join("")}
+      ${(conCarp&&sinCarp)?`<button class="chip ${ST.sinCarpeta?"on":""}" id="chipSinCarp" title="Contratos cuya carpeta interna todavía no está registrada en el Excel maestro">📁 Sin carpeta · ${sinCarp}</button>`:""}
     </div>
     ${cats.length>1?`<div class="chips" style="margin:10px 0 4px">
       <button class="chip ${ST.catFilter==="all"?"on":""}" data-c="all">Todas las categorías</button>
@@ -876,6 +902,7 @@ function vContratos(){
   $("#areaSel").onchange=e=>{ST.areaFilter=e.target.value;vContratos();};
   $("#sortSel").onchange=e=>{ST.sort=e.target.value;vContratos();};
   const ca=$("#clearArea",$("#view"));if(ca)ca.onclick=()=>{ST.areaFilter="all";vContratos();};
+  const csc=$("#chipSinCarp",$("#view"));if(csc)csc.onclick=()=>{ST.sinCarpeta=!ST.sinCarpeta;vContratos();};
   $("#view").querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{ST.filter=b.dataset.f;vContratos();});
   $("#view").querySelectorAll(".chip[data-c]").forEach(b=>b.onclick=()=>{ST.catFilter=(ST.catFilter===b.dataset.c)?"all":b.dataset.c;vContratos();});
   $("#view").querySelectorAll(".viewtog button").forEach(b=>b.onclick=()=>{ST.viewMode=b.dataset.v;vContratos();});
@@ -888,7 +915,7 @@ function cardsHTML(list){
   return `<div class="grid">`+list.map(c=>{
     const s=statusLive(c),i=CONTRACTS.indexOf(c);
     return `<div class="cc ${s.cls}" data-open="${i}">
-      <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${esc(c.nro)}</span><span class="badge ${s.b}">${esc(s.label)}</span></div>
+      <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${esc(c.nro)}${c.carpeta?` <span style="font-size:11px;color:var(--muted)">📁 ${esc(c.carpeta)}</span>`:""}</span><span class="badge ${s.b}">${esc(s.label)}</span></div>
       <div class="cc-title">${esc(c.detalle)}</div>
       <div class="cc-area">${esc(c.area||"")}</div>
       <div class="cc-meta"><span>Proveedor · <b>${esc(c.proveedor||"—")}</b></span></div>
@@ -904,7 +931,7 @@ function tableHTML(list){
     <thead><tr><th>N.º</th><th>Objeto</th><th>Categoría</th><th>Área</th><th>Proveedor</th><th>Monto</th>${ter?"<th>Liquidado</th><th>Cierre</th>":"<th>Vence</th>"}<th>Estado</th></tr></thead>
     <tbody>${list.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c),L=ter?liqDe(c):null;
       return `<tr data-open="${i}">
-        <td class="td-nro">${esc(c.nro)}</td>
+        <td class="td-nro">${esc(c.nro)}${c.carpeta?`<div style="font-size:11px;font-weight:700;color:var(--muted)">📁 carpeta ${esc(c.carpeta)}</div>`:""}</td>
         <td class="td-obj">${esc(c.detalle)}</td>
         <td>${catChip(c.cat)}</td>
         <td>${esc(c.area||"—")}</td>
@@ -941,6 +968,13 @@ function vDetalle(){
             <span style="color:var(--navy)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></span>
             <div style="flex:1"><div style="font-size:12.5px;font-weight:700">Contrato firmado</div><div style="font-size:11.5px;color:var(--muted)">${c.link?"Documento en el repositorio institucional":"Sin vínculo registrado en la base"}</div></div>
             ${c.link?`<a class="btn sm" href="${esc(c.link)}" target="_blank" rel="noopener">Abrir</a>`:`<button class="btn sm line" disabled>No disponible</button>`}
+          </div>
+          <div class="expbox">
+            <div class="expt">Expediente</div>
+            <div class="exprow"><span class="k">N.º de contrato</span><span class="v">${esc(c.nro)}</span></div>
+            <div class="exprow"><span class="k">Código del proceso</span>${c.codigoProceso?`<span class="v">${esc(c.codigoProceso)}</span>`:`<span class="v none">sin registrar</span>`}</div>
+            <div class="exprow"><span class="k">N.º de carpeta interna</span>${c.carpeta?`<span class="v">carpeta ${esc(c.carpeta)}</span>`:`<span class="v none">sin registrar</span>`}</div>
+            ${(!c.carpeta&&SES.rol==="uo")?`<div style="font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.45">La carpeta de este contrato no está registrada. Se escribe una sola vez, en la columna <b>Numero de carpeta interna</b> del Excel maestro, y no se vuelve a buscar.</div>`:""}
           </div>
           <div class="phase">
             <div class="step past"><span class="d">✓</span> Solicitud</div><div class="flow-line"></div>

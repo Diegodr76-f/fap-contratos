@@ -234,6 +234,35 @@ Carga el HTML en un DOM de mentira y lo maneja desde fuera. Cubre las cuatro ví
 el almacenamiento, la lista de verificación y la generación real de `.docx`. Si
 tocas la app, corre esto; si añades comportamiento, añade la comprobación.
 
+## El puente con la carpeta del expediente
+
+El número de contrato se asigna al final; la carpeta donde se elaboró está numerada por orden
+de llegada. Nada ata una cosa con la otra y **no se puede deducir**: solo lo sabe quien elaboró
+los contratos. Por eso se escribe a mano en la hoja `2026` del Excel maestro: la columna
+`Numero de carpeta interna` —que el robot publica como `carpeta`— y, opcional y todavía
+inexistente, `CodigoProceso`. Los 138 contratos de 2026 ya la traen llena.
+
+Se consideró emparejarlo solo, por fecha y por orden, y se descartó: el orden de elaboración no
+sigue al de firma, así que estaría adivinando — y un emparejado equivocado es peor que el vacío,
+porque da un enlace que abre con confianza la carpeta que no es.
+
+Dos reglas que sostienen esto:
+
+- **Toda columna que lee el robot es opcional.** `col()` devuelve `None` si no está y `val()` lo
+  absorbe; el Excel es de otra persona y se reordena. Al añadir una columna, la comprobación que
+  de verdad importa es que **sin ella se publique exactamente lo mismo que antes**.
+- **La carpeta `47` llega de Excel como número.** Pasa por `texto()`, que la publica como `'47'`
+  y no como `'47.0'` — si no, la búsqueda del CLM no la encuentra.
+
+Se llama *carpeta interna*, que es como se llama la columna y como lo dice quien la creó. No
+*expediente*: en el catálogo, `{codigo}` ya es «código del expediente» y es el de la AC. Son dos
+cosas distintas del mismo caso, y el bloque **Expediente** del CLM existe para mostrarlas juntas.
+
+```bash
+npm install jsdom
+node scripts/probar_clm.js    # después de tocar el CLM
+```
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:
