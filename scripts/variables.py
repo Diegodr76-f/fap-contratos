@@ -35,6 +35,14 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO = os.path.join(RAIZ, 'generador', 'variables_fap.json')
 PLANTILLAS = os.path.join(RAIZ, 'generador', 'plantillas')
 
+# Carpetas que se saltan al buscar plantillas. `bases/` lleva .docx de verdad,
+# pero se rellenan A MANO y usan [CORCHETES], no etiquetas de docxtemplater:
+# validarlas contra el catálogo no significaría nada. Está declarado aquí, y no
+# omitido en silencio, para que el día que alguien se pregunte por qué no se
+# comprueban tenga la respuesta escrita.
+CARPETAS_A_MANO = {'bases'}
+CARPETAS_IGNORADAS = {'.git', 'node_modules', '__pycache__', 'esquemas', 'vendor'}
+
 
 def cargar(ruta=CATALOGO):
     with open(ruta, encoding='utf8') as f:
@@ -63,12 +71,76 @@ def subcampos(cat=None):
     return out
 
 
-def etiquetas_docx(ruta):
+# Un .docx guarda el texto en varias partes, y una etiqueta puede vivir en
+# cualquiera. Mirar solo el cuerpo dejaba fuera {cedulaJefe} y {correoJefe}, que
+# están en el encabezado de las actas de entrega: nunca se habían comprobado.
+PARTES_TEXTO = re.compile(
+    r'^word/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$')
+
+RE_ETIQUETA = re.compile(
+    r'\{([#/^]?)([A-Za-zÁÉÍÓÚÑáéíóúñ_][A-Za-z0-9ÁÉÍÓÚÑáéíóúñ_]*)\}')
+
+
+def _texto_docx(ruta):
+    """El texto de todas las partes del .docx, sin etiquetas XML.
+
+    Word parte una etiqueta en varias corridas <w:r> cuando uno la edita, así
+    que hay que quitar el marcado ANTES de buscar: si no, `{monto` y `Total}`
+    parecen dos cosas distintas.
+    """
     import zipfile
-    xml = zipfile.ZipFile(ruta).read('word/document.xml').decode('utf8')
-    texto = re.sub(r'<[^>]+>', '', xml)
-    return set(t for _, t in re.findall(
-        r'\{([#/^]?)([A-Za-zÁÉÍÓÚÑáéíóúñ_][A-Za-z0-9ÁÉÍÓÚÑáéíóúñ_]*)\}', texto))
+    z = zipfile.ZipFile(ruta)
+    partes = []
+    for n in z.namelist():
+        if PARTES_TEXTO.match(n):
+            partes.append((n, re.sub(r'<[^>]+>', '', z.read(n).decode('utf8', 'replace'))))
+    return partes
+
+
+def etiquetas_docx(ruta):
+    return set(t for _, t in etiquetas_docx_detalle(ruta))
+
+
+def etiquetas_docx_detalle(ruta):
+    """(sigilo, nombre) de cada etiqueta, EN ORDEN.
+
+    El sigilo —`#`, `^`, `/` o vacío— es lo que distingue el principio de un
+    bucle de una variable suelta, y el orden es lo que permite saber dentro de
+    qué bloque está cada una. `etiquetas_docx()` lo tiraba todo.
+    """
+    out = []
+    for _, texto in _texto_docx(ruta):
+        out.extend(RE_ETIQUETA.findall(texto))
+    return out
+
+
+def descubrir_plantillas(raiz=RAIZ):
+    """Todas las carpetas del repositorio que contienen .docx.
+
+    Se descubren en vez de listarse para que una herramienta nueva quede
+    cubierta el día que nace. Antes esto miraba solo generador/plantillas/, y
+    por ese hueco el Calificador creció con su propio vocabulario sin que nada
+    se quejara.
+    """
+    out = {}
+    for carpeta, subdirs, ficheros in os.walk(raiz):
+        subdirs[:] = [d for d in subdirs if d not in CARPETAS_IGNORADAS]
+        docs = sorted(f for f in ficheros
+                      if f.endswith('.docx') and not f.startswith('~$'))
+        if docs:
+            rel = os.path.relpath(carpeta, raiz).replace(os.sep, '/')
+            out[rel] = [os.path.join(carpeta, f) for f in docs]
+    return dict(sorted(out.items()))
+
+
+def _parecidas(nombre, conocidas):
+    """Nombres del catálogo que solo se diferencian por mayúsculas o acentos.
+
+    Un `fechaContratoo` o un `MontoTotal` casi nunca es un concepto nuevo: es un
+    error de tipeo, y decirlo ahorra el viaje de ir a buscarlo al catálogo.
+    """
+    n = _norm(nombre)
+    return sorted(c for c in conocidas if c != nombre and _norm(c) == n)
 
 
 # ---------------------------------------------------------------- validación
@@ -159,21 +231,46 @@ def cmd_buscar(texto):
 
 def cmd_check():
     cat = cargar()
-    conocidas = set(por_nombre(cat))
+    nombres = por_nombre(cat)
     subs = subcampos(cat)
+    conocidas = set(nombres)
     for campos in subs.values():
         conocidas.update(campos)
 
     problemas = 0
     usadas = set()
-    archivos = sorted(f for f in os.listdir(PLANTILLAS) if f.endswith('.docx'))
-    for f in archivos:
-        etq = etiquetas_docx(os.path.join(PLANTILLAS, f))
-        usadas |= etq
-        fuera = sorted(t for t in etq if t not in conocidas)
-        if fuera:
+    total_docs = 0
+    for carpeta, rutas in descubrir_plantillas().items():
+        if carpeta in CARPETAS_A_MANO:
+            print('  · %s — %d .docx de relleno manual ([CORCHETES]); no se validan'
+                  % (carpeta, len(rutas)))
+            continue
+        total_docs += len(rutas)
+        for ruta in rutas:
+            etq = etiquetas_docx(ruta)
+            usadas |= etq
+            fuera = sorted(t for t in etq if t not in conocidas)
+            if not fuera:
+                continue
             problemas += 1
-            print('  ✗ %s usa etiquetas fuera del catálogo: %s' % (f, ', '.join(fuera)))
+            print('  ✗ %s/%s usa etiquetas fuera del catálogo:'
+                  % (carpeta, os.path.basename(ruta)))
+            for t in fuera:
+                cerca = _parecidas(t, conocidas)
+                if cerca:
+                    print('      {%s}  ¿querías {%s}? (difiere solo en mayúsculas o acentos)'
+                          % (t, '} o {'.join(cerca)))
+                else:
+                    print('      {%s}' % t)
+
+    # Los campos declarados de un bloque tienen que existir de verdad. Sin esto,
+    # {provs} podía declarar `n, ruc, dir, tel, monto` —que ninguna plantilla
+    # usa— y callarse el `hof` que sí está.
+    declarados_fantasma = sorted(
+        {n for campos in subs.values() for n in campos if n not in usadas})
+    if declarados_fantasma:
+        print('  · aviso: campos declarados en un bloque que ninguna plantilla usa: %s'
+              % ', '.join(declarados_fantasma))
 
     vacios = [n for n, c in subs.items() if not c]
     if vacios:
@@ -182,10 +279,11 @@ def cmd_check():
 
     if problemas:
         print('\n%d plantilla(s) con etiquetas sin catalogar.' % problemas)
+        print('Búscalas antes de darlas por nuevas:  python3 scripts/variables.py --buscar <palabra>')
         return 1
     print('  ✓ las %d plantillas usan solo variables del catálogo (%d variables)'
-          % (len(archivos), len(cat['variables'])))
-    sin_usar = len([n for n in por_nombre(cat) if n not in usadas])
+          % (total_docs, len(cat['variables'])))
+    sin_usar = len([n for n in nombres if n not in usadas])
     print('  · %d variables del catálogo no las usa ninguna plantilla Word '
           '(son de las plantillas HTML del CLM y de concordancia)' % sin_usar)
     return 0

@@ -77,6 +77,30 @@
       "tipo": "fecha"
     },
     {
+      "id": "pmc1m7qktf3v6u",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "horaCierre",
+      "descripcion": "Hora de cierre de la sesión de la Comisión",
+      "ejemplo": "11h45",
+      "tipo": "texto"
+    },
+    {
+      "id": "pm8cdoao94bguf",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "horaSesion",
+      "descripcion": "Hora de inicio de la sesión de la Comisión",
+      "ejemplo": "09h30",
+      "tipo": "texto"
+    },
+    {
+      "id": "pm2xe2hpbl97d5",
+      "grupo": "Adjudicación (doc 5)",
+      "nombre": "lugarSesion",
+      "descripcion": "Lugar donde sesiona la Comisión. No confundir con {lugar}, que es el lugar de entrega o prestación",
+      "ejemplo": "Sala de reuniones del FIAS, Quito",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrkumrwi0pdcp",
       "grupo": "Adjudicación (doc 5)",
       "nombre": "monto1",
@@ -136,7 +160,359 @@
       "id": "pmtu6qdn9ko4o2",
       "grupo": "Adjudicación (doc 5)",
       "nombre": "provs",
-      "descripcion": "Bloque repetible {#provs}…{/provs} con los proveedores que presentaron oferta. Campos: n, razon, ruc, dir, tel, monto, fof. Alternativa al esquema plano prov1/fof1/monto1.",
+      "descripcion": "Bloque repetible {#provs}…{/provs} con los proveedores que presentaron oferta. Campos: n, razon, ruc, dir, tel, monto, fof, hof. Alternativa al esquema plano prov1/fof1/monto1.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pmv6yfw1qyshms",
+      "grupo": "Calificador de ofertas",
+      "nombre": "actaNo",
+      "descripcion": "Número del acta de la Comisión",
+      "ejemplo": "001",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmskwm4bkbxzes",
+      "grupo": "Calificador de ofertas",
+      "nombre": "codigoProc",
+      "descripcion": "Código del proceso que encabeza el acta de calificación",
+      "ejemplo": "FIAS-FAP-2026-014",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmwxeuu53hj2kp",
+      "grupo": "Calificador de ofertas",
+      "nombre": "comision",
+      "descripcion": "Bloque repetible con la Comisión completa, para la tabla de firmas en lista. Campos: nombre, cargo, rol.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pmveg6i3ly6l6i",
+      "grupo": "Calificador de ofertas",
+      "nombre": "decisionUnica",
+      "descripcion": "Pronunciamiento de la Comisión cuando se presentó una sola oferta: si la declara conveniente a los intereses institucionales o no",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmwipely0jn79c",
+      "grupo": "Calificador de ofertas",
+      "nombre": "docs",
+      "descripcion": "Matriz de entrega de formularios por oferente. Va ANIDADO dentro de {docsGate}. Campos: formulario, detalle, res.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pml7hg3e8q6pnf",
+      "grupo": "Calificador de ofertas",
+      "nombre": "docsGate",
+      "descripcion": "Condición {#docsGate}…{/docsGate}: envuelve la matriz de documentos y solo la imprime cuando la entrega se evalúa como requisito y no por puntos. No lleva campos.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pml0q6206hv5ka",
+      "grupo": "Calificador de ofertas",
+      "nombre": "economicos",
+      "descripcion": "Evaluación económica por oferente, esquema Cumple/No cumple. Campos: razon, total, enPresupuesto, difPresupuesto.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pmplmdmd5l343g",
+      "grupo": "Calificador de ofertas",
+      "nombre": "ecoOfs",
+      "descripcion": "Calificación económica por oferente, esquema por puntos. Lleva dentro el bloque {rows}. Campos: razon, ruc, m1nom, m2nom, m3nom, m4nom, e, ecoMax, tt1, tt2, tt3, tt4, totProm, puntosTotal, montoLetras, ahorroTxt.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pmkmn5seexff5z",
+      "grupo": "Calificador de ofertas",
+      "nombre": "montoAdjLetras",
+      "descripcion": "Monto adjudicado en letras, en el acta por puntos",
+      "ejemplo": "",
+      "tipo": "letras"
+    },
+    {
+      "id": "pmigoofet56usz",
+      "grupo": "Calificador de ofertas",
+      "nombre": "prelacion",
+      "descripcion": "Bloque repetible con el orden de prelación entre las ofertas adjudicables. Campos: orden, razon, tec, eco, totalPts.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pm51sdsogo3gz4",
+      "grupo": "Calificador de ofertas",
+      "nombre": "puntosTotal",
+      "descripcion": "Puntaje total del proceso (técnico + económico)",
+      "ejemplo": "100",
+      "tipo": "numero"
+    },
+    {
+      "id": "pm3uyjdiqoa89d",
+      "grupo": "Calificador de ofertas",
+      "nombre": "reqs",
+      "descripcion": "Requisitos evaluados de un oferente. Va ANIDADO dentro de {tecnicos}. Campos: req, res.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pmskd7vygny1xn",
+      "grupo": "Calificador de ofertas",
+      "nombre": "rows",
+      "descripcion": "Filas de criterios con la nota de cada miembro. Va ANIDADO dentro de {tecOfs} y de {ecoOfs}. Campos: criterio, max, n1, n2, n3, n4, promedio.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pm1nqq2or95g9d",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s1cargo",
+      "descripcion": "Cargo del miembro 1 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pm9s43kxbzqw0r",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s1nom",
+      "descripcion": "Nombre del miembro 1 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmeib2jl658hd3",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s1rol",
+      "descripcion": "Rol en la Comisión del miembro 1 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmruvxg2qdahxo",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s2cargo",
+      "descripcion": "Cargo del miembro 2 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pm3xjv8n4q2ntn",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s2nom",
+      "descripcion": "Nombre del miembro 2 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmxo69mscnacbp",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s2rol",
+      "descripcion": "Rol en la Comisión del miembro 2 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmdow9n4127llu",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s3cargo",
+      "descripcion": "Cargo del miembro 3 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmjno0lpxm6djt",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s3nom",
+      "descripcion": "Nombre del miembro 3 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmxs9rp93ch0qj",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s3rol",
+      "descripcion": "Rol en la Comisión del miembro 3 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pm30oqa5org56a",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s4cargo",
+      "descripcion": "Cargo del miembro 4 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmwk2w3tr4kir5",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s4nom",
+      "descripcion": "Nombre del miembro 4 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pml1egvw16ep3g",
+      "grupo": "Calificador de ofertas",
+      "nombre": "s4rol",
+      "descripcion": "Rol en la Comisión del miembro 4 de la tabla de firmas (con voz pero sin voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {sinVoto}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmincda445lvxh",
+      "grupo": "Calificador de ofertas",
+      "nombre": "sinVoto",
+      "descripcion": "Miembros con voz pero sin voto, y Secretaría. Campos: nombre, cargo, rol.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pm2ig661rc3u3a",
+      "grupo": "Calificador de ofertas",
+      "nombre": "tecMax",
+      "descripcion": "Puntaje técnico máximo del proceso",
+      "ejemplo": "80",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmoer6apq2kqdz",
+      "grupo": "Calificador de ofertas",
+      "nombre": "tecnicos",
+      "descripcion": "Evaluación técnica por oferente, esquema Cumple/No cumple. Lleva dentro el bloque {reqs}. Campos: razon, resultado.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pmgwy0y0z82kt3",
+      "grupo": "Calificador de ofertas",
+      "nombre": "tecOfs",
+      "descripcion": "Calificación técnica por oferente, esquema por puntos. Lleva dentro el bloque {rows}. Campos: razon, m1nom, m2nom, m3nom, m4nom, t1, t2, t3, t4, tecMax, tecProm, resultadoTec.",
+      "ejemplo": "",
+      "tipo": "repetible"
+    },
+    {
+      "id": "pmsp35rz7mhb8m",
+      "grupo": "Calificador de ofertas",
+      "nombre": "totalAdj",
+      "descripcion": "Puntaje total obtenido por el oferente adjudicado",
+      "ejemplo": "92,50",
+      "tipo": "numero"
+    },
+    {
+      "id": "pmrp4lyx2u33jc",
+      "grupo": "Calificador de ofertas",
+      "nombre": "umbral",
+      "descripcion": "Puntaje técnico mínimo para pasar a la fase económica",
+      "ejemplo": "70",
+      "tipo": "numero"
+    },
+    {
+      "id": "pms9ueg20zcl4w",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v1cargo",
+      "descripcion": "Cargo del miembro 1 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmjhfqaa6uqhav",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v1nom",
+      "descripcion": "Nombre del miembro 1 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmgff2nxzsh6fn",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v1rol",
+      "descripcion": "Rol en la Comisión del miembro 1 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmkr3e8113cwrf",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v2cargo",
+      "descripcion": "Cargo del miembro 2 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmxxwvmsheqpyh",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v2nom",
+      "descripcion": "Nombre del miembro 2 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmyhgbmibtig1i",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v2rol",
+      "descripcion": "Rol en la Comisión del miembro 2 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmg7evo8wh4fh1",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v3cargo",
+      "descripcion": "Cargo del miembro 3 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmodeqg8i3rnh1",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v3nom",
+      "descripcion": "Nombre del miembro 3 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmtg4meu2h4dkr",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v3rol",
+      "descripcion": "Rol en la Comisión del miembro 3 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pma0sc0dbteq39",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v4cargo",
+      "descripcion": "Cargo del miembro 4 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmw096fi2b3mdk",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v4nom",
+      "descripcion": "Nombre del miembro 4 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pm7vi3ti8ktj9b",
+      "grupo": "Calificador de ofertas",
+      "nombre": "v4rol",
+      "descripcion": "Rol en la Comisión del miembro 4 de la tabla de firmas (con voz y voto). Existe porque Word no repite columnas: la tabla tiene cuatro fijas en vez del bloque {votM}. Con más de cuatro, se usa Imprimir → PDF.",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmxd7z1g6suw8a",
+      "grupo": "Calificador de ofertas",
+      "nombre": "votM",
+      "descripcion": "Miembros de la Comisión con voz y voto. Campos: nombre, cargo, rol.",
       "ejemplo": "",
       "tipo": "repetible"
     },
@@ -1473,6 +1849,22 @@
       "nombre": "garantiaTexto",
       "descripcion": "Párrafo de garantía técnica ya redactado, incluida la variante de «no aplica».",
       "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmdyeu7bwr3emo",
+      "grupo": "Proceso",
+      "nombre": "lineaCod",
+      "descripcion": "Código de la línea presupuestaria, por separado. Junto a {lineaNom} forma {lineaNombre}",
+      "ejemplo": "3.1.3.1",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmdgg9riuy533a",
+      "grupo": "Proceso",
+      "nombre": "lineaNom",
+      "descripcion": "Nombre de la línea presupuestaria, por separado. Junto a {lineaCod} forma {lineaNombre}",
+      "ejemplo": "Combustible",
       "tipo": "texto"
     },
     {

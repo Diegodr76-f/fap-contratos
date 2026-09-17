@@ -1,5 +1,17 @@
 # Tags de las plantillas del acta
 
+> **Los nombres no se inventan aquí.** El vocabulario de todo el repositorio vive en
+> `generador/variables_fap.json`; este documento solo dice cuáles de esas variables envía el
+> Calificador y cómo se arman sus bucles. Antes de añadir una etiqueta a una plantilla:
+>
+> ```bash
+> python3 scripts/variables.py --buscar <palabra>          # ¿ya tiene nombre?
+> python3 scripts/variables.py "Calificador de ofertas"    # lo propio de esta herramienta
+> python3 scripts/variables.py --check                     # ¿las plantillas lo respetan?
+> ```
+>
+> Si el dato es nuevo de verdad, se da de alta en el catálogo **antes** de escribirlo en el Word.
+
 El botón **Acta Word** del Calificador rellena la plantilla que corresponde al esquema,
 con `docxtemplater`. Para cambiar el formato: edita el `.docx` en Word conservando los
 `{tags}` y reemplaza el archivo en esta carpeta (GitHub) — igual que las plantillas de La
