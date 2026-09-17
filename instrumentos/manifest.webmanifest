@@ -1,0 +1,17 @@
+{
+  "name": "Generador de Instrumentos Legales · FAP",
+  "short_name": "Instrumentos",
+  "description": "Generador de contratos, convenios y actas en Word para la Unidad Legal del FAP/FIAS.",
+  "lang": "es",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F4F6FC",
+  "theme_color": "#00249C",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

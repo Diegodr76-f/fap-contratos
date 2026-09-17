@@ -39,6 +39,21 @@ Dos comprobaciones lo sostienen, y conviene correr ambas antes de dar algo por b
 `scripts/variables.py --check` mira las plantillas, y `scripts/probar_generador.js`
 mira lo que La Mágica les entrega —y, de paso, rellena las 18 de verdad.
 
+`--check` recorre **todas** las carpetas con `.docx` del repositorio, descubriéndolas
+en vez de listarlas, para que una herramienta nueva quede cubierta el día que nace y
+no el día que alguien se acuerde. Antes miraba solo `generador/plantillas/`, y por ese
+hueco el Calificador creció con 76 etiquetas propias sin que nada se quejara. Lo único
+que se salta es `bases/`, y está declarado en `CARPETAS_A_MANO`: esos `.docx` se
+rellenan a mano con `[CORCHETES]`, no con etiquetas de docxtemplater.
+
+Y ya no hace falta acordarse: `.github/workflows/comprobaciones.yml` corre todo esto
+en cada push y cada pull request.
+
+**La norma viaja.** `.claude/skills/variables-fap/` es la misma regla empaquetada como
+skill, con su copia del catálogo y del script, para que aplique también fuera de este
+repositorio. Dentro de él manda siempre el catálogo del repositorio, nunca la copia; el
+CI comprueba que las dos no se separen.
+
 ## Que los .docx se abran: `scripts/validar_docx.py`
 
 **Un .docx puede ser un zip con XML impecable y aun así estar roto.** En
@@ -126,6 +141,13 @@ América) incluidos impuestos`. En la plantilla van **solos**; escribir
 `USD {monto} ({montoLetras})` —que es lo natural si uno viene del generador de
 instrumentos jurídicos, donde esa variable sí son solo las palabras— duplica el
 número en el documento firmado.
+
+Hoy conviven **tres formatos** para esa misma variable —La Mágica trae cifra y
+«incluidos impuestos», el Calificador cifra sin la coletilla, el CRM y el CLM solo
+las palabras—, y hay un documento que ya sale con la frase duplicada. Los tres,
+con ejemplos y con lo que hay que mirar antes de escribir un monto, están en
+`.claude/skills/variables-fap/references/formatos.md`. **Esa es la referencia; no
+la repitas aquí**, o acabarán contándose distinto.
 
 **Las plantillas se editan en Word, a mano.** No hay script que las genere: el
 formato es de quien firma los documentos. Después de tocar una, siempre:

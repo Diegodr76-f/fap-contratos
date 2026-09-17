@@ -590,6 +590,14 @@ nada.
   `FLOW_DOCS_URL` dentro de `generador/index.html`.
   Lo que la campaña de renovaciones 2027 añadió está en
   [La Mágica para las renovaciones](#la-mágica-para-las-renovaciones).
+- **`/instrumentos/`** — Generador de Instrumentos Legales para la Unidad Legal
+  (`instrumentos/index.html`). Genera contratos, convenios y actas en Word. El modo principal
+  son **plantillas Word reales** etiquetadas con `{tags}` —mismo motor docxtemplater que La
+  Mágica—, con plantillas HTML como modo secundario para documentos rápidos. Aporta tres piezas
+  que las demás herramientas no tienen: un **repositorio de cláusulas** con variantes vinculadas,
+  **grupos de concordancia** como dato (una elección gobierna varias palabras a la vez) y la
+  marca de **campo obligatorio**, que impide descargar un documento al que le falta un dato
+  esencial. Toma los datos del registro de contratos y genera en lote.
 
 ## URL pública
 
