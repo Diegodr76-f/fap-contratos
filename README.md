@@ -84,7 +84,7 @@ y envío a la Unidad Operativa por el mismo flujo de Power Automate
 
 El **Mapa de áreas** es autónomo como el resto del CLM: la silueta del país es un
 trazado SVG incrustado (Natural Earth, dominio público) y las coordenadas de las
-44 áreas protegidas viven en una tabla fija dentro del propio archivo, así que no
+45 áreas protegidas viven en una tabla fija dentro del propio archivo, así que no
 llama a ningún servicio de mapas —funciona igual en redes que bloquean CDNs y sin
 internet—. La procedencia de cada coordenada, las variantes de nombre que el CLM
 unifica y cómo agregar un área están en **[`clm/MAPA_AREAS.md`](clm/MAPA_AREAS.md)**.

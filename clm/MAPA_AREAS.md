@@ -32,8 +32,8 @@ días), azul si está al día y gris si todo está terminado o cerrado.
 
 ## Verificación
 
-Las 44 coordenadas se contrastaron contra el polígono de Ecuador de Natural
-Earth (escala 1:10 m): 36 caen dentro del territorio y las 8 restantes son
+Las 45 coordenadas se contrastaron contra el polígono de Ecuador de Natural
+Earth (escala 1:10 m): 37 caen dentro del territorio y las 8 restantes son
 reservas marinas, islas y desembocaduras que por definición quedan sobre el
 agua o en el borde (El Pelado a 5 km de la costa, Isla Santa Clara a 22 km en
 el golfo de Guayaquil, Galera San Francisco, Isla Santay, el estuario del río
@@ -86,6 +86,7 @@ centrada en el accidente geográfico homónimo del área.
 | RVS Machángara Tomebamba | -2.7500 | -79.0500 | Desc. | Páramos al norte de Cuenca (Azuay/Cañar) |
 | RVS Manglares El Morro | -2.6800 | -80.3100 | Desc. | Canal de El Morro, entre Puerto El Morro y Posorja |
 | RVS Manglares Estuario Río Muisne | 0.6000 | -80.0200 | Desc. | Desembocadura del río Muisne |
+| RVS Marino Costero Pacoche | -1.0330 | -80.7900 | Desc. | Cerros de Pacoche / Cabo San Lorenzo, entre Manta y Puerto Cayo (Manabí) |
 | RVS Pasochoa | -0.4667 | -78.4833 | Hito | Volcán Pasochoa |
 | ANR El Boliche | -0.6000 | -78.5000 | Hito | Junto al PN Cotopaxi, sector El Boliche |
 | ANR Isla Santay | -2.2170 | -79.8500 | Pub. | 2°13′S 79°51′O |
@@ -107,6 +108,7 @@ original queda guardado en `areaOriginal` por si hace falta rastrearlo.
 | `Reserva de Producción de Fauna Marina Costera Puntilla Santa Elena` | …Marino Costera Puntilla Santa Elena |
 | `Reserva Biológica Colonso Chalupas ` (espacio final) | Reserva Biológica Colonso Chalupas |
 | `Reserva Ecológica Cayambe Coca` · `Cotacachi Cayapas` · `Antisana` | Parque Nacional … *(recategorizadas)* |
+| `Pacoche` · `Refugio de Vida Silvestre y Marino Costera Pacoche` | Refugio de Vida Silvestre Marino Costero Pacoche |
 
 La comparación ignora tildes, mayúsculas, signos y espacios repetidos, así que
 las variantes nuevas de ese estilo se absorben solas.
