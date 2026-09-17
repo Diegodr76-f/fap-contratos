@@ -22,11 +22,12 @@ jobs:
           python-version: '3.12'
 
       - name: Instalar dependencias
-        run: pip install openpyxl requests
+        run: pip install openpyxl requests cryptography
 
-      - name: Leer el Excel maestro y regenerar los datos
+      - name: Leer el Excel maestro y regenerar los datos (cifrados)
         env:
           EXCEL_URL: ${{ secrets.EXCEL_URL }}
+          DATA_KEY: ${{ secrets.DATA_KEY }}
         run: python scripts/actualizar_datos.py
 
       - name: Publicar cambios (solo si hay datos nuevos)

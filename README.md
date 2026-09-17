@@ -2,8 +2,580 @@
 
 Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gestión del ciclo de vida de contratos.
 
+## Calificador de Ofertas — evaluación de procesos de selección
+
+**`/calificacion/index.html`** es la herramienta para calcular y ordenar las ofertas de los
+**procesos de selección por convocatoria** (los que generan las *bases de concurso*). Nace para
+resolver el problema de que la calificación es difícil de aplicar a mano. Es una página HTML
+autónoma (sin backend ni librerías externas) y cubre los **dos esquemas** que usa el FAP:
+
+| Esquema | Para qué procesos | Cómo califica |
+|---------|-------------------|---------------|
+| **Por puntos** | Consultorías y servicios | Criterios técnicos ponderados (p. ej. Perfil 35 + Oferta técnica 45) **+** oferta económica **inverso-proporcional** (20). Solo pasan a la económica quienes superan el **umbral técnico**. Gana el mayor puntaje total (sobre 100). |
+| **Cumple / No cumple** | Bienes y servicios con postcalificación | Requisitos legales y técnicos **habilitantes** (todos deben cumplir). Entre quienes cumplen, se adjudica al **menor precio**. |
+
+**Qué hace:**
+
+- Matriz de evaluación **editable** (criterios, puntos, requisitos y umbral) — sirve para *distintos*
+  procesos de adquisiciones y consultorías, no solo para un caso.
+- Ingreso de varios oferentes con su precio y el puntaje consolidado de la Comisión por criterio.
+- Cálculo automático: puntaje técnico, aplicación del umbral, puntaje económico inverso-proporcional,
+  total, **orden de prelación** y **oferta recomendada** para adjudicación.
+- **Acta de adjudicación** con el formato oficial de la Comisión (Acta N.º, Datos del proceso,
+  quórum, orden del día, PRIMERO–QUINTO, cierre y firmas por rol). Se puede **imprimir/guardar en PDF**
+  (la vista se adapta al esquema: puntajes o Cumple/No cumple, con desglose de IVA) o **descargar en Word**
+  (botón *Acta Word*), que rellena la plantilla correcta con el mismo motor docxtemplater que usa La Mágica.
+  Según el esquema, el botón elige automáticamente la plantilla:
+  `plantillas/Acta_de_adjudicacion.docx` (Cumple/No cumple · comparación de precios, la plantilla oficial
+  del equipo) o `plantillas/Acta_de_adjudicacion_puntos.docx` (consultorías por puntos, con tablas de
+  puntaje técnico y económico). Las dos plantillas usan bucles: el quórum se adapta a los miembros
+  agregados en la herramienta (`{#items}{miembros}`) y las tablas técnica y económica generan una fila
+  o bloque por oferente (Word no permite columnas dinámicas). Presupuesto y monto adjudicado se expresan
+  también en letras. La lista completa de tags para editar las plantillas está en
+  `calificacion/plantillas/TAGS.md`.
+- Exportación **CSV** de resultados, guardar/abrir el proceso en **JSON**, y persistencia local.
+- **Sección de calificación para las bases**: genera el texto normalizado (idéntico a la matriz)
+  para pegarlo en la sección de criterios de calificación de las bases — así las *bases* y la
+  *herramienta* siempre dicen lo mismo.
+
+Trae dos ejemplos precargados con casos reales: **Consultoría de Delitos Ambientales** (por puntos,
+35/45/20, umbral 75) y **Adquisición de motor fuera de borda PN Machalilla** (Cumple/No cumple, menor
+precio). Está integrada dentro del CLM (menú *Herramientas integradas → Calificador de ofertas*).
+
+## Plantillas de bases de concurso
+
+**`/bases/`** contiene dos **plantillas estándar de bases** en Word, actualizadas y con la sección de
+calificación redactada de forma clara y sin ambigüedad (coincide exactamente con el Calificador):
+
+- `Plantilla_Bases_Consultoria_por_puntos_FAP-FIAS.docx` — consultorías (calificación por puntos).
+- `Plantilla_Bases_Bienes_Servicios_CumpleNoCumple_FAP-FIAS.docx` — bienes/servicios (Cumple/No cumple + menor precio).
+
+Se reutilizan reemplazando los campos entre `[CORCHETES]`. La sección de criterios de calificación de
+cada plantilla puede regenerarse desde el Calificador de Ofertas para mantener la coherencia.
+
+## CLM — Contract Lifecycle Management (aplicación unificada)
+
+**`/clm/index.html`** es la plataforma única y funcional que reúne todo el ciclo de vida
+del contrato en una sola aplicación, siguiendo el modelo estándar de un CLM
+(intake → elaboración → firma → ejecución → obligaciones → renovación → analítica).
+Lee la misma base viva del CRM (`crm/contratos_export.json`) y usa las mismas
+plantillas Word reales (`crm/plantillas/`).
+
+**Módulos:**
+
+| Módulo | Qué hace |
+|--------|----------|
+| **Panel** | KPIs en vivo, estado del portafolio, vencimientos a 12 meses, valor por categoría, alertas urgentes y actividad reciente |
+| **Pipeline** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado |
+| **Contratos** | Repositorio central con búsqueda global (también por n.º de carpeta y código del proceso), filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases, bloque **Expediente** y línea de tiempo |
+| **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa |
+| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar, contratos sin carpeta de elaboración |
+| **Reportes** | Analítica por categoría/área/AC + exportación CSV del portafolio |
+| **Mapa de áreas** | Mapa del Ecuador con las áreas protegidas que tienen contratos: cada círculo es un área, su tamaño el monto (o el n.º de contratos) y su color el estado más urgente; al tocar una se listan sus contratos y montos, con salida a CSV |
+| **Bitácora** | Registro de auditoría de cada acción (autor, fecha, contrato) |
+| **La Mágica / CRM clásico** | Las herramientas originales embebidas, completas y funcionales |
+
+**Acciones del ciclo de vida** (desde el detalle del contrato, con las plantillas
+oficiales): modificación con reglas 25 % (adenda) / 50 % (bloqueo) e informe
+FAP-2026-11; terminación con causal y acta FAP-2026-12; calificación de proveedor
+FO-AD-ABC-017 (13 criterios, 40/30/5/25) con CSV para el banco de calificaciones;
+y envío a la Unidad Operativa por el mismo flujo de Power Automate
+(`FLOW_DOCS_URL`) que usan La Mágica y el CRM.
+
+El **Mapa de áreas** es autónomo como el resto del CLM: la silueta del país es un
+trazado SVG incrustado (Natural Earth, dominio público) y las coordenadas de las
+44 áreas protegidas viven en una tabla fija dentro del propio archivo, así que no
+llama a ningún servicio de mapas —funciona igual en redes que bloquean CDNs y sin
+internet—. La procedencia de cada coordenada, las variantes de nombre que el CLM
+unifica y cómo agregar un área están en **[`clm/MAPA_AREAS.md`](clm/MAPA_AREAS.md)**.
+
+**Roles de ingreso:** Administradora (AC), Área protegida o Unidad Operativa
+(portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
+calificaciones, bitácora) se guarda en el navegador (`localStorage`).
+
+### El expediente: del contrato a su carpeta
+
+El número de contrato (`FIAS-FAP-2026-089`) se asigna **al final**, cuando la Unidad Operativa
+ya elaboró el documento. La carpeta donde se elaboró está numerada por **orden de llegada** —la
+1 es la primera que se elaboró—, así que su número no dice nada del contrato, ni del área, ni
+del proveedor: solo dice *cuándo tocó*. Nada ata una cosa con la otra, y por eso revisar «el
+mantenimiento de Chimborazo» era buscar el contrato en el CLM y después la carpeta a ojo, entre
+las que se parecieran.
+
+Esa correspondencia no se puede deducir: solo la sabe quien elaboró los contratos. Así que se
+escribe en **columnas de la hoja `2026` del Excel maestro**:
+
+| Columna | Qué lleva |
+|---|---|
+| `Numero de carpeta interna` | El número de la carpeta del expediente (`47`) |
+| `CodigoProceso` | El código del expediente de la AC que arma La Mágica (`RPFCH-2026-007`) — opcional, todavía no existe |
+
+Las dos son opcionales y el robot no se rompe si no están (lee con el mismo `col()`/`val()`
+tolerante que usa para la liquidación). Tampoco hay que llenarlas de una sentada: cada vez que se
+busca una carpeta se escribe su número en esa fila, y esa búsqueda no se repite nunca más.
+
+**Los 138 contratos de 2026 ya la tienen llena**, del 1 al 141 y sin repetidos, así que el
+histórico entero quedó conectado de entrada.
+
+Con eso, el CLM deja de ser un callejón sin salida:
+
+- **Bloque «Expediente»** en el detalle del contrato, con los tres números que hasta ahora vivían
+  en sistemas distintos —contrato, código del proceso y n.º de carpeta interna— en una sola fila.
+  Los que faltan dicen *sin registrar*; no se esconden.
+- **Búsqueda en las dos direcciones**: escribir `47` encuentra el contrato de esa carpeta, y
+  escribir `Chimborazo` muestra su n.º de carpeta sin abrir el detalle. Ese es el camino que
+  antes se hacía a ojo.
+- **El número en el listado y en las tarjetas**, bajo el número de contrato.
+- **Filtro «Sin carpeta» y una alerta agregada** —una sola, no una por contrato— para ir bajando
+  lo que falta. Las dos son de la Unidad Operativa, que es quien tiene las carpetas, y solo
+  aparecen cuando ya hay alguna carpeta registrada: antes de empezar serían un cartel permanente
+  que no dice nada.
+
+Cuando se toque esta parte del CLM:
+
+```bash
+npm install jsdom
+node scripts/probar_clm.js
+```
+
+Carga el CLM en un DOM de mentira y lo maneja desde fuera. Cubre el bloque, la búsqueda, el
+listado, el filtro, la alerta y —lo que más importa— que un portafolio **sin ninguna carpeta
+registrada** se siga pintando exactamente igual que antes.
+
+## Centro de mando diario — herramienta personal
+
+**`/centro/index.html`** es una herramienta **personal**, aparte del ciclo de vida de contratos:
+no lee la base del CRM ni toca el CLM. Nace de un problema distinto — que las cosas se olvidan
+porque viven repartidas entre Recordatorios, Microsoft To Do, Planner, los correos marcados y el
+calendario — y las junta en **un solo lugar**.
+
+**La idea:** cuatro plazos en vez de una lista infinita — *Hoy* (ahora), *Corto plazo* (esta
+semana), *Mediano plazo* (este mes) y *Largo plazo* (algún día). Lo que tiene fecha **sube solo** de plazo
+cuando se acerca, así que nada se queda escondido en «algún día», y la **revisión del día** obliga
+a decidir, una por una, qué pasa con lo que se pasó de fecha (lo que ni Recordatorios ni To Do hacen:
+ahí lo vencido se queda en rojo para siempre).
+
+**Qué más trae:** captura en lenguaje natural (*«pagar el arriendo el viernes 9am»* se entiende sola,
+con `#personal`/`#trabajo`/`#curso` y `cada semana`), agenda de ocho días, notas, exportación a
+`.ics` para llevarte los pendientes a Recordatorios, copia de seguridad en JSON y atajos de teclado
+(`/` capturar, `1`–`4` plazos, `r` revisión).
+
+**Automatización con el trabajo:** un único flujo de Power Automate propio trae las tareas de
+**To Do**, las de **Planner** asignadas a ti, los **correos marcados** de Outlook y las reuniones del
+**calendario**; y devuelve a **To Do** lo que escribes aquí, para que la alarma suene donde ya suena
+(celular, Outlook, reloj). El paso a paso está en **[`centro/CONECTAR.md`](centro/CONECTAR.md)**.
+
+> Ojo con un detalle que define el diseño: To Do sí unifica los **correos marcados**, pero las tareas
+> de **Planner** solo las *muestra* en «Asignadas a mí» (no las entrega por API) y el **calendario**
+> nunca está ahí. Por eso el flujo lee tres conectores, no uno.
+
+**Privacidad:** a diferencia del CRM/CLM, aquí **no se publica ningún dato**. Las tareas viven en el
+navegador (`localStorage`) y viajan directo entre tu dispositivo y tu flujo; la URL del flujo se
+guarda solo en tu navegador y nunca en el repositorio. Es una **PWA**: se instala en el celular
+(*Compartir → Añadir a pantalla de inicio*) y en el escritorio, y funciona sin internet — lo que no
+se pueda enviar se envía después.
+
+GitHub Pages gratuito no permite sitios privados, así que la primera vez que abres `/centro/` en
+cada dispositivo te pide **crear tu propia frase de acceso** (no se comparte con nadie ni sale de
+ese navegador); sin ella nadie que encuentre el link ve nada. No es cifrado real —es una cortina,
+no una caja fuerte—, pero cumple su función: nadie entra sin la frase, y como las tareas nunca se
+publican, tampoco hay nada que robar aunque alguien la esquivara.
+
+## Contratos 2027 — la pantalla de las administradoras
+
+**`/renovaciones/index.html`** es donde cada administrador/a contador/a entra, elige su nombre y ve
+**sus contratos vigentes desplegados**, cada uno con su monto del año (adendas incluidas), el
+proveedor y la fecha en que arrancaría el contrato de 2027. Para cada contrato responde una sola
+pregunta, la que corresponde:
+
+- **Si se puede renovar** — porque el contrato de 2026 se firmó como nuevo: *¿renuevas con el mismo
+  proveedor, cambias de proveedor, o el área ya no necesita el servicio?*
+- **Si necesita proceso nuevo** — porque ya renovó y el cupo está agotado: *¿contratación directa
+  con el mismo proveedor, o comparación de precios?* Al elegir comparación aparece en pantalla lo
+  que exige esa vía: mínimo tres invitaciones y Comisión de Calificación.
+
+Lee la **misma base cifrada** que el CRM y el CLM (`crm/contratos_export.json`, que el robot diario
+regenera), con la misma frase de acceso, así que no hay una segunda lista que mantener. Las
+decisiones se guardan solas en el navegador mientras trabaja —puede cerrar y volver— y salen por
+dos vías: **descargando un CSV** que responde por correo, o **enviándose a Power Automate** si se
+configura `FLOW_URL` en el archivo. Sin flujo configurado la pantalla funciona igual: el CSV no
+depende de nada.
+
+### Prioridad por fecha de arranque
+
+La pantalla ordena los contratos por **cuándo arranca el servicio de 2027**, no por tipo de proceso,
+porque esa es la fecha que decide cuánta retroactividad se acumula mientras el expediente espera:
+
+| Grupo | Contratos | Qué significa |
+|---|---:|---|
+| **Arranca en enero** | 77 | El servicio empieza el 1 de enero: desde ese día hay retroactividad si el contrato no está firmado. Van primero. |
+| **Arranca en febrero** | 50 | Empieza el 1 de febrero. Todavía alcanza a firmarse a tiempo si el expediente está listo en diciembre. |
+| **Arranca más adelante** | 3 | El contrato vigente sigue unos meses más. Cola normal. |
+
+Cada administradora ve **cuántos de los suyos** caen en cada grupo, con un aviso arriba si tiene
+contratos de enero, y puede filtrar con un clic para trabajar solo ese bloque. Cada tarjeta lleva su
+etiqueta de prioridad y la fecha exacta de arranque. Con el botón *Renovación o proceso nuevo* vuelve
+a la agrupación anterior si la prefiere. La prioridad y la fecha de arranque salen también en el CSV
+de respuestas (`prioridad`, `grupoArranque`, `arranca2027`).
+
+## Plan de renovaciones 2027
+
+**[`plan/PLAN_RENOVACIONES_2027.md`](plan/PLAN_RENOVACIONES_2027.md)** responde, contrato por
+contrato, la pregunta que ordena el año: **¿se puede renovar, o hay que hacer un nuevo proceso
+administrativo?** El FIAS permite renovar una sola vez, así que de los 128 contratos activos de
+servicios recurrentes de áreas protegidas **39 se pueden renovar y 89 no**: esos salen por
+contratación directa, con el criterio de proveedor calificado y recurrencia del servicio.
+Contra el Sistema de Alertas actualizado el universo vigente es de **130 contratos activos de
+servicios recurrentes: 41 renovables y 89 procesos nuevos**, USD 518 809. De esos, **129 son de
+áreas protegidas** (40 renovables y 89 nuevos, USD 512 359) y uno es el contrato de comunicación
+de la Unidad Operativa FAP, de nivel central, que nace con posibilidad de renovación.
+
+La meta es el expediente, no la firma. **El PAG se aprueba en promedio hasta el 15 de enero**, y
+sin PAG no se puede suscribir ni pedir una cotización en firme, porque es el PAG el que fija el
+presupuesto de cada área. Por eso el plan separa los documentos que no necesitan el monto (bloque
+1, septiembre a diciembre) de los que sí (bloque 2), reparte los 128 expedientes en 13 semanas con
+un cupo de 10 —el orden no adelanta la firma, pero define el puesto en la fila del 15 de enero en
+adelante— y trae ocho medidas para bajar el tiempo de revisión.
+
+La simulación, calibrada contra los tiempos reales de 2026, estima cuándo saldría firmado cada
+contrato: con el plan y 13 firmas semanales, la última firma pasa de junio a marzo y la
+retroactividad mediana de 80 a 42 días.
+
+Las administradoras responden por **Microsoft Forms**, con un enlace por contrato que ya lleva el
+número, el área y el detalle rellenados: las respuestas caen solas en un Excel y el script las
+cruza con el plan, sin transcribir nada. Funciona con el Microsoft 365 básico —sin conectores
+premium, sin disparador HTTP y sin permisos de IT— y el montaje está en
+**[`plan/FORMULARIO_CONFIRMACION.md`](plan/FORMULARIO_CONFIRMACION.md)**.
+
+El anexo operativo —maestro contrato por contrato, calendario, carga por administradora, la
+simulación y los 20 correos de consulta ya redactados, cada uno con sus dos listas y sus botones de
+confirmación— **no se versiona**: el repositorio es público y lleva datos de contratos. Se regenera cuando se necesita:
+
+```bash
+python3 scripts/plan_renovaciones.py <Sistema_Alertas_Contratos_FIAS.xlsx> <carpeta_salida>
+```
+
+## Planificador adaptativo — planificar por rutas alternas
+
+**`/planificador/index.html`** es la herramienta general de planificación. Nace del plan de
+renovaciones 2027, pero no está atada a ese caso: maneja **varios planes**, con distintos métodos,
+y no depende de un Excel.
+
+Aplica el método de **rutas adaptativas** (*Dynamic Adaptive Policy Pathways*, la formalización
+del ciclo de adaptación que usa la UICN). La idea de fondo: un plan a un año no falla de golpe,
+se va desviando, y para no descubrirlo tarde hay que decidir **por anticipado** qué se mide, en
+qué valor se cambia de estrategia y cuánto tarda ese cambio en montarse.
+
+| Concepto | Qué es | Ejemplo en renovaciones 2027 |
+|---|---|---|
+| **Señal** | Lo que se mide para saber si el plan sigue sirviendo | Cobertura de respuesta de las administradoras |
+| **Disparador** | El valor en que hay que **empezar a preparar** la ruta alterna | Bajo 80 % |
+| **Punto de no retorno** | El valor en que la estrategia actual ya dejó de servir | Bajo 60 % |
+| **Ruta alterna** | A qué se cambia | Extender el plazo y escalar al responsable del área |
+| **Tiempo de preparación** | Cuánto tarda esa ruta en estar operando | 7 días |
+
+**Qué hace, que un Excel no hace:**
+
+- **Navega por etapa.** Se entra a una etapa y se ve solo lo suyo —su narrativa, sus señales, sus
+  hitos, sus alertas—, no las seis a la vez. El *Panel general* da la vista completa.
+- **Las rutas se arman solas.** Cada ruta queda enganchada a una señal: cuando esa señal cruza el
+  disparador la ruta pasa a *armada*, y al cruzar el no retorno a *activada*. Nadie tiene que
+  acordarse de revisarlas. Se pueden fijar a mano cuando hace falta.
+- **Calcula la fecha límite para decidir**, que es la fecha en que la ruta debe estar operando
+  menos su tiempo de preparación. Es el número que se pasa sin que nadie se dé cuenta: si una ruta
+  toma 45 días en montarse y debe operar el 1 de diciembre, la decisión se toma el 17 de octubre,
+  no en noviembre.
+- **Avisa cuando la señal avisaría tarde.** Con el historial de mediciones proyecta cuándo se
+  cruzaría el disparador; si esa fecha cae después de la fecha límite para decidir, lo dice: hay
+  que medir más seguido o adelantar el disparador.
+- **Reclama las mediciones vencidas.** Cada señal declara su cadencia y la herramienta marca las
+  que llevan demasiado sin medirse.
+- **Guarda el historial** de cada medición con su fecha, con tendencia y minigráfico.
+- **Cierra etapas** dejando la entrada automática en la bitácora, y al cerrar la última reabre el
+  ciclo.
+
+**Métodos que trae:** ciclo de planificación adaptativa (6 etapas), PHVA (4), campaña
+administrativa (4) y uno libre de una sola etapa. Las etapas se renombran y un plan se puede
+**duplicar como plantilla** —conserva estructura, pone las mediciones en cero— para el ciclo
+siguiente o para otro caso.
+
+### Instalarlo como aplicación de Windows
+
+El planificador es una **PWA**: Edge y Chrome en Windows lo instalan como aplicación de escritorio
+—entrada en el menú Inicio, ícono propio, ventana sin barra de navegador, se puede anclar a la barra
+de tareas— **sin permisos de administrador, sin instalador y sin pasar por IT**.
+
+1. Abrir `https://diegodr76-f.github.io/fap-contratos/planificador/` en Edge.
+2. Pulsar **⤓ Instalar** en la cabecera de la app, o el ícono de instalar de la barra de
+   direcciones, o el menú **⋯ → Aplicaciones → Instalar este sitio como una aplicación**.
+
+Una vez instalado **funciona sin internet**: un *service worker* guarda la aplicación completa y los
+planes viven en el equipo, así que abre y se usa igual en territorio o con la red caída. Cuando se
+publica una versión nueva, la app avisa con una cinta abajo y se actualiza al pulsar **Actualizar**;
+no hay que reinstalar nada.
+
+> No se entrega como `.exe` a propósito. Un ejecutable sin firma digital lo bloquea SmartScreen, lo
+> marca el antivirus y necesita que IT lo autorice —que es justamente lo que no tenemos—. La PWA da
+> lo mismo (ventana propia, menú Inicio, offline) sin ninguno de esos obstáculos, y se actualiza
+> sola. Si en algún momento hace falta un instalador de verdad, el camino es empaquetar esta misma
+> aplicación con Electron desde un runner `windows-latest` de GitHub Actions.
+
+**Dónde viven los datos:** en el navegador (`localStorage`), como el resto de las herramientas.
+No hay servidor. Para respaldar, compartir o abrir un plan en otra máquina se **exporta a JSON**;
+también exporta **CSV** para informes e imprime a PDF. Trae precargado el plan de **Renovaciones
+FAP 2027** con sus cifras agregadas; el detalle contrato por contrato no está aquí, por la misma
+razón que en el resto del repositorio.
+
+## Lo que mostró el seguimiento de hitos 2026
+
+**`Seguimiento_hitos_contratos_FAP_2026.xlsx`** mide los 138 expedientes de 2026 etapa por etapa,
+de la recepción a la firma, y **cambia el diagnóstico del plan**: el cuello de botella no es la
+capacidad de firma, es la **devolución en la revisión administrativa**.
+
+| | Mediana total | Etapa 1 (revisión administrativa) |
+|---|---:|---:|
+| Sin devolución (n=36) | **16 d** | 3 d |
+| Una devolución (n=89) | **29 d** | 14 d |
+| Dos devoluciones (n=10) | **40 d** | 28,5 d |
+
+**El 73 % de los expedientes se devuelve al menos una vez.** Cada devolución cuesta **13 días de
+mediana**; dos cuestan 24. La etapa 1 concentra el **56 %** del tiempo total, y el **69 %** del total
+es atribuible a la Unidad Operativa: fuera de ella —administradora y proveedor— solo hay 4,6 días de
+promedio, y la instancia de aprobación 1,5.
+
+Y la tasa de devolución **es función de la cola**, no de la dificultad del trámite:
+
+| Mes de recepción | Expedientes | Devueltos | Mediana |
+|---|---:|---:|---:|
+| Enero | 67 | 87 % | 38 d |
+| Marzo | 27 | 56 % | 20 d |
+| Agosto | 6 | 33 % | 9,5 d |
+
+Con 67 expedientes encima en enero —la mitad de la campaña en un mes— se devuelve casi todo. Eso
+valida el plan de repartir el ingreso desde septiembre, y le pone número: **bajar la devolución del
+73 % al 30 % lleva la mediana de 27 a 18 días**, más que cualquier ganancia por capacidad de firma.
+
+Un dato contraintuitivo: las **renovaciones tardan más** que los procesos nuevos (32,5 d contra
+19 d de mediana) y se devuelven más (79 % contra 62 %), incluso controlando por devolución. Los 41
+renovables de 2027 no son el grupo fácil.
+
+El seguimiento trae además **9 inconsistencias de fechas** para corregir (hitos posteriores a la
+firma, dos fechas imposibles, una firma que no calza con el registro). Están en la hoja
+*Revisar ahora* y quedaron como hito en el planificador.
+
+## La Mágica para las renovaciones
+
+El plan de renovaciones multiplica por cinco lo que una administradora lleva en paralelo: de uno o
+dos expedientes pasa a entre 1 y 13 entre septiembre y diciembre, y varios quedan abiertos meses
+esperando el PAG. Eso obligó a cuatro cosas (secciones 8.1 a 8.4 del
+[plan](plan/PLAN_RENOVACIONES_2027.md)).
+
+### La vía de renovación
+
+`Renovación` es un cuarto tipo de proceso, con su propia captura por momentos y **dos plantillas
+Word** en `generador/plantillas/`:
+
+| Momento | Documento | Bloque |
+|---|---|---|
+| 1 · Análisis (sin PAG) | `19_Informe_satisfaccion_renovacion.docx` — informe de satisfacción y análisis de renovación | **1** — no necesita el PAG |
+| 2 · Solicitud (con PAG) | `20_Solicitud_cotizacion_renovacion.docx` — solicitud de cotización del nuevo período | 2 |
+| 3 · Cotización recibida | Sin documento: se registra el monto en firme, que es el que lleva el contrato | 2 |
+| 4 · Contrato | Lo elabora la **Unidad Operativa**; desde aquí solo se envía el expediente | — |
+
+**La notificación al proveedor no es de la administradora.** La hace el Director Ejecutivo junto
+con la Unidad Operativa, una vez revisado el proceso y antes del contrato; por eso la vía no la
+genera ni la pide. Y como entonces ningún documento cierra el expediente, el cierre —historial,
+archivo de sincronización y registro central— se registra al **enviarlo a la Unidad Operativa**,
+que es donde de verdad termina la parte de la administradora.
+
+**El corte por el PAG es el punto del diseño.** El Momento 1 se cierra entero **sin monto y sin
+presupuesto**: la administradora marca *«en espera del PAG»*, el expediente queda guardado y los
+documentos del bloque 2 se muestran *en espera*, no bloqueados. Cuando sale el PAG, basta registrar
+su fecha en el Momento 2 y el expediente se reactiva solo.
+
+Si la verificación legal dice que el contrato vigente **no** contempla la cláusula, la captura lo
+avisa en el sitio: ese contrato pasa a proceso nuevo y cambia de semana en el calendario.
+
+Las plantillas se mantienen **a mano, en Word**, como el resto: el formato es de quien firma los
+documentos. Lo que las cuida es la verificación —esquema, concordancia, catálogo y rellenado real—
+descrita más abajo.
+
+> **Los dos flujos de Power Automate aceptan la vía nueva sin cambios.** El de envío a la Unidad
+> Operativa declara `tipoProceso` como cadena libre en el esquema de su disparador HTTP, y la
+> columna `tipoProceso` del Microsoft List del registro central es de texto — comprobado. Las
+> renovaciones llegan con su propio nombre a los dos sitios, así que se pueden contar aparte en vez
+> de quedar mezcladas con la contratación directa.
+
+### Mis procesos
+
+Pantalla con un renglón por expediente —nombre, área, si se renueva o es proceso nuevo, momento
+alcanzado, documentos generados, si ya se envió a la Unidad Operativa, el contrato que reemplaza,
+cuándo arranca su sucesor, la semana asignada y si está esperando el PAG—, **ordenada por la fecha
+en que arranca el servicio**: lo que arranca el 1 de enero va primero, porque desde ese día cada
+día sin contrato suscrito es retroactividad.
+
+### La lista de verificación que bloquea el envío
+
+Medida 3 de la sección 6 del plan: *expediente completo o no entra*. Antes de enviar a la Unidad
+Operativa, La Mágica revisa el área, los datos base, la línea de gasto, el plazo, la causal, el
+proveedor y su RUC, los documentos obligatorios de la vía y los **cuadres automáticos** —monto
+contra el detalle de ítems, IVA, y que el monto no supere el presupuesto—. Mientras falte un punto
+crítico, el botón de envío está deshabilitado y la lista dice exactamente qué falta.
+
+### Almacenamiento
+
+- **El fallo de cuota se ve.** Si el navegador se queda sin espacio, aparece una barra roja fija
+  ("no se pudo guardar") con el botón de respaldo. Antes se descartaba en silencio y la AC perdía
+  el expediente al cerrar la pestaña.
+- **Las plantillas ya no ocupan el espacio dos veces.** El seed embebido (~2 MB) vive en el propio
+  HTML y se carga en memoria; a `localStorage` solo van las plantillas que la AC subió a mano. Una
+  instalación anterior se migra sola al abrir: se rescata lo propio y se borra `fap_tpls`, lo que
+  devuelve unos 2 MB de una cuota de 5 MB.
+- **Respaldo y restauración.** Desde *Mis procesos* se descarga un `.json` con expedientes en curso,
+  historial, cola de envío y plantillas propias, y se restaura reemplazando o combinando. La
+  pantalla avisa cuando el último respaldo tiene más de una semana.
+- **Colas acotadas.** `fap_pendientes` se queda en 300 registros y deja constancia de lo que sale;
+  `fap_historial` se recorta a 2 000, pero **descarga antes** los registros antiguos en un archivo
+  aparte, así no se pierde ningún cierre.
+
+### Probar los cambios
+
+La herramienta es un solo HTML sin build, así que las comprobaciones cargan el archivo en un DOM de
+mentira y lo manejan desde fuera:
+
+```bash
+npm install jsdom pizzip@3.2.0 docxtemplater@3.66.4
+node scripts/probar_generador.js
+```
+
+Cubre la vía de renovación de punta a punta (incluida la generación real de los tres `.docx` con
+docxtemplater), los arreglos de almacenamiento, la lista de verificación, *Mis procesos* y que las
+tres vías de siempre sigan intactas.
+
+### El idioma de las plantillas
+
+`generador/variables_fap.json` es la copia en el repositorio del catálogo de variables del sistema
+—202 variables en 13 grupos—, y es el vocabulario único de todos los documentos: las plantillas
+Word de La Mágica, las plantillas HTML del CLM y lo que publica el CRM. Vive aquí porque es aquí
+donde están las plantillas: **quien escriba una plantilla nueva usa estos nombres y no inventa
+sinónimos.**
+
+```bash
+python3 scripts/variables.py                  # los 13 grupos
+python3 scripts/variables.py Fechas           # un grupo, con descripción y ejemplo
+python3 scripts/variables.py --buscar monto   # antes de inventar un nombre, buscar
+python3 scripts/variables.py --check          # las plantillas contra el catálogo
+python3 scripts/variables.py --unir <a.json>  # traer lo que se creó en el sistema
+```
+
+Que no se desincronice no depende de acordarse, sino de tres comprobaciones:
+`scripts/variables.py --check` contrasta las plantillas contra el catálogo,
+`scripts/probar_generador.js` contrasta las claves que La Mágica entrega a las plantillas y además
+**rellena las 18 de verdad**, y `scripts/validar_docx.py` comprueba que el `.docx` abriría en Word.
+Una copia en git se queda vieja sin avisar; estas avisan.
+
+Por qué importa, con el caso que lo motivó: la vía de renovación nació usando `contratoAnterior`,
+`fechaSuscripcionAnt`, `fechaFinAnterior` y `montoAnterior`, que el catálogo ya llamaba
+`contratoNro`, `fechaContrato`, `fechaFin` y `montoTotal`. Los cuatro los publica el CRM, así que
+el sinónimo convertía en tecleo de la administradora lo que podía ser precarga. Un quinto,
+`fechaNotificacion`, se separaba de `fechanotificacion` por una mayúscula.
+
+### Orden o contrato: lo decide el plazo, no las garantías
+
+La regla del FAP es que **si la ejecución dura más de 30 días, el proceso va por contrato**.
+La Mágica la tenía escrita, pero la decisión efectiva la tomaban tres casillas de «modalidad
+de pago / garantías», y eso rompía justo el caso más común de la campaña: **un contrato de
+enero a diciembre que no lleva ninguna garantía**. La administradora tenía que marcar algo
+falso para poder seguir, y la tarjeta de la orden de compra se quedaba habilitada con un
+simple aviso amarillo.
+
+Ahora el plazo se captura como lo que es —**entrega puntual** en días, o **servicio continuo**
+con fecha de inicio y fin— y el instrumento **se deriva y se muestra**:
+
+| Situación | Instrumento |
+|---|---|
+| Ejecución de 30 días o menos, sin garantías | Orden de compra / servicio |
+| Ejecución de más de 30 días | Contrato |
+| Con garantía de anticipo o de fiel cumplimiento | Contrato |
+| Renovación | Contrato (lo elabora la Unidad Operativa) |
+| Y además, total con IVA sobre USD 8.000 | La orden la firma el Director Ejecutivo |
+
+Las **garantías contractuales** pasan a ser opcionales: si no aplican, no se marca nada y no
+bloquea nada. No se confunden con la **garantía técnica** del bien, que se registra en el
+Momento 3 y no obliga a contrato — una orden de compra puede llevarla.
+
+### Que los documentos se abran de verdad
+
+Un `.docx` puede ser un zip con XML impecable y aun así estar roto. Al automatizar la
+concordancia se sustituyeron controles de Word por variables, y en 39 casos ese control
+envolvía **un párrafo entero**: al reemplazarlo por una corrida, once plantillas quedaron
+con un `<w:r>` donde iba un `<w:p>`. Word las declaraba dañadas y no las abría.
+
+Lo grave fue que no había con qué notarlo: **python-docx las abría sin protestar y
+LibreOffice las convertía a PDF**. Los dos son permisivos; Word no. Ahora hay un validador
+que contrasta contra el esquema oficial **ISO/IEC 29500-4:2016**, copiado en
+`scripts/esquemas/`:
+
+```bash
+python3 scripts/validar_docx.py                    las 18 plantillas
+python3 scripts/validar_docx.py <carpeta|archivo>  también los documentos rellenados
+```
+
+`concordancia.py --aplicar` lo usa solo: si lo que escribe no abriría en Word, restaura el
+original y aborta. Y `--verificar` termina validando las 18.
+
+**Que abra en Word no basta: también tiene que rellenarse.** Una plantilla con `{monto (` —una
+llave sin cerrar— es un `.docx` impecable para Word y para el esquema, y aun así docxtemplater la
+rechaza al compilarla, así que el documento no se puede generar. Por eso
+`scripts/probar_generador.js` rellena las 18 plantillas con datos reales en cada corrida.
+
+### Concordancia de género: se elige una vez, no en cada documento
+
+Las plantillas llevaban **187 cuadros combinados de Word** —«el proveedor / la
+proveedora», «Administrador / Administradora», «del / de la»— que la administradora
+elegía a mano, uno por uno, en cada documento. Con 13 expedientes en paralelo son más
+de mil clics por campaña, y el que se olvida no falla en silencio: imprime la barra
+(«Administrador/a Contador/a», «del/a») en un papel que se firma.
+
+**163 de esos 187 ya salen solos.** Lo que se elige, y dónde:
+
+| Qué | Dónde se elige | Cuántas veces |
+|---|---|---|
+| Género de la AC | Hoja de Datos | una vez |
+| Género del responsable del área | Hoja de Datos, por área | una vez por área |
+| Género del proveedor (o si es empresa) | junto al proveedor | una por proveedor |
+| Género del nombre del área | Hoja de Datos, **propuesto por el nombre** | se corrige si falla |
+| Número (bien/bienes, día/días) y naturaleza (adquisición/contratación) | — | **se derivan** |
+
+Los **24 controles que quedan no son concordancia y no se tocan**: «Cumple / No
+cumple» es un juicio sobre cada oferta, «Presencial / Virtual» es cómo asistió cada
+miembro, «solicitud / cotización» es qué documento se nombra, y el `el/la` delante de
+`{objeto}` depende de un texto libre que escribe la AC. `scripts/concordancia.py`
+trabaja con lista blanca —convierte solo lo que una regla nombra— y
+`--verificar` comprueba que esos 24 siguen ahí.
+
+De paso salió un defecto de las plantillas: el cuadro de «ordenador/a de gasto» ofrecía
+«ordenador de gasto» cuando el texto de alrededor ya decía «de gasto», así que elegir la
+opción dejaba **«en mi calidad de ordenador de gasto de gasto»** en los tres memorandos
+de inicio. Ya no.
+
+### Cambiar o añadir una plantilla
+
+1. Deja el `.docx` en `generador/plantillas/`.
+2. Si es una plantilla nueva, añádela a `TPL_SLOTS` en `generador/index.html` y a `ORDEN` en
+   `scripts/embeber_plantillas.py`.
+3. Corre `python3 scripts/embeber_plantillas.py` para reconstruir el seed embebido.
+4. Comprueba el vocabulario con `python3 scripts/variables.py --check`.
+
+`python3 scripts/embeber_plantillas.py --check` dice si el seed quedó desactualizado, sin escribir
+nada.
+
 ## Estructura
 
+- **`/planificador/`** — Planificador adaptativo: planes por rutas alternas, con señales,
+  disparadores y tiempos de preparación. Independiente del resto; los planes se guardan en el
+  navegador y se exportan a JSON.
+- **`/centro/`** — Centro de mando diario, herramienta personal (independiente del resto).
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
   Se actualiza automáticamente cada día vía Power Automate, que sobrescribe `crm/contratos_export.json`
   con los datos del Excel maestro. La app lo consulta automáticamente al abrirse.
@@ -16,114 +588,66 @@ Herramientas internas del Fondo de Áreas Protegidas (FAP / FIAS) para la gesti�
   con los datos del proceso para adjuntar los archivos y subirlos a un flujo de Power Automate
   (subida de documentos a revisión). La URL de ese flujo se configura en la constante
   `FLOW_DOCS_URL` dentro de `generador/index.html`.
+  Lo que la campaña de renovaciones 2027 añadió está en
+  [La Mágica para las renovaciones](#la-mágica-para-las-renovaciones).
 - **`/instrumentos/`** — Generador de Instrumentos Legales para la Unidad Legal
-  (`instrumentos/index.html`, funciona también abierto como archivo local, sin conexión).
-  Genera contratos, convenios y actas en Word. **El modo principal son plantillas Word
-  reales** (.docx etiquetados con `{tags}`, mismo motor docxtemplater que La Mágica): el
-  formato —colores, listas a/b/c, numeración, membrete, tablas, estilos— se edita en Word
-  y la herramienta solo rellena los tags. Incluye como semillas los .docx etiquetados del
-  repositorio (informe de adenda y acta de terminación); se suben nuevas plantillas con
-  «⬆ Plantilla Word» y se actualizan con descarga → edición en Word → subida. Soporta
-  secciones opcionales `{#tag}…{/tag}` (casilleros al generar, para cláusulas con
-  variantes) y tablas repetibles `{#items}` con subtotal/IVA/total automáticos, con vista
-  previa del Word renderizada en pantalla. Las plantillas HTML (editor integrado, formato
-  limitado) siguen disponibles como modo secundario para documentos rápidos.
-  Está pensado para la campaña de inicio de año:
-  - **Toma los datos del registro de contratos** (`crm/contratos_export.json`): se elige
-    el contrato y se llenan solos número, proveedor, objeto, área, monto, plazo y fechas.
-  - **Lote**: se marcan varios contratos del registro (o se pegan filas desde Excel) y se
-    descargan todos los Word de una vez en un ZIP.
-  - **Contrapartes**: directorio local de proveedores/instituciones (con validación de
-    cédula/RUC) para no volver a tipear sus datos, con buscador por nombre, RUC/cédula,
-    representante o correo.
-  - **Repositorio de variables**: diccionario único del ecosistema FAP, sembrado desde el
-    Catálogo de Tags (los mismos tags docxtemplater de las 15 plantillas Word de La Mágica
-    y los campos del CRM: `{area}`, `{proveedor}`, `{proveedorRuc}`, `{contratoNro}`,
-    `{montoTotal}`…). Las variables se insertan siempre desde este repositorio (botón
-    «{{ Variable }}», con buscador por palabras que también está en la pestaña
-    Variables), cada una define su tipo (texto/número/fecha/letras),
-    descripción y ejemplo que guían el formulario, y se pueden registrar nuevas. Las
-    plantillas y cláusulas semilla usan estos nombres canónicos, así el registro del CRM
-    las llena sin mapeos manuales.
-  - **Grupos de concordancia (cuadros combinados)**: una sola elección al llenar gobierna
-    varias palabras a la vez en todo el documento. P. ej. al indicar si el/la contratista
-    es persona natural masculino, femenino o empresa, cambian juntas todas las apariciones
-    de `{{elLaContratista}}`, `{{contratistaTrato}}` (señor/señora/compañía),
-    `{{contratistaDomiciliado}}`… (el «cambio uno → cambian todos» que Word no da por
-    interfaz). Vienen sembrados grupos base (contratista, administrador/a del contrato,
-    oferente) editables, y se crean nuevos desde la pestaña **Variables → Grupos de
-    concordancia** (defines las opciones y, por cada tag, la palabra en cada opción). Los
-    tags gobernados quedan en el repositorio para insertarlos con «{{ Variable }}».
-  - **Repositorio de cláusulas**: cláusulas aprobadas organizadas por categoría, cada una
-    con variantes (p. ej. garantía con letra de cambio vs. garantía técnica). Se insertan
-    con 📋 en la plantilla o en el documento final (donde sus variables se llenan solas con
-    los datos del formulario); 📌 guarda el texto seleccionado de cualquier documento como
-    variante nueva, y 🔢 renumera las cláusulas (PRIMERA, SEGUNDA…) tras insertar o quitar.
-    Las cláusulas insertadas con 📋 en una plantilla quedan **vinculadas**: si la cláusula
-    se corrige en el repositorio, la herramienta ofrece actualizarla en todas las plantillas
-    que la usan (y si en alguna fue editada a mano, pregunta si reemplazar o conservar esa
-    versión). Los valores rellenados heredan el formato de la plantilla (negrita solo si la
-    variable estaba en negrita) y los montos salen con formato de miles (USD 1.000,00).
-  - **Editar documento final**: tras llenar el formulario se puede retocar a mano el texto
-    exacto que se descargará, con barra completa de formato (tablas, sangrías, mayúsculas).
-  - **El trabajo a medias no se pierde**: lo que se está llenando (campos, casilleros de
-    secciones opcionales, filas de tablas repetibles, concordancia y el documento final
-    retocado a mano) se guarda solo como **borrador de esa plantilla**. Al recargar, cerrar
-    por accidente o volver otro día, la herramienta abre la última plantilla usada y
-    devuelve todo tal cual, con un aviso que permite **descartarlo y empezar en blanco**.
-    El borrador es trabajo en curso: no entra en «Exportar biblioteca» y desaparece al
-    usar «Limpiar campos».
-  - **Los campos que faltan se ven**: el contador de progreso lleva al primer campo vacío,
-    y al intentar descargar los que falten quedan marcados en ámbar dentro del formulario
-    (en vez de nombrarlos en una sola línea de aviso). En la **vista previa** cada dato que
-    falta sale como una etiqueta amarilla con el nombre del campo —igual en plantillas HTML
-    y Word—; el Word descargado sale con el hueco en blanco, sin marcas. No se reclama un
-    campo que vive dentro de una sección opcional desmarcada, porque ese texto no llega
-    al documento.
-  - **Campo ↔ documento enlazados**: al entrar en un campo se ilumina su lugar en la vista
-    previa (y la desplaza si estaba fuera de pantalla); al hacer clic en un marcador de la
-    vista previa, el foco salta a su campo. Sirve para ver dónde cae en el texto lo que se
-    está escribiendo sin leer el documento entero.
-  - **Campos obligatorios**: cada variable del repositorio puede marcarse como obligatoria
-    (pestaña **Variables → ¿Obligatoria?**). Salen con `*` rojo en el formulario y, si
-    faltan, **no se genera el Word** —ni el documento suelto ni el lote—: el aviso los
-    lista y lleva al primero. La única salida es llenarlos o decidir, desde el mismo aviso,
-    que ese dato **deja de ser obligatorio** (cambia la regla para todas las plantillas y
-    queda registrado), en vez de un «generar de todas formas» que se pulsa sin leer. Vienen
-    marcados de fábrica los datos sin los que el instrumento sale defectuoso: `contratoNro`,
-    `proveedor`, `proveedorRuc`, `objeto`, `montoTotal` y `fechaContrato`. Lo demás sigue
-    avisando en ámbar sin bloquear.
-  - **Sin ventanas del navegador para las altas cortas**: crear una carpeta, una cláusula,
-    una variante, insertar una tabla o registrar una variable se hacen en **un solo
-    formulario** dentro de la herramienta, que valida antes de cerrar y conserva lo escrito
-    si algo está mal (registrar una variable encadenaba cuatro `prompt()` sin vuelta atrás).
-    Enter confirma, Escape cancela. Los avisos que solo confirman algo —«variable
-    registrada», «selecciona primero el texto»— son notas breves que no interrumpen.
-  - **Motor nativo de Word**: los instrumentos redactados con plantillas HTML se
-    construyen con las piezas reales de Word (párrafos, numeración `numbering.xml`,
-    tablas y estilos OOXML), no traduciendo HTML. Las viñetas y numeraciones del
-    documento descargado son listas de Word de verdad: se pueden mover, dar Enter y
-    continúa la numeración, igual que en las plantillas de La Mágica. Estilo
-    institucional: Titillium Web 10pt negro, justificado, cláusulas en negrita.
-  - **Papel membretado oficial (🖼)**: los instrumentos salen **sobre el papel
-    membretado oficial** del FIAS/FAP. Se sube una vez el `.docx` con el membrete ya
-    montado (logos, pie de página con numeración y márgenes reales) — viene sembrado el
-    «Formato de contrato FIAS-FAP» y activo por defecto — y el contenido se vierte
-    dentro de su cuerpo conservando encabezado, pie y márgenes. Aplica a los Word
-    individuales y a los del lote. Como alternativa para casos rápidos se conserva el
-    **membrete simple**: una imagen de logos y una línea de texto opcional con variables
-    (p. ej. `CONTRATO-{{contratoNro}}`), con alineación y tamaño ajustables.
-  - **Datos fijos** (representante FIAS, lugar…) que se escriben una sola vez, sugerencia
-    automática del siguiente número correlativo y montos en letras calculados solos.
-  Las rutas donde busca el registro se configuran en la constante `RUTAS_REGISTRO`
-  dentro de `instrumentos/index.html`.
+  (`instrumentos/index.html`). Genera contratos, convenios y actas en Word. El modo principal
+  son **plantillas Word reales** etiquetadas con `{tags}` —mismo motor docxtemplater que La
+  Mágica—, con plantillas HTML como modo secundario para documentos rápidos. Aporta tres piezas
+  que las demás herramientas no tienen: un **repositorio de cláusulas** con variantes vinculadas,
+  **grupos de concordancia** como dato (una elección gobierna varias palabras a la vez) y la
+  marca de **campo obligatorio**, que impide descargar un documento al que le falta un dato
+  esencial. Toma los datos del registro de contratos y genera en lote.
 
 ## URL pública
 
-https://[tu-usuario].github.io/fap-contratos/crm/
+Cada herramienta tiene su propio enlace en GitHub Pages:
+
+- **CLM (plataforma unificada):** https://diegodr76-f.github.io/fap-contratos/clm/
+- Contratos 2027 (para las ACs): https://diegodr76-f.github.io/fap-contratos/renovaciones/
+- Planificador adaptativo: https://diegodr76-f.github.io/fap-contratos/planificador/
+- Calificador de Ofertas: https://diegodr76-f.github.io/fap-contratos/calificacion/
+- CRM directo: https://diegodr76-f.github.io/fap-contratos/crm/
+- La Mágica: https://diegodr76-f.github.io/fap-contratos/generador/
+- Centro de mando diario (personal): https://diegodr76-f.github.io/fap-contratos/centro/
+
+La raíz (`https://diegodr76-f.github.io/fap-contratos/`) redirige automáticamente al CLM.
 
 ## Actualización de datos
 
-El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el flujo de Power Automate
-todas las mañanas a partir de la hoja "Export" del Excel maestro. Si el flujo falla, la AC puede seguir
-usando el botón "Actualizar base desde Excel" dentro de la app como respaldo manual.
+El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el robot de GitHub Actions
+(`scripts/actualizar_datos.py`) todas las mañanas a partir de la hoja "Export" del Excel maestro. Si el
+flujo falla, la AC puede seguir usando el botón "Actualizar base desde Excel" dentro de la app como
+respaldo manual.
+
+Todas las columnas que el robot lee son **opcionales**: si una no está en el Excel, publica ese campo
+vacío y sigue. Vale para las de liquidación (`Fecha de cierre`, `Valor liquidado`, `Saldo no ejecutado`)
+y para las del expediente (`Numero de carpeta interna`, `CodigoProceso`). El robot dice en su resumen cuántos
+contratos traen cada cosa, así que se ve de una si una columna se renombró o se movió.
+
+## Seguridad de los datos (frase de acceso)
+
+Como el sitio es estático y público, los datos NO se publican en claro: se cifran con **AES-256-GCM**
+(clave derivada de una frase de acceso con PBKDF2-SHA256). Esto aplica al `contratos_export.json` diario
+y a las copias embebidas (`seed-data` del CLM, `EMBEDDED` del CRM). Quien abra los archivos sin la frase
+solo ve un bloque cifrado ilegible.
+
+- **Al entrar**, el CLM/CRM piden la **frase de acceso** una sola vez; queda guardada en el navegador
+  (`localStorage`) y el descifrado ocurre localmente con WebCrypto. Nada de servidores nuevos ni librerías externas.
+- **El robot diario** cifra con el secreto **`DATA_KEY`** (repositorio → *Settings → Secrets and variables →
+  Actions*). Debe valer **exactamente la misma frase** que usan las ACs. Sin ese secreto, el robot no publica
+  (falla a propósito) para no exponer datos en claro.
+- **Rotar la frase:** cambia el valor de `DATA_KEY`, vuelve a cifrar las copias embebidas y avisa la nueva
+  frase al equipo.
+
+> Alcance: la frase es compartida por el equipo (no es login por persona), así que protege contra
+> quien encuentre los archivos, no contra quien tenga la frase.
+>
+> **Historial:** revisado el 2 de septiembre de 2026 commit por commit — ningún commit del
+> repositorio contiene datos de contratos en claro, ni en `contratos_export.json` ni en las copias
+> embebidas. La advertencia anterior sobre versiones en claro en el historial estaba desactualizada.
+>
+> **El punto débil real** es otro: el bloque cifrado es público, así que se puede atacar por fuerza
+> bruta sin conexión y sin que nadie se entere. Los 250 000 ciclos de PBKDF2 encarecen cada intento,
+> pero no salvan una frase corta o predecible. La frase debe ser larga —cuatro o cinco palabras al
+> azar— y conviene rotarla cuando alguien deja el equipo.
