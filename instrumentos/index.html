@@ -13649,8 +13649,7 @@ tr:hover td{background:var(--azul-claro)}
       internet (puede estar desactualizada, pero evita quedarse sin registro). */
 const RUTAS_REGISTRO = [
   '../crm/contratos_export.json',
-  'https://diegodr76-f.github.io/fap-contratos/crm/contratos_export.json',
-  './datos/contratos_export.json'
+  'https://diegodr76-f.github.io/fap-contratos/crm/contratos_export.json'
 ];
 
 /* Cómo se llenan las variables de plantilla desde una fila del registro.
@@ -15023,37 +15022,73 @@ function renderNodoCarpeta(cual, folder, nivel, renderItem){
 }
 
 /* ============ Registro de contratos (CRM / Excel maestro) ============ */
+/* ============ Registro cifrado ============
+   El sitio es público, así que el registro de contratos se publica cifrado con
+   AES-256-GCM (lo escribe el robot diario). La frase de acceso la guarda el
+   CLM/CRM en localStorage bajo la misma clave y el mismo origen, así que aquí
+   se reutiliza: si la AC ya desbloqueó el CLM, esto abre solo y sin preguntar
+   nada. Si no hay frase, o no sirve, queda el camino de siempre — cargar el
+   archivo a mano—, que además es el único que funciona sin conexión.
+   Mismas funciones que clm/index.html; si cambia el cifrado, cambian las dos. */
+const FAP_KEY_LS = 'fap_data_key';
+const fapIsEnc = o => !!(o && typeof o === 'object' && o.fap_enc);
+async function fapDecrypt(env, pass){
+  const b = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  const salt = b(env.salt), iv = b(env.iv), ct = b(env.ct);
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt, iterations: env.iter || 250000, hash:'SHA-256' },
+    base, { name:'AES-GCM', length:256 }, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+/* Devuelve la lista de contratos, venga en claro (retrocompatible) o cifrada. */
+async function fapAbrirRegistro(data){
+  if(Array.isArray(data)) return data;
+  if(!fapIsEnc(data)) return null;
+  let pass = '';
+  try{ pass = localStorage.getItem(FAP_KEY_LS) || ''; }catch(e){}
+  if(!pass) return 'protegido';
+  try{
+    const lista = await fapDecrypt(data, pass);
+    return Array.isArray(lista) ? lista : null;
+  }catch(e){ return 'protegido'; }
+}
 async function cargarRegistro(){
+  let protegido = false;
   for(const url of RUTAS_REGISTRO){
     try{
       const r = await fetch(url, { cache:'no-store' });
       if(r.ok){
-        const data = await r.json();
-        if(Array.isArray(data)){ registro = data; registroEstado = 'ok'; pintarChipRegistro(); if(tabActual==='lote') renderContenido(); return; }
+        const lista = await fapAbrirRegistro(await r.json());
+        if(lista === 'protegido'){ protegido = true; continue; }
+        if(Array.isArray(lista)){ registro = lista; registroEstado = 'ok'; pintarChipRegistro(); if(tabActual==='lote') renderContenido(); return; }
       }
     }catch(e){ /* siguiente ruta */ }
   }
-  registroEstado = 'error';
+  registroEstado = protegido ? 'protegido' : 'error';
   pintarChipRegistro();
 }
 function pintarChipRegistro(){
   const b = document.getElementById('chip-registro');
   if(registroEstado==='ok'){ b.textContent = `📇 Registro: ${registro.length} contratos`; b.classList.add('reg-ok'); b.title = 'Registro de contratos cargado. Clic para recargar.'; }
+  else if(registroEstado==='protegido'){ b.textContent = '📇 Registro: protegido · cargar archivo'; b.classList.remove('reg-ok'); b.title = 'El registro se publica cifrado y en este navegador no hay frase de acceso válida. Desbloquea el CLM una vez y vuelve a pulsar aquí, o carga el archivo a mano.'; }
   else if(registroEstado==='error'){ b.textContent = '📇 Registro: sin conexión · cargar archivo'; b.classList.remove('reg-ok'); b.title = 'No se pudo descargar el registro. Clic para cargar el archivo contratos_export.json manualmente.'; }
   else { b.textContent = '📇 Registro: cargando…'; }
 }
 function clicChipRegistro(){
-  if(registroEstado==='error') document.getElementById('reg-file').click();
+  if(registroEstado==='error' || registroEstado==='protegido') document.getElementById('reg-file').click();
   else { registroEstado='cargando'; pintarChipRegistro(); cargarRegistro(); }
 }
 function cargarRegistroArchivo(ev){
   const file = ev.target.files[0]; if(!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try{
-      const data = JSON.parse(reader.result);
-      if(!Array.isArray(data)) throw new Error('El archivo no contiene una lista de contratos.');
-      registro = data; registroEstado = 'ok'; pintarChipRegistro(); renderContenido();
+      const lista = await fapAbrirRegistro(JSON.parse(reader.result));
+      if(lista === 'protegido') throw new Error('El archivo está cifrado y en este navegador no hay una frase de acceso válida. Desbloquea el CLM una vez y vuelve a intentarlo.');
+      if(!Array.isArray(lista)) throw new Error('El archivo no contiene una lista de contratos.');
+      registro = lista; registroEstado = 'ok'; pintarChipRegistro(); renderContenido();
     }catch(e){ alert('No se pudo leer el registro: ' + e.message); }
     ev.target.value = '';
   };

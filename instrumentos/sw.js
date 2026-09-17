@@ -7,14 +7,18 @@
    - Lo que no sea GET del mismo origen (por ejemplo el registro del CRM, que se
      pide a otro dominio para traer los contratos del día) pasa de largo: nunca
      se intercepta ni se guarda, así los datos nunca salen servidos de caché. */
-const CACHE = "instrumentos-v1";
+/* El número del caché se sube cada vez que cambia esta lista: la estrategia de
+   los recursos que no son la página es "caché primero", así que un archivo que
+   se queda dentro no se vuelve a pedir nunca. Y addAll es atómico — si un solo
+   recurso da 404, no se guarda ninguno y la app deja de funcionar sin conexión:
+   por eso aquí no puede figurar nada que no exista en el repositorio. */
+const CACHE = "instrumentos-v2";
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icon-180.png",
-  "./icon-512.png",
-  "./datos/contratos_export.json"
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", (e) => {
