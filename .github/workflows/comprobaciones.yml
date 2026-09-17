@@ -71,3 +71,14 @@ jobs:
       - name: El CLM
         if: ${{ !cancelled() }}
         run: node scripts/probar_clm.js
+
+      # La skill lleva su propia copia del catálogo y del script, porque fuera de
+      # este repositorio no hay ninguno de los dos. Dos copias en el mismo árbol
+      # se desincronizan solas; esto lo hace imposible. Un enlace simbólico no
+      # vale: al copiar la carpeta a las skills personales apuntaría a la nada,
+      # que es justo el caso de uso que la motiva.
+      - name: La copia de la skill no se ha quedado atrás
+        if: ${{ !cancelled() }}
+        run: |
+          cmp generador/variables_fap.json .claude/skills/variables-fap/references/variables_fap.json
+          cmp scripts/variables.py         .claude/skills/variables-fap/scripts/variables.py
