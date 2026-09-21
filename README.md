@@ -143,141 +143,109 @@ Carga el CLM en un DOM de mentira y lo maneja desde fuera. Cubre el bloque, la b
 listado, el filtro, la alerta y —lo que más importa— que un portafolio **sin ninguna carpeta
 registrada** se siga pintando exactamente igual que antes.
 
-### Los proveedores: una lista, y el RUC que no puede salir entero
+### Los proveedores: una lista que no hay que mantener
 
-El proveedor no era una ficha de nada: era un nombre repetido en 421 contratos. Para saber qué
-más se le había contratado había que buscar su nombre en el listado y leer fila por fila, y para
-saber si seguía en regla no había dónde mirar. El módulo **Proveedores** lo arma como lo que es:
+El proveedor no era una ficha de nada: era un nombre repetido en 421 contratos. Para saber qué más
+se le había contratado había que buscar su nombre en el listado y leer fila por fila, y para saber
+si seguía en regla no había dónde mirar. El módulo **Proveedores** lo arma como lo que es:
 
 - **Listado filtrable** como el de contratos —por categoría, por estado de verificación, por
   nombre, RUC parcial, actividad o área— con listado y tarjetas.
 - **Ficha**: nombre o razón social, RUC, tipo de contribuyente, actividad económica registrada,
   **las áreas protegidas donde ha tenido contrato**, la actividad por la que se lo contrató, sus
   contratos con estado y calificación, y el promedio de sus evaluaciones.
-- **Verificación periódica**: cada semestre o cada año la AC confirma cuatro cosas —RUC activo en
-  el SRI, actividad que corresponde, sin obligaciones pendientes, cumplimiento sostenido— y
-  registra el resultado (*Vigente*, *Observado*, *No continuar*). La ficha cuenta el ciclo y el
-  motor de alertas avisa cuando vence. Un proveedor marcado **No continuar con contrato vivo** es
-  alerta roja.
+- **Verificación periódica**: cada semestre o cada año se confirma que el proveedor sigue en regla
+  —RUC activo en el SRI, actividad que corresponde, sin obligaciones pendientes, cumplimiento
+  sostenido— con su resultado (*Vigente*, *Observado*, *No continuar*). La ficha cuenta el ciclo y
+  el motor de alertas avisa cuando vence. Un proveedor marcado **No continuar con contrato vivo**
+  es alerta roja.
 
-El listado **se arma solo con los contratos**: 225 proveedores de las hojas 2024-2026, con las
-variantes de escritura ya unificadas —«RIVERJARDÍN CÍA. LTDA.» y «RIVERJARDIN CÍA. LTDA» son uno
-solo—. Sin tocar el Excel funciona igual; lo único que dice «sin registrar» es lo que nadie ha
-escrito todavía.
+#### No hay una segunda lista que mantener
 
-**Dónde vive cada cosa, y por qué.** El RUC, la actividad económica y la verificación van en una
-hoja nueva del Excel maestro, `Proveedores`. La hoja no se teclea a mano:
+El listado **se arma solo con los contratos**: la ficha de un proveedor sale de agrupar sus filas
+de la hoja `2026` por su nombre, con las variantes de escritura ya unificadas —«RIVERJARDÍN CÍA.
+LTDA.» y «RIVERJARDIN CÍA. LTDA» son uno solo—. Un proveedor nuevo aparece **el mismo día** en que
+se escribe su primer contrato, sin tocar nada más.
+
+Lo único que no se puede deducir —el RUC, la actividad económica y la verificación— se escribe en
+**columnas de esa misma fila**:
+
+| Columna de la hoja `2026` | Qué lleva |
+|---|---|
+| `RUC del Proveedor` | 13 dígitos |
+| `Actividad económica` | La que consta en el RUC |
+| `Verificación del Proveedor` | Fecha en que se comprobó que sigue en regla |
+| `Verificado por` | Quién |
+| `Resultado de la verificación` | Vigente / Observado / No continuar |
+| `Periodicidad` | Semestral o Anual |
+
+**Se llenan una sola vez por proveedor**, en cualquiera de sus contratos: el robot toma el primer
+valor que encuentra, así que las demás filas suyas se quedan en blanco para siempre. De la
+verificación toma la de **fecha más reciente**, no la primera.
+
+Así no hay nada que copiar, ni una segunda lista, ni dos hojas que emparejar — y por lo tanto
+ninguna forma de que una ficha se duplique ni de que un RUC acabe pegado a otra persona. Las seis
+columnas son **opcionales**, como todas las que lee el robot: sin ellas se publica exactamente lo
+mismo que antes y las fichas dicen «sin registrar».
+
+Para saber qué añadir y de paso revisar los nombres:
 
 ```bash
 python3 scripts/hoja_proveedores.py <Sistema_Alertas_Contratos_FIAS.xlsx>
 ```
 
-sale con los 225 nombres puestos y, al lado, en cuántos contratos y en qué áreas aparece cada uno
-—para reconocerlo mientras se llena el RUC—. De paso lista los **22 pares de nombres parecidos que
-no se unifican solos** («PLASENCIA» contra «PLASCENCIA», «JOHNNY» contra «JHONNY»): son errores de
-tecleo que parten en dos el historial de una misma persona, y quien llena el RUC es quien puede
-decidirlo.
+Dice las seis columnas con su nombre exacto, escribe una hoja **`Proveedores`** opcional —**entera
+de fórmulas**, solo para ver la lista también en Excel; no se escribe nada en ella— y lista los
+**22 pares de nombres parecidos** que la normalización no une («PLASENCIA» contra «PLASCENCIA»,
+«JOHNNY» contra «JHONNY»): son errores de tecleo que parten en dos el historial de una misma
+persona, y eso lo decide el RUC.
 
-> **El RUC de una persona natural es su cédula.** Los diez primeros dígitos, literalmente. Y la
-> mayoría de los proveedores del FAP son personas naturales. Como el sitio es público, el robot
-> **decide qué puede salir antes de cifrar**: RUC completo para sociedades y entidades públicas
-> —que es dato de registro público, está en la factura y en el SRI— y **enmascarado**
-> (`0603•••••6001`) para personas naturales. Lo que queda a la vista alcanza para confirmar que la
-> ficha es de quien uno cree, que es para lo que la AC la abre, y no para reconstruir la cédula. El
-> RUC completo se queda en el Excel, que está en SharePoint con control de acceso.
->
-> Por la misma razón el robot lee **con lista blanca**: la hoja puede llevar teléfono, correo o
-> dirección del proveedor —hacen falta para trabajar— y no suben nunca. La política vive entera en
-> `scripts/ruc.py`, en un solo sitio.
+> **Nunca se escribe a mano al lado de una fórmula que se expande.** Si la lista de nombres fuera
+> una fórmula y el RUC se escribiera al lado, al aparecer un nombre nuevo la lista se recorre —o
+> cambia entera si se ordena la hoja `2026`— y cada RUC quedaría pegado a otra persona. Por eso lo
+> que se escribe vive en la fila del contrato, que no se mueve, y la hoja `Proveedores` es solo de
+> lectura.
+
+#### El RUC de una persona natural es su cédula
+
+Los diez primeros dígitos, literalmente. Y la mayoría de los proveedores del FAP son personas
+naturales. Como el sitio es público, el robot **decide qué puede salir antes de cifrar**: RUC
+completo para sociedades y entidades públicas —que es dato de registro público, está en la factura
+y en el SRI— y **enmascarado** (`0603•••••6001`) para personas naturales. Lo que queda a la vista
+alcanza para confirmar que la ficha es de quien uno cree, y no para reconstruir la cédula. El RUC
+completo se queda en el Excel, que está en SharePoint con control de acceso. La política vive
+entera en `scripts/ruc.py`, en un solo sitio.
 
 Las fichas van en `crm/proveedores_export.json`, cifrado igual que el resto y **aparte** del de
 contratos: ese es un array y lo leen como array el CRM, el CLM y renovaciones; cambiarle la forma
-los rompería a los tres. Si el archivo no está, el CLM no se entera.
+los rompería a los tres.
 
-#### Nadie teclea nada en Excel
+La AC también puede escribir el RUC **desde el CLM**, al verificar al proveedor: el formulario lo
+pide si el Excel todavía no lo tiene y **comprueba el dígito verificador al escribirlo** —un RUC lo
+lleva dentro, así que un error de tecleo se ve en el momento y no seis meses después; es un aviso,
+no una barrera—. El CSV que se descarga trae las mismas columnas de la hoja `2026`, para pegarlas
+en la fila de cualquier contrato de ese proveedor. Mientras no estén ahí, el CLM lo marca —*«solo
+en este navegador»*, *«sin pasar»*—, porque el resto del equipo todavía no lo ve.
 
-El nombre del proveedor se escribe **una sola vez**, en el contrato de la hoja `2026`, que es
-donde va de todos modos. De ahí se copia con su grafía exacta: si se volviera a teclear, una tilde
-distinta partiría el historial en dos.
-
-Y el RUC y la actividad se capturan **donde alguien los tiene delante**: cuando la AC registra la
-verificación en el CLM, el formulario los pide si el Excel todavía no los tiene, y **comprueba el
-dígito verificador al escribirlo** —un RUC lo lleva dentro, así que un error de tecleo se ve en el
-momento y no seis meses después—. Es un aviso, no una barrera: quien escribe tiene el papel
-delante y el algoritmo no.
-
-Con eso, el CSV que se descarga trae la **fila completa** —nombre, RUC, actividad, fecha, quién y
-resultado—, así que para un proveedor sin fila, pegarla al final de la hoja **crea su ficha
-entera**. Para uno que ya la tiene, solo se copian sus columnas de verificación. La ficha dice cuál
-de los dos casos es.
-
-Mientras eso no ocurra, lo registrado vive solo en ese navegador y el CLM lo marca —*«solo en este
-navegador»*, *«sin pasar»*—, porque el resto del equipo todavía no lo ve. El RUC entero va en el
-CSV, que termina en el Excel; en pantalla se sigue viendo parcial, que es la regla de lo público.
-
-> Un RUC enmascarado **nunca** sale en el CSV: escribirlo en el Excel pisaría el bueno con
-> bolitas. O va el completo, o va vacío y esa celda no se toca.
-
-Dos cosas más que sostienen el ida y vuelta: si un día quedan **dos filas del mismo proveedor** —se
-pegó el CSV dos veces— el robot publica **la más completa**, no la primera, así que una fila recién
-pegada y vacía no puede tapar la que ya tenía el RUC; y el robot avisa en su resumen cuántos RUC no
-pasan el dígito verificador, con nombre y todo.
-
-#### Son dos hojas, y la separación es el diseño
-
-| Hoja | Qué es | Quién la toca |
-|---|---|---|
-| **`Proveedores`** | La tabla que se llena. Valores guardados, **ninguna fórmula** | Una persona escribe RUC y actividad; el robot la lee |
-| **`Proveedores_Faltan`** | Una fórmula que mira la hoja `2026` y dice qué proveedores todavía no tienen fila | Nadie — se llena sola |
-
-Están separadas por una razón dura: **nunca se escribe a mano al lado de una fórmula que se
-expande.** Cuando aparece un nombre nuevo, la lista se recorre —se inserta en medio, o cambia de
-orden si se ordena la hoja `2026`— y los RUC de al lado quedan pegados a **otra persona**. Es el
-error clásico de este patrón. Por eso lo que se escribe vive en una hoja que no se mueve nunca, y
-la fórmula vive sola en la suya.
-
-**El flujo, entonces:** escribes el contrato en la hoja `2026` como siempre. Si su proveedor es
-nuevo, su nombre aparece solo en `Proveedores_Faltan`, con el contador de cuántos faltan. Lo copias
-a la primera fila libre de `Proveedores` —o lo eliges del **desplegable** de esa columna, que se
-alimenta de esa misma lista— y le llenas el RUC. **Nadie teclea un nombre nunca**, así que no hay
-forma de que entre con una tilde distinta y parta el historial en dos.
-
-Y no se duplica: la fórmula salta los que ya tienen fila y no repite un proveedor que esté en
-varios contratos; si aun así quedaran dos filas iguales, la celda se pinta de rojo y el robot
-publica la más completa.
-
-Mientras tanto nada se rompe: el listado del CLM se arma con los contratos, así que el proveedor
-nuevo **aparece desde el primer día**, solo que con «sin registrar» donde va el RUC. Y el CLM lo
-señala con un filtro **📇 Sin ficha · N** y una alerta agregada para la Unidad Operativa — las dos
-solo cuando la hoja ya existe.
-
-Para ponerse al día de golpe cuando se acumularon varios:
+#### Probarlo
 
 ```bash
-python3 scripts/hoja_proveedores.py --actualizar <Sistema_Alertas_Contratos_FIAS.xlsx>
-```
+npm install jsdom
+node scripts/probar_clm.js            # el módulo, el listado y las fichas
 
-Escribe **solo las filas que faltan**, en el mismo orden de columnas que ya tiene la hoja —si le
-añadieron columnas propias las respeta y las deja en blanco—. Si no falta ninguna, no escribe nada
-y lo dice.
-
-> **Ningún script escribe en el maestro**, y no es escrúpulo: se probó, y abrir y volver a guardar
-> el maestro con openpyxl **borra los enlaces de la hoja «Export»** —los 138 contratos se quedaron
-> sin link—. Siempre se escribe un archivo aparte y las filas se pegan a mano.
-
-**Las fórmulas se comprueban ejecutándolas**, porque una fórmula mal escrita no falla: se queda
-vacía, que es exactamente lo que se vería si no faltara ningún proveedor.
-
-```bash
 pip install openpyxl formulas
-python3 scripts/probar_hoja_proveedores.py
+python3 scripts/probar_hoja_proveedores.py   # las fórmulas de la vista, ejecutándolas
 ```
 
-Monta un maestro de mentira con el proveedor en la **columna D** —no en la K— para que la prueba
-falle si alguien vuelve a fijar la columna en vez de buscarla por su encabezado, y comprueba que
-la lista traiga solo los que faltan, sin repetir al que está en dos contratos. Son funciones
-clásicas a propósito (`IF`, `AND`, `COUNTIF`, `INDEX`, `MATCH`): `UNIQUE` y `FILTER` harían esto en
-una línea pero solo existen en Excel 365, y no hay forma de comprobarlas aquí.
+Lo segundo importa más de lo que parece: **una fórmula mal escrita no falla, se queda vacía** —que
+es idéntico a «no hay proveedores»—. La prueba monta un maestro de mentira con el proveedor en la
+**columna D**, no en la K, y comprueba que un proveedor con tres contratos salga una vez, que el
+RUC escrito en **una sola** de sus filas aparezca igual, y que de dos verificaciones se muestre la
+más reciente con el resultado que le corresponde a esa fecha. Ya encontró dos fallos que nadie
+habría visto: `COUNTIF(rango;"?*")` contaba 500 en vez de 2, y las fórmulas que resolvían la
+columna al vuelo —con `INDEX(rango;0;n)` o con `OFFSET`— no se pueden ejecutar en la comprobación,
+así que las letras se fijan al generar la hoja y se regenera si algún día se mueven. El robot, que
+es el que alimenta al CLM, las sigue buscando por su encabezado.
 
 ## Centro de mando diario — herramienta personal
 

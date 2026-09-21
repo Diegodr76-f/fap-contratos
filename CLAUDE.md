@@ -265,72 +265,70 @@ node scripts/probar_clm.js    # después de tocar el CLM
 
 ## El RUC de una persona natural es su cédula
 
-El módulo **Proveedores** del CLM arma la ficha de cada proveedor juntando sus contratos, y le
-pega el RUC, la actividad económica y la verificación periódica desde la hoja `Proveedores` del
-Excel maestro (`crm/proveedores_export.json`, que publica el robot).
+El módulo **Proveedores** del CLM arma la ficha de cada proveedor agrupando los contratos de la
+hoja `2026` por el nombre del proveedor. El RUC, la actividad económica y la verificación salen de
+**columnas de esa misma fila** (`RUC del Proveedor`, `Actividad económica`, `Verificación del
+Proveedor`, `Verificado por`, `Resultado de la verificación`, `Periodicidad`), y el robot las
+publica en `crm/proveedores_export.json`.
+
+**No hay una segunda lista que mantener, y ese es el diseño.** El proveedor existe porque tiene un
+contrato; su ficha se arma de esa fila. Nada que copiar, nada que emparejar entre dos hojas, y por
+lo tanto ninguna forma de que una ficha se duplique ni de que un RUC acabe pegado a otra persona.
+Se escribe **una sola vez por proveedor**, en cualquiera de sus contratos: el robot toma el primer
+valor que encuentra y las demás filas suyas se quedan en blanco para siempre. De la verificación
+toma la de **fecha más reciente**, no la primera.
 
 **Ahí está el cuidado.** En Ecuador el RUC de una persona natural son los diez dígitos de su
 cédula más `001`, y la mayoría de los proveedores del FAP son personas naturales. El sitio es
 público, así que **el robot decide qué puede salir antes de cifrar**: completo para sociedades y
 entidades públicas —dato de registro público—, enmascarado (`0603•••••6001`) para personas
-naturales. La política vive entera en `scripts/ruc.py` y no se duplica en el CLM: la app solo
-pinta lo que recibe, así que la cédula no entra nunca al archivo publicado, ni dentro del sobre
-cifrado.
+naturales. La política vive en `scripts/ruc.py`, así que la cédula no entra nunca al archivo
+publicado, ni dentro del sobre cifrado.
 
 Cuatro reglas que sostienen esto:
 
-- **La hoja se lee con lista blanca**, como el conversor de concordancia: solo suben las columnas
-  nombradas en `PROV_COLS`. La hoja puede llevar teléfono, correo o dirección —hacen falta para
-  trabajar— y no suben nunca. Al añadir una columna, pregúntate primero si puede ser pública.
+- **Las columnas nuevas son opcionales, como todas.** Sin ellas el robot publica exactamente lo
+  mismo que antes y el CLM lista los proveedores igual, solo que las fichas dicen «sin registrar».
+  La comprobación que de verdad importa es esa, y está en `probar_clm.js`.
 - **Las fichas van en su propio archivo.** `contratos_export.json` es un array y lo leen como
   array el CRM, el CLM y renovaciones; meter los proveedores dentro los rompería a los tres.
-- **El CLM tiene su propia copia de la política** (`rucTipo`, `rucPublicable`, `rucValido`), y es
-  solo para lo que la AC acaba de escribir y todavía no ha pasado por el Excel. La autoridad
-  sigue siendo `ruc.py`, porque es la que decide qué se publica. **Si cambia una, cambian las dos.**
+- **El CLM tiene su propia copia de la política del RUC** (`rucTipo`, `rucPublicable`,
+  `rucValido`), y es solo para lo que la AC acaba de escribir y todavía no ha pasado por el Excel.
+  La autoridad sigue siendo `ruc.py`. **Si cambia una, cambian las dos.**
 - **Un RUC enmascarado nunca vuelve al Excel.** El CSV de la verificación lleva el completo o
   nada: escribir `0603•••••6001` en la hoja pisaría el bueno con bolitas.
 
-El ida y vuelta con el Excel es a mano, así que se diseñó para aguantarlo: el dígito verificador
-se comprueba al escribir (aviso, no barrera — quien escribe tiene el papel delante), y si acaban
-quedando **dos filas del mismo proveedor** el robot publica **la más completa**, no la primera,
-para que una fila recién pegada y vacía no tape la que ya tenía el RUC.
+La AC también puede escribir el RUC desde el CLM, al verificar al proveedor: se comprueba el
+dígito verificador al escribirlo (aviso, no barrera — quien escribe tiene el papel delante) y sale
+en el CSV, cuyas columnas son las mismas de la hoja `2026`.
 
-La hoja entera es opcional, como toda columna que lee el robot: sin ella el listado se arma igual
-con los contratos y las fichas dicen «sin registrar». La comprobación que de verdad importa
-—y que está en `probar_clm.js`— es esa: **sin la hoja, todo se pinta exactamente como antes.**
+### La hoja «Proveedores» del maestro es solo una vista
 
-Para crearla no se teclean 225 nombres: `python3 scripts/hoja_proveedores.py <maestro.xlsx>` la
-genera ya pre-llenada desde las hojas de contratos, y lista los pares de nombres parecidos que la
-normalización no une —errores de tecleo que parten en dos el historial de una misma persona— para
-que se resuelvan con el RUC al llenarla.
+`python3 scripts/hoja_proveedores.py <maestro.xlsx>` dice qué columnas añadir a la hoja `2026`,
+escribe una hoja `Proveedores` **entera de fórmulas** —opcional, para ver la lista también en
+Excel; no se escribe nada en ella— y lista los nombres parecidos que la normalización no une
+(errores de tecleo que parten en dos el historial de una misma persona; lo decide el RUC).
 
-**Son dos hojas, y la separación es el diseño.** `Proveedores` es la que se llena y la que lee el
-robot: valores guardados, **ninguna fórmula**. `Proveedores_Faltan` es una fórmula sola que mira la
-hoja `2026` y dice qué proveedores todavía no tienen fila.
+Tres cosas que hay que respetar si se tocan esas fórmulas:
 
-Separadas porque **nunca se escribe a mano al lado de una fórmula que se expande**: al aparecer un
-nombre nuevo la lista se recorre —o cambia entera si se ordena la hoja `2026`— y los RUC de al lado
-quedan pegados a otra persona. Si alguna vez parece buena idea juntarlas, no lo es.
-
-Tres consecuencias que hay que respetar:
-
-- **La hoja que lee el robot no lleva fórmulas.** El robot lee valores guardados (`data_only`), y
-  una fórmula sin calcular se publica como vacía, en silencio.
+- **Nunca se escribe a mano al lado de una fórmula que se expande.** Si la lista de nombres fuera
+  una fórmula y el RUC se escribiera al lado, al aparecer un nombre nuevo la lista se recorre —o
+  cambia entera si se ordena la hoja `2026`— y los RUC quedan pegados a otra persona. Por eso lo
+  que se escribe vive en la fila del contrato, que no se mueve, y la vista es solo de lectura.
 - **Las fórmulas se comprueban ejecutándolas** (`scripts/probar_hoja_proveedores.py`, con el
-  paquete `formulas`). Una fórmula mal escrita no falla: se queda vacía, que es idéntico a «no
-  falta ningún proveedor».
-- **Funciones clásicas.** `UNIQUE`/`FILTER` harían la lista en una línea, pero solo existen en
-  Excel 365, se guardan con prefijos `_xlfn.` cuando no las escribe Excel, y no hay con qué
-  comprobarlas aquí. Y la columna del proveedor se busca por su encabezado con `MATCH`, no se fija
-  en la K: el maestro es de otra persona y las columnas se mueven.
-
-`--actualizar` sigue estando para ponerse al día de golpe. Y que no se olvide no depende de
-acordarse: el CLM marca los proveedores **sin ficha** con un filtro y una alerta agregada, las dos
-solo cuando la hoja ya existe.
+  paquete `formulas`). Una fórmula mal escrita no falla: se queda vacía, que es idéntico a «no hay
+  proveedores».
+- **Solo fórmulas que se puedan ejecutar en la comprobación.** `UNIQUE`/`FILTER` harían la lista
+  en una línea, pero solo existen en Excel 365 y se guardan con prefijos `_xlfn.` cuando no las
+  escribe Excel. Y las columnas van **fijadas a su letra al generar**, no buscadas con
+  `INDEX(rango,0,n)` ni `OFFSET` dentro de la fórmula: las dos son válidas en Excel y ninguna se
+  puede ejecutar aquí, así que habría que publicarlas a ciegas. El script lee el maestro y escribe
+  la letra; si las mueven, se regenera la hoja. **El robot sí las busca por encabezado**, y es el
+  que de verdad alimenta al CLM.
 
 **Ningún script escribe en el maestro.** No es escrúpulo: abrir y volver a guardar el maestro con
 openpyxl **borra los enlaces de la hoja «Export»**, y el robot los publica —se probó, y los 138
-contratos se quedaron sin link—. Se escribe siempre un archivo aparte y se pega a mano.
+contratos se quedaron sin link—. Se escribe siempre un archivo aparte.
 
 ## Datos de contratos
 

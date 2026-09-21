@@ -154,6 +154,7 @@ function listo(w){
   });
 }
 const texto=w=>w.document.getElementById('view').textContent.replace(/\s+/g,' ');
+const $HTML=w=>w.document.getElementById('view').innerHTML;
 
 (async function(){
 
@@ -263,7 +264,8 @@ w.go('proveedores');
 t=texto(w);
 ok(/3 proveedores/.test(t),'el listado dice cuántos son');
 ok(/sin registrar/.test(t),'sin la hoja del Excel, el RUC dice «sin registrar»');
-ok(/hoja «Proveedores» del Excel maestro/.test(t),'y explica de dónde saldría');
+ok(/hoja <b>2026<\/b> del Excel maestro/.test($HTML(w))&&/una sola vez/.test(t),
+   'y explica dónde se escribe el RUC, y que es una sola vez');
 ok(w.alertList().filter(a=>a.fn==='prov').length===0,
    'y no hay alerta de verificación: antes de la primera sería un cartel permanente');
 
@@ -329,10 +331,10 @@ ok(corte.length===1&&corte[0].sev===0,
 ok(corte[0].pk===edwin.key,'y el botón abre su ficha, no otra');
 
 // ---------------------------------------------------------------- 12
-seccion('12 · Un contrato nuevo trae un proveedor que no está en la hoja');
-// La hoja se llena una vez, pero los contratos siguen entrando. Un proveedor
-// que llega después tiene que verse igual —el listado se arma con los
-// contratos— y tiene que notarse que le falta la ficha.
+seccion('12 · Un contrato nuevo trae un proveedor al que nadie le puso el RUC');
+// El proveedor nuevo aparece solo —el listado se arma con los contratos— y lo
+// único que le falta es el RUC, que se escribe en la hoja 2026 en cualquiera de
+// sus filas. Eso es lo que hay que ver, no una ficha que crear.
 const conNuevo=contratosProv().concat([Object.assign({},contratosProv()[0],{
   nro:'FIAS-FAP-2026-900',proveedor:'FERRETERÍA EL CÓNDOR S.A.',
   area:'RPF Chimborazo',cat:'Mantenimiento',monto:2200,montoTotal:2200})]);
@@ -340,27 +342,30 @@ w=await listo(nuevoDom(conNuevo,null,fichas()));
 P=w.proveedores();
 ok(P.length===4,'el proveedor nuevo entra al listado sin tocar nada',P.length);
 const ferre=P.find(p=>/FERRETER/.test(p.nombre));
-ok(!!ferre && !ferre.ficha,'y se ve que no tiene ficha');
+ok(!!ferre && !w.datosProv(ferre).ruc,'y se ve que todavía no tiene RUC');
 w.go('proveedores');
-ok(!!w.document.getElementById('chipSinFicha'),'aparece el filtro «Sin ficha»');
-ok(/Sin ficha · 2/.test(texto(w)),'y dice cuántos son (el nuevo y el que nunca tuvo)');
-w.document.getElementById('chipSinFicha').onclick();
-ok(w.filtraProveedores().every(p=>!p.ficha),'al pulsarlo deja solo los que no la tienen');
-w.eval('ST.pSinFicha=false');
-let af=w.alertList().filter(a=>a.fn==='provficha');
+ok(!!w.document.getElementById('chipSinRuc'),'aparece el filtro «Sin RUC»');
+ok(/Sin RUC · 2/.test(texto(w)),'y dice cuántos son (el nuevo y el que nunca lo tuvo)');
+w.document.getElementById('chipSinRuc').onclick();
+ok(w.filtraProveedores().every(p=>!w.datosProv(p).ruc),'al pulsarlo deja solo los que no lo tienen');
+w.eval('ST.pSinRuc=false');
+let af=w.alertList().filter(a=>a.fn==='provruc');
 ok(af.length===1,'una sola alerta agregada, no una por proveedor',af.length);
-ok(/hoja_proveedores.py --actualizar/.test(af[0].d),'y dice con qué se arregla');
+ok(/hoja 2026/.test(af[0].d)&&/una sola vez/.test(af[0].d),
+   'y dice dónde se escribe y que es una sola vez');
 w.go('alertas');
-const bficha=[...w.document.querySelectorAll('.alert-row .go')].find(b=>b.dataset.fn==='provficha');
+const bficha=[...w.document.querySelectorAll('.alert-row .go')].find(b=>b.dataset.fn==='provruc');
 bficha.onclick();
-ok(w.eval('ST.view')==='proveedores'&&w.eval('ST.pSinFicha')===true,'y lleva al listado ya filtrado');
-// Y el caso de hoy: sin hoja ninguna, ni filtro ni alerta — serían 225 avisos
-// de algo que todavía no empieza.
+ok(w.eval('ST.view')==='proveedores'&&w.eval('ST.pSinRuc')===true,'y lleva al listado ya filtrado');
+// Y el caso de hoy: ningún RUC escrito todavía, ni filtro ni alerta — serían
+// 225 avisos de algo que aún no empieza.
 w=await listo(nuevoDom(conNuevo));
 w.go('proveedores');
-ok(!w.document.getElementById('chipSinFicha'),'sin la hoja todavía, el filtro no aparece');
-ok(w.alertList().filter(a=>a.fn==='provficha').length===0,'y la alerta tampoco');
+ok(!w.document.getElementById('chipSinRuc'),'sin ningún RUC todavía, el filtro no aparece');
+ok(w.alertList().filter(a=>a.fn==='provruc').length===0,'y la alerta tampoco');
 ok(w.proveedores().length===4,'pero el listado se pinta completo, como siempre');
+ok(/se escriben en la hoja <b>2026<\/b>/.test($HTML(w)),
+   'y explica dónde se escribe el RUC');
 
 // ---------------------------------------------------------------- 13
 seccion('13 · El RUC se captura donde alguien lo tiene delante');
@@ -390,7 +395,8 @@ t=texto(w);
 ok(/0603•••••6001/.test(t),'pero la ficha lo pinta enmascarado: es una persona natural');
 ok(/sin pasar/.test(t),'marcado como que todavía no está en el Excel');
 ok(/Ferretería y materiales/.test(t),'y la actividad se ve igual');
-ok(/pégala al final de la hoja/.test(t),'la ficha dice qué hacer con el CSV');
+ok(/hoja <b>2026<\/b>/.test($HTML(w))&&/cualquier contrato<\/b> de este proveedor/.test($HTML(w)),
+   'la ficha dice a qué fila del Excel va el CSV');
 const filaCsv=String(w.eval('__csv')||'').split('\r\n')[1]||'';
 ok(/FERRETER/.test(filaCsv),'el CSV lleva el nombre tal como está en el contrato');
 ok(filaCsv.indexOf('0603123456001')>=0,'y el RUC entero, que el Excel sí puede guardar');

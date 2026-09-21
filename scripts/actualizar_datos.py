@@ -86,6 +86,21 @@ C = dict(
     carpeta=col("numero de carpeta", "número de carpeta", "n.º de carpeta",
                 "carpeta interna", "carpeta"),
     codigoProceso=col("codigoproceso", "código del proceso", "codigo del proceso"),
+    # Lo del proveedor, en la misma fila donde ya se escribe su nombre. Se llena
+    # **una sola vez**, en cualquier contrato suyo: el robot agrupa por nombre y
+    # toma el primer valor que encuentre, así que las demás filas se quedan en
+    # blanco para siempre. Todas opcionales, como el resto.
+    ruc=col("ruc del proveedor", "ruc"),
+    actividad=col("actividad económica", "actividad economica", "actividad"),
+    verificacion=col("verificación del proveedor", "verificacion del proveedor",
+                     "fecha de verificación", "fecha de verificacion",
+                     "última verificación", "ultima verificacion"),
+    verificadoPor=col("verificado por"),
+    resultadoVerif=col("resultado de la verificación", "resultado de la verificacion",
+                       "resultado verificación", "resultado verificacion"),
+    periodicidad=col("periodicidad de la verificación", "periodicidad de la verificacion",
+                     "periodicidad"),
+    obsProveedor=col("observaciones del proveedor"),
 )
 estado_cols = [j for j, h in enumerate(hdr) if "estado" in h and "gesti" in h] \
               or [j for j, h in enumerate(hdr) if "estado" in h]
@@ -136,6 +151,7 @@ def texto(v):
     return str(v).strip() or None
 
 out = []
+prov_filas = []      # (fila, nombre del proveedor) para armar las fichas después
 for row in ws.iter_rows(min_row=3, values_only=True):
     correo, nro = row[C["correo"]], row[C["nro"]]
     if not correo or "@" not in str(correo):
@@ -143,6 +159,9 @@ for row in ws.iter_rows(min_row=3, values_only=True):
     if not nro or "FIAS" not in str(nro).upper():
         continue
     nro = str(nro).strip()
+    nombre_prov = str(row[C["proveedor"]] or "").strip()
+    if nombre_prov:
+        prov_filas.append((row, nombre_prov))
     e = exp.get(nro, {})
     plazo = row[C["plazo"]]
     if isinstance(plazo, (datetime.date, datetime.datetime)):
@@ -195,146 +214,93 @@ print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['carpeta'])} con carpeta interna.")
 
 # ============================================================================
-# La hoja "Proveedores": lo que solo sabe una persona
+# Las fichas de proveedor
 # ============================================================================
-# El listado de proveedores del CLM se arma solo con los contratos —nombre,
-# áreas, categorías, montos y calificaciones salen de ahí—. Esta hoja añade lo
-# que no está en ningún lado: el RUC, la actividad económica por la que se
-# contrató y la verificación periódica de las ACs.
+# El proveedor no es una fila de ninguna base: es un nombre que se repite en los
+# contratos. Así que la ficha se arma **agrupando la propia hoja 2026** por ese
+# nombre —áreas, categorías y montos ya salían de ahí para el CLM—, y el RUC, la
+# actividad y la verificación salen de las columnas nuevas de esa misma hoja.
 #
-# Es opcional entera. Sin ella el CLM pinta el listado igual, solo que cada
-# ficha dice «sin registrar» donde iría el RUC. Por eso esto va al final y en su
-# propio archivo: si algo falla aquí, los contratos ya están publicados.
+# Por eso se escriben **una sola vez**, en cualquier contrato del proveedor: las
+# demás filas suyas se quedan en blanco para siempre. Aquí se toma el primer
+# valor que aparezca, y de la verificación la de fecha más reciente.
 #
-# Va en `proveedores_export.json` y no dentro del de contratos a propósito: el
-# de contratos es un array, y tres páginas (CRM, CLM y renovaciones) lo leen
-# como array. Cambiarle la forma para meter esto las rompería a las tres.
+# No hay hoja aparte ni emparejado por nombre entre dos hojas, y por lo tanto no
+# hay forma de que una ficha se duplique ni de que un RUC acabe pegado a otra
+# persona. La hoja «Proveedores» del maestro, si existe, es solo una vista de
+# fórmulas para mirar: el robot no la lee.
 #
-# **Se lee con lista blanca**, como el conversor de concordancia: solo suben las
-# columnas nombradas aquí abajo. La hoja puede llevar teléfono, correo o
-# dirección del proveedor —hace falta para trabajar— y el robot no los mira: son
-# datos de contacto de una persona y el sitio es público.
-PROV_COLS = dict(
-    nombre=("nombre del proveedor", "proveedor", "razón social", "razon social"),
-    ruc=("ruc",),
-    actividad=("actividad económica", "actividad economica", "actividad"),
-    verificacion=("última verificación", "ultima verificacion", "fecha de verificación",
-                  "fecha de verificacion"),
-    verificadoPor=("verificado por", "verificó", "verifico"),
-    resultado=("resultado",),
-    periodicidad=("periodicidad", "frecuencia"),
-    observaciones=("observaciones", "observación", "observacion"),
-)
+# Va en `proveedores_export.json` y no dentro del de contratos a propósito: el de
+# contratos es un array, y tres páginas (CRM, CLM y renovaciones) lo leen como
+# array. Cambiarle la forma para meter esto las rompería a las tres.
 
-provs = []
-if "Proveedores" in wb.sheetnames:
-    wsp = wb["Proveedores"]
 
-    # Dónde están los encabezados. La hoja se pega con la fila 1, pero las hojas
-    # de contratos del maestro llevan un título arriba y los encabezados en la
-    # 2; si alguien uniformiza la nueva, se sigue encontrando en vez de publicar
-    # una hoja vacía sin que nadie se entere.
-    def encabezados(fila):
-        return [str(c.value or "").strip().lower() for c in wsp[fila]]
+def clave_prov(s):
+    """La misma llave que usa el CLM: sin tildes, sin puntuación, en minúsculas.
+    Junta «RIVERJARDÍN CÍA. LTDA.» con «RIVERJARDIN CIA LTDA»."""
+    s = unicodedata.normalize("NFD", str(s)).encode("ascii", "ignore").decode()
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", s.lower())).strip()
 
-    phdr, fila_hdr = [], 1
-    for f in (1, 2, 3):
-        cand = encabezados(f)
-        if any(h.startswith("nombre del proveedor") or h == "proveedor" for h in cand):
-            phdr, fila_hdr = cand, f
-            break
 
-    def pcol(*aliases):
-        for a in aliases:
-            for j, h in enumerate(phdr):
-                if h == a or h.startswith(a):
-                    return j
-        return None
+fichas, malos = {}, []
+for row, nombre in prov_filas:
+    k = clave_prov(nombre)
+    if not k:
+        continue
+    f = fichas.get(k)
+    if f is None:
+        # El nombre que más contratos llevan es el que se muestra; se decide al
+        # final, cuando ya se contaron todos.
+        f = fichas[k] = dict(nombre=nombre, _grafias={}, ruc=None, rucTipo=None,
+                             actividad=None, verificacion=None, verificadoPor=None,
+                             resultado=None, periodicidad=None, observaciones=None)
+    f["_grafias"][nombre] = f["_grafias"].get(nombre, 0) + 1
 
-    P = {k: pcol(*als) for k, als in PROV_COLS.items()}
-    if P["nombre"] is None:
-        print("AVISO: la hoja «Proveedores» no tiene columna de nombre en ninguna "
-              "de sus tres primeras filas; no se publica.")
-        print("       Fila 1:", [h for h in encabezados(1) if h])
-    else:
-        def pval(row, key):
-            j = P.get(key)
-            if j is None or j >= len(row):
-                return None
-            v = row[j]
-            return None if v is None else (str(v).strip() or None)
-
-        # Solo para no publicar dos veces la misma fila. El emparejado de verdad
-        # —ficha contra contratos— lo hace el CLM, con una sola función en JS
-        # que normaliza los dos lados; aquí no hace falta que coincida al dedillo.
-        def clave(s):
-            s = unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode()
-            return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", s.lower())).strip()
-
-        # La hoja se llena pegando filas, así que un día habrá dos del mismo
-        # proveedor. Gana **la que tenga más lleno**, no la primera: una fila
-        # recién pegada y vacía no puede tapar la que ya tenía el RUC.
-        def llenura(f):
-            return sum(1 for v in f.values() if v not in (None, ""))
-
-        porClave, duplicadas, malos = {}, 0, []
-        for row in wsp.iter_rows(min_row=fila_hdr + 1, values_only=True):
-            nombre = pval(row, "nombre")
-            if not nombre:
-                continue
-            k = clave(nombre)
-            if not k:
-                continue
-            crudo = None
-            if P["ruc"] is not None and P["ruc"] < len(row):
-                crudo = row[P["ruc"]]
-            # El dígito verificador se comprueba aquí, sobre el RUC entero:
-            # después de enmascararlo ya no se puede.
+    if f["ruc"] is None:
+        crudo = val(row, "ruc")
+        if RUC.tipo(crudo):
             if RUC.valido(crudo) is False:
                 malos.append(nombre)
-            ficha = dict(
-                nombre=nombre,
-                ruc=RUC.publicable(crudo),          # enmascarado si es persona natural
-                rucTipo=RUC.tipo(crudo),
-                actividad=pval(row, "actividad"),
-                verificacion=iso(row[P["verificacion"]]) if (
-                    P["verificacion"] is not None and P["verificacion"] < len(row)) else None,
-                verificadoPor=pval(row, "verificadoPor"),
-                resultado=pval(row, "resultado"),
-                periodicidad=pval(row, "periodicidad"),
-                observaciones=pval(row, "observaciones"),
-            )
-            if k in porClave:
-                duplicadas += 1
-                if llenura(ficha) <= llenura(porClave[k]):
-                    continue
-            porClave[k] = ficha
+            f["ruc"] = RUC.publicable(crudo)     # enmascarado si es persona natural
+            f["rucTipo"] = RUC.tipo(crudo)
+    if f["actividad"] is None:
+        f["actividad"] = texto(val(row, "actividad"))
 
-        provs = list(porClave.values())
+    # De la verificación manda la más reciente, no la primera: es la que dice si
+    # el proveedor sigue en regla hoy.
+    fecha = iso(val(row, "verificacion"))
+    if fecha and (f["verificacion"] is None or fecha > f["verificacion"]):
+        f.update(verificacion=fecha,
+                 verificadoPor=texto(val(row, "verificadoPor")),
+                 resultado=texto(val(row, "resultadoVerif")),
+                 periodicidad=texto(val(row, "periodicidad")),
+                 observaciones=texto(val(row, "obsProveedor")))
 
-        with open("crm/proveedores_export.json", "w", encoding="utf-8") as f:
-            json.dump(cifrar(json.dumps(provs, ensure_ascii=False,
-                                        default=str).encode("utf-8"), DATA_KEY),
-                      f, ensure_ascii=False)
+provs = []
+for f in fichas.values():
+    f["nombre"] = max(f["_grafias"].items(), key=lambda kv: (kv[1], len(kv[0])))[0]
+    f.pop("_grafias")
+    provs.append(f)
+provs.sort(key=lambda f: f["nombre"])
 
-        con_ruc = sum(1 for p in provs if p["ruc"])
-        naturales = sum(1 for p in provs if p["rucTipo"] == "Persona natural")
-        print(f"OK: {len(provs)} proveedores publicados (cifrados), "
-              f"{con_ruc} con RUC ({naturales} personas naturales, enmascaradas), "
-              f"{sum(1 for p in provs if p['actividad'])} con actividad económica, "
-              f"{sum(1 for p in provs if p['verificacion'])} verificados.")
-        sin_ruc = [p["nombre"] for p in provs if not p["ruc"]
-                   and (P["ruc"] is not None)]
-        if sin_ruc:
-            print(f"    {len(sin_ruc)} sin RUC utilizable (vacío o incompleto), "
-                  f"p. ej.: {', '.join(sin_ruc[:3])}")
-        if duplicadas:
-            print(f"    {duplicadas} fila(s) repetida(s) del mismo proveedor; "
-                  "publiqué la más completa de cada una. Conviene limpiarlas.")
-        if malos:
-            print(f"    ⚠ {len(malos)} RUC "
-                  f"{'no pasa' if len(malos) == 1 else 'no pasan'} el dígito "
-                  f"verificador (probable error de tecleo): {', '.join(malos[:5])}")
-else:
-    print("AVISO: el maestro no trae la hoja «Proveedores»; el CLM arma el listado "
-          "solo con los contratos. Para crearla: python3 scripts/hoja_proveedores.py")
+with open("crm/proveedores_export.json", "w", encoding="utf-8") as f:
+    json.dump(cifrar(json.dumps(provs, ensure_ascii=False,
+                                default=str).encode("utf-8"), DATA_KEY),
+              f, ensure_ascii=False)
+
+con_ruc = sum(1 for p in provs if p["ruc"])
+naturales = sum(1 for p in provs if p["rucTipo"] == "Persona natural")
+print(f"OK: {len(provs)} proveedores publicados (cifrados), "
+      f"{con_ruc} con RUC ({naturales} personas naturales, enmascaradas), "
+      f"{sum(1 for p in provs if p['actividad'])} con actividad económica, "
+      f"{sum(1 for p in provs if p['verificacion'])} verificados.")
+if C.get("ruc") is None:
+    print("    La hoja 2026 todavía no tiene la columna «RUC del Proveedor». "
+          "El CLM lista los proveedores igual; las fichas dirán «sin registrar».")
+elif con_ruc < len(provs):
+    print(f"    {len(provs) - con_ruc} sin RUC utilizable (vacío o incompleto). "
+          "Se escribe una sola vez, en cualquier contrato del proveedor.")
+if malos:
+    print(f"    ⚠ {len(malos)} RUC "
+          f"{'no pasa' if len(malos) == 1 else 'no pasan'} el dígito verificador "
+          f"(probable error de tecleo): {', '.join(malos[:5])}")

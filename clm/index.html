@@ -493,7 +493,7 @@ function mySolicitudes(){
 
 /* ================= ROUTER ================= */
 let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:"table",repQ:"",sinCarpeta:false,
-        prov:null,pq:"",pCat:"all",pVerif:"all",pSort:"contratos",pMode:"table",pSinFicha:false};
+        prov:null,pq:"",pCat:"all",pVerif:"all",pSort:"contratos",pMode:"table",pSinRuc:false};
 const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",proveedores:"Listado de proveedores",provdet:"Ficha del proveedor",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",mapa:"Mapa de áreas protegidas",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
 function go(view,cur){ST.view=view;if(cur!==undefined)ST.cur=cur;location.hash="#/"+view+(view==="detalle"&&ST.cur!=null?"/"+ST.cur:"");render();window.scrollTo(0,0);}
 window.addEventListener("hashchange",()=>{
@@ -694,14 +694,14 @@ function alertList(){
   // proveedores y ninguna verificación todavía, «225 sin verificar» sería un
   // cartel permanente que nadie puede bajar.
   const provs=proveedores(),conVerif=provs.filter(p=>ultimaVerif(p)).length;
-  // Un contrato nuevo puede traer un proveedor que todavía no tiene fila en la
-  // hoja «Proveedores». Aparece igual en el listado —se arma con los contratos—
-  // pero sin RUC ni actividad, así que hay que ir a añadirle la fila. Es de la
-  // Unidad Operativa, que mantiene el maestro, y solo cuando la hoja ya existe:
-  // antes de la primera ficha serían 225 avisos de algo que aún no empieza.
-  if(SES&&SES.rol==="uo"&&FICHAS.length){
-    const sinFicha=provs.filter(p=>!p.ficha).length;
-    if(sinFicha)out.push({sev:2,icon:"📇",col:"var(--navy)",bg:"var(--tint)",t:`${sinFicha} proveedor${sinFicha===1?"":"es"} sin ficha en el Excel`,d:"Tienen contrato pero no tienen fila en la hoja «Proveedores»: sin RUC ni actividad. Se añaden con hoja_proveedores.py --actualizar",i:null,act:"Ver",fn:"provficha"});
+  // Un contrato nuevo puede traer un proveedor al que nadie le ha escrito el
+  // RUC. Aparece igual en el listado —se arma con los contratos—, solo que su
+  // ficha dice «sin registrar». Es de la Unidad Operativa, que mantiene el
+  // maestro, y solo cuando la práctica ya arrancó: antes del primer RUC serían
+  // 225 avisos de algo que aún no empieza.
+  if(SES&&SES.rol==="uo"){
+    const conRuc=provs.filter(p=>datosProv(p).ruc).length,sinRuc=provs.length-conRuc;
+    if(conRuc&&sinRuc)out.push({sev:2,icon:"📇",col:"var(--navy)",bg:"var(--tint)",t:`${sinRuc} proveedor${sinRuc===1?"":"es"} sin RUC`,d:"Se escribe una sola vez, en la columna «RUC del Proveedor» de la hoja 2026, en cualquier contrato suyo",i:null,act:"Ver",fn:"provruc"});
   }
   if(conVerif){
     const venc=provs.filter(p=>verifEstado(p).key==="vencida").length;
@@ -796,8 +796,8 @@ function bindAlertRows(){
     const fn=b.dataset.fn;
     if(fn==="sol"){go("solicitudes");return;}
     if(fn==="carp"){ST.sinCarpeta=true;ST.filter="all";go("contratos");return;}
-    if(fn==="prov"){ST.pVerif="vencida";ST.pCat="all";ST.pq="";ST.pSinFicha=false;go("proveedores");return;}
-    if(fn==="provficha"){ST.pSinFicha=true;ST.pVerif="all";ST.pCat="all";ST.pq="";go("proveedores");return;}
+    if(fn==="prov"){ST.pVerif="vencida";ST.pCat="all";ST.pq="";ST.pSinRuc=false;go("proveedores");return;}
+    if(fn==="provruc"){ST.pSinRuc=true;ST.pVerif="all";ST.pCat="all";ST.pq="";go("proveedores");return;}
     if(fn==="provdet"){abrirProv(b.dataset.pk);return;}
     const i=+b.dataset.i;const c=CONTRACTS[i];
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
@@ -1714,7 +1714,7 @@ function filtraProveedores(){
   const list=proveedores().filter(p=>{
     if(ST.pCat!=="all"&&p.cats.indexOf(ST.pCat)<0)return false;
     if(ST.pVerif!=="all"&&verifEstado(p).key!==ST.pVerif)return false;
-    if(ST.pSinFicha&&p.ficha)return false;
+    if(ST.pSinRuc&&datosProv(p).ruc)return false;
     if(ST.pq){
       const f=p.ficha||{};
       const hay=provKey(Object.keys(p.grafias).join(" ")+" "+p.areas.join(" ")+" "+
@@ -1746,14 +1746,14 @@ function vProveedores(){
   const todos=proveedores();
   const list=filtraProveedores();
   const cats=[...new Set(todos.reduce((a,p)=>a.concat(p.cats),[]))].sort((a,b)=>a.localeCompare(b));
-  const conFicha=todos.filter(p=>p.ficha).length,sinFicha=todos.length-conFicha;
-  if(!sinFicha)ST.pSinFicha=false;   // sin nada que filtrar, no dejar la lista vacía
+  const sinRuc=todos.filter(p=>!datosProv(p).ruc).length,conRuc=todos.length-sinRuc;
+  if(!sinRuc)ST.pSinRuc=false;   // sin nada que filtrar, no dejar la lista vacía
   const cuenta={};todos.forEach(p=>{const k=verifEstado(p).key;cuenta[k]=(cuenta[k]||0)+1;});
   const sel="padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer";
   const sorts=[["contratos","Más contratos"],["monto","Mayor monto"],["verif","Verificación pendiente"],["calif","Mejor calificado"],["nombre","Nombre (A–Z)"]];
   const vf=[["all","Todos"],["vencida","Verificación vencida"],["pronto","Por vencer"],["aldia","Al día"],["nunca","Sin verificar"],["corte","No continuar"]];
   $("#view").innerHTML=`<div class="up">
-    ${conFicha?"":`<div class="note" style="margin-bottom:12px">El listado se arma con los contratos. El <b>RUC</b> y la <b>actividad económica</b> salen de la hoja «Proveedores» del Excel maestro, que todavía no está — por eso las fichas dicen «sin registrar». Se crea con <code>python3 scripts/hoja_proveedores.py</code>.</div>`}
+    ${conRuc?"":`<div class="note" style="margin-bottom:12px">El listado se arma solo con los contratos. El <b>RUC</b> y la <b>actividad económica</b> se escriben en la hoja <b>2026</b> del Excel maestro, en la misma fila del contrato y <b>una sola vez</b> por proveedor: el resto lo arma el robot.</div>`}
     <div class="toolbar">
       <div class="search">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -1769,7 +1769,7 @@ function vProveedores(){
     </div>
     <div class="chips">
       ${vf.map(([k,l])=>`<button class="chip ${ST.pVerif===k?"on":""}" data-pf="${k}">${l}${k!=="all"&&cuenta[k]?` · ${cuenta[k]}`:""}</button>`).join("")}
-      ${(conFicha&&sinFicha)?`<button class="chip ${ST.pSinFicha?"on":""}" id="chipSinFicha" title="Proveedores con contratos que todavía no tienen fila en la hoja «Proveedores» del Excel maestro">📇 Sin ficha · ${sinFicha}</button>`:""}
+      ${(conRuc&&sinRuc)?`<button class="chip ${ST.pSinRuc?"on":""}" id="chipSinRuc" title="Proveedores a los que todavía nadie les escribió el RUC en la hoja 2026 del Excel maestro">📇 Sin RUC · ${sinRuc}</button>`:""}
     </div>
     ${cats.length>1?`<div class="chips" style="margin:10px 0 4px">
       <button class="chip ${ST.pCat==="all"?"on":""}" data-pc="all">Todas las categorías</button>
@@ -1787,7 +1787,7 @@ function vProveedores(){
     bindProvRows();};
   $("#pSortSel").onchange=e=>{ST.pSort=e.target.value;vProveedores();};
   $("#view").querySelectorAll(".chip[data-pf]").forEach(b=>b.onclick=()=>{ST.pVerif=b.dataset.pf;vProveedores();});
-  const csf=$("#chipSinFicha",$("#view"));if(csf)csf.onclick=()=>{ST.pSinFicha=!ST.pSinFicha;vProveedores();};
+  const csf=$("#chipSinRuc",$("#view"));if(csf)csf.onclick=()=>{ST.pSinRuc=!ST.pSinRuc;vProveedores();};
   $("#view").querySelectorAll(".chip[data-pc]").forEach(b=>b.onclick=()=>{ST.pCat=(ST.pCat===b.dataset.pc)?"all":b.dataset.pc;vProveedores();});
   $("#view").querySelectorAll(".viewtog button").forEach(b=>b.onclick=()=>{ST.pMode=b.dataset.pv;vProveedores();});
   bindProvRows();
@@ -1862,7 +1862,7 @@ function vProvDet(){
         <div><div class="k">Próxima</div><div class="v">${fdate(prox)} · ${esc(v.periodicidad||"Anual")}</div></div>
         ${v.obs?`<div class="full"><div class="k">Observaciones</div><div class="v">${esc(v.obs)}</div></div>`:""}
       </div>
-      ${v.pendiente?`<div class="note" style="margin-top:12px">Esta verificación está <b>solo en este navegador</b>: el resto del equipo todavía no la ve. El CSV trae la fila lista${p.ficha?` — copia sus columnas de verificación sobre la fila de <b>${esc(p.nombre)}</b> en la hoja «Proveedores».`:` y <b>completa</b> (nombre, RUC y actividad): este proveedor todavía no tiene fila, así que pégala al final de la hoja «Proveedores» y queda creada.`}</div>`:""}`
+      ${v.pendiente?`<div class="note" style="margin-top:12px">Esta verificación está <b>solo en este navegador</b>: el resto del equipo todavía no la ve. Pásala al Excel con el CSV — sus columnas van en la hoja <b>2026</b>, en la fila de <b>cualquier contrato</b> de este proveedor.</div>`:""}`
       :`<div class="note">Este proveedor <b>no tiene ninguna verificación registrada</b>. Mientras no la tenga, el ciclo se cuenta desde la primera que se registre.</div>`}
       <div style="margin-top:14px;display:flex;gap:9px;flex-wrap:wrap">
         <button class="btn" id="verifBtn">Registrar verificación</button>
@@ -1913,7 +1913,7 @@ function modalVerificar(p){
     <p class="sub">${esc(p.nombre)} · ${p.contratos.length} contrato${p.contratos.length===1?"":"s"} · ${money(p.monto)}</p>
     <div class="note" style="margin-bottom:14px">Se registra lo que <b>se comprobó</b>, no lo que se supone. Lo que quede sin marcar sale en las observaciones.</div>
     ${(pideRuc||pideAct)?`<div class="frow2">
-      ${pideRuc?`<div class="frow"><label>RUC${f.ruc?"":" <span style=\"color:var(--muted);font-weight:600\">— no está en el Excel</span>"}</label>
+      ${pideRuc?`<div class="frow"><label>RUC <span style="color:var(--muted);font-weight:600">— nadie se lo ha escrito en la hoja 2026</span></label>
         <input id="vruc" inputmode="numeric" maxlength="17" placeholder="13 dígitos" value="${esc(loc.ruc||"")}">
         <div id="vrucmsg" style="font-size:11.5px;font-weight:700;margin-top:4px"></div></div>`:""}
       ${pideAct?`<div class="frow"><label>Actividad económica del RUC</label>
@@ -1970,9 +1970,9 @@ function modalVerificar(p){
    se registra aquí vive en este navegador hasta que alguien lo pega en la hoja
    «Proveedores», y desde ahí el robot lo publica para todo el equipo.
 
-   La fila sale **completa** —nombre tal como está escrito en el contrato, RUC y
-   actividad—, así que para un proveedor que todavía no tiene fila en la hoja,
-   pegarla es crear su ficha entera. No se teclea nada en Excel.
+   Sus columnas son las mismas de la hoja 2026, así que se pegan en la fila de
+   cualquier contrato del proveedor. El nombre va delante solo para saber en qué
+   fila estás; no hay que escribirlo, ya está ahí.
 
    Y el RUC va entero: el CSV termina en el Excel, que está en SharePoint con
    control de acceso. Enmascarado está lo que se publica, que es otra cosa. */
@@ -1985,8 +1985,9 @@ function csvVerif(p){
   const ruc=slot.ruc||(rucDigitos(f.ruc).length===13?f.ruc:"");
   const q=s=>`"${String(s==null?"":s).replace(/"/g,'""')}"`;
   const csv="﻿"+[
-    ["Nombre del Proveedor","RUC","Actividad económica","Última verificación",
-     "Verificado por","Resultado","Periodicidad","Observaciones"].join(";"),
+    ["Nombre del Proveedor","RUC del Proveedor","Actividad económica",
+     "Verificación del Proveedor","Verificado por","Resultado de la verificación",
+     "Periodicidad","Observaciones del Proveedor"].join(";"),
     ...hist.map(h=>[p.nombre,ruc||"",slot.actividad||f.actividad||"",
       h.fecha,h.por,h.resultado,h.periodicidad,
       [h.obs,h.pendientes&&h.pendientes.length?"Sin comprobar: "+h.pendientes.join(" / "):""]
