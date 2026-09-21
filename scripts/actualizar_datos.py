@@ -271,19 +271,28 @@ if "Proveedores" in wb.sheetnames:
             s = unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode()
             return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", s.lower())).strip()
 
-        vistos = set()
+        # La hoja se llena pegando filas, así que un día habrá dos del mismo
+        # proveedor. Gana **la que tenga más lleno**, no la primera: una fila
+        # recién pegada y vacía no puede tapar la que ya tenía el RUC.
+        def llenura(f):
+            return sum(1 for v in f.values() if v not in (None, ""))
+
+        porClave, duplicadas, malos = {}, 0, []
         for row in wsp.iter_rows(min_row=fila_hdr + 1, values_only=True):
             nombre = pval(row, "nombre")
             if not nombre:
                 continue
             k = clave(nombre)
-            if not k or k in vistos:
+            if not k:
                 continue
-            vistos.add(k)
             crudo = None
             if P["ruc"] is not None and P["ruc"] < len(row):
                 crudo = row[P["ruc"]]
-            provs.append(dict(
+            # El dígito verificador se comprueba aquí, sobre el RUC entero:
+            # después de enmascararlo ya no se puede.
+            if RUC.valido(crudo) is False:
+                malos.append(nombre)
+            ficha = dict(
                 nombre=nombre,
                 ruc=RUC.publicable(crudo),          # enmascarado si es persona natural
                 rucTipo=RUC.tipo(crudo),
@@ -294,7 +303,14 @@ if "Proveedores" in wb.sheetnames:
                 resultado=pval(row, "resultado"),
                 periodicidad=pval(row, "periodicidad"),
                 observaciones=pval(row, "observaciones"),
-            ))
+            )
+            if k in porClave:
+                duplicadas += 1
+                if llenura(ficha) <= llenura(porClave[k]):
+                    continue
+            porClave[k] = ficha
+
+        provs = list(porClave.values())
 
         with open("crm/proveedores_export.json", "w", encoding="utf-8") as f:
             json.dump(cifrar(json.dumps(provs, ensure_ascii=False,
@@ -312,6 +328,13 @@ if "Proveedores" in wb.sheetnames:
         if sin_ruc:
             print(f"    {len(sin_ruc)} sin RUC utilizable (vacío o incompleto), "
                   f"p. ej.: {', '.join(sin_ruc[:3])}")
+        if duplicadas:
+            print(f"    {duplicadas} fila(s) repetida(s) del mismo proveedor; "
+                  "publiqué la más completa de cada una. Conviene limpiarlas.")
+        if malos:
+            print(f"    ⚠ {len(malos)} RUC "
+                  f"{'no pasa' if len(malos) == 1 else 'no pasan'} el dígito "
+                  f"verificador (probable error de tecleo): {', '.join(malos[:5])}")
 else:
     print("AVISO: el maestro no trae la hoja «Proveedores»; el CLM arma el listado "
           "solo con los contratos. Para crearla: python3 scripts/hoja_proveedores.py")

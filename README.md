@@ -194,9 +194,34 @@ Las fichas van en `crm/proveedores_export.json`, cifrado igual que el resto y **
 contratos: ese es un array y lo leen como array el CRM, el CLM y renovaciones; cambiarle la forma
 los rompería a los tres. Si el archivo no está, el CLM no se entera.
 
-Lo que se registra en el CLM vive en el navegador hasta que alguien lo pega en la hoja: al
-registrar una verificación se descarga el **CSV** con la fila, y mientras no esté en el Excel la
-ficha lo dice —*«solo en este navegador»*—, porque el resto del equipo todavía no la ve.
+#### Nadie teclea nada en Excel
+
+El nombre del proveedor se escribe **una sola vez**, en el contrato de la hoja `2026`, que es
+donde va de todos modos. De ahí se copia con su grafía exacta: si se volviera a teclear, una tilde
+distinta partiría el historial en dos.
+
+Y el RUC y la actividad se capturan **donde alguien los tiene delante**: cuando la AC registra la
+verificación en el CLM, el formulario los pide si el Excel todavía no los tiene, y **comprueba el
+dígito verificador al escribirlo** —un RUC lo lleva dentro, así que un error de tecleo se ve en el
+momento y no seis meses después—. Es un aviso, no una barrera: quien escribe tiene el papel
+delante y el algoritmo no.
+
+Con eso, el CSV que se descarga trae la **fila completa** —nombre, RUC, actividad, fecha, quién y
+resultado—, así que para un proveedor sin fila, pegarla al final de la hoja **crea su ficha
+entera**. Para uno que ya la tiene, solo se copian sus columnas de verificación. La ficha dice cuál
+de los dos casos es.
+
+Mientras eso no ocurra, lo registrado vive solo en ese navegador y el CLM lo marca —*«solo en este
+navegador»*, *«sin pasar»*—, porque el resto del equipo todavía no lo ve. El RUC entero va en el
+CSV, que termina en el Excel; en pantalla se sigue viendo parcial, que es la regla de lo público.
+
+> Un RUC enmascarado **nunca** sale en el CSV: escribirlo en el Excel pisaría el bueno con
+> bolitas. O va el completo, o va vacío y esa celda no se toca.
+
+Dos cosas más que sostienen el ida y vuelta: si un día quedan **dos filas del mismo proveedor** —se
+pegó el CSV dos veces— el robot publica **la más completa**, no la primera, así que una fila recién
+pegada y vacía no puede tapar la que ya tenía el RUC; y el robot avisa en su resumen cuántos RUC no
+pasan el dígito verificador, con nombre y todo.
 
 #### La hoja no se llena una vez: se mantiene
 

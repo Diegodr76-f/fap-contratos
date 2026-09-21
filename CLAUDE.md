@@ -277,13 +277,23 @@ naturales. La política vive entera en `scripts/ruc.py` y no se duplica en el CL
 pinta lo que recibe, así que la cédula no entra nunca al archivo publicado, ni dentro del sobre
 cifrado.
 
-Dos reglas que sostienen esto:
+Cuatro reglas que sostienen esto:
 
 - **La hoja se lee con lista blanca**, como el conversor de concordancia: solo suben las columnas
   nombradas en `PROV_COLS`. La hoja puede llevar teléfono, correo o dirección —hacen falta para
   trabajar— y no suben nunca. Al añadir una columna, pregúntate primero si puede ser pública.
 - **Las fichas van en su propio archivo.** `contratos_export.json` es un array y lo leen como
   array el CRM, el CLM y renovaciones; meter los proveedores dentro los rompería a los tres.
+- **El CLM tiene su propia copia de la política** (`rucTipo`, `rucPublicable`, `rucValido`), y es
+  solo para lo que la AC acaba de escribir y todavía no ha pasado por el Excel. La autoridad
+  sigue siendo `ruc.py`, porque es la que decide qué se publica. **Si cambia una, cambian las dos.**
+- **Un RUC enmascarado nunca vuelve al Excel.** El CSV de la verificación lleva el completo o
+  nada: escribir `0603•••••6001` en la hoja pisaría el bueno con bolitas.
+
+El ida y vuelta con el Excel es a mano, así que se diseñó para aguantarlo: el dígito verificador
+se comprueba al escribir (aviso, no barrera — quien escribe tiene el papel delante), y si acaban
+quedando **dos filas del mismo proveedor** el robot publica **la más completa**, no la primera,
+para que una fila recién pegada y vacía no tape la que ya tenía el RUC.
 
 La hoja entera es opcional, como toda columna que lee el robot: sin ella el listado se arma igual
 con los contratos y las fichas dicen «sin registrar». La comprobación que de verdad importa

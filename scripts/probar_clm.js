@@ -127,9 +127,13 @@ function nuevoDom(lista,ses,fichasLista){
         return Promise.resolve({ok:true,json:()=>Promise.resolve(JSON.parse(datos))});
       };
       win.scrollTo=()=>{}; win.confirm=()=>true; win.alert=()=>{};
-      // Descargar un CSV no es lo que se prueba aquí, pero el código lo hace.
+      // Descargar un CSV no se puede en un DOM de mentira, pero su contenido sí
+      // es lo que se prueba: es la fila que termina pegada en el Excel.
       win.URL.createObjectURL=()=>'blob:prueba'; win.URL.revokeObjectURL=()=>{};
       win.HTMLAnchorElement.prototype.click=function(){};
+      const B=win.Blob;
+      win.__csv=null;
+      win.Blob=function(partes,op){ win.__csv=String(partes[0]); return new B(partes,op); };
     }});
   return dom.window;
 }
@@ -359,7 +363,49 @@ ok(w.alertList().filter(a=>a.fn==='provficha').length===0,'y la alerta tampoco')
 ok(w.proveedores().length===4,'pero el listado se pinta completo, como siempre');
 
 // ---------------------------------------------------------------- 13
-seccion('13 · Cada quien ve sus proveedores');
+seccion('13 · El RUC se captura donde alguien lo tiene delante');
+// Para un proveedor nuevo nadie debería teclear nada en Excel: el nombre viene
+// del contrato y el RUC lo escribe la AC cuando lo verifica, que es el momento
+// en que lo tiene en la mano. La fila del CSV sale completa y pegarla crea la
+// ficha entera.
+w=await listo(nuevoDom(conNuevo,null,fichas()));
+ok(w.rucValido('1790123456001')===true,'un RUC de sociedad bien formado pasa');
+ok(w.rucValido('1790123457001')===false,'con un dígito cambiado, no');
+ok(w.rucValido('0603123456001')===true,'y el de una persona natural también se comprueba');
+ok(w.rucValido('123')===null,'lo que no es un RUC no dice ni sí ni no');
+let nuevo=w.proveedores().find(p=>/FERRETER/.test(p.nombre));
+w.eval("ST.prov='"+nuevo.key+"'"); w.go('provdet');
+w.document.getElementById('verifBtn').onclick();
+modal=w.document.querySelector('.overlay');
+ok(!!modal.querySelector('#vruc'),'sin ficha, el formulario pide el RUC');
+ok(!!modal.querySelector('#vact'),'y la actividad económica');
+modal.querySelector('#vruc').value='0603123456001';
+modal.querySelector('#vact').value='Ferretería y materiales de construcción';
+modal.querySelectorAll('#checks input').forEach(i=>{i.checked=true;});
+modal.querySelector('#vok').onclick();
+nuevo=w.provPorKey(nuevo.key);
+ok(w.eval(`CLM.prov['${nuevo.key}'].ruc`)==='0603123456001','el RUC queda guardado entero');
+w.go('provdet');
+t=texto(w);
+ok(/0603•••••6001/.test(t),'pero la ficha lo pinta enmascarado: es una persona natural');
+ok(/sin pasar/.test(t),'marcado como que todavía no está en el Excel');
+ok(/Ferretería y materiales/.test(t),'y la actividad se ve igual');
+ok(/pégala al final de la hoja/.test(t),'la ficha dice qué hacer con el CSV');
+const filaCsv=String(w.eval('__csv')||'').split('\r\n')[1]||'';
+ok(/FERRETER/.test(filaCsv),'el CSV lleva el nombre tal como está en el contrato');
+ok(filaCsv.indexOf('0603123456001')>=0,'y el RUC entero, que el Excel sí puede guardar');
+ok(filaCsv.indexOf('•')<0,'nunca el enmascarado: escribirlo pisaría el bueno con bolitas');
+ok(/Ferretería y materiales/.test(filaCsv),'y la actividad');
+// Con ficha ya publicada no vuelve a preguntar: el Excel manda.
+let conRuc=w.proveedores().find(p=>/RIVERJ/i.test(p.nombre));
+w.eval("ST.prov='"+conRuc.key+"'"); w.go('provdet');
+w.document.getElementById('verifBtn').onclick();
+modal=w.document.querySelector('.overlay');
+ok(!modal.querySelector('#vruc'),'si el Excel ya tiene el RUC, no lo vuelve a pedir');
+modal.querySelector('#vcancel').onclick();
+
+// ---------------------------------------------------------------- 14
+seccion('14 · Cada quien ve sus proveedores');
 w=await listo(nuevoDom(contratosProv(),{rol:'area',user:'Parque Nacional Cotopaxi'},fichas()));
 P=w.proveedores();
 ok(P.length===2,'un área ve solo los proveedores que trabajaron con ella',P.length);

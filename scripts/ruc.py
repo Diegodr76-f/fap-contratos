@@ -61,6 +61,39 @@ def es_persona_natural(valor):
     return tipo(valor) == "Persona natural"
 
 
+def valido(valor):
+    """¿Pasa el dígito verificador? El RUC lo lleva dentro, así que un número
+    mal tecleado se puede cachar sin preguntarle a nadie.
+
+    Tres algoritmos, uno por tipo de contribuyente:
+      · persona natural  -> módulo 10 sobre los 9 primeros, verificador en el 10
+      · sociedad         -> módulo 11 con coeficientes 4..2, verificador en el 10
+      · entidad pública  -> módulo 11 con coeficientes 3..2, verificador en el 9
+
+    Devuelve None si ni siquiera parece un RUC. **Es un aviso, no una barrera**:
+    quien escribe tiene el papel delante y el algoritmo no, así que un RUC que
+    no pasa se advierte y se guarda igual.
+    """
+    d = digitos(valor)
+    t = tipo(d)
+    if t is None:
+        return None
+    n = [int(x) for x in d]
+    if t == "Persona natural":
+        total = 0
+        for i, c in enumerate([2, 1, 2, 1, 2, 1, 2, 1, 2]):
+            x = n[i] * c
+            total += x - 9 if x > 9 else x
+        return n[9] == (10 - total % 10) % 10
+    if t == "Sociedad":
+        coef = [4, 3, 2, 7, 6, 5, 4, 3, 2]
+        resto = sum(n[i] * c for i, c in enumerate(coef)) % 11
+        return n[9] == (0 if resto == 0 else 11 - resto)
+    coef = [3, 2, 7, 6, 5, 4, 3, 2]
+    resto = sum(n[i] * c for i, c in enumerate(coef)) % 11
+    return n[8] == (0 if resto == 0 else 11 - resto)
+
+
 def publicable(valor):
     """Lo que puede salir del Excel hacia el archivo publicado.
 

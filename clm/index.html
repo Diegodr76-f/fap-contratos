@@ -1591,6 +1591,51 @@ function provKey(s){
   return String(s==null?"":s).normalize("NFD").replace(/[̀-ͯ]/g,"")
     .toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
 }
+/* El RUC, del lado del navegador. La autoridad es `scripts/ruc.py` —es la que
+   decide qué sale publicado, y lo decide antes de cifrar—; esto es solo para lo
+   que la AC acaba de escribir y todavía no ha pasado por el Excel: enmascararlo
+   igual al pintarlo, y avisar si el dígito verificador no cuadra. Si se cambia
+   la política, se cambia en los dos sitios. */
+function rucDigitos(v){return String(v==null?"":v).replace(/\D/g,"");}
+function rucTipo(v){
+  const d=rucDigitos(v);
+  if(d.length!==13)return null;
+  if(d[2]==="6")return "Entidad pública";
+  if(d[2]==="9")return "Sociedad";
+  return "012345".indexOf(d[2])>=0?"Persona natural":null;
+}
+function rucPublicable(v){
+  const d=rucDigitos(v),t=rucTipo(d);
+  if(!t)return null;
+  return t==="Persona natural"?d.slice(0,4)+"•••••"+d.slice(-4):d;
+}
+/* Aviso, no barrera: quien escribe tiene el papel delante y esto no. */
+function rucValido(v){
+  const d=rucDigitos(v),t=rucTipo(d);
+  if(!t)return null;
+  const n=d.split("").map(Number);
+  if(t==="Persona natural"){
+    let s=0;[2,1,2,1,2,1,2,1,2].forEach((c,i)=>{const x=n[i]*c;s+=x>9?x-9:x;});
+    return n[9]===(10-s%10)%10;
+  }
+  const coef=t==="Sociedad"?[4,3,2,7,6,5,4,3,2]:[3,2,7,6,5,4,3,2];
+  const r=coef.reduce((s,c,i)=>s+n[i]*c,0)%11;
+  return n[t==="Sociedad"?9:8]===(r===0?0:11-r);
+}
+
+/* Lo que se sabe del proveedor, juntando la ficha publicada con lo que esta AC
+   escribió y todavía no está en el Excel. Lo publicado manda: si el equipo ya
+   lo registró, eso es lo bueno. */
+function datosProv(p){
+  const loc=CLM.prov[p.key]||{},f=p.ficha||{};
+  return {
+    ruc:f.ruc||(loc.ruc?rucPublicable(loc.ruc):null),
+    rucLocal:(!f.ruc&&loc.ruc)?loc.ruc:null,
+    rucTipo:f.rucTipo||rucTipo(loc.ruc),
+    actividad:f.actividad||loc.actividad||null,
+    pendiente:!!((loc.ruc&&!f.ruc)||(loc.actividad&&!f.actividad))
+  };
+}
 const VERIF_CICLO={Semestral:182,Anual:365};
 function ciclodias(p){return VERIF_CICLO[p&&p.periodicidad]||VERIF_CICLO.Anual;}
 function diasDesde(iso){
@@ -1688,11 +1733,11 @@ function filtraProveedores(){
   return list;
 }
 function rucHTML(p){
-  const f=p.ficha;
-  if(!f||!f.ruc)return `<span style="color:var(--muted)">sin registrar</span>`;
-  const nat=f.rucTipo==="Persona natural";
-  return `<span style="font-variant-numeric:tabular-nums;letter-spacing:.3px">${esc(f.ruc)}</span>`+
-    (nat?` <span class="rucnota" title="En una persona natural el RUC son los diez dígitos de su cédula más 001. El CLM es un sitio público, así que publica el RUC parcial: el completo está en el Excel maestro.">parcial</span>`:"");
+  const d=datosProv(p);
+  if(!d.ruc)return `<span style="color:var(--muted)">sin registrar</span>`;
+  return `<span style="font-variant-numeric:tabular-nums;letter-spacing:.3px">${esc(d.ruc)}</span>`+
+    (d.rucTipo==="Persona natural"?` <span class="rucnota" title="En una persona natural el RUC son los diez dígitos de su cédula más 001. El CLM es un sitio público, así que muestra el RUC parcial: el completo está en el Excel maestro.">parcial</span>`:"")+
+    (d.rucLocal?` <span class="rucnota" style="color:var(--amber);border-color:var(--amber)" title="Lo escribiste aquí y todavía no está en la hoja «Proveedores» del Excel: el resto del equipo no lo ve.">sin pasar</span>`:"");
 }
 function abrirProv(k){ST.prov=k;go("provdet");}
 
@@ -1752,11 +1797,11 @@ function provTableHTML(list){
   if(!list.length)return emptyHTML();
   return `<div class="tablewrap"><table class="list">
     <thead><tr><th>Proveedor</th><th>RUC</th><th>Actividad</th><th>Áreas</th><th>Contratos</th><th>Monto</th><th>Calif.</th><th>Verificación</th></tr></thead>
-    <tbody>${list.map(p=>{const e=verifEstado(p),f=p.ficha||{};
+    <tbody>${list.map(p=>{const e=verifEstado(p),d=datosProv(p);
       return `<tr data-prov="${esc(p.key)}">
-        <td class="td-nro" style="font-weight:700">${esc(p.nombre)}${f.rucTipo?`<div style="font-size:11px;font-weight:600;color:var(--muted)">${esc(f.rucTipo)}</div>`:""}</td>
+        <td class="td-nro" style="font-weight:700">${esc(p.nombre)}${d.rucTipo?`<div style="font-size:11px;font-weight:600;color:var(--muted)">${esc(d.rucTipo)}</div>`:""}</td>
         <td style="white-space:nowrap">${rucHTML(p)}</td>
-        <td class="td-obj">${p.cats.slice(0,2).map(c=>catChip(c)).join(" ")}${p.cats.length>2?` <span style="font-size:11px;font-weight:700;color:var(--muted)">+${p.cats.length-2}</span>`:""}${f.actividad?`<div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(trunc(f.actividad,44))}</div>`:""}</td>
+        <td class="td-obj">${p.cats.slice(0,2).map(c=>catChip(c)).join(" ")}${p.cats.length>2?` <span style="font-size:11px;font-weight:700;color:var(--muted)">+${p.cats.length-2}</span>`:""}${d.actividad?`<div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(trunc(d.actividad,44))}</div>`:""}</td>
         <td>${p.areas.length===1?esc(p.areas[0]):`<b>${p.areas.length}</b> áreas`}</td>
         <td style="text-align:center"><b>${p.contratos.length}</b>${p.vivos?`<div style="font-size:11px;font-weight:700;color:var(--green)">${p.vivos} vivo${p.vivos===1?"":"s"}</div>`:""}</td>
         <td style="white-space:nowrap">${money(p.monto)}</td>
@@ -1766,11 +1811,11 @@ function provTableHTML(list){
 }
 function provCardsHTML(list){
   if(!list.length)return emptyHTML();
-  return `<div class="grid">`+list.map(p=>{const e=verifEstado(p),f=p.ficha||{};
+  return `<div class="grid">`+list.map(p=>{const e=verifEstado(p),d=datosProv(p);
     return `<div class="cc" data-prov="${esc(p.key)}">
       <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${esc(trunc(p.nombre,30))}</span><span class="semaforo" style="background:${e.bg};color:${e.col}">${esc(e.label)}</span></div>
-      <div class="cc-area" style="margin-top:6px">${rucHTML(p)}${f.rucTipo?` · ${esc(f.rucTipo)}`:""}</div>
-      ${f.actividad?`<div class="cc-title" style="font-size:13px">${esc(trunc(f.actividad,70))}</div>`:""}
+      <div class="cc-area" style="margin-top:6px">${rucHTML(p)}${d.rucTipo?` · ${esc(d.rucTipo)}`:""}</div>
+      ${d.actividad?`<div class="cc-title" style="font-size:13px">${esc(trunc(d.actividad,70))}</div>`:""}
       <div class="cc-meta" style="margin-top:6px"><span><b>${p.contratos.length}</b> contrato${p.contratos.length===1?"":"s"}</span><span>·</span><span><b>${p.areas.length}</b> área${p.areas.length===1?"":"s"}</span><span>·</span><span><b>${money(p.monto)}</b></span></div>
       <div style="margin-top:9px">${p.cats.slice(0,3).map(c=>catChip(c)).join(" ")}</div>
     </div>`;}).join("")+`</div>`;
@@ -1780,7 +1825,7 @@ function provCardsHTML(list){
 function vProvDet(){
   const p=ST.prov?provPorKey(ST.prov):null;
   if(!p){go("proveedores");return;}
-  const f=p.ficha||{},e=verifEstado(p),v=e.v||null;
+  const d=datosProv(p),e=verifEstado(p),v=e.v||null;
   const grafias=Object.keys(p.grafias);
   const hist=(CLM.prov[p.key]&&CLM.prov[p.key].verifs||[]).slice()
     .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
@@ -1792,14 +1837,14 @@ function vProvDet(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
         <div style="min-width:0">
           <h2 style="margin:0 0 4px;font-size:20px">${esc(p.nombre)}</h2>
-          <div style="font-size:13px;color:var(--muted)">${f.rucTipo?esc(f.rucTipo)+" · ":""}${p.contratos.length} contrato${p.contratos.length===1?"":"s"} · ${money(p.monto)}</div>
+          <div style="font-size:13px;color:var(--muted)">${d.rucTipo?esc(d.rucTipo)+" · ":""}${p.contratos.length} contrato${p.contratos.length===1?"":"s"} · ${money(p.monto)}</div>
         </div>
         <span class="semaforo" style="background:${e.bg};color:${e.col};font-size:13px">${esc(e.label)}</span>
       </div>
       <div class="dl" style="margin-top:14px">
         <div><div class="k">Nombre o razón social</div><div class="v">${esc(p.nombre)}</div></div>
         <div><div class="k">RUC</div><div class="v">${rucHTML(p)}</div></div>
-        <div><div class="k">Actividad económica registrada</div><div class="v">${f.actividad?esc(f.actividad):`<span style="color:var(--muted)">sin registrar</span>`}</div></div>
+        <div><div class="k">Actividad económica registrada</div><div class="v">${d.actividad?esc(d.actividad):`<span style="color:var(--muted)">sin registrar</span>`}</div></div>
         <div><div class="k">Actividad por la que se le contrató</div><div class="v">${p.cats.length?p.cats.map(c=>catChip(c)).join(" "):"—"}</div></div>
         <div class="full"><div class="k">Áreas protegidas donde ha tenido contrato</div><div class="v">${p.areas.length?p.areas.map(a=>esc(a)).join(" · "):"—"}</div></div>
         ${p.score!=null?`<div><div class="k">Calificación promedio</div><div class="v">${p.score.toFixed(2)}/100 · ${p.calificaciones.length} evaluación${p.calificaciones.length===1?"":"es"}</div></div>`:""}
@@ -1817,7 +1862,7 @@ function vProvDet(){
         <div><div class="k">Próxima</div><div class="v">${fdate(prox)} · ${esc(v.periodicidad||"Anual")}</div></div>
         ${v.obs?`<div class="full"><div class="k">Observaciones</div><div class="v">${esc(v.obs)}</div></div>`:""}
       </div>
-      ${v.pendiente?`<div class="note" style="margin-top:12px">Esta verificación está <b>solo en este navegador</b>. Pásala a la hoja «Proveedores» del Excel maestro con el CSV para que la vea el resto del equipo.</div>`:""}`
+      ${v.pendiente?`<div class="note" style="margin-top:12px">Esta verificación está <b>solo en este navegador</b>: el resto del equipo todavía no la ve. El CSV trae la fila lista${p.ficha?` — copia sus columnas de verificación sobre la fila de <b>${esc(p.nombre)}</b> en la hoja «Proveedores».`:` y <b>completa</b> (nombre, RUC y actividad): este proveedor todavía no tiene fila, así que pégala al final de la hoja «Proveedores» y queda creada.`}</div>`:""}`
       :`<div class="note">Este proveedor <b>no tiene ninguna verificación registrada</b>. Mientras no la tenga, el ciclo se cuenta desde la primera que se registre.</div>`}
       <div style="margin-top:14px;display:flex;gap:9px;flex-wrap:wrap">
         <button class="btn" id="verifBtn">Registrar verificación</button>
@@ -1858,11 +1903,22 @@ const VERIF_CHECKS=[
   "Cumplió lo contratado en el período (sin incumplimientos abiertos)"
 ];
 function modalVerificar(p){
-  const v=ultimaVerif(p);
+  const v=ultimaVerif(p),loc=CLM.prov[p.key]||{},f=p.ficha||{};
+  // El RUC y la actividad se piden aquí cuando el Excel todavía no los tiene:
+  // quien está mirando el RUC del proveedor es la AC, en este momento, y así la
+  // fila del CSV sale completa y no hay que teclear nada en Excel.
+  const pideRuc=!f.ruc,pideAct=!f.actividad;
   const o=openModal(`
     <h2>Verificación del proveedor</h2>
     <p class="sub">${esc(p.nombre)} · ${p.contratos.length} contrato${p.contratos.length===1?"":"s"} · ${money(p.monto)}</p>
     <div class="note" style="margin-bottom:14px">Se registra lo que <b>se comprobó</b>, no lo que se supone. Lo que quede sin marcar sale en las observaciones.</div>
+    ${(pideRuc||pideAct)?`<div class="frow2">
+      ${pideRuc?`<div class="frow"><label>RUC${f.ruc?"":" <span style=\"color:var(--muted);font-weight:600\">— no está en el Excel</span>"}</label>
+        <input id="vruc" inputmode="numeric" maxlength="17" placeholder="13 dígitos" value="${esc(loc.ruc||"")}">
+        <div id="vrucmsg" style="font-size:11.5px;font-weight:700;margin-top:4px"></div></div>`:""}
+      ${pideAct?`<div class="frow"><label>Actividad económica del RUC</label>
+        <input id="vact" placeholder="La que consta en el RUC" value="${esc(loc.actividad||"")}"></div>`:""}
+    </div>`:""}
     <div id="checks">${VERIF_CHECKS.map((t,i)=>`<label class="chk"><input type="checkbox" data-k="${i}"><span>${esc(t)}</span></label>`).join("")}</div>
     <div class="frow2" style="margin-top:14px">
       <div class="frow"><label>Resultado</label><select id="vres">
@@ -1879,6 +1935,15 @@ function modalVerificar(p){
     <div class="frow"><label>Observaciones</label><textarea id="vobs" placeholder="Ej.: RUC activo, actividad coincide; pendiente actualizar la póliza…"></textarea></div>
     <div class="modal-foot"><button class="btn ghost" id="vcancel">Cancelar</button><button class="btn" id="vok">Registrar</button></div>`);
   $("#vcancel",o).onclick=()=>closeModal(o);
+  const ir=$("#vruc",o);
+  if(ir)ir.oninput=()=>{
+    const m=$("#vrucmsg",o),ok=rucValido(ir.value),t=rucTipo(ir.value);
+    if(!ir.value.trim()){m.textContent="";m.style.color="";return;}
+    if(ok===null){m.textContent="Un RUC son 13 dígitos.";m.style.color="var(--muted)";}
+    else if(ok){m.textContent="✓ "+t;m.style.color="var(--green)";}
+    else {m.textContent="⚠ El dígito verificador no cuadra — revísalo. Se guarda igual.";
+          m.style.color="var(--amber)";}
+  };
   $("#vok",o).onclick=()=>{
     const marcados=[...o.querySelectorAll("#checks input")].map(i=>i.checked);
     const faltan=VERIF_CHECKS.filter((t,i)=>!marcados[i]);
@@ -1887,6 +1952,10 @@ function modalVerificar(p){
       periodicidad:$("#vper",o).value,obs:$("#vobs",o).value.trim(),
       pendientes:faltan,origen:"clm"};
     const slot=CLM.prov[p.key]||(CLM.prov[p.key]={verifs:[]});
+    if(!slot.verifs)slot.verifs=[];
+    const ia=$("#vact",o);
+    if(ir&&rucDigitos(ir.value).length===13)slot.ruc=rucDigitos(ir.value);
+    if(ia&&ia.value.trim())slot.actividad=ia.value.trim();
     slot.verifs.unshift(reg);
     if(slot.verifs.length>20)slot.verifs.length=20;
     saveCLM();
@@ -1899,15 +1968,26 @@ function modalVerificar(p){
 }
 /* El CSV es el camino de vuelta al Excel, igual que en la calificación: lo que
    se registra aquí vive en este navegador hasta que alguien lo pega en la hoja
-   «Proveedores», y desde ahí el robot lo publica para todo el equipo. */
+   «Proveedores», y desde ahí el robot lo publica para todo el equipo.
+
+   La fila sale **completa** —nombre tal como está escrito en el contrato, RUC y
+   actividad—, así que para un proveedor que todavía no tiene fila en la hoja,
+   pegarla es crear su ficha entera. No se teclea nada en Excel.
+
+   Y el RUC va entero: el CSV termina en el Excel, que está en SharePoint con
+   control de acceso. Enmascarado está lo que se publica, que es otra cosa. */
 function csvVerif(p){
-  const hist=(CLM.prov[p.key]&&CLM.prov[p.key].verifs||[]);
+  const slot=CLM.prov[p.key]||{},hist=slot.verifs||[];
   if(!hist.length)return;
+  const f=p.ficha||{};
+  // Nunca sale el RUC enmascarado: escribirlo en el Excel pisaría el bueno con
+  // bolitas. O va el completo, o va vacío y la celda del Excel no se toca.
+  const ruc=slot.ruc||(rucDigitos(f.ruc).length===13?f.ruc:"");
   const q=s=>`"${String(s==null?"":s).replace(/"/g,'""')}"`;
   const csv="﻿"+[
     ["Nombre del Proveedor","RUC","Actividad económica","Última verificación",
      "Verificado por","Resultado","Periodicidad","Observaciones"].join(";"),
-    ...hist.map(h=>[p.nombre,(p.ficha&&p.ficha.ruc)||"",(p.ficha&&p.ficha.actividad)||"",
+    ...hist.map(h=>[p.nombre,ruc||"",slot.actividad||f.actividad||"",
       h.fecha,h.por,h.resultado,h.periodicidad,
       [h.obs,h.pendientes&&h.pendientes.length?"Sin comprobar: "+h.pendientes.join(" / "):""]
         .filter(Boolean).join(" — ")].map(q).join(";"))
