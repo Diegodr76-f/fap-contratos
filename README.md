@@ -198,6 +198,36 @@ Lo que se registra en el CLM vive en el navegador hasta que alguien lo pega en l
 registrar una verificación se descarga el **CSV** con la fila, y mientras no esté en el Excel la
 ficha lo dice —*«solo en este navegador»*—, porque el resto del equipo todavía no la ve.
 
+#### La hoja no se llena una vez: se mantiene
+
+Los contratos siguen entrando en la hoja `2026`, y alguno traerá un proveedor que no está en la
+hoja `Proveedores`. **Con un proveedor que ya está no hay nada que hacer** —la ficha se engancha
+sola por el nombre, no importa cuántos contratos nuevos tenga—; solo hace falta una fila cuando el
+proveedor es nuevo.
+
+Nada se rompe mientras tanto: el listado se arma con los contratos, así que el proveedor nuevo
+**aparece igual desde el primer día**, solo que con «sin registrar» donde va el RUC. Y para que no
+se quede ahí olvidado, el CLM lo señala: un filtro **📇 Sin ficha · N** en el listado y una alerta
+agregada —una sola, no una por proveedor— para la Unidad Operativa, que es quien mantiene el
+maestro. Las dos aparecen solo cuando la hoja ya existe: antes de la primera ficha serían 225
+avisos de algo que todavía no empieza.
+
+Para ponerla al día:
+
+```bash
+python3 scripts/hoja_proveedores.py --actualizar <Sistema_Alertas_Contratos_FIAS.xlsx>
+```
+
+Escribe **solo las filas que faltan**, en el mismo orden de columnas que ya tiene la hoja —si le
+añadieron columnas propias las respeta y las deja en blanco—, listas para pegar al final. Si no
+falta ninguna, no escribe nada y lo dice. Y cuando un nombre nuevo se parece a uno que ya está
+—«Sinchiguano Cadenas» contra «Sinchiguano Cadena»— lo añade igual, porque perder un proveedor es
+peor que tener una fila de más, pero lo saca en pantalla para resolverlo con el RUC.
+
+> **Nunca escribe en el maestro**, y no es escrúpulo: se probó, y abrir y volver a guardar el
+> maestro con openpyxl **borra los enlaces de la hoja «Export»** —los 138 contratos se quedaron
+> sin link—. Por eso el script siempre escribe un archivo aparte y las filas se pegan a mano.
+
 ## Centro de mando diario — herramienta personal
 
 **`/centro/index.html`** es una herramienta **personal**, aparte del ciclo de vida de contratos:

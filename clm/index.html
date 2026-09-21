@@ -493,7 +493,7 @@ function mySolicitudes(){
 
 /* ================= ROUTER ================= */
 let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:"table",repQ:"",sinCarpeta:false,
-        prov:null,pq:"",pCat:"all",pVerif:"all",pSort:"contratos",pMode:"table"};
+        prov:null,pq:"",pCat:"all",pVerif:"all",pSort:"contratos",pMode:"table",pSinFicha:false};
 const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",proveedores:"Listado de proveedores",provdet:"Ficha del proveedor",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",mapa:"Mapa de áreas protegidas",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
 function go(view,cur){ST.view=view;if(cur!==undefined)ST.cur=cur;location.hash="#/"+view+(view==="detalle"&&ST.cur!=null?"/"+ST.cur:"");render();window.scrollTo(0,0);}
 window.addEventListener("hashchange",()=>{
@@ -694,6 +694,15 @@ function alertList(){
   // proveedores y ninguna verificación todavía, «225 sin verificar» sería un
   // cartel permanente que nadie puede bajar.
   const provs=proveedores(),conVerif=provs.filter(p=>ultimaVerif(p)).length;
+  // Un contrato nuevo puede traer un proveedor que todavía no tiene fila en la
+  // hoja «Proveedores». Aparece igual en el listado —se arma con los contratos—
+  // pero sin RUC ni actividad, así que hay que ir a añadirle la fila. Es de la
+  // Unidad Operativa, que mantiene el maestro, y solo cuando la hoja ya existe:
+  // antes de la primera ficha serían 225 avisos de algo que aún no empieza.
+  if(SES&&SES.rol==="uo"&&FICHAS.length){
+    const sinFicha=provs.filter(p=>!p.ficha).length;
+    if(sinFicha)out.push({sev:2,icon:"📇",col:"var(--navy)",bg:"var(--tint)",t:`${sinFicha} proveedor${sinFicha===1?"":"es"} sin ficha en el Excel`,d:"Tienen contrato pero no tienen fila en la hoja «Proveedores»: sin RUC ni actividad. Se añaden con hoja_proveedores.py --actualizar",i:null,act:"Ver",fn:"provficha"});
+  }
   if(conVerif){
     const venc=provs.filter(p=>verifEstado(p).key==="vencida").length;
     if(venc)out.push({sev:1,icon:"🔎",col:"var(--amber)",bg:"var(--amberbg)",t:`${venc} proveedor${venc===1?"":"es"} con la verificación vencida`,d:"Sin verificación al día no debería salir un proceso nuevo con ese proveedor",i:null,act:"Ver",fn:"prov"});
@@ -787,7 +796,8 @@ function bindAlertRows(){
     const fn=b.dataset.fn;
     if(fn==="sol"){go("solicitudes");return;}
     if(fn==="carp"){ST.sinCarpeta=true;ST.filter="all";go("contratos");return;}
-    if(fn==="prov"){ST.pVerif="vencida";ST.pCat="all";ST.pq="";go("proveedores");return;}
+    if(fn==="prov"){ST.pVerif="vencida";ST.pCat="all";ST.pq="";ST.pSinFicha=false;go("proveedores");return;}
+    if(fn==="provficha"){ST.pSinFicha=true;ST.pVerif="all";ST.pCat="all";ST.pq="";go("proveedores");return;}
     if(fn==="provdet"){abrirProv(b.dataset.pk);return;}
     const i=+b.dataset.i;const c=CONTRACTS[i];
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
@@ -1659,6 +1669,7 @@ function filtraProveedores(){
   const list=proveedores().filter(p=>{
     if(ST.pCat!=="all"&&p.cats.indexOf(ST.pCat)<0)return false;
     if(ST.pVerif!=="all"&&verifEstado(p).key!==ST.pVerif)return false;
+    if(ST.pSinFicha&&p.ficha)return false;
     if(ST.pq){
       const f=p.ficha||{};
       const hay=provKey(Object.keys(p.grafias).join(" ")+" "+p.areas.join(" ")+" "+
@@ -1690,7 +1701,8 @@ function vProveedores(){
   const todos=proveedores();
   const list=filtraProveedores();
   const cats=[...new Set(todos.reduce((a,p)=>a.concat(p.cats),[]))].sort((a,b)=>a.localeCompare(b));
-  const conFicha=todos.filter(p=>p.ficha).length;
+  const conFicha=todos.filter(p=>p.ficha).length,sinFicha=todos.length-conFicha;
+  if(!sinFicha)ST.pSinFicha=false;   // sin nada que filtrar, no dejar la lista vacía
   const cuenta={};todos.forEach(p=>{const k=verifEstado(p).key;cuenta[k]=(cuenta[k]||0)+1;});
   const sel="padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer";
   const sorts=[["contratos","Más contratos"],["monto","Mayor monto"],["verif","Verificación pendiente"],["calif","Mejor calificado"],["nombre","Nombre (A–Z)"]];
@@ -1712,6 +1724,7 @@ function vProveedores(){
     </div>
     <div class="chips">
       ${vf.map(([k,l])=>`<button class="chip ${ST.pVerif===k?"on":""}" data-pf="${k}">${l}${k!=="all"&&cuenta[k]?` · ${cuenta[k]}`:""}</button>`).join("")}
+      ${(conFicha&&sinFicha)?`<button class="chip ${ST.pSinFicha?"on":""}" id="chipSinFicha" title="Proveedores con contratos que todavía no tienen fila en la hoja «Proveedores» del Excel maestro">📇 Sin ficha · ${sinFicha}</button>`:""}
     </div>
     ${cats.length>1?`<div class="chips" style="margin:10px 0 4px">
       <button class="chip ${ST.pCat==="all"?"on":""}" data-pc="all">Todas las categorías</button>
@@ -1729,6 +1742,7 @@ function vProveedores(){
     bindProvRows();};
   $("#pSortSel").onchange=e=>{ST.pSort=e.target.value;vProveedores();};
   $("#view").querySelectorAll(".chip[data-pf]").forEach(b=>b.onclick=()=>{ST.pVerif=b.dataset.pf;vProveedores();});
+  const csf=$("#chipSinFicha",$("#view"));if(csf)csf.onclick=()=>{ST.pSinFicha=!ST.pSinFicha;vProveedores();};
   $("#view").querySelectorAll(".chip[data-pc]").forEach(b=>b.onclick=()=>{ST.pCat=(ST.pCat===b.dataset.pc)?"all":b.dataset.pc;vProveedores();});
   $("#view").querySelectorAll(".viewtog button").forEach(b=>b.onclick=()=>{ST.pMode=b.dataset.pv;vProveedores();});
   bindProvRows();

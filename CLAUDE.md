@@ -294,6 +294,16 @@ genera ya pre-llenada desde las hojas de contratos, y lista los pares de nombres
 normalización no une —errores de tecleo que parten en dos el historial de una misma persona— para
 que se resuelvan con el RUC al llenarla.
 
+**Y la hoja no se llena una vez: se mantiene.** Cada contrato nuevo de la hoja `2026` puede traer
+un proveedor sin fila. Con uno que ya está no hay nada que hacer —la ficha se engancha sola por el
+nombre—; `--actualizar` escribe solo las filas que faltan, respetando el orden de columnas que ya
+tiene la hoja. Que no se olvide no depende de acordarse: el CLM marca los proveedores **sin ficha**
+con un filtro y una alerta agregada, las dos solo cuando la hoja ya existe.
+
+**Ningún script escribe en el maestro.** No es escrúpulo: abrir y volver a guardar el maestro con
+openpyxl **borra los enlaces de la hoja «Export»**, y el robot los publica —se probó, y los 138
+contratos se quedaron sin link—. Se escribe siempre un archivo aparte y se pega a mano.
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:

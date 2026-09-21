@@ -17,7 +17,10 @@ reconocerlo.
     python3 scripts/hoja_proveedores.py <Sistema_Alertas_Contratos_FIAS.xlsx> [salida.xlsx]
 
 **No toca el archivo de entrada.** Escribe uno nuevo; la hoja se copia al
-maestro a mano, porque el maestro es de otra persona.
+maestro a mano, porque el maestro es de otra persona. Y hay una razón dura para
+no escribir en él: abrir y volver a guardar el maestro con openpyxl **borra los
+enlaces de la hoja «Export»**, y el robot los publica —se probó y los 138
+contratos se quedaron sin link—.
 
 De paso avisa de dos cosas que el llenado tiene que resolver:
 
@@ -27,6 +30,24 @@ De paso avisa de dos cosas que el llenado tiene que resolver:
     «JOHNNY» contra «JHONNY». Son errores de tecleo que parten en dos el
     historial de una misma persona, y el nombre no alcanza para decidirlo: lo
     decide el RUC. Por eso salen listados, para revisarlos mientras se llena.
+
+## La hoja no se llena una vez: se mantiene
+
+Cada contrato nuevo en la hoja «2026» puede traer un proveedor que todavía no
+está en la hoja «Proveedores». Con un proveedor que ya está no hay nada que
+hacer —la ficha se engancha sola por el nombre—; solo hace falta una fila
+cuando el proveedor es nuevo.
+
+    python3 scripts/hoja_proveedores.py --actualizar <maestro.xlsx> [salida.xlsx]
+
+compara las dos cosas y escribe **solo las filas que faltan**, en el mismo orden
+de columnas que ya tiene la hoja (si le añadieron columnas propias —teléfono,
+dirección— las respeta y las deja en blanco). Se pegan al final de la hoja y ya.
+Si no falta ninguna, no escribe nada y lo dice.
+
+Lo que NO hace es decidir por nadie: si un nombre nuevo se parece a uno que ya
+está, lo añade igual —perder un proveedor es peor que tener una fila de más— y
+lo saca en la lista de parecidos para que se resuelva con el RUC.
 """
 import sys, os, re, unicodedata, itertools
 from collections import defaultdict
@@ -128,14 +149,7 @@ def escribir(provs, salida):
 
     orden = sorted(provs.items(), key=lambda kv: (-kv[1]["n"], kv[0]))
     for _, p in orden:
-        # El nombre que se escribió más veces manda: es el que la mayoría de los
-        # contratos ya lleva, así que es el que menos hay que corregir después.
-        canon = max(p["raw"].items(), key=lambda kv: (kv[1], len(kv[0])))[0]
-        otras = sorted(x for x in p["raw"] if x != canon)
-        ws.append([canon, None, None, None, None, None, "Anual", None,
-                   p["n"], " · ".join(sorted(p["areas"])),
-                   " · ".join(sorted(p["cats"])), p["ultimo"] or "",
-                   " | ".join(otras)])
+        ws.append(fila_de(p, cols))
 
     fin = ws.max_row
     dv_res = DataValidation(type="list", formula1=f'"{RESULTADOS}"', allow_blank=True)
@@ -153,15 +167,123 @@ def escribir(provs, salida):
     return fin - 1
 
 
+def canon(p):
+    """El nombre que se escribió más veces: es el que la mayoría de los
+    contratos ya lleva, así que es el que menos hay que corregir después."""
+    return max(p["raw"].items(), key=lambda kv: (kv[1], len(kv[0])))[0]
+
+
+def fila_de(p, encabezados):
+    """Una fila en el orden de columnas que ya tiene la hoja. Lo que no reconoce
+    lo deja en blanco: si al maestro le añadieron columnas propias —teléfono,
+    dirección— se respetan y no se pisan."""
+    nombre = canon(p)
+    valores = {
+        "nombre del proveedor": nombre,
+        "periodicidad": "Anual",
+        "(ref) contratos": p["n"],
+        "(ref) áreas": " · ".join(sorted(p["areas"])),
+        "(ref) categorías": " · ".join(sorted(p["cats"])),
+        "(ref) último contrato": p["ultimo"] or "",
+        "(ref) variantes de escritura": " | ".join(sorted(x for x in p["raw"]
+                                                         if x != nombre)),
+    }
+    return [valores.get(str(h or "").strip().lower()) for h in encabezados]
+
+
+def leer_hoja(ruta):
+    """Lo que ya está en la hoja «Proveedores» del maestro: los encabezados tal
+    cual, y las llaves de los proveedores que ya tienen fila."""
+    wb = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
+    if "Proveedores" not in wb.sheetnames:
+        wb.close()
+        return None, None
+    ws = wb["Proveedores"]
+    filas = list(ws.iter_rows(values_only=True))
+    wb.close()
+    if not filas:
+        return [], {}
+    encabezados = list(filas[0])
+    ya = {}
+    for r in filas[1:]:
+        if r and r[0] and norm(r[0]):
+            ya[norm(r[0])] = str(r[0]).strip()
+    return encabezados, ya
+
+
+def actualizar(entrada, salida):
+    encabezados, ya = leer_hoja(entrada)
+    if encabezados is None:
+        sys.exit(f"«{entrada}» todavía no tiene la hoja «Proveedores». "
+                 "Créala primero, sin --actualizar.")
+    provs = leer(entrada)
+    if not provs:
+        sys.exit("No encontré la columna «Nombre del Proveedor» en ninguna hoja "
+                 "de contratos. ¿Cambiaron los encabezados?")
+
+    faltan = {k: p for k, p in provs.items() if k not in ya}
+    sobran = [nombre for k, nombre in ya.items() if k not in provs]
+
+    if not faltan:
+        print(f"La hoja está al día: los {len(provs)} proveedores con contratos "
+              f"ya tienen fila. No escribí nada.")
+    else:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Proveedores"
+        ws.append(encabezados)
+        for c in ws[1]:
+            c.font = Font(bold=True, size=10)
+        for _, p in sorted(faltan.items(), key=lambda kv: (-kv[1]["n"], kv[0])):
+            ws.append(fila_de(p, encabezados))
+        for j in range(1, len(encabezados) + 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(j)].width = 28
+        wb.save(salida)
+        print(f"OK: {len(faltan)} proveedor(es) nuevo(s) en «{salida}».")
+        print("    Pega esas filas al final de la hoja «Proveedores» del maestro "
+              "y llena su RUC y actividad.")
+        print(f"    Los otros {len(ya)} ya tenían fila; no se tocan.")
+
+    # Un nombre nuevo que se parece a uno que ya está casi siempre es un error
+    # de tecleo en el contrato, no un proveedor distinto. Se añade igual —perder
+    # uno es peor que tener una fila de más— pero se dice, que es lo que el RUC
+    # resuelve.
+    dudosos = [(canon(p), ya[k2]) for k, p in faltan.items()
+               for k2 in ya if parecidos(k, k2)]
+    if dudosos:
+        print(f"\n⚠ {len(dudosos)} de los nuevos se parecen a uno que ya está en "
+              "la hoja. Si comparten RUC, es el mismo y sobra la fila nueva:")
+        for nuevo, viejo in dudosos:
+            print(f"   · nuevo: {nuevo}\n     ya está: {viejo}")
+
+    if sobran:
+        print(f"\n{len(sobran)} fila(s) de la hoja sin ningún contrato. No las "
+              "borro —puede ser un proveedor registrado antes de contratarlo—, "
+              "pero conviene mirarlas:")
+        for nombre in sorted(sobran)[:10]:
+            print("   ·", nombre)
+        if len(sobran) > 10:
+            print(f"   … y {len(sobran) - 10} más")
+
+
 def main():
-    if len(sys.argv) < 2:
-        sys.exit("Uso: python3 scripts/hoja_proveedores.py "
-                 "<Sistema_Alertas_Contratos_FIAS.xlsx> [salida.xlsx]")
-    entrada = sys.argv[1]
+    args = [a for a in sys.argv[1:] if a != "--actualizar"]
+    modo_actualizar = "--actualizar" in sys.argv
+    if not args:
+        sys.exit("Uso:\n"
+                 "  python3 scripts/hoja_proveedores.py <maestro.xlsx> [salida.xlsx]\n"
+                 "      crea la hoja «Proveedores» completa, ya pre-llenada\n"
+                 "  python3 scripts/hoja_proveedores.py --actualizar <maestro.xlsx> [salida.xlsx]\n"
+                 "      solo las filas que faltan, para pegarlas al final")
+    entrada = args[0]
     if not os.path.exists(entrada):
         sys.exit(f"No encuentro el archivo: {entrada}")
-    salida = sys.argv[2] if len(sys.argv) > 2 else "Proveedores_FAP.xlsx"
 
+    if modo_actualizar:
+        actualizar(entrada, args[1] if len(args) > 1 else "Proveedores_nuevos.xlsx")
+        return
+
+    salida = args[1] if len(args) > 1 else "Proveedores_FAP.xlsx"
     provs = leer(entrada)
     if not provs:
         sys.exit("No encontré la columna «Nombre del Proveedor» en ninguna hoja "

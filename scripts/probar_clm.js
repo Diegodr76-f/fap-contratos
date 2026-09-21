@@ -325,7 +325,41 @@ ok(corte.length===1&&corte[0].sev===0,
 ok(corte[0].pk===edwin.key,'y el botón abre su ficha, no otra');
 
 // ---------------------------------------------------------------- 12
-seccion('12 · Cada quien ve sus proveedores');
+seccion('12 · Un contrato nuevo trae un proveedor que no está en la hoja');
+// La hoja se llena una vez, pero los contratos siguen entrando. Un proveedor
+// que llega después tiene que verse igual —el listado se arma con los
+// contratos— y tiene que notarse que le falta la ficha.
+const conNuevo=contratosProv().concat([Object.assign({},contratosProv()[0],{
+  nro:'FIAS-FAP-2026-900',proveedor:'FERRETERÍA EL CÓNDOR S.A.',
+  area:'RPF Chimborazo',cat:'Mantenimiento',monto:2200,montoTotal:2200})]);
+w=await listo(nuevoDom(conNuevo,null,fichas()));
+P=w.proveedores();
+ok(P.length===4,'el proveedor nuevo entra al listado sin tocar nada',P.length);
+const ferre=P.find(p=>/FERRETER/.test(p.nombre));
+ok(!!ferre && !ferre.ficha,'y se ve que no tiene ficha');
+w.go('proveedores');
+ok(!!w.document.getElementById('chipSinFicha'),'aparece el filtro «Sin ficha»');
+ok(/Sin ficha · 2/.test(texto(w)),'y dice cuántos son (el nuevo y el que nunca tuvo)');
+w.document.getElementById('chipSinFicha').onclick();
+ok(w.filtraProveedores().every(p=>!p.ficha),'al pulsarlo deja solo los que no la tienen');
+w.eval('ST.pSinFicha=false');
+let af=w.alertList().filter(a=>a.fn==='provficha');
+ok(af.length===1,'una sola alerta agregada, no una por proveedor',af.length);
+ok(/hoja_proveedores.py --actualizar/.test(af[0].d),'y dice con qué se arregla');
+w.go('alertas');
+const bficha=[...w.document.querySelectorAll('.alert-row .go')].find(b=>b.dataset.fn==='provficha');
+bficha.onclick();
+ok(w.eval('ST.view')==='proveedores'&&w.eval('ST.pSinFicha')===true,'y lleva al listado ya filtrado');
+// Y el caso de hoy: sin hoja ninguna, ni filtro ni alerta — serían 225 avisos
+// de algo que todavía no empieza.
+w=await listo(nuevoDom(conNuevo));
+w.go('proveedores');
+ok(!w.document.getElementById('chipSinFicha'),'sin la hoja todavía, el filtro no aparece');
+ok(w.alertList().filter(a=>a.fn==='provficha').length===0,'y la alerta tampoco');
+ok(w.proveedores().length===4,'pero el listado se pinta completo, como siempre');
+
+// ---------------------------------------------------------------- 13
+seccion('13 · Cada quien ve sus proveedores');
 w=await listo(nuevoDom(contratosProv(),{rol:'area',user:'Parque Nacional Cotopaxi'},fichas()));
 P=w.proveedores();
 ok(P.length===2,'un área ve solo los proveedores que trabajaron con ella',P.length);
