@@ -229,7 +229,20 @@ PROV_COLS = dict(
 provs = []
 if "Proveedores" in wb.sheetnames:
     wsp = wb["Proveedores"]
-    phdr = [str(c.value or "").strip().lower() for c in wsp[1]]
+
+    # Dónde están los encabezados. La hoja se pega con la fila 1, pero las hojas
+    # de contratos del maestro llevan un título arriba y los encabezados en la
+    # 2; si alguien uniformiza la nueva, se sigue encontrando en vez de publicar
+    # una hoja vacía sin que nadie se entere.
+    def encabezados(fila):
+        return [str(c.value or "").strip().lower() for c in wsp[fila]]
+
+    phdr, fila_hdr = [], 1
+    for f in (1, 2, 3):
+        cand = encabezados(f)
+        if any(h.startswith("nombre del proveedor") or h == "proveedor" for h in cand):
+            phdr, fila_hdr = cand, f
+            break
 
     def pcol(*aliases):
         for a in aliases:
@@ -240,8 +253,9 @@ if "Proveedores" in wb.sheetnames:
 
     P = {k: pcol(*als) for k, als in PROV_COLS.items()}
     if P["nombre"] is None:
-        print("AVISO: la hoja «Proveedores» no tiene columna de nombre; no se publica.")
-        print("       Encabezados disponibles (fila 1):", [h for h in phdr if h])
+        print("AVISO: la hoja «Proveedores» no tiene columna de nombre en ninguna "
+              "de sus tres primeras filas; no se publica.")
+        print("       Fila 1:", [h for h in encabezados(1) if h])
     else:
         def pval(row, key):
             j = P.get(key)
@@ -258,7 +272,7 @@ if "Proveedores" in wb.sheetnames:
             return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", s.lower())).strip()
 
         vistos = set()
-        for row in wsp.iter_rows(min_row=2, values_only=True):
+        for row in wsp.iter_rows(min_row=fila_hdr + 1, values_only=True):
             nombre = pval(row, "nombre")
             if not nombre:
                 continue

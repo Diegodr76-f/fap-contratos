@@ -203,9 +203,15 @@ def leer_hoja(ruta):
     wb.close()
     if not filas:
         return [], {}
-    encabezados = list(filas[0])
+    # Dónde están los encabezados: la hoja se pega con la fila 1, pero las hojas
+    # de contratos del maestro llevan título arriba y encabezados en la 2. El
+    # robot mira igual las tres primeras; aquí se hace lo mismo para no diferir.
+    i_hdr = next((i for i, r in enumerate(filas[:3])
+                  if r and any("nombre del proveedor" in norm(c).lower()
+                               for c in r if c)), 0)
+    encabezados = list(filas[i_hdr])
     ya = {}
-    for r in filas[1:]:
+    for r in filas[i_hdr + 1:]:
         if r and r[0] and norm(r[0]):
             ya[norm(r[0])] = str(r[0]).strip()
     return encabezados, ya
