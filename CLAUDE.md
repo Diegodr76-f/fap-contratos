@@ -304,11 +304,29 @@ genera ya pre-llenada desde las hojas de contratos, y lista los pares de nombres
 normalización no une —errores de tecleo que parten en dos el historial de una misma persona— para
 que se resuelvan con el RUC al llenarla.
 
-**Y la hoja no se llena una vez: se mantiene.** Cada contrato nuevo de la hoja `2026` puede traer
-un proveedor sin fila. Con uno que ya está no hay nada que hacer —la ficha se engancha sola por el
-nombre—; `--actualizar` escribe solo las filas que faltan, respetando el orden de columnas que ya
-tiene la hoja. Que no se olvide no depende de acordarse: el CLM marca los proveedores **sin ficha**
-con un filtro y una alerta agregada, las dos solo cuando la hoja ya existe.
+**Son dos hojas, y la separación es el diseño.** `Proveedores` es la que se llena y la que lee el
+robot: valores guardados, **ninguna fórmula**. `Proveedores_Faltan` es una fórmula sola que mira la
+hoja `2026` y dice qué proveedores todavía no tienen fila.
+
+Separadas porque **nunca se escribe a mano al lado de una fórmula que se expande**: al aparecer un
+nombre nuevo la lista se recorre —o cambia entera si se ordena la hoja `2026`— y los RUC de al lado
+quedan pegados a otra persona. Si alguna vez parece buena idea juntarlas, no lo es.
+
+Tres consecuencias que hay que respetar:
+
+- **La hoja que lee el robot no lleva fórmulas.** El robot lee valores guardados (`data_only`), y
+  una fórmula sin calcular se publica como vacía, en silencio.
+- **Las fórmulas se comprueban ejecutándolas** (`scripts/probar_hoja_proveedores.py`, con el
+  paquete `formulas`). Una fórmula mal escrita no falla: se queda vacía, que es idéntico a «no
+  falta ningún proveedor».
+- **Funciones clásicas.** `UNIQUE`/`FILTER` harían la lista en una línea, pero solo existen en
+  Excel 365, se guardan con prefijos `_xlfn.` cuando no las escribe Excel, y no hay con qué
+  comprobarlas aquí. Y la columna del proveedor se busca por su encabezado con `MATCH`, no se fija
+  en la K: el maestro es de otra persona y las columnas se mueven.
+
+`--actualizar` sigue estando para ponerse al día de golpe. Y que no se olvide no depende de
+acordarse: el CLM marca los proveedores **sin ficha** con un filtro y una alerta agregada, las dos
+solo cuando la hoja ya existe.
 
 **Ningún script escribe en el maestro.** No es escrúpulo: abrir y volver a guardar el maestro con
 openpyxl **borra los enlaces de la hoja «Export»**, y el robot los publica —se probó, y los 138

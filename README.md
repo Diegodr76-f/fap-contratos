@@ -223,35 +223,61 @@ pegó el CSV dos veces— el robot publica **la más completa**, no la primera, 
 pegada y vacía no puede tapar la que ya tenía el RUC; y el robot avisa en su resumen cuántos RUC no
 pasan el dígito verificador, con nombre y todo.
 
-#### La hoja no se llena una vez: se mantiene
+#### Son dos hojas, y la separación es el diseño
 
-Los contratos siguen entrando en la hoja `2026`, y alguno traerá un proveedor que no está en la
-hoja `Proveedores`. **Con un proveedor que ya está no hay nada que hacer** —la ficha se engancha
-sola por el nombre, no importa cuántos contratos nuevos tenga—; solo hace falta una fila cuando el
-proveedor es nuevo.
+| Hoja | Qué es | Quién la toca |
+|---|---|---|
+| **`Proveedores`** | La tabla que se llena. Valores guardados, **ninguna fórmula** | Una persona escribe RUC y actividad; el robot la lee |
+| **`Proveedores_Faltan`** | Una fórmula que mira la hoja `2026` y dice qué proveedores todavía no tienen fila | Nadie — se llena sola |
 
-Nada se rompe mientras tanto: el listado se arma con los contratos, así que el proveedor nuevo
-**aparece igual desde el primer día**, solo que con «sin registrar» donde va el RUC. Y para que no
-se quede ahí olvidado, el CLM lo señala: un filtro **📇 Sin ficha · N** en el listado y una alerta
-agregada —una sola, no una por proveedor— para la Unidad Operativa, que es quien mantiene el
-maestro. Las dos aparecen solo cuando la hoja ya existe: antes de la primera ficha serían 225
-avisos de algo que todavía no empieza.
+Están separadas por una razón dura: **nunca se escribe a mano al lado de una fórmula que se
+expande.** Cuando aparece un nombre nuevo, la lista se recorre —se inserta en medio, o cambia de
+orden si se ordena la hoja `2026`— y los RUC de al lado quedan pegados a **otra persona**. Es el
+error clásico de este patrón. Por eso lo que se escribe vive en una hoja que no se mueve nunca, y
+la fórmula vive sola en la suya.
 
-Para ponerla al día:
+**El flujo, entonces:** escribes el contrato en la hoja `2026` como siempre. Si su proveedor es
+nuevo, su nombre aparece solo en `Proveedores_Faltan`, con el contador de cuántos faltan. Lo copias
+a la primera fila libre de `Proveedores` —o lo eliges del **desplegable** de esa columna, que se
+alimenta de esa misma lista— y le llenas el RUC. **Nadie teclea un nombre nunca**, así que no hay
+forma de que entre con una tilde distinta y parta el historial en dos.
+
+Y no se duplica: la fórmula salta los que ya tienen fila y no repite un proveedor que esté en
+varios contratos; si aun así quedaran dos filas iguales, la celda se pinta de rojo y el robot
+publica la más completa.
+
+Mientras tanto nada se rompe: el listado del CLM se arma con los contratos, así que el proveedor
+nuevo **aparece desde el primer día**, solo que con «sin registrar» donde va el RUC. Y el CLM lo
+señala con un filtro **📇 Sin ficha · N** y una alerta agregada para la Unidad Operativa — las dos
+solo cuando la hoja ya existe.
+
+Para ponerse al día de golpe cuando se acumularon varios:
 
 ```bash
 python3 scripts/hoja_proveedores.py --actualizar <Sistema_Alertas_Contratos_FIAS.xlsx>
 ```
 
 Escribe **solo las filas que faltan**, en el mismo orden de columnas que ya tiene la hoja —si le
-añadieron columnas propias las respeta y las deja en blanco—, listas para pegar al final. Si no
-falta ninguna, no escribe nada y lo dice. Y cuando un nombre nuevo se parece a uno que ya está
-—«Sinchiguano Cadenas» contra «Sinchiguano Cadena»— lo añade igual, porque perder un proveedor es
-peor que tener una fila de más, pero lo saca en pantalla para resolverlo con el RUC.
+añadieron columnas propias las respeta y las deja en blanco—. Si no falta ninguna, no escribe nada
+y lo dice.
 
-> **Nunca escribe en el maestro**, y no es escrúpulo: se probó, y abrir y volver a guardar el
-> maestro con openpyxl **borra los enlaces de la hoja «Export»** —los 138 contratos se quedaron
-> sin link—. Por eso el script siempre escribe un archivo aparte y las filas se pegan a mano.
+> **Ningún script escribe en el maestro**, y no es escrúpulo: se probó, y abrir y volver a guardar
+> el maestro con openpyxl **borra los enlaces de la hoja «Export»** —los 138 contratos se quedaron
+> sin link—. Siempre se escribe un archivo aparte y las filas se pegan a mano.
+
+**Las fórmulas se comprueban ejecutándolas**, porque una fórmula mal escrita no falla: se queda
+vacía, que es exactamente lo que se vería si no faltara ningún proveedor.
+
+```bash
+pip install openpyxl formulas
+python3 scripts/probar_hoja_proveedores.py
+```
+
+Monta un maestro de mentira con el proveedor en la **columna D** —no en la K— para que la prueba
+falle si alguien vuelve a fijar la columna en vez de buscarla por su encabezado, y comprueba que
+la lista traiga solo los que faltan, sin repetir al que está en dos contratos. Son funciones
+clásicas a propósito (`IF`, `AND`, `COUNTIF`, `INDEX`, `MATCH`): `UNIQUE` y `FILTER` harían esto en
+una línea pero solo existen en Excel 365, y no hay forma de comprobarlas aquí.
 
 ## Centro de mando diario — herramienta personal
 

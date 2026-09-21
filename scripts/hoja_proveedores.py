@@ -31,23 +31,39 @@ De paso avisa de dos cosas que el llenado tiene que resolver:
     historial de una misma persona, y el nombre no alcanza para decidirlo: lo
     decide el RUC. Por eso salen listados, para revisarlos mientras se llena.
 
-## La hoja no se llena una vez: se mantiene
+## Son dos hojas, y la separación es el diseño
 
-Cada contrato nuevo en la hoja «2026» puede traer un proveedor que todavía no
-está en la hoja «Proveedores». Con un proveedor que ya está no hay nada que
-hacer —la ficha se engancha sola por el nombre—; solo hace falta una fila
-cuando el proveedor es nuevo.
+  · **«Proveedores»** — lo que se llena, y lo que lee el robot. Valores
+    guardados, ninguna fórmula.
+  · **«Proveedores_Faltan»** — una fórmula que mira la hoja 2026 y dice qué
+    proveedores todavía no tienen fila. Casi siempre está vacía.
+
+Separadas porque **nunca se escribe a mano al lado de una fórmula que se
+expande**: al aparecer un nombre nuevo la lista se recorre y los RUC de al lado
+quedan pegados a otra persona. Es el error clásico de este patrón, y la razón
+de que los datos vivan en una hoja que no se mueve.
+
+Así, cuando entra un contrato con un proveedor nuevo, su nombre aparece solo en
+«Proveedores_Faltan». Se copia a la primera fila libre de «Proveedores» —o se
+elige del desplegable de esa columna, que se alimenta de ahí mismo— y se le
+llena el RUC. Nadie teclea un nombre, así que no hay forma de que entre con una
+tilde distinta.
+
+Para ponerse al día de golpe cuando se acumularon varios:
 
     python3 scripts/hoja_proveedores.py --actualizar <maestro.xlsx> [salida.xlsx]
 
-compara las dos cosas y escribe **solo las filas que faltan**, en el mismo orden
-de columnas que ya tiene la hoja (si le añadieron columnas propias —teléfono,
-dirección— las respeta y las deja en blanco). Se pegan al final de la hoja y ya.
-Si no falta ninguna, no escribe nada y lo dice.
+escribe **solo las filas que faltan**, en el mismo orden de columnas que ya
+tiene la hoja (si le añadieron columnas propias —teléfono, dirección— las
+respeta y las deja en blanco). Si no falta ninguna, no escribe nada y lo dice.
 
 Lo que NO hace es decidir por nadie: si un nombre nuevo se parece a uno que ya
 está, lo añade igual —perder un proveedor es peor que tener una fila de más— y
 lo saca en la lista de parecidos para que se resuelva con el RUC.
+
+Las fórmulas se comprueban ejecutándolas, con `scripts/probar_hoja_proveedores.py`:
+una fórmula mal escrita no falla, se queda vacía — que es justo lo que se vería
+si no faltara ningún proveedor.
 """
 import sys, os, re, unicodedata, itertools
 from collections import defaultdict
@@ -56,6 +72,7 @@ try:
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.formatting.rule import FormulaRule
 except ImportError:
     sys.exit("Falta openpyxl. Instálalo con:\n    pip install openpyxl\n")
 
@@ -72,6 +89,32 @@ COLS_REF = ["(ref) Contratos", "(ref) Áreas", "(ref) Categorías",
 
 RESULTADOS = "Vigente,Observado,No continuar"
 PERIODICIDADES = "Semestral,Anual"
+
+HOJA_FALTAN = "Proveedores_Faltan"
+FILAS_MIRA = 500        # cuántas filas de la hoja de contratos vigila la fórmula
+
+# La hoja que se llena sola vive **aparte** de la que se escribe, y eso es el
+# punto del diseño, no una manía: nunca se escribe a mano al lado de una fórmula
+# que se expande. Cuando aparece un nombre nuevo, la lista se recorre —y los RUC
+# de al lado quedan pegados a otra persona—. En «Proveedores» todo son valores
+# guardados, que no se mueven; la fórmula vive sola en su hoja.
+#
+# Y son funciones clásicas a propósito: IF, AND, COUNTIF, INDEX, MATCH. UNIQUE y
+# FILTER harían esto en una línea, pero solo existen en Excel 365, se guardan con
+# prefijos raros (`_xlfn.`) cuando no las escribe Excel, y no hay forma de
+# comprobarlas aquí. Estas se probaron ejecutándolas.
+#
+# La columna del proveedor se busca por su encabezado, no se fija en la K: el
+# maestro es de otra persona y las columnas se mueven de sitio.
+F_COLUMNA = "=IFERROR(MATCH(\"Nombre del Proveedor*\",'{hoja}'!${fila}:${fila},0),0)"
+# De la fila `origen` de la hoja de contratos: el nombre del proveedor, si no
+# tiene ya fila en «Proveedores» y no salió antes en esta misma lista.
+F_FALTA = ("=IF($C$1=0,\"\","
+           "IF(INDEX('{hoja}'!$A{origen}:$BZ{origen},1,$C$1)=\"\",\"\","
+           "IF(AND("
+           "COUNTIF(Proveedores!$A$2:$A${hastaprov},INDEX('{hoja}'!$A{origen}:$BZ{origen},1,$C$1))=0,"
+           "COUNTIF($A${primera}:$A${anterior},INDEX('{hoja}'!$A{origen}:$BZ{origen},1,$C$1))=0),"
+           "INDEX('{hoja}'!$A{origen}:$BZ{origen},1,$C$1),\"\")))")
 
 
 def norm(s):
@@ -130,8 +173,18 @@ def leer(ruta):
     return provs
 
 
-def escribir(provs, salida):
+def escribir(provs, salida, hoja_contratos="2026", fila_hdr=2):
+    """Dos hojas, y la separación entre ellas es el punto del diseño.
+
+    · «Proveedores» es lo que se llena y lo que lee el robot. Son valores
+      guardados, sin una sola fórmula: el nombre no se mueve nunca de su fila,
+      así que el RUC de al lado no puede terminar pegado a otra persona.
+    · «Proveedores_Faltan» es una fórmula sola, que mira la hoja 2026 y dice qué
+      proveedores todavía no tienen fila. Casi siempre está vacía.
+    """
     wb = openpyxl.Workbook()
+
+    # ---------- la hoja que se llena ----------
     ws = wb.active
     ws.title = "Proveedores"
     cols = COLS_LLENAR + COLS_REF
@@ -145,23 +198,66 @@ def escribir(provs, salida):
         c.fill = gris if es_ref else azul
         c.font = Font(bold=True, color="333333" if es_ref else "FFFFFF", size=10)
         c.alignment = Alignment(vertical="center", wrap_text=True)
-    ws.freeze_panes = "A2"
+    ws.freeze_panes = "B2"
 
     orden = sorted(provs.items(), key=lambda kv: (-kv[1]["n"], kv[0]))
     for _, p in orden:
         ws.append(fila_de(p, cols))
 
-    fin = ws.max_row
+    fin = max(ws.max_row, 2)
+    hasta = fin + 300   # sitio para los que vengan, con sus validaciones puestas
     dv_res = DataValidation(type="list", formula1=f'"{RESULTADOS}"', allow_blank=True)
     dv_per = DataValidation(type="list", formula1=f'"{PERIODICIDADES}"', allow_blank=True)
-    ws.add_data_validation(dv_res)
-    ws.add_data_validation(dv_per)
-    dv_res.add(f"F2:F{fin}")
-    dv_per.add(f"G2:G{fin}")
+    # El nombre se elige de la lista de los que faltan: ni se teclea ni se copia,
+    # así no hay forma de que entre con una tilde distinta.
+    dv_nom = DataValidation(type="list", allow_blank=True,
+                            formula1=f"={HOJA_FALTAN}!$A$5:$A${4 + FILAS_MIRA}")
+    for dv, rango in ((dv_res, f"F2:F{hasta}"), (dv_per, f"G2:G{hasta}"),
+                      (dv_nom, f"A{fin + 1}:A{hasta}")):
+        ws.add_data_validation(dv)
+        dv.add(rango)
+
+    # Un nombre repetido se pinta rojo en el momento. El robot además publica la
+    # fila más completa de las dos, pero mejor verlo aquí y borrar la de más.
+    ws.conditional_formatting.add(
+        f"A2:A{hasta}",
+        FormulaRule(formula=[f'AND(A2<>"",COUNTIF($A$2:$A${hasta},A2)>1)'],
+                    fill=PatternFill("solid", fgColor="FFC7CE"), stopIfTrue=False))
 
     anchos = [42, 16, 34, 16, 20, 14, 13, 40, 11, 40, 26, 20, 40]
     for j, w in enumerate(anchos, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(j)].width = w
+
+    # ---------- la hoja que se llena sola ----------
+    wf = wb.create_sheet(HOJA_FALTAN)
+    wf["A1"] = "Proveedores con contrato que todavía NO tienen fila en «Proveedores»"
+    wf["A1"].font = Font(bold=True, size=11, color="1F3864")
+    wf["A2"] = ("Esta hoja se llena sola desde «%s». Si está vacía, no falta ninguno. "
+                "Para añadir uno: cópialo y pégalo en la primera fila libre de la "
+                "hoja «Proveedores», o elígelo del desplegable de esa columna."
+                % hoja_contratos)
+    wf["A2"].font = Font(size=9, color="666666")
+    wf["C1"] = F_COLUMNA.format(hoja=hoja_contratos, fila=fila_hdr)   # columna del nombre
+    wf["C1"].font = Font(size=8, color="BBBBBB")
+    wf["A3"] = "Faltan:"
+    wf["A3"].font = Font(bold=True, size=10)
+    # SUMPRODUCT y no COUNTIF("?*"): las filas que no aportan nada devuelven "",
+    # que es texto vacío y no una celda vacía, y COUNTIF las cuenta igual —da 500
+    # en vez de 2—. Se comprobó ejecutando las dos.
+    wf["B3"] = '=SUMPRODUCT((A5:A%d<>"")*1)' % (4 + FILAS_MIRA)
+    wf["B3"].font = Font(bold=True, size=10, color="C00000")
+    wf["A4"] = "Nombre del proveedor (cópialo a la hoja «Proveedores»)"
+    wf["A4"].font = Font(bold=True, size=10, color="FFFFFF")
+    wf["A4"].fill = PatternFill("solid", fgColor="1F3864")
+    for k in range(FILAS_MIRA):
+        destino, origen = 5 + k, fila_hdr + 1 + k
+        # La primera fila no tiene nada arriba con qué compararse: se la manda
+        # contra el encabezado, que nunca va a coincidir con un nombre.
+        wf.cell(row=destino, column=1).value = F_FALTA.format(
+            hoja=hoja_contratos, origen=origen, hastaprov=hasta,
+            primera=4 if destino == 5 else 5, anterior=destino - 1)
+    wf.column_dimensions["A"].width = 56
+    wf.freeze_panes = "A5"
 
     wb.save(salida)
     return fin - 1
