@@ -182,6 +182,10 @@
   .actbtn .at{font-size:13.5px;font-weight:700;display:block}
   .actbtn .ad{font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
   .note{font-size:12px;color:var(--muted);line-height:1.5;background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:11px 13px}
+  .chk{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:7px;cursor:pointer;font-size:13px;font-weight:600;line-height:1.4}
+  .chk:hover{border-color:var(--navy2)}
+  .chk input{margin-top:2px;width:15px;height:15px;flex:0 0 auto;accent-color:var(--navy)}
+  .rucnota{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted2);border:1px solid var(--line2);border-radius:5px;padding:1px 4px;cursor:help}
   .tl{list-style:none;margin:6px 0 0;padding:0}
   .tl li{position:relative;padding:0 0 14px 22px;border-left:2px solid var(--line2);margin-left:7px}
   .tl li:last-child{padding-bottom:2px}
@@ -314,6 +318,10 @@
 // (subida de documentos a revisión de la Unidad Operativa).
 var FLOW_DOCS_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/08/workflows/d9ab249ef28a41c69d9bb7a5ee32a00e/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fhmL_aMEe5PETXXKDZuiYMg47xFWoa0RygIxFWFzCwI';
 var DATA_URL = '../crm/contratos_export.json';
+// Las fichas de proveedor van en su propio archivo y no dentro del de
+// contratos: ese es un array y lo leen como array el CRM, el CLM y
+// renovaciones. Cambiarle la forma para meter esto rompería a los tres.
+var PROV_URL = '../crm/proveedores_export.json';
 var TPL_PATH = '../crm/plantillas/';
 
 /* ================= CIFRADO DE DATOS (WebCrypto) =================
@@ -434,11 +442,12 @@ function catChip(cat,extra){const col=catColor(cat);return `<span class="catchip
 
 /* ================= DATA + PERSISTENCIA ================= */
 let CONTRACTS=[];               // base viva (crm/contratos_export.json)
+let FICHAS=[];                  // hoja «Proveedores» del maestro (opcional)
 let dataSource={label:"Cargando…",live:false};
-let CLM={overlay:{},solicitudes:[],log:[]};   // estado propio del CLM (localStorage)
+let CLM={overlay:{},solicitudes:[],log:[],prov:{}};   // estado propio del CLM (localStorage)
 
 function saveCLM(){try{localStorage.setItem("fap_clm_v1",JSON.stringify(CLM));}catch(e){}}
-function loadCLM(){try{const r=localStorage.getItem("fap_clm_v1");if(r){const o=JSON.parse(r);CLM={overlay:o.overlay||{},solicitudes:o.solicitudes||[],log:o.log||[]};}}catch(e){}}
+function loadCLM(){try{const r=localStorage.getItem("fap_clm_v1");if(r){const o=JSON.parse(r);CLM={overlay:o.overlay||{},solicitudes:o.solicitudes||[],log:o.log||[],prov:o.prov||{}};}}catch(e){}}
 function ov(c){return CLM.overlay[c.nro]||(CLM.overlay[c.nro]={});}
 function logAdd(icon,txt,ref){CLM.log.unshift({ts:new Date().toISOString(),user:SES?SES.user:"—",icon,txt,ref:ref||null});if(CLM.log.length>400)CLM.log.length=400;saveCLM();}
 
@@ -483,8 +492,9 @@ function mySolicitudes(){
 }
 
 /* ================= ROUTER ================= */
-let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:"table",repQ:"",sinCarpeta:false};
-const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",mapa:"Mapa de áreas protegidas",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
+let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:"table",repQ:"",sinCarpeta:false,
+        prov:null,pq:"",pCat:"all",pVerif:"all",pSort:"contratos",pMode:"table"};
+const VIEWS={panel:"Panel de control",pipeline:"Pipeline del ciclo de vida",contratos:"Repositorio de contratos",proveedores:"Listado de proveedores",provdet:"Ficha del proveedor",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",mapa:"Mapa de áreas protegidas",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
 function go(view,cur){ST.view=view;if(cur!==undefined)ST.cur=cur;location.hash="#/"+view+(view==="detalle"&&ST.cur!=null?"/"+ST.cur:"");render();window.scrollTo(0,0);}
 window.addEventListener("hashchange",()=>{
   const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
@@ -495,7 +505,7 @@ window.addEventListener("hashchange",()=>{
 function render(){
   if(!SES){renderLogin();return;}
   const app=$("#app");
-  const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${badge}</span>`:""}</button>`;
+  const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')||(id==='proveedores'&&ST.view==='provdet')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${badge}</span>`:""}</button>`;
   const nAlerts=alertList().length;
   const I={
     panel:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
@@ -508,7 +518,8 @@ function render(){
     map:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3 3 5.5v15L9 18l6 3 6-2.5v-15L15 6z"/><path d="M9 3v15M15 6v15"/></svg>',
     magic:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 21 9-9"/><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M12.2 6.2 11 5"/></svg>',
     grid:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>',
-    scale:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 21h10M6 7h12l-3 5a3 3 0 0 1-6 0zM6 7 3 12a3 3 0 0 0 6 0zM18 7l3 5a3 3 0 0 1-6 0z"/></svg>'
+    scale:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 21h10M6 7h12l-3 5a3 3 0 0 1-6 0zM6 7 3 12a3 3 0 0 0 6 0zM18 7l3 5a3 3 0 0 1-6 0z"/></svg>',
+    prov:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
   };
   app.innerHTML=`
   <div class="shell">
@@ -518,6 +529,7 @@ function render(){
       ${nav("panel","Panel",I.panel)}
       ${nav("pipeline","Pipeline",I.pipe)}
       ${nav("contratos","Contratos",I.repo)}
+      ${nav("proveedores","Proveedores",I.prov,nVerifVencidas()||"")}
       ${nav("solicitudes","Solicitudes",I.sol)}
       ${nav("alertas","Alertas",I.bell,nAlerts||"")}
       <div class="navgrp">Análisis</div>
@@ -550,7 +562,7 @@ function render(){
   app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
   $("#logout").onclick=()=>{setSes(null);location.hash="";render();};
   bindGlobalSearch();
-  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,mapa:vMapa,actividad:vActividad,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>vFrame("../generador/index.html","La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa)."),crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
+  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,proveedores:vProveedores,provdet:vProvDet,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,mapa:vMapa,actividad:vActividad,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>vFrame("../generador/index.html","La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa)."),crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
   (V[ST.view]||vPanel)();
 }
 
@@ -677,6 +689,18 @@ function alertList(){
     const todos=myContracts(),sin=todos.filter(c=>!c.carpeta).length;
     if(sin&&sin<todos.length)out.push({sev:2,icon:"📁",col:"var(--navy)",bg:"var(--tint)",t:`${sin} contrato${sin===1?"":"s"} sin carpeta interna registrada`,d:"El número de la carpeta se escribe en la columna «Numero de carpeta interna» del Excel maestro",i:null,act:"Ver",fn:"carp"});
   }
+  // La verificación de proveedores, igual que la carpeta: una alerta agregada y
+  // no una por proveedor. Y solo cuando la práctica ya arrancó — con 225
+  // proveedores y ninguna verificación todavía, «225 sin verificar» sería un
+  // cartel permanente que nadie puede bajar.
+  const provs=proveedores(),conVerif=provs.filter(p=>ultimaVerif(p)).length;
+  if(conVerif){
+    const venc=provs.filter(p=>verifEstado(p).key==="vencida").length;
+    if(venc)out.push({sev:1,icon:"🔎",col:"var(--amber)",bg:"var(--amberbg)",t:`${venc} proveedor${venc===1?"":"es"} con la verificación vencida`,d:"Sin verificación al día no debería salir un proceso nuevo con ese proveedor",i:null,act:"Ver",fn:"prov"});
+  }
+  provs.filter(p=>verifEstado(p).key==="corte"&&p.vivos).forEach(p=>{
+    out.push({sev:0,icon:"⛔",col:"var(--red)",bg:"var(--redbg)",t:`Proveedor marcado «No continuar» con contrato vivo — ${trunc(p.nombre,40)}`,d:`${p.vivos} contrato${p.vivos===1?"":"s"} en ejecución · revisa antes de renovar o ampliar`,i:null,act:"Ver ficha",fn:"provdet",pk:p.key});
+  });
   mySolicitudes().forEach(s=>{
     if(s.estado==="borrador")out.push({sev:2,icon:"📝",col:"var(--navy)",bg:"var(--tint)",t:`Solicitud sin iniciar — ${s.objeto.slice(0,48)}`,d:`Vía sugerida: ${s.via==="contrato"?"contrato (Unidad Operativa)":"orden de compra/servicio"}`,i:null,act:"Ver",fn:"sol"});
   });
@@ -755,7 +779,7 @@ function alertRowHTML(a){
   return `<div class="alert-row">
     <div class="aic" style="background:${a.bg}">${a.icon}</div>
     <div style="min-width:0"><div class="at">${esc(a.t)}</div><div class="ad">${esc(a.d)}</div></div>
-    <button class="btn sm ${a.sev===0?"danger":"line"} go" data-i="${a.i==null?"":a.i}" data-fn="${a.fn}">${esc(a.act)}</button>
+    <button class="btn sm ${a.sev===0?"danger":"line"} go" data-i="${a.i==null?"":a.i}" data-fn="${a.fn}"${a.pk?` data-pk="${esc(a.pk)}"`:""}>${esc(a.act)}</button>
   </div>`;
 }
 function bindAlertRows(){
@@ -763,6 +787,8 @@ function bindAlertRows(){
     const fn=b.dataset.fn;
     if(fn==="sol"){go("solicitudes");return;}
     if(fn==="carp"){ST.sinCarpeta=true;ST.filter="all";go("contratos");return;}
+    if(fn==="prov"){ST.pVerif="vencida";ST.pCat="all";ST.pq="";go("proveedores");return;}
+    if(fn==="provdet"){abrirProv(b.dataset.pk);return;}
     const i=+b.dataset.i;const c=CONTRACTS[i];
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
     else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
@@ -984,7 +1010,7 @@ function vDetalle(){
             <div class="step ${o.evaluado?"past":""}"><span class="d">${o.evaluado?"✓":"5"}</span> Calificación</div>
           </div>
           <div class="dl">
-            <div><div class="k">Proveedor</div><div class="v">${esc(c.proveedor||"—")}</div></div>
+            <div><div class="k">Proveedor</div><div class="v">${c.proveedor?`<a href="#" id="verProv" style="color:var(--navy);text-decoration:none;border-bottom:1.5px solid var(--line)">${esc(c.proveedor)}</a>`:"—"}</div></div>
             <div><div class="k">Categoría</div><div class="v">${catChip(c.cat)}${consult?' <span style="color:var(--navy);font-size:11px;font-weight:700">servicios profesionales</span>':""}</div></div>
             <div><div class="k">Monto original (incl. IVA)</div><div class="v">${money(c.monto)}</div></div>
             <div><div class="k">Valor total vigente</div><div class="v" style="${montoDe(c)!==c.monto?"color:var(--navy)":""}">${money(montoDe(c))}${montoDe(c)!==c.monto?" · con adenda":""}</div></div>
@@ -1053,6 +1079,8 @@ function vDetalle(){
     </div>
   </div>`;
   $("#back").onclick=()=>go("contratos");
+  const vp=$("#verProv",$("#view"));
+  if(vp)vp.onclick=ev=>{ev.preventDefault();abrirProv(provKey(c.proveedor));};
   if(!done){$("#a-mod").onclick=()=>modalModificar(c);$("#a-ter").onclick=()=>modalTerminar(c);}
   if(done&&!o.evaluado)$("#a-cal").onclick=()=>modalCalificar(c);
   if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
@@ -1533,11 +1561,354 @@ function modalNuevaSolicitud(){
   };
 }
 
+/* ================= PROVEEDORES =================
+   El proveedor no es una fila de ninguna base: es un nombre que se repite en
+   los contratos. Aquí se lo arma juntando sus contratos —áreas, categorías,
+   montos, calificaciones— y encima se le pega, si existe, la ficha de la hoja
+   «Proveedores» del Excel maestro: RUC, actividad económica y verificación.
+
+   Sin esa hoja el listado funciona igual; solo que donde va el RUC dice «sin
+   registrar», como la carpeta interna. Lo que NO se puede derivar no se
+   inventa.
+====================================================================== */
+
+/* La llave: sin tildes, sin puntuación, en minúsculas. Es lo que junta
+   «RIVERJARDÍN CÍA. LTDA.» con «RIVERJARDIN CIA LTDA» —tres formas de escribir
+   el mismo proveedor que hay hoy en el maestro—. Un error de tecleo de verdad
+   («PLASENCIA» contra «PLASCENCIA») NO lo junta, y no debe: el nombre no
+   alcanza para afirmar que son el mismo, eso lo dice el RUC. */
+function provKey(s){
+  return String(s==null?"":s).normalize("NFD").replace(/[̀-ͯ]/g,"")
+    .toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+}
+const VERIF_CICLO={Semestral:182,Anual:365};
+function ciclodias(p){return VERIF_CICLO[p&&p.periodicidad]||VERIF_CICLO.Anual;}
+function diasDesde(iso){
+  if(!iso)return null;
+  return Math.round((new Date(todayISO()+"T00:00:00")-new Date(iso+"T00:00:00"))/86400000);
+}
+
+/* La verificación vive en dos sitios y el más reciente manda:
+     · la hoja del Excel — la que ve todo el equipo, publicada por el robot;
+     · localStorage      — la que esta AC acaba de registrar y todavía no pasa
+                           al Excel.
+   Cuando la local es más nueva se marca «por pasar al Excel», que es la verdad:
+   el resto del equipo todavía no la ve. */
+function ultimaVerif(p){
+  const local=(CLM.prov[p.key]&&CLM.prov[p.key].verifs||[]).slice()
+    .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))[0]||null;
+  const f=p.ficha;
+  const pub=(f&&f.verificacion)?{fecha:f.verificacion,por:f.verificadoPor||"—",
+    resultado:f.resultado||"—",periodicidad:f.periodicidad||"Anual",
+    obs:f.observaciones||"",origen:"excel"}:null;
+  if(local&&pub)return String(local.fecha)>String(pub.fecha)
+    ?Object.assign({},local,{pendiente:true}):pub;
+  if(local)return Object.assign({},local,{pendiente:true});
+  return pub;
+}
+function verifEstado(p){
+  const v=ultimaVerif(p);
+  if(!v)return {key:"nunca",label:"Sin verificar",col:"var(--muted2)",bg:"#ECEEF4"};
+  const rest=ciclodias(v)-diasDesde(v.fecha);
+  if(String(v.resultado).toLowerCase().startsWith("no continuar"))
+    return {key:"corte",label:"No continuar",col:"var(--red)",bg:"var(--redbg)",v};
+  if(rest<0)return {key:"vencida",label:`Vencida hace ${Math.abs(rest)}d`,col:"var(--red)",bg:"var(--redbg)",v};
+  if(rest<=30)return {key:"pronto",label:`Vence en ${rest}d`,col:"var(--amber)",bg:"var(--amberbg)",v};
+  return {key:"aldia",label:`Al día · ${rest}d`,col:"var(--green)",bg:"var(--greenbg)",v};
+}
+
+/* El portafolio visto por proveedor. Respeta el rol: la AC ve los suyos, la
+   Unidad Operativa los de todos — igual que myContracts(). */
+function proveedores(){
+  const ix={},fichas={};
+  FICHAS.forEach(f=>{const k=provKey(f.nombre);if(k)fichas[k]=f;});
+  myContracts().forEach(c=>{
+    const k=provKey(c.proveedor);if(!k)return;
+    const p=ix[k]||(ix[k]={key:k,grafias:{},contratos:[],areas:[],cats:[],monto:0,
+                            vivos:0,ficha:fichas[k]||null});
+    p.grafias[c.proveedor]=(p.grafias[c.proveedor]||0)+1;
+    p.contratos.push(c);
+    if(c.area&&p.areas.indexOf(c.area)<0)p.areas.push(c.area);
+    if(c.cat&&p.cats.indexOf(c.cat)<0)p.cats.push(c.cat);
+    p.monto+=montoDe(c);
+    const s=statusLive(c).key;
+    if(s==="vigente"||s==="aviso"||s==="vencido")p.vivos++;
+  });
+  return Object.keys(ix).map(k=>{
+    const p=ix[k];
+    // El nombre que más contratos llevan es el que se muestra: es el que menos
+    // hay que corregir si algún día se unifica en el Excel.
+    p.nombre=Object.keys(p.grafias).sort((a,b)=>p.grafias[b]-p.grafias[a]||b.length-a.length)[0];
+    p.areas.sort((a,b)=>a.localeCompare(b));p.cats.sort((a,b)=>a.localeCompare(b));
+    const cal=p.contratos.map(c=>ov(c)).filter(o=>o.evaluado&&o.score!=null)
+      .map(o=>({score:+o.score,sem:o.sem}));
+    p.calificaciones=cal;
+    p.score=cal.length?cal.reduce((s,x)=>s+x.score,0)/cal.length:null;
+    p.ultimo=p.contratos.map(c=>c.fin||c.firma||"").sort().slice(-1)[0]||"";
+    return p;
+  });
+}
+function provPorKey(k){return proveedores().find(p=>p.key===k)||null;}
+function nVerifVencidas(){
+  if(!SES)return 0;
+  return proveedores().filter(p=>{const e=verifEstado(p);
+    return e.key==="vencida"||e.key==="corte";}).length;
+}
+
+function filtraProveedores(){
+  const list=proveedores().filter(p=>{
+    if(ST.pCat!=="all"&&p.cats.indexOf(ST.pCat)<0)return false;
+    if(ST.pVerif!=="all"&&verifEstado(p).key!==ST.pVerif)return false;
+    if(ST.pq){
+      const f=p.ficha||{};
+      const hay=provKey(Object.keys(p.grafias).join(" ")+" "+p.areas.join(" ")+" "+
+                        p.cats.join(" ")+" "+(f.ruc||"")+" "+(f.actividad||""));
+      if(hay.indexOf(provKey(ST.pq))<0)return false;
+    }
+    return true;
+  });
+  const S={contratos:(a,b)=>b.contratos.length-a.contratos.length||a.nombre.localeCompare(b.nombre),
+           monto:(a,b)=>b.monto-a.monto,
+           nombre:(a,b)=>a.nombre.localeCompare(b.nombre),
+           verif:(a,b)=>{const o={corte:0,vencida:1,pronto:2,nunca:3,aldia:4};
+                         return o[verifEstado(a).key]-o[verifEstado(b).key]||b.contratos.length-a.contratos.length;},
+           calif:(a,b)=>(b.score==null?-1:b.score)-(a.score==null?-1:a.score)};
+  list.sort(S[ST.pSort]||S.contratos);
+  return list;
+}
+function rucHTML(p){
+  const f=p.ficha;
+  if(!f||!f.ruc)return `<span style="color:var(--muted)">sin registrar</span>`;
+  const nat=f.rucTipo==="Persona natural";
+  return `<span style="font-variant-numeric:tabular-nums;letter-spacing:.3px">${esc(f.ruc)}</span>`+
+    (nat?` <span class="rucnota" title="En una persona natural el RUC son los diez dígitos de su cédula más 001. El CLM es un sitio público, así que publica el RUC parcial: el completo está en el Excel maestro.">parcial</span>`:"");
+}
+function abrirProv(k){ST.prov=k;go("provdet");}
+
+/* ================= VISTA: PROVEEDORES ================= */
+function vProveedores(){
+  const todos=proveedores();
+  const list=filtraProveedores();
+  const cats=[...new Set(todos.reduce((a,p)=>a.concat(p.cats),[]))].sort((a,b)=>a.localeCompare(b));
+  const conFicha=todos.filter(p=>p.ficha).length;
+  const cuenta={};todos.forEach(p=>{const k=verifEstado(p).key;cuenta[k]=(cuenta[k]||0)+1;});
+  const sel="padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer";
+  const sorts=[["contratos","Más contratos"],["monto","Mayor monto"],["verif","Verificación pendiente"],["calif","Mejor calificado"],["nombre","Nombre (A–Z)"]];
+  const vf=[["all","Todos"],["vencida","Verificación vencida"],["pronto","Por vencer"],["aldia","Al día"],["nunca","Sin verificar"],["corte","No continuar"]];
+  $("#view").innerHTML=`<div class="up">
+    ${conFicha?"":`<div class="note" style="margin-bottom:12px">El listado se arma con los contratos. El <b>RUC</b> y la <b>actividad económica</b> salen de la hoja «Proveedores» del Excel maestro, que todavía no está — por eso las fichas dicen «sin registrar». Se crea con <code>python3 scripts/hoja_proveedores.py</code>.</div>`}
+    <div class="toolbar">
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="pq" placeholder="Buscar proveedor, RUC, actividad o área…" value="${esc(ST.pq)}">
+      </div>
+      <select id="pSortSel" title="Ordenar" style="${sel};max-width:220px">
+        ${sorts.map(([k,l])=>`<option value="${k}"${ST.pSort===k?" selected":""}>↕ ${l}</option>`).join("")}
+      </select>
+      <div class="viewtog">
+        <button data-pv="table" class="${ST.pMode==="table"?"on":""}">Listado</button>
+        <button data-pv="cards" class="${ST.pMode==="cards"?"on":""}">Tarjetas</button>
+      </div>
+    </div>
+    <div class="chips">
+      ${vf.map(([k,l])=>`<button class="chip ${ST.pVerif===k?"on":""}" data-pf="${k}">${l}${k!=="all"&&cuenta[k]?` · ${cuenta[k]}`:""}</button>`).join("")}
+    </div>
+    ${cats.length>1?`<div class="chips" style="margin:10px 0 4px">
+      <button class="chip ${ST.pCat==="all"?"on":""}" data-pc="all">Todas las categorías</button>
+      ${cats.map(k=>{const col=catColor(k),on=ST.pCat===k;
+        return `<button class="chip" data-pc="${esc(k)}" style="background:${on?col.fg:col.bg};color:${on?"#fff":col.fg};border-color:${on?col.fg:"transparent"}">${esc(k)} · ${todos.filter(p=>p.cats.indexOf(k)>=0).length}</button>`;}).join("")}
+    </div>`:""}
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 10px">
+      <span id="pcount" style="font-size:12.5px;color:var(--muted);font-weight:600">${list.length===todos.length?`${todos.length} proveedor${todos.length===1?"":"es"}`:`Mostrando <b style="color:var(--ink)">${list.length}</b> de ${todos.length}`}</span>
+    </div>
+    <div id="plistbody">${ST.pMode==="cards"?provCardsHTML(list):provTableHTML(list)}</div>
+  </div>`;
+  $("#pq").oninput=e=>{ST.pq=e.target.value;const l=filtraProveedores();
+    $("#plistbody").innerHTML=ST.pMode==="cards"?provCardsHTML(l):provTableHTML(l);
+    $("#pcount").innerHTML=l.length===todos.length?`${todos.length} proveedor${todos.length===1?"":"es"}`:`Mostrando <b style="color:var(--ink)">${l.length}</b> de ${todos.length}`;
+    bindProvRows();};
+  $("#pSortSel").onchange=e=>{ST.pSort=e.target.value;vProveedores();};
+  $("#view").querySelectorAll(".chip[data-pf]").forEach(b=>b.onclick=()=>{ST.pVerif=b.dataset.pf;vProveedores();});
+  $("#view").querySelectorAll(".chip[data-pc]").forEach(b=>b.onclick=()=>{ST.pCat=(ST.pCat===b.dataset.pc)?"all":b.dataset.pc;vProveedores();});
+  $("#view").querySelectorAll(".viewtog button").forEach(b=>b.onclick=()=>{ST.pMode=b.dataset.pv;vProveedores();});
+  bindProvRows();
+}
+function bindProvRows(){$("#view").querySelectorAll("[data-prov]").forEach(el=>el.onclick=()=>abrirProv(el.dataset.prov));}
+function provTableHTML(list){
+  if(!list.length)return emptyHTML();
+  return `<div class="tablewrap"><table class="list">
+    <thead><tr><th>Proveedor</th><th>RUC</th><th>Actividad</th><th>Áreas</th><th>Contratos</th><th>Monto</th><th>Calif.</th><th>Verificación</th></tr></thead>
+    <tbody>${list.map(p=>{const e=verifEstado(p),f=p.ficha||{};
+      return `<tr data-prov="${esc(p.key)}">
+        <td class="td-nro" style="font-weight:700">${esc(p.nombre)}${f.rucTipo?`<div style="font-size:11px;font-weight:600;color:var(--muted)">${esc(f.rucTipo)}</div>`:""}</td>
+        <td style="white-space:nowrap">${rucHTML(p)}</td>
+        <td class="td-obj">${p.cats.slice(0,2).map(c=>catChip(c)).join(" ")}${p.cats.length>2?` <span style="font-size:11px;font-weight:700;color:var(--muted)">+${p.cats.length-2}</span>`:""}${f.actividad?`<div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(trunc(f.actividad,44))}</div>`:""}</td>
+        <td>${p.areas.length===1?esc(p.areas[0]):`<b>${p.areas.length}</b> áreas`}</td>
+        <td style="text-align:center"><b>${p.contratos.length}</b>${p.vivos?`<div style="font-size:11px;font-weight:700;color:var(--green)">${p.vivos} vivo${p.vivos===1?"":"s"}</div>`:""}</td>
+        <td style="white-space:nowrap">${money(p.monto)}</td>
+        <td style="white-space:nowrap">${p.score==null?`<span style="color:var(--muted)">—</span>`:`<b>${p.score.toFixed(1)}</b><span style="color:var(--muted)">/100</span>`}</td>
+        <td style="white-space:nowrap"><span class="semaforo" style="background:${e.bg};color:${e.col}">${esc(e.label)}</span></td>
+      </tr>`;}).join("")}</tbody></table></div>`;
+}
+function provCardsHTML(list){
+  if(!list.length)return emptyHTML();
+  return `<div class="grid">`+list.map(p=>{const e=verifEstado(p),f=p.ficha||{};
+    return `<div class="cc" data-prov="${esc(p.key)}">
+      <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${esc(trunc(p.nombre,30))}</span><span class="semaforo" style="background:${e.bg};color:${e.col}">${esc(e.label)}</span></div>
+      <div class="cc-area" style="margin-top:6px">${rucHTML(p)}${f.rucTipo?` · ${esc(f.rucTipo)}`:""}</div>
+      ${f.actividad?`<div class="cc-title" style="font-size:13px">${esc(trunc(f.actividad,70))}</div>`:""}
+      <div class="cc-meta" style="margin-top:6px"><span><b>${p.contratos.length}</b> contrato${p.contratos.length===1?"":"s"}</span><span>·</span><span><b>${p.areas.length}</b> área${p.areas.length===1?"":"s"}</span><span>·</span><span><b>${money(p.monto)}</b></span></div>
+      <div style="margin-top:9px">${p.cats.slice(0,3).map(c=>catChip(c)).join(" ")}</div>
+    </div>`;}).join("")+`</div>`;
+}
+
+/* ================= VISTA: FICHA DEL PROVEEDOR ================= */
+function vProvDet(){
+  const p=ST.prov?provPorKey(ST.prov):null;
+  if(!p){go("proveedores");return;}
+  const f=p.ficha||{},e=verifEstado(p),v=e.v||null;
+  const grafias=Object.keys(p.grafias);
+  const hist=(CLM.prov[p.key]&&CLM.prov[p.key].verifs||[]).slice()
+    .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+  const ciclo=ciclodias(v||{periodicidad:"Anual"});
+  const prox=v?new Date(new Date(v.fecha+"T00:00:00").getTime()+ciclo*86400000).toISOString().slice(0,10):null;
+  $("#view").innerHTML=`<div class="up">
+    <button class="chip" id="volverProv" style="margin-bottom:12px">← Proveedores</button>
+    <div class="panel" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="min-width:0">
+          <h2 style="margin:0 0 4px;font-size:20px">${esc(p.nombre)}</h2>
+          <div style="font-size:13px;color:var(--muted)">${f.rucTipo?esc(f.rucTipo)+" · ":""}${p.contratos.length} contrato${p.contratos.length===1?"":"s"} · ${money(p.monto)}</div>
+        </div>
+        <span class="semaforo" style="background:${e.bg};color:${e.col};font-size:13px">${esc(e.label)}</span>
+      </div>
+      <div class="dl" style="margin-top:14px">
+        <div><div class="k">Nombre o razón social</div><div class="v">${esc(p.nombre)}</div></div>
+        <div><div class="k">RUC</div><div class="v">${rucHTML(p)}</div></div>
+        <div><div class="k">Actividad económica registrada</div><div class="v">${f.actividad?esc(f.actividad):`<span style="color:var(--muted)">sin registrar</span>`}</div></div>
+        <div><div class="k">Actividad por la que se le contrató</div><div class="v">${p.cats.length?p.cats.map(c=>catChip(c)).join(" "):"—"}</div></div>
+        <div class="full"><div class="k">Áreas protegidas donde ha tenido contrato</div><div class="v">${p.areas.length?p.areas.map(a=>esc(a)).join(" · "):"—"}</div></div>
+        ${p.score!=null?`<div><div class="k">Calificación promedio</div><div class="v">${p.score.toFixed(2)}/100 · ${p.calificaciones.length} evaluación${p.calificaciones.length===1?"":"es"}</div></div>`:""}
+        ${grafias.length>1?`<div class="full"><div class="k">Escrito de varias formas en el Excel</div><div class="v" style="font-size:12.5px">${grafias.map(g=>esc(g)).join(" | ")}</div></div>`:""}
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:14px">
+      <p class="ptitle">Verificación periódica</p>
+      <p class="psub" style="margin-bottom:12px">Cada ${ciclo===182?"semestre":"año"}, la administradora confirma que el proveedor sigue en regla —RUC activo, actividad que corresponde, cumplimiento sostenido— para poder seguir contratando con él.</p>
+      ${v?`<div class="dl">
+        <div><div class="k">Última verificación</div><div class="v">${fdate(v.fecha)}</div></div>
+        <div><div class="k">Verificado por</div><div class="v">${esc(v.por||"—")}</div></div>
+        <div><div class="k">Resultado</div><div class="v">${esc(v.resultado||"—")}</div></div>
+        <div><div class="k">Próxima</div><div class="v">${fdate(prox)} · ${esc(v.periodicidad||"Anual")}</div></div>
+        ${v.obs?`<div class="full"><div class="k">Observaciones</div><div class="v">${esc(v.obs)}</div></div>`:""}
+      </div>
+      ${v.pendiente?`<div class="note" style="margin-top:12px">Esta verificación está <b>solo en este navegador</b>. Pásala a la hoja «Proveedores» del Excel maestro con el CSV para que la vea el resto del equipo.</div>`:""}`
+      :`<div class="note">Este proveedor <b>no tiene ninguna verificación registrada</b>. Mientras no la tenga, el ciclo se cuenta desde la primera que se registre.</div>`}
+      <div style="margin-top:14px;display:flex;gap:9px;flex-wrap:wrap">
+        <button class="btn" id="verifBtn">Registrar verificación</button>
+        ${hist.length?`<button class="btn ghost" id="verifCsv">Descargar CSV para el Excel</button>`:""}
+      </div>
+      ${hist.length>1?`<div style="margin-top:14px"><div class="k" style="margin-bottom:6px">Historial registrado aquí</div>
+        <div class="tablewrap"><table class="list"><thead><tr><th>Fecha</th><th>Por</th><th>Resultado</th><th>Observaciones</th></tr></thead>
+        <tbody>${hist.map(h=>`<tr><td style="white-space:nowrap">${fdate(h.fecha)}</td><td>${esc(h.por||"—")}</td><td>${esc(h.resultado||"—")}</td><td class="td-obj">${esc(h.obs||"")}</td></tr>`).join("")}</tbody></table></div></div>`:""}
+    </div>
+
+    <div class="panel">
+      <p class="ptitle">Contratos de este proveedor</p>
+      <div class="tablewrap"><table class="list">
+        <thead><tr><th>N.º</th><th>Objeto</th><th>Área</th><th>Categoría</th><th>Monto</th><th>Estado</th><th>Calificación</th></tr></thead>
+        <tbody>${p.contratos.slice().sort((a,b)=>nroKey(b)-nroKey(a)).map(c=>{
+          const s=statusLive(c),i=CONTRACTS.indexOf(c),o=ov(c);
+          return `<tr data-open="${i}">
+            <td class="td-nro">${esc(c.nro)}</td>
+            <td class="td-obj">${esc(c.detalle)}</td>
+            <td>${esc(c.area||"—")}</td>
+            <td>${catChip(c.cat)}</td>
+            <td style="white-space:nowrap">${money(montoDe(c))}</td>
+            <td style="white-space:nowrap"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(s.label)}</td>
+            <td style="white-space:nowrap">${o.evaluado?`<b>${esc(o.score)}</b>/100`:`<span style="color:var(--muted)">—</span>`}</td>
+          </tr>`;}).join("")}</tbody></table></div>
+    </div>
+  </div>`;
+  $("#volverProv").onclick=()=>go("proveedores");
+  $("#verifBtn").onclick=()=>modalVerificar(p);
+  const cb=$("#verifCsv",$("#view"));if(cb)cb.onclick=()=>csvVerif(p);
+  bindRows();
+}
+
+const VERIF_CHECKS=[
+  "El RUC está activo en el SRI",
+  "La actividad económica del RUC corresponde a lo que se le contrata",
+  "No registra obligaciones tributarias pendientes",
+  "Cumplió lo contratado en el período (sin incumplimientos abiertos)"
+];
+function modalVerificar(p){
+  const v=ultimaVerif(p);
+  const o=openModal(`
+    <h2>Verificación del proveedor</h2>
+    <p class="sub">${esc(p.nombre)} · ${p.contratos.length} contrato${p.contratos.length===1?"":"s"} · ${money(p.monto)}</p>
+    <div class="note" style="margin-bottom:14px">Se registra lo que <b>se comprobó</b>, no lo que se supone. Lo que quede sin marcar sale en las observaciones.</div>
+    <div id="checks">${VERIF_CHECKS.map((t,i)=>`<label class="chk"><input type="checkbox" data-k="${i}"><span>${esc(t)}</span></label>`).join("")}</div>
+    <div class="frow2" style="margin-top:14px">
+      <div class="frow"><label>Resultado</label><select id="vres">
+        <option value="Vigente">Vigente — sigue habilitado</option>
+        <option value="Observado">Observado — con seguimiento</option>
+        <option value="No continuar">No continuar</option>
+      </select></div>
+      <div class="frow"><label>Periodicidad</label><select id="vper">
+        <option value="Anual"${(v&&v.periodicidad==="Anual")||!v?" selected":""}>Anual</option>
+        <option value="Semestral"${v&&v.periodicidad==="Semestral"?" selected":""}>Semestral</option>
+      </select></div>
+    </div>
+    <div class="frow"><label>Fecha de verificación</label><input type="date" id="vfec" value="${todayISO()}"></div>
+    <div class="frow"><label>Observaciones</label><textarea id="vobs" placeholder="Ej.: RUC activo, actividad coincide; pendiente actualizar la póliza…"></textarea></div>
+    <div class="modal-foot"><button class="btn ghost" id="vcancel">Cancelar</button><button class="btn" id="vok">Registrar</button></div>`);
+  $("#vcancel",o).onclick=()=>closeModal(o);
+  $("#vok",o).onclick=()=>{
+    const marcados=[...o.querySelectorAll("#checks input")].map(i=>i.checked);
+    const faltan=VERIF_CHECKS.filter((t,i)=>!marcados[i]);
+    const fecha=$("#vfec",o).value||todayISO();
+    const reg={fecha,por:SES?SES.user:"—",resultado:$("#vres",o).value,
+      periodicidad:$("#vper",o).value,obs:$("#vobs",o).value.trim(),
+      pendientes:faltan,origen:"clm"};
+    const slot=CLM.prov[p.key]||(CLM.prov[p.key]={verifs:[]});
+    slot.verifs.unshift(reg);
+    if(slot.verifs.length>20)slot.verifs.length=20;
+    saveCLM();
+    logAdd("🔎",`Proveedor verificado: ${reg.resultado}`,p.nombre);
+    closeModal(o);
+    csvVerif(p);
+    toast(`Verificación registrada · ${reg.resultado}`);
+    render();
+  };
+}
+/* El CSV es el camino de vuelta al Excel, igual que en la calificación: lo que
+   se registra aquí vive en este navegador hasta que alguien lo pega en la hoja
+   «Proveedores», y desde ahí el robot lo publica para todo el equipo. */
+function csvVerif(p){
+  const hist=(CLM.prov[p.key]&&CLM.prov[p.key].verifs||[]);
+  if(!hist.length)return;
+  const q=s=>`"${String(s==null?"":s).replace(/"/g,'""')}"`;
+  const csv="﻿"+[
+    ["Nombre del Proveedor","RUC","Actividad económica","Última verificación",
+     "Verificado por","Resultado","Periodicidad","Observaciones"].join(";"),
+    ...hist.map(h=>[p.nombre,(p.ficha&&p.ficha.ruc)||"",(p.ficha&&p.ficha.actividad)||"",
+      h.fecha,h.por,h.resultado,h.periodicidad,
+      [h.obs,h.pendientes&&h.pendientes.length?"Sin comprobar: "+h.pendientes.join(" / "):""]
+        .filter(Boolean).join(" — ")].map(q).join(";"))
+  ].join("\r\n");
+  const b=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(b);
+  a.download=`Verificacion_${provKey(p.nombre).replace(/ /g,"_")}.csv`;a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 /* ================= VISTA: ALERTAS ================= */
 function vAlertas(){
   const list=alertList();
   $("#view").innerHTML=`<div class="up">
-    <p class="psub" style="margin-bottom:14px">El motor de reglas revisa el portafolio en cada visita: vencimientos, ventanas de renovación (≤90 días), envíos pendientes a la Unidad Operativa, proveedores sin calificar y solicitudes sin iniciar.</p>
+    <p class="psub" style="margin-bottom:14px">El motor de reglas revisa el portafolio en cada visita: vencimientos, ventanas de renovación (≤90 días), envíos pendientes a la Unidad Operativa, proveedores sin calificar, verificación de proveedores vencida y solicitudes sin iniciar.</p>
     ${list.length?list.map(a=>alertRowHTML(a)).join(""):`<div class="empty"><div style="font-size:34px;margin-bottom:8px">✅</div><div style="font-weight:700;color:var(--ink)">Nada pendiente</div><div style="font-size:13px">Todo el portafolio está bajo control.</div></div>`}
   </div>`;
   bindAlertRows();
@@ -1954,6 +2325,16 @@ async function boot(){
     }catch(e2){}
   }
   if(!CONTRACTS.length)dataSource={label:"Sin datos disponibles",live:false};
+  // La hoja «Proveedores» del maestro es opcional: si no está, el listado se
+  // arma igual con los contratos y las fichas dicen «sin registrar». Por eso
+  // este fetch no toca dataSource ni rompe nada al fallar.
+  try{
+    const rp=await fetch(PROV_URL,{cache:"no-store"});
+    if(rp.ok){
+      const fichas=await fapMaybe(await rp.json());
+      if(Array.isArray(fichas))FICHAS=fichas;
+    }
+  }catch(e){}
   canonAreas(CONTRACTS);   // unifica las variantes de escritura del área protegida
   const m=location.hash.match(/^#\/([a-z]+)(?:\/(\d+))?/);
   if(m&&VIEWS[m[1]]){ST.view=m[1];if(m[2]!=null)ST.cur=+m[2];}

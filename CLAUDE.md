@@ -263,6 +263,37 @@ npm install jsdom
 node scripts/probar_clm.js    # después de tocar el CLM
 ```
 
+## El RUC de una persona natural es su cédula
+
+El módulo **Proveedores** del CLM arma la ficha de cada proveedor juntando sus contratos, y le
+pega el RUC, la actividad económica y la verificación periódica desde la hoja `Proveedores` del
+Excel maestro (`crm/proveedores_export.json`, que publica el robot).
+
+**Ahí está el cuidado.** En Ecuador el RUC de una persona natural son los diez dígitos de su
+cédula más `001`, y la mayoría de los proveedores del FAP son personas naturales. El sitio es
+público, así que **el robot decide qué puede salir antes de cifrar**: completo para sociedades y
+entidades públicas —dato de registro público—, enmascarado (`0603•••••6001`) para personas
+naturales. La política vive entera en `scripts/ruc.py` y no se duplica en el CLM: la app solo
+pinta lo que recibe, así que la cédula no entra nunca al archivo publicado, ni dentro del sobre
+cifrado.
+
+Dos reglas que sostienen esto:
+
+- **La hoja se lee con lista blanca**, como el conversor de concordancia: solo suben las columnas
+  nombradas en `PROV_COLS`. La hoja puede llevar teléfono, correo o dirección —hacen falta para
+  trabajar— y no suben nunca. Al añadir una columna, pregúntate primero si puede ser pública.
+- **Las fichas van en su propio archivo.** `contratos_export.json` es un array y lo leen como
+  array el CRM, el CLM y renovaciones; meter los proveedores dentro los rompería a los tres.
+
+La hoja entera es opcional, como toda columna que lee el robot: sin ella el listado se arma igual
+con los contratos y las fichas dicen «sin registrar». La comprobación que de verdad importa
+—y que está en `probar_clm.js`— es esa: **sin la hoja, todo se pinta exactamente como antes.**
+
+Para crearla no se teclean 225 nombres: `python3 scripts/hoja_proveedores.py <maestro.xlsx>` la
+genera ya pre-llenada desde las hojas de contratos, y lista los pares de nombres parecidos que la
+normalización no une —errores de tecleo que parten en dos el historial de una misma persona— para
+que se resuelvan con el RUC al llenarla.
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:

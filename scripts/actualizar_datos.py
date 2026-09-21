@@ -3,9 +3,13 @@
 Robot de actualización del CRM de Contratos FAP.
 Descarga el Excel maestro desde OneDrive (link secreto EXCEL_URL),
 lee la hoja "2026" + la hoja "Export" y regenera crm/contratos_export.json.
+Si el maestro trae además la hoja "Proveedores", publica crm/proveedores_export.json.
 """
-import os, re, json, base64, datetime, sys
+import os, re, json, base64, datetime, sys, unicodedata
 import requests, openpyxl
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ruc as RUC
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -189,3 +193,111 @@ print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['cerrado'])} cerrados, "
       f"{sum(1 for c in out if c['liquidado'] is not None)} con liquidación, "
       f"{sum(1 for c in out if c['carpeta'])} con carpeta interna.")
+
+# ============================================================================
+# La hoja "Proveedores": lo que solo sabe una persona
+# ============================================================================
+# El listado de proveedores del CLM se arma solo con los contratos —nombre,
+# áreas, categorías, montos y calificaciones salen de ahí—. Esta hoja añade lo
+# que no está en ningún lado: el RUC, la actividad económica por la que se
+# contrató y la verificación periódica de las ACs.
+#
+# Es opcional entera. Sin ella el CLM pinta el listado igual, solo que cada
+# ficha dice «sin registrar» donde iría el RUC. Por eso esto va al final y en su
+# propio archivo: si algo falla aquí, los contratos ya están publicados.
+#
+# Va en `proveedores_export.json` y no dentro del de contratos a propósito: el
+# de contratos es un array, y tres páginas (CRM, CLM y renovaciones) lo leen
+# como array. Cambiarle la forma para meter esto las rompería a las tres.
+#
+# **Se lee con lista blanca**, como el conversor de concordancia: solo suben las
+# columnas nombradas aquí abajo. La hoja puede llevar teléfono, correo o
+# dirección del proveedor —hace falta para trabajar— y el robot no los mira: son
+# datos de contacto de una persona y el sitio es público.
+PROV_COLS = dict(
+    nombre=("nombre del proveedor", "proveedor", "razón social", "razon social"),
+    ruc=("ruc",),
+    actividad=("actividad económica", "actividad economica", "actividad"),
+    verificacion=("última verificación", "ultima verificacion", "fecha de verificación",
+                  "fecha de verificacion"),
+    verificadoPor=("verificado por", "verificó", "verifico"),
+    resultado=("resultado",),
+    periodicidad=("periodicidad", "frecuencia"),
+    observaciones=("observaciones", "observación", "observacion"),
+)
+
+provs = []
+if "Proveedores" in wb.sheetnames:
+    wsp = wb["Proveedores"]
+    phdr = [str(c.value or "").strip().lower() for c in wsp[1]]
+
+    def pcol(*aliases):
+        for a in aliases:
+            for j, h in enumerate(phdr):
+                if h == a or h.startswith(a):
+                    return j
+        return None
+
+    P = {k: pcol(*als) for k, als in PROV_COLS.items()}
+    if P["nombre"] is None:
+        print("AVISO: la hoja «Proveedores» no tiene columna de nombre; no se publica.")
+        print("       Encabezados disponibles (fila 1):", [h for h in phdr if h])
+    else:
+        def pval(row, key):
+            j = P.get(key)
+            if j is None or j >= len(row):
+                return None
+            v = row[j]
+            return None if v is None else (str(v).strip() or None)
+
+        # Solo para no publicar dos veces la misma fila. El emparejado de verdad
+        # —ficha contra contratos— lo hace el CLM, con una sola función en JS
+        # que normaliza los dos lados; aquí no hace falta que coincida al dedillo.
+        def clave(s):
+            s = unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode()
+            return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", s.lower())).strip()
+
+        vistos = set()
+        for row in wsp.iter_rows(min_row=2, values_only=True):
+            nombre = pval(row, "nombre")
+            if not nombre:
+                continue
+            k = clave(nombre)
+            if not k or k in vistos:
+                continue
+            vistos.add(k)
+            crudo = None
+            if P["ruc"] is not None and P["ruc"] < len(row):
+                crudo = row[P["ruc"]]
+            provs.append(dict(
+                nombre=nombre,
+                ruc=RUC.publicable(crudo),          # enmascarado si es persona natural
+                rucTipo=RUC.tipo(crudo),
+                actividad=pval(row, "actividad"),
+                verificacion=iso(row[P["verificacion"]]) if (
+                    P["verificacion"] is not None and P["verificacion"] < len(row)) else None,
+                verificadoPor=pval(row, "verificadoPor"),
+                resultado=pval(row, "resultado"),
+                periodicidad=pval(row, "periodicidad"),
+                observaciones=pval(row, "observaciones"),
+            ))
+
+        with open("crm/proveedores_export.json", "w", encoding="utf-8") as f:
+            json.dump(cifrar(json.dumps(provs, ensure_ascii=False,
+                                        default=str).encode("utf-8"), DATA_KEY),
+                      f, ensure_ascii=False)
+
+        con_ruc = sum(1 for p in provs if p["ruc"])
+        naturales = sum(1 for p in provs if p["rucTipo"] == "Persona natural")
+        print(f"OK: {len(provs)} proveedores publicados (cifrados), "
+              f"{con_ruc} con RUC ({naturales} personas naturales, enmascaradas), "
+              f"{sum(1 for p in provs if p['actividad'])} con actividad económica, "
+              f"{sum(1 for p in provs if p['verificacion'])} verificados.")
+        sin_ruc = [p["nombre"] for p in provs if not p["ruc"]
+                   and (P["ruc"] is not None)]
+        if sin_ruc:
+            print(f"    {len(sin_ruc)} sin RUC utilizable (vacío o incompleto), "
+                  f"p. ej.: {', '.join(sin_ruc[:3])}")
+else:
+    print("AVISO: el maestro no trae la hoja «Proveedores»; el CLM arma el listado "
+          "solo con los contratos. Para crearla: python3 scripts/hoja_proveedores.py")

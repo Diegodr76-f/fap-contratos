@@ -68,8 +68,9 @@ plantillas Word reales (`crm/plantillas/`).
 | **Panel** | KPIs en vivo, estado del portafolio, vencimientos a 12 meses, valor por categoría, alertas urgentes y actividad reciente |
 | **Pipeline** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado |
 | **Contratos** | Repositorio central con búsqueda global (también por n.º de carpeta y código del proceso), filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases, bloque **Expediente** y línea de tiempo |
+| **Proveedores** | Listado filtrable por categoría y estado de verificación; ficha con RUC, actividad económica, áreas donde tuvo contrato, historial y **verificación periódica** semestral o anual |
 | **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa |
-| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar, contratos sin carpeta de elaboración |
+| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar, verificación de proveedor vencida, contratos sin carpeta de elaboración |
 | **Reportes** | Analítica por categoría/área/AC + exportación CSV del portafolio |
 | **Mapa de áreas** | Mapa del Ecuador con las áreas protegidas que tienen contratos: cada círculo es un área, su tamaño el monto (o el n.º de contratos) y su color el estado más urgente; al tocar una se listan sus contratos y montos, con salida a CSV |
 | **Bitácora** | Registro de auditoría de cada acción (autor, fecha, contrato) |
@@ -141,6 +142,61 @@ node scripts/probar_clm.js
 Carga el CLM en un DOM de mentira y lo maneja desde fuera. Cubre el bloque, la búsqueda, el
 listado, el filtro, la alerta y —lo que más importa— que un portafolio **sin ninguna carpeta
 registrada** se siga pintando exactamente igual que antes.
+
+### Los proveedores: una lista, y el RUC que no puede salir entero
+
+El proveedor no era una ficha de nada: era un nombre repetido en 421 contratos. Para saber qué
+más se le había contratado había que buscar su nombre en el listado y leer fila por fila, y para
+saber si seguía en regla no había dónde mirar. El módulo **Proveedores** lo arma como lo que es:
+
+- **Listado filtrable** como el de contratos —por categoría, por estado de verificación, por
+  nombre, RUC parcial, actividad o área— con listado y tarjetas.
+- **Ficha**: nombre o razón social, RUC, tipo de contribuyente, actividad económica registrada,
+  **las áreas protegidas donde ha tenido contrato**, la actividad por la que se lo contrató, sus
+  contratos con estado y calificación, y el promedio de sus evaluaciones.
+- **Verificación periódica**: cada semestre o cada año la AC confirma cuatro cosas —RUC activo en
+  el SRI, actividad que corresponde, sin obligaciones pendientes, cumplimiento sostenido— y
+  registra el resultado (*Vigente*, *Observado*, *No continuar*). La ficha cuenta el ciclo y el
+  motor de alertas avisa cuando vence. Un proveedor marcado **No continuar con contrato vivo** es
+  alerta roja.
+
+El listado **se arma solo con los contratos**: 225 proveedores de las hojas 2024-2026, con las
+variantes de escritura ya unificadas —«RIVERJARDÍN CÍA. LTDA.» y «RIVERJARDIN CÍA. LTDA» son uno
+solo—. Sin tocar el Excel funciona igual; lo único que dice «sin registrar» es lo que nadie ha
+escrito todavía.
+
+**Dónde vive cada cosa, y por qué.** El RUC, la actividad económica y la verificación van en una
+hoja nueva del Excel maestro, `Proveedores`. La hoja no se teclea a mano:
+
+```bash
+python3 scripts/hoja_proveedores.py <Sistema_Alertas_Contratos_FIAS.xlsx>
+```
+
+sale con los 225 nombres puestos y, al lado, en cuántos contratos y en qué áreas aparece cada uno
+—para reconocerlo mientras se llena el RUC—. De paso lista los **22 pares de nombres parecidos que
+no se unifican solos** («PLASENCIA» contra «PLASCENCIA», «JOHNNY» contra «JHONNY»): son errores de
+tecleo que parten en dos el historial de una misma persona, y quien llena el RUC es quien puede
+decidirlo.
+
+> **El RUC de una persona natural es su cédula.** Los diez primeros dígitos, literalmente. Y la
+> mayoría de los proveedores del FAP son personas naturales. Como el sitio es público, el robot
+> **decide qué puede salir antes de cifrar**: RUC completo para sociedades y entidades públicas
+> —que es dato de registro público, está en la factura y en el SRI— y **enmascarado**
+> (`0603•••••6001`) para personas naturales. Lo que queda a la vista alcanza para confirmar que la
+> ficha es de quien uno cree, que es para lo que la AC la abre, y no para reconstruir la cédula. El
+> RUC completo se queda en el Excel, que está en SharePoint con control de acceso.
+>
+> Por la misma razón el robot lee **con lista blanca**: la hoja puede llevar teléfono, correo o
+> dirección del proveedor —hacen falta para trabajar— y no suben nunca. La política vive entera en
+> `scripts/ruc.py`, en un solo sitio.
+
+Las fichas van en `crm/proveedores_export.json`, cifrado igual que el resto y **aparte** del de
+contratos: ese es un array y lo leen como array el CRM, el CLM y renovaciones; cambiarle la forma
+los rompería a los tres. Si el archivo no está, el CLM no se entera.
+
+Lo que se registra en el CLM vive en el navegador hasta que alguien lo pega en la hoja: al
+registrar una verificación se descarga el **CSV** con la fila, y mientras no esté en el Excel la
+ficha lo dice —*«solo en este navegador»*—, porque el resto del equipo todavía no la ve.
 
 ## Centro de mando diario — herramienta personal
 
