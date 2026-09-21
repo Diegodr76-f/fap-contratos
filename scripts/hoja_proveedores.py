@@ -1,92 +1,70 @@
 # -*- coding: utf-8 -*-
 """
-La hoja «Proveedores»: se genera sola, no se llena.
+La hoja «Proveedores» del Excel maestro.
 
-**Lo único que se escribe a mano es lo que ya se escribía**: el nombre del
-proveedor, en la fila de su contrato, en la hoja `2026`. Al lado van ahora unas
-columnas más —el RUC, la actividad económica y la verificación— y se llenan
-**una sola vez por proveedor**, en cualquiera de sus contratos: el robot agrupa
-por nombre y toma el primero que encuentre, así que las demás filas suyas se
-quedan en blanco para siempre.
+Es una hoja aparte, con un proveedor por fila. La columna A trae los nombres ya
+puestos —salen de las hojas de contratos, nadie los teclea— y al lado se escribe
+lo que solo sabe una persona: el RUC, la actividad económica y la verificación.
 
-Con eso no hay nada que mantener: ni una segunda lista, ni copiar nombres, ni
-emparejar dos hojas. El proveedor existe porque tiene un contrato, y su ficha se
-arma de esa misma fila. No hay forma de que se duplique.
-
-Este script hace dos cosas, ninguna obligatoria:
+A la derecha, separada, hay una columna que **se llena sola**: los proveedores
+que ya tienen contrato pero todavía no tienen fila. Cuando entra un contrato con
+un proveedor nuevo, su nombre aparece ahí y se copia a la primera fila libre de
+la columna A. Casi siempre está vacía.
 
     python3 scripts/hoja_proveedores.py <Sistema_Alertas_Contratos_FIAS.xlsx>
 
-  · dice **qué columnas añadir** a la hoja 2026, con su nombre exacto;
-  · y escribe una hoja **«Proveedores»** que es solo para mirar: la lista de
-    proveedores con su RUC, su actividad, su última verificación y cuántos
-    contratos tiene, **toda con fórmulas**. No se escribe nada en ella; se pega
-    al maestro y se llena sola desde la hoja 2026.
+**Se entrega como texto para pegar, no como pestaña para copiar**, y la razón es
+un fallo real: una pestaña suelta en otro libro lleva fórmulas que apuntan a la
+hoja `2026`, que en ese libro no existe. Al copiarla al maestro, Excel no
+encuentra a qué apuntar y la hoja entera queda en `#¡REF!`. Pegando texto no
+pasa: las fórmulas se escriben dentro del libro bueno y se resuelven ahí.
 
-De paso revisa los nombres, que es lo único que una máquina no puede arreglar:
+Por lo mismo las fórmulas salen **en español y con `;`**, que es como las lee el
+Excel de quien las va a pegar.
 
-  · **Variantes de escritura** — «RIVERJARDÍN CÍA. LTDA.» y «RIVERJARDIN CÍA.
-    LTDA» son el mismo proveedor y se unifican solas al normalizar el nombre.
-  · **Nombres parecidos que NO se unifican** — «PLASENCIA» contra «PLASCENCIA»,
-    «JOHNNY» contra «JHONNY». Son errores de tecleo que parten en dos el
-    historial de una misma persona, y el nombre no alcanza para decidirlo: lo
-    decide el RUC. Por eso salen listados.
+## Por qué la columna A son valores y no una fórmula
 
-**No toca el archivo de entrada**, y hay una razón dura: abrir y volver a
-guardar el maestro con openpyxl **borra los enlaces de la hoja «Export»**, que
-el robot publica —se probó, y los 138 contratos se quedaron sin link—.
-
-Las fórmulas se comprueban ejecutándolas, con `scripts/probar_hoja_proveedores.py`:
-una fórmula mal escrita no falla, se queda vacía — que es exactamente lo que se
-vería si no hubiera ningún proveedor.
+Porque al lado se escribe a mano. Si la lista de nombres fuera una fórmula, al
+aparecer un proveedor nuevo la lista se recorrería —o cambiaría entera si se
+ordena la hoja `2026`— y **cada RUC quedaría pegado a otra persona**. Los
+nombres se quedan quietos en su fila; lo único que se mueve es el aviso de la
+derecha, que no tiene nada escrito al lado.
 """
 import sys, os, re, unicodedata, itertools
 from collections import defaultdict
 
 try:
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment
 except ImportError:
     sys.exit("Falta openpyxl. Instálalo con:\n    pip install openpyxl\n")
 
 # Las hojas de contratos del maestro, con la fila donde están los encabezados.
 HOJAS = [("2026", 2), ("2025", 2), ("2024", 2), ("2023", 2)]
 
-# Las columnas que se añaden a la hoja 2026. El robot las busca por estos
-# nombres (y por unas cuantas variantes), y **todas son opcionales**: sin ellas
-# publica exactamente lo mismo que antes.
-COLUMNAS_2026 = [
-    ("RUC del Proveedor", "13 dígitos. Una sola vez por proveedor, en cualquiera de sus contratos."),
-    ("Actividad económica", "La que consta en el RUC. También una sola vez."),
-    ("Verificación del Proveedor", "Fecha en que se comprobó que sigue en regla."),
-    ("Verificado por", "Quién la hizo."),
-    ("Resultado de la verificación", "Vigente / Observado / No continuar."),
-    ("Periodicidad", "Semestral o Anual. Si se deja vacío, se asume anual."),
-]
+# Lo que se escribe a mano (lo lee el robot).
+COLS = ["Nombre del Proveedor", "RUC", "Actividad económica",
+        "Última verificación", "Verificado por", "Resultado",
+        "Periodicidad", "Observaciones"]
 
-# La vista: qué columna lleva y de qué columna de la hoja 2026 sale.
-VISTA = [
-    ("Proveedor", None),
-    ("RUC", "RUC del Proveedor"),
-    ("Actividad económica", "Actividad económica"),
-    ("Última verificación", "Verificación del Proveedor"),
-    ("Resultado", "Resultado de la verificación"),
-    ("Contratos", None),
-]
-FILAS_MIRA = 500        # cuántas filas de la hoja de contratos mira la vista
+FILA_TITULO = 1
+FILA_HDR = 2            # los encabezados, como en las demás hojas del maestro
+FILA_1 = 3              # el primer proveedor
+COL_AVISO = "J"         # la columna que se llena sola, separada de lo que se escribe
+FILAS_MIRA = 500        # cuántas filas de la hoja de contratos vigila el aviso
+HASTA = 900             # hasta dónde miran las fórmulas la lista de la columna A
 
-# Funciones clásicas a propósito: IF, COUNTIF, LOOKUP, SUMPRODUCT, MAX. UNIQUE y
-# FILTER harían la lista en una línea, pero solo existen en Excel 365, se guardan
-# con prefijos raros (`_xlfn.`) cuando no las escribe Excel, y no hay con qué
-# comprobarlas. Estas se probaron ejecutándolas.
-#
-# Y las columnas van **fijadas al generar**, no buscadas con MATCH dentro de la
-# fórmula. Se intentó con INDEX(rango,0,n) y con OFFSET, que es lo elegante, y
-# ninguna de las dos se puede ejecutar en la comprobación —el motor no las
-# implementa—, así que habría que publicarlas a ciegas. El script lee el maestro,
-# ve en qué letra está cada columna y la escribe. Si algún día las mueven, se
-# vuelve a generar la hoja; el robot, que es el que de verdad alimenta el CLM,
-# las sigue buscando por su encabezado y no se entera.
+# Fórmulas en español y con «;», que es como las lee el Excel donde se pegan.
+# Clásicas a propósito: SI, Y, CONTAR.SI. UNIQUE y FILTER harían esto en una
+# línea pero solo existen en Excel 365.
+F_AVISO = ('=SI(\'{hoja}\'!${col}{fila}="";"";'
+           'SI(Y(CONTAR.SI($A${p1}:$A${hasta};\'{hoja}\'!${col}{fila})=0;'
+           'CONTAR.SI({antes};\'{hoja}\'!${col}{fila})=0);'
+           '\'{hoja}\'!${col}{fila};""))')
+# SUMAPRODUCTO y no CONTAR.SI(...;"?*"): las filas que no avisan de nada
+# devuelven "", que es texto vacío y no una celda vacía, y CONTAR.SI las
+# cuenta igual —daba 20 en vez de 1—. Se vio ejecutándolo.
+F_CUENTA = '=SUMAPRODUCTO((${ca}${a1}:${ca}${afin}<>"")*1)'
+
 
 def norm(s):
     """La misma llave que usa el CLM: sin tildes, sin puntuación, en mayúsculas.
@@ -103,9 +81,11 @@ def parecidos(a, b):
 
 
 def leer(ruta):
+    """Los proveedores de todas las hojas de contratos, y dónde está la columna
+    del proveedor en la hoja del año en curso."""
     wb = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
-    provs = defaultdict(lambda: {"raw": defaultdict(int), "areas": set(),
-                                 "cats": set(), "n": 0, "ultimo": None})
+    provs = defaultdict(lambda: {"raw": defaultdict(int), "n": 0})
+    col_prov = None
     for hoja, fila_hdr in HOJAS:
         if hoja not in wb.sheetnames:
             continue
@@ -113,215 +93,106 @@ def leer(ruta):
         if not filas:
             continue
         hdr = [norm(x) if x else "" for x in filas[0]]
-
-        def idx(txt):
-            for j, h in enumerate(hdr):
-                if txt in h:
-                    return j
-            return None
-
-        ip, ia, ic, inro = (idx("NOMBRE DEL PROVEEDOR"), idx("AREA PROTEGIDA"),
-                            idx("CATEGORIA"), idx("NRO DE CONTRATO"))
+        ip = next((j for j, h in enumerate(hdr) if "NOMBRE DEL PROVEEDOR" in h), None)
         if ip is None:
             continue
+        if hoja == HOJAS[0][0]:
+            col_prov = openpyxl.utils.get_column_letter(ip + 1)
         for r in filas[1:]:
             if ip >= len(r) or not r[ip]:
                 continue
             k = norm(r[ip])
             if not k or k in ("N A", "NA"):
                 continue
-            p = provs[k]
-            p["raw"][str(r[ip]).strip()] += 1
-            p["n"] += 1
-            for i, campo in ((ia, "areas"), (ic, "cats")):
-                if i is not None and i < len(r) and r[i]:
-                    p[campo].add(str(r[i]).strip())
-            if inro is not None and inro < len(r) and r[inro]:
-                nro = str(r[inro]).strip()
-                if p["ultimo"] is None or nro > p["ultimo"]:
-                    p["ultimo"] = nro
+            provs[k]["raw"][str(r[ip]).strip()] += 1
+            provs[k]["n"] += 1
     wb.close()
-    return provs
+    return provs, col_prov
 
 
-def columnas_que_faltan(ruta):
-    """Cuáles de las columnas nuevas ya están en la hoja 2026 y cuáles no."""
-    wb = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
-    if "2026" not in wb.sheetnames:
-        wb.close()
-        return [n for n, _ in COLUMNAS_2026], []
-    # Una hoja recién creada no tiene ni fila 2; entonces faltan todas.
-    fila2 = list(wb["2026"].iter_rows(min_row=2, max_row=2, values_only=True))
-    hdr = [norm(v) if v else "" for v in (fila2[0] if fila2 else [])]
-    wb.close()
-    faltan = [n for n, _ in COLUMNAS_2026 if not any(h.startswith(norm(n)) for h in hdr)]
-    estan = [n for n, _ in COLUMNAS_2026 if n not in faltan]
-    return faltan, estan
+def texto_para_pegar(provs, col_prov, hoja="2026", fila_hdr_contratos=2):
+    """La hoja entera como texto separado por tabuladores, lista para pegar en
+    A1. Cada línea es una fila; cada tabulador, una celda."""
+    lineas = []
 
+    cab = [""] * 9
+    cab[0] = ("Un proveedor por fila. Escribe el RUC y la actividad; el nombre "
+              "ya está puesto.")
+    lineas.append("\t".join(cab) + "\tSe llena sola: proveedores con contrato y sin fila")
+    lineas.append("\t".join(COLS + ["", "⚠ Faltan por agregar"]))
 
-def columnas_del_maestro(ruta, hoja="2026", fila_hdr=2):
-    """En qué letra está cada columna que le interesa a la vista. Se resuelve
-    aquí, al generar, y no dentro de la fórmula: ver el comentario de arriba."""
-    wb = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
-    if hoja not in wb.sheetnames:
-        wb.close()
-        return {}
-    fila = list(wb[hoja].iter_rows(min_row=fila_hdr, max_row=fila_hdr, values_only=True))
-    wb.close()
-    if not fila:
-        return {}
-    letras = {}
-    quiero = ["Nombre del Proveedor"] + [c for _, c in VISTA if c]
-    for j, v in enumerate(fila[0], 1):
-        if not v:
-            continue
-        h = norm(v)
-        for q in quiero:
-            if q not in letras and h.startswith(norm(q)):
-                letras[q] = openpyxl.utils.get_column_letter(j)
-    return letras
+    orden = sorted(provs.items(), key=lambda kv: (-kv[1]["n"], kv[0]))
+    nombres = [max(p["raw"].items(), key=lambda kv: (kv[1], len(kv[0])))[0]
+               for _, p in orden]
 
+    for i in range(max(len(nombres), FILAS_MIRA)):
+        celdas = [""] * 10
+        if i < len(nombres):
+            celdas[0] = nombres[i]
+        fila = FILA_1 + i
+        origen = fila_hdr_contratos + 1 + i
+        if i < FILAS_MIRA:
+            # Lo que ya salió más arriba en este mismo aviso, para no repetir un
+            # proveedor que está en varios contratos. La primera fila no tiene
+            # nada encima: se la manda contra el encabezado, que nunca coincide
+            # con un nombre —y sobre todo, no se incluye a sí misma, que sería
+            # una referencia circular.
+            antes = ("${c}${h}:${c}${h}".replace("${c}", "$" + COL_AVISO)
+                     .replace("${h}", "$%d" % FILA_HDR) if i == 0
+                     else "$%s$%d:$%s$%d" % (COL_AVISO, FILA_1, COL_AVISO, fila - 1))
+            celdas[9] = F_AVISO.format(hoja=hoja, col=col_prov, fila=origen,
+                                       p1=FILA_1, hasta=HASTA, antes=antes)
+        lineas.append("\t".join(celdas))
 
-def escribir_vista(salida, columnas, hoja="2026", fila_hdr=2, filas=None):
-    """La hoja «Proveedores», entera de fórmulas. Nadie escribe en ella.
-
-    `columnas` dice en qué letra está cada columna de la hoja de contratos.
-    `filas` es cuántas filas de esa hoja mira, y solo se toca desde la prueba:
-    evaluar 500 filas de fórmulas tarda minutos y la lógica es la misma con
-    veinte."""
-    filas = filas or FILAS_MIRA
-    if "Nombre del Proveedor" not in columnas:
-        raise ValueError("no encontré la columna «Nombre del Proveedor» en la "
-                         "hoja %s; sin ella la vista no se puede armar" % hoja)
-    desde, hasta = fila_hdr + 1, fila_hdr + filas
-
-    def rango(cual):
-        letra = columnas.get(cual)
-        return None if letra is None else "'%s'!$%s$%d:$%s$%d" % (hoja, letra, desde,
-                                                                  letra, hasta)
-
-    nombres = rango("Nombre del Proveedor")
-    col_nombre = columnas["Nombre del Proveedor"]
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Proveedores"
-    ws["A1"] = ("Se llena sola desde la hoja «%s». No escribas nada aquí: el RUC "
-                "y la verificación van en la fila del contrato." % hoja)
-    ws["A1"].font = Font(bold=True, size=10, color="C00000")
-    ws.append([])
-    for j, (titulo, _) in enumerate(VISTA, 1):
-        c = ws.cell(row=3, column=j, value=titulo)
-        c.fill = PatternFill("solid", fgColor="1F3864")
-        c.font = Font(bold=True, color="FFFFFF", size=10)
-        c.alignment = Alignment(vertical="center", wrap_text=True)
-    ws.freeze_panes = "A4"
-
-    fechas = rango("Verificación del Proveedor")
-    for k in range(filas):
-        fila, origen = 4 + k, desde + k
-        celda = "'%s'!$%s%d" % (hoja, col_nombre, origen)
-        # La primera fila no tiene nada arriba con qué compararse: se la manda
-        # contra el encabezado, que nunca va a coincidir con un nombre.
-        antes = "$A$3:$A$3" if fila == 4 else "$A$4:$A$%d" % (fila - 1)
-        ws.cell(row=fila, column=1).value = (
-            '=IF({celda}="","",IF(COUNTIF({antes},{celda})=0,{celda},""))'
-        ).format(celda=celda, antes=antes)
-
-        for j, (titulo, origen_col) in enumerate(VISTA, 1):
-            if j == 1:
-                continue
-            destino = ws.cell(row=fila, column=j)
-            if titulo == "Contratos":
-                destino.value = '=IF($A{f}="","",COUNTIF({nombres},$A{f}))'.format(
-                    f=fila, nombres=nombres)
-                continue
-            col = rango(origen_col)
-            if col is None:          # esa columna todavía no existe en el maestro
-                destino.value = '=""'
-                continue
-            if titulo == "Última verificación":
-                # La más reciente, no la primera: es la que dice si el proveedor
-                # sigue en regla hoy. SUMPRODUCT(MAX(...)) es el «máximo si» de
-                # toda la vida, sin entrar la fórmula con Ctrl+Mayús+Intro.
-                maximo = 'SUMPRODUCT(MAX(({nombres}=$A{f})*{col}))'.format(
-                    f=fila, nombres=nombres, col=col)
-                destino.value = '=IF($A{f}="","",IF({m}=0,"",{m}))'.format(f=fila, m=maximo)
-                destino.number_format = "dd/mm/yyyy"
-            elif titulo == "Resultado" and fechas:
-                # El resultado que acompaña a esa fecha, no otro cualquiera.
-                destino.value = (
-                    '=IF($D{f}="","",IFERROR(LOOKUP(2,1/(({nombres}=$A{f})*'
-                    '({fechas}=$D{f})),{col}),""))'
-                ).format(f=fila, nombres=nombres, fechas=fechas, col=col)
-            else:
-                # El primero que no esté vacío entre los contratos de ese
-                # proveedor: por eso basta escribirlo una vez, donde sea.
-                destino.value = (
-                    '=IF($A{f}="","",IFERROR(LOOKUP(2,1/(({nombres}=$A{f})*'
-                    '({col}<>"")),{col}),""))'
-                ).format(f=fila, nombres=nombres, col=col)
-
-    for j, w in enumerate([44, 16, 34, 17, 16, 11], 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(j)].width = w
-    wb.save(salida)
+    # El contador va arriba del todo, en la celda de al lado del título.
+    lineas[0] = lineas[0].replace(
+        "\tSe llena sola: proveedores con contrato y sin fila",
+        "\t" + F_CUENTA.format(ca=COL_AVISO, a1=FILA_1,
+                               afin=FILA_1 + FILAS_MIRA - 1)
+        + "\tfaltan por agregar (si es 0, no falta ninguno)")
+    return "\n".join(lineas)
 
 
 def main():
     if len(sys.argv) < 2:
         sys.exit("Uso: python3 scripts/hoja_proveedores.py "
-                 "<Sistema_Alertas_Contratos_FIAS.xlsx> [vista.xlsx]")
+                 "<Sistema_Alertas_Contratos_FIAS.xlsx> [salida.txt]")
     entrada = sys.argv[1]
     if not os.path.exists(entrada):
         sys.exit(f"No encuentro el archivo: {entrada}")
-    salida = sys.argv[2] if len(sys.argv) > 2 else "Proveedores_vista.xlsx"
+    salida = sys.argv[2] if len(sys.argv) > 2 else "hoja_Proveedores.txt"
 
-    faltan, estan = columnas_que_faltan(entrada)
-    print("PASO 1 — columnas de la hoja «2026»")
-    if not faltan:
-        print("    Ya están las seis. No hay nada que añadir.")
-    else:
-        print("    Añade estas al final de la fila 2 (la de los encabezados):\n")
-        for nombre, para_que in COLUMNAS_2026:
-            marca = "ya está" if nombre in estan else "FALTA "
-            print(f"      [{marca}] {nombre}")
-            print(f"                 {para_que}")
-    print("\n    Se llenan una sola vez por proveedor, en cualquiera de sus")
-    print("    contratos. Las demás filas suyas se quedan en blanco.")
+    provs, col_prov = leer(entrada)
+    if not provs or not col_prov:
+        sys.exit("No encontré la columna «Nombre del Proveedor» en la hoja de "
+                 "contratos. ¿Cambiaron los encabezados?")
 
-    print("\nPASO 2 — la vista (opcional)")
-    columnas = columnas_del_maestro(entrada)
-    if "Nombre del Proveedor" not in columnas:
-        print("    No encontré la columna «Nombre del Proveedor» en la hoja 2026,")
-        print("    así que no escribí la vista.")
-    else:
-        escribir_vista(salida, columnas)
-        print(f"    Escribí «{salida}» con la hoja «Proveedores», toda de fórmulas.")
-        print("    Cópiala al maestro si quieres ver la lista también en Excel. No")
-        print("    se escribe nada en ella: se llena sola desde la hoja 2026.")
-        print("    Las columnas quedan fijadas a su letra de hoy "
-              f"({', '.join(f'{k}={v}' for k, v in sorted(columnas.items()))}).")
-        print("    Si algún día las mueves, vuelve a correr esto.")
+    txt = texto_para_pegar(provs, col_prov)
+    with open(salida, "w", encoding="utf-8") as f:
+        f.write(txt)
 
-    provs = leer(entrada)
-    if not provs:
-        return
-    print(f"\nPASO 3 — los nombres ({len(provs)} proveedores en "
-          f"{sum(p['n'] for p in provs.values())} contratos)")
+    print(f"OK: «{salida}» con {len(provs)} proveedores, listo para pegar.")
+    print()
+    print("  1. En el maestro, crea una hoja nueva y llámala  Proveedores")
+    print(f"  2. Abre «{salida}», selecciona todo (Ctrl+E) y copia (Ctrl+C)")
+    print("  3. Ponte en la celda A1 de la hoja nueva y pega (Ctrl+V)")
+    print()
+    print(f"  (el nombre del proveedor se leyó de la columna {col_prov} de la hoja 2026)")
 
     variantes = {k: sorted(p["raw"]) for k, p in provs.items() if len(p["raw"]) > 1}
     if variantes:
-        print(f"\n    {len(variantes)} escritos de varias formas. Se unifican solos:")
+        print(f"\n{len(variantes)} proveedor(es) escritos de varias formas. Se unifican "
+              "solos; en la hoja va el más frecuente:")
         for k, formas in sorted(variantes.items()):
-            print("      ·", " | ".join(formas))
+            print("   ·", " | ".join(formas))
 
     pares = [(a, b) for a, b in itertools.combinations(sorted(provs), 2) if parecidos(a, b)]
     if pares:
-        print(f"\n    {len(pares)} par(es) de nombres parecidos que NO se unifican solos.")
-        print("    Si comparten RUC son el mismo proveedor y su historial está")
-        print("    partido en dos: hay que corregir el nombre en la hoja de contratos.")
+        print(f"\n{len(pares)} par(es) de nombres parecidos que NO se unifican solos. "
+              "Si comparten RUC son el mismo proveedor y su historial está partido "
+              "en dos: hay que corregir el nombre en la hoja de contratos.")
         for a, b in pares:
-            print(f"      · {a}  ⇄  {b}")
+            print(f"   · {a}  ⇄  {b}")
 
 
 if __name__ == "__main__":
