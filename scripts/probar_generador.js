@@ -32,8 +32,9 @@ let fallos=0, pruebas=0;
 function ok(cond,msg,extra){ pruebas++; if(cond){ console.log('  ✓ '+msg); } else { fallos++; console.log('  ✗ '+msg+(extra?('  → '+extra):'')); } }
 function seccion(t){ console.log('\n'+t); }
 
-function nuevoDom(pre){
-  const dom=new JSDOM(HTML,{url:'http://localhost/generador/index.html',runScripts:'dangerously',
+// hash: con qué enlace se abre (p. ej. el que arma el CLM, #precarga=…).
+function nuevoDom(pre,hash){
+  const dom=new JSDOM(HTML,{url:'http://localhost/generador/index.html'+(hash||''),runScripts:'dangerously',
     beforeParse(win){ win.fetch=undefined; if(pre) pre(win); }});
   const w=dom.window;
   w.PizZip=PizZip; w.docxtemplater=Docxtemplater;
@@ -674,6 +675,100 @@ seccion('24 · Al cambiar de momento la vista sube');
   ok(foco && foco.classList && foco.classList.contains('inp') && !foco.disabled,
      'el cursor queda en un campo por llenar: '+(foco&&(foco.dataset.k||foco.dataset.pk||foco.dataset.ik||foco.tagName)));
   ok(String(foco.value||'')==='','y ese campo está vacío, que es el que toca llenar');
+}
+
+seccion('25 · Lo que viene del CLM no se vuelve a teclear');
+{
+  // Lo que ya tenía la AC en este navegador: dos áreas en la Hoja de Datos, y
+  // la del contrato escrita a su manera («RPF Chimborazo»).
+  const areas=[
+    {id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca',maeGenero:'M',apGenero:'M'},
+    {id:'a2',ap:'RPF Chimborazo',siglas:'RPFCH',ciudad:'Riobamba',mae:'L. Paca',maeCargo:'Jefa',lugar:'Riobamba',maeGenero:'F',apGenero:'F'}];
+  const hoja=exps=>JSON.stringify({cfg:{ac:'Lcda. María Salazar',acCorreo:'msalazar@fias.org.ec',acGenero:'F',areas:areas},exps:exps||[],curId:null});
+  const buzonRen={id:'ren:FIAS-FAP-2026-114',via:'renovacion',desde:'CLM',datos:{
+    contratoNro:'FIAS-FAP-2026-114',fechaContrato:'2026-02-12',fechaFin:'2026-12-31',montoTotal:8400,
+    objeto:'Servicio de mantenimiento de vehículos del área protegida',proveedor:'Talleres del Oriente Cía. Ltda.',
+    area:'Reserva de Producción de Fauna Chimborazo'}};
+  const conBuzon=(buzon,exps)=>win=>{
+    win.localStorage.setItem('fap_v3',hoja(exps));
+    if(buzon) win.localStorage.setItem('fap_precarga',JSON.stringify(buzon));
+  };
+
+  // --- Renovación
+  let wp=nuevoDom(conBuzon(buzonRen),'#precarga=ren%3AFIAS-FAP-2026-114');
+  ok(wp.ST.exps.length===1,'el enlace del CLM crea el expediente, sin «+ Nuevo proceso»',wp.ST.exps.length);
+  let dp=wp.D();
+  ok(dp.tipoProceso==='Renovación','ya es de vía renovación');
+  ok(dp.contratoAnterior==='FIAS-FAP-2026-114' && dp.fechaSuscripcionAnt==='2026-02-12'
+     && dp.fechaFinAnterior==='2026-12-31' && dp.montoAnterior==='8400',
+     'con los cuatro datos del contrato vigente puestos',
+     [dp.contratoAnterior,dp.fechaSuscripcionAnt,dp.fechaFinAnterior,dp.montoAnterior].join(' | '));
+  ok(dp.provs[0].razon==='Talleres del Oriente Cía. Ltda.' && /mantenimiento de vehículos/.test(dp.objeto),'y el proveedor y el objeto');
+  ok(dp.areaId==='a2','«Reserva de Producción de Fauna Chimborazo» se reconoce como «RPF Chimborazo»',dp.areaId);
+  const tdP=wp.buildTemplateData();
+  ok(tdP.contratoNro==='FIAS-FAP-2026-114' && tdP.fechaContrato==='12 de febrero de 2026'
+     && tdP.fechaFin==='31 de diciembre de 2026' && tdP.montoTotal==='8.400,00',
+     'llegan al Word con los nombres del catálogo',[tdP.contratoNro,tdP.fechaContrato,tdP.fechaFin,tdP.montoTotal].join(' | '));
+  const faltaP=wp.faltan(0).map(x=>x.label);
+  ok(!faltaP.some(l=>/contrato vigente|Monto contratado|Razón social/.test(l)),'el aviso ya no pide lo que se trajo',faltaP.join(' | '));
+  ok(faltaP.indexOf('Consumo ejecutado del período')>=0 && wp.m1Done()===false,
+     'pero lo que no se trajo se sigue exigiendo: el momento no se cierra con huecos');
+  ok(wp.localStorage.getItem('fap_precarga')===null,'el buzón se vacía al usarlo');
+  ok(wp.location.hash==='','y el enlace se limpia: recargar no vuelve a precargar',wp.location.hash);
+  ok(wp.ST.nav==='captura' && /Traído del CLM/.test(wp.document.getElementById('app').textContent),
+     'la AC cae en la captura, con el aviso de qué se trajo');
+  const btnEnt=[...wp.document.querySelectorAll('button')].find(b=>b.textContent==='Entendido');
+  btnEnt.onclick();
+  ok(wp.cur().precarga.visto===true && !/Traído del CLM/.test(wp.document.getElementById('app').textContent),'y el aviso se va con «Entendido»');
+
+  // --- Pulsar otra vez no duplica
+  const guardado=wp.localStorage.getItem('fap_v3');
+  wp=nuevoDom(win=>{win.localStorage.setItem('fap_v3',guardado);},'#precarga=ren%3AFIAS-FAP-2026-114');
+  ok(wp.ST.exps.length===1 && wp.cur().origen==='ren:FIAS-FAP-2026-114','volver a pulsar «Renovar» abre el mismo expediente, no otro');
+  ok(/Ya tenías este expediente/.test(wp.document.getElementById('toast').textContent),'y lo dice');
+
+  // --- Una renovación empezada a mano, antes del botón
+  wp=nuevoDom(conBuzon(buzonRen,[{id:'e1',nombre:'Mantenimiento 2027 (a mano)',generated:{},
+    data:Object.assign(nuevoDom().dataDef(),{tipoProceso:'Renovación',contratoAnterior:'FIAS-FAP-2026-114',areaId:'a2'})}]),
+    '#precarga=ren%3AFIAS-FAP-2026-114');
+  ok(wp.ST.exps.length===1 && wp.ST.curId==='e1','si la AC ya la había empezado a mano, se abre esa y no se duplica');
+
+  // --- Solicitud
+  const buzonSol={id:'sol:s1726',via:'solicitud',desde:'CLM',datos:{objeto:'Mantenimiento de senderos 2027',
+    area:'Parque Nacional Yasuní',bienServicio:'Servicio',presupuesto:4500,plazo:45,garantias:true}};
+  wp=nuevoDom(conBuzon(buzonSol),'#precarga=sol%3As1726');
+  dp=wp.D();
+  ok(wp.ST.exps.length===1 && wp.cur().nombre==='Mantenimiento de senderos 2027','la solicitud abre su expediente, con su nombre');
+  ok(dp.objeto==='Mantenimiento de senderos 2027' && dp.bienServicio==='Servicio' && dp.presupuesto==='4500'
+     && dp.plazo==='45' && dp.tipoPlazo==='entrega' && dp.areaId==='a1','objeto, bien/servicio, presupuesto, plazo y área puestos');
+  ok(!dp.tipoProceso,'la vía no se inventa: la elige la AC entre las tres');
+  ok(wp.diasEjecucion()===45 && wp.motivoContrato()==='plazo','45 días de plazo: La Mágica deriva «contrato», como el CLM');
+  ok(!dp.garAnticipo && !dp.garFielCumpl,'las garantías no se marcan a ciegas: el CLM no dice cuál');
+  ok(wp.cur().precarga.notas.some(n=>/garantías/.test(n)),'pero se le avisa que la solicitud las pedía');
+
+  // --- Sin buzón: no se crea nada vacío
+  wp=nuevoDom(conBuzon(null),'#precarga=sol%3Aperdida');
+  ok(wp.ST.exps.length===0,'un enlace sin datos detrás no crea un expediente vacío');
+  ok(/No llegaron los datos desde el CLM/.test(wp.document.getElementById('toast').textContent),'y dice qué hacer');
+
+  // --- Área dudosa: no se adivina
+  wp=nuevoDom(win=>{
+    win.localStorage.setItem('fap_v3',JSON.stringify({cfg:{ac:'A',acCorreo:'a@b',areas:[
+      {id:'x1',ap:'PN Cotopaxi',siglas:'PNC'},{id:'x2',ap:'Parque Nacional Cotopaxi',siglas:'PNCX'}]},exps:[]}));
+    win.localStorage.setItem('fap_precarga',JSON.stringify(Object.assign({},buzonSol,{id:'sol:s2',datos:Object.assign({},buzonSol.datos,{area:'Parque Nacional Cotopaxi'})})));
+  },'#precarga=sol%3As2');
+  ok(wp.D().areaId==='x2','con el nombre exacto, esa área',wp.D().areaId);
+  wp=nuevoDom(win=>{
+    win.localStorage.setItem('fap_v3',JSON.stringify({cfg:{ac:'A',acCorreo:'a@b',areas:[
+      {id:'x1',ap:'PN Cotopaxi',siglas:'PNC'},{id:'x2',ap:'Cotopaxi',siglas:'PNCX'}]},exps:[]}));
+    win.localStorage.setItem('fap_precarga',JSON.stringify(Object.assign({},buzonSol,{id:'sol:s3',datos:Object.assign({},buzonSol.datos,{area:'Parque Nacional Cotopaxi'})})));
+  },'#precarga=sol%3As3');
+  ok(wp.D().areaId==='' && wp.cur().precarga.notas.some(n=>/elígela arriba/.test(n)),
+     'con dos candidatas no se elige: se le pide a la AC',wp.D().areaId);
+
+  // --- Sin enlace, La Mágica arranca como siempre
+  wp=nuevoDom(conBuzon(buzonRen));
+  ok(wp.ST.exps.length===0 && wp.localStorage.getItem('fap_precarga')!==null,'sin #precarga no se toca nada, aunque haya un buzón');
 }
 
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
