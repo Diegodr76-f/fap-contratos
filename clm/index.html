@@ -679,7 +679,7 @@ function render(){
   const side=$("aside.side",app),on=$(".navitem.on",app);
   if(side&&on&&side.scrollWidth>side.clientWidth)side.scrollLeft=Math.max(0,on.offsetLeft-70);
   bindGlobalSearch();
-  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,mapa:vMapa,actividad:vActividad,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>vFrame("../generador/index.html","La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa)."),crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
+  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,mapa:vMapa,actividad:vActividad,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>{const h=ST.magicaHash||"";ST.magicaHash="";vFrame("../generador/index.html"+h,"La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa).");},crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
   (V[ST.view]||vPanel)();
 }
 
@@ -1158,6 +1158,15 @@ function vDetalle(){
   const done=o.terminado||c.cerrado;
   const L=liqDe(c);
   const timeline=contractTimeline(c);
+  // Renovar: con el contrato en ejecución. Cuando ya está en la ventana de
+  // renovación (o vencido, dentro de la retroactividad) sube al primer lugar.
+  // No se limita a esa ventana: la campaña 2027 prepara en septiembre los
+  // contratos que vencen el 31 de diciembre, a más de 90 días.
+  const urgeRenov=!done&&(s.key==="aviso"||s.key==="vencido");
+  const renovBtn=done?"":`<button class="actbtn" id="a-ren">
+              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
+              <span><span class="at">Renovar en La Mágica</span><span class="ad">${urgeRenov?`<b style="color:var(--amber)">${esc(vigenciaText(c))}</b> · `:""}abre la renovación con n.º, fechas, monto y proveedor ya puestos</span></span>
+            </button>`;
   $("#view").innerHTML=`<div class="up">
     <button class="back" id="back">← Volver ${VOLVER_A[ST.from]||"al repositorio"}</button>
     <div class="detail">
@@ -1231,6 +1240,7 @@ function vDetalle(){
           <p class="ptitle">Acciones del ciclo de vida</p>
           <p class="psub">Generan el borrador oficial en Word y dejan rastro en la bitácora.</p>
           <div class="act">
+            ${urgeRenov?renovBtn:""}
             <button class="actbtn" id="a-mod" ${done?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
               <span><span class="at">Modificar contrato</span><span class="ad">Adenda o aumento de monto · informe FAP-2026-11</span></span>
@@ -1239,6 +1249,7 @@ function vDetalle(){
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
               <span><span class="at">Terminar contrato</span><span class="ad">Acta de terminación FAP-2026-12 · escoger causal</span></span>
             </button>
+            ${urgeRenov?"":renovBtn}
             <button class="actbtn" id="a-cal" ${(!done||o.evaluado)?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7Z"/></svg></span>
               <span><span class="at">Calificar proveedor</span><span class="ad">${done?(o.evaluado?"Calificación registrada ✓":"FO-AD-ABC-017 · 13 criterios"):"Disponible al terminar"}</span></span>
@@ -1266,6 +1277,7 @@ function vDetalle(){
   if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
   $("#a-nota").onclick=()=>modalNota(c);
   const re=$("#a-reabrir");if(re)re.onclick=()=>reabrirContrato(c);
+  const rn=$("#a-ren");if(rn)rn.onclick=()=>renovarEnMagica(c);
 }
 /* Deshacer una terminación hecha por error. Terminar era un camino sin vuelta:
    un clic en el contrato equivocado lo dejaba «Terminado» para siempre en este
@@ -1717,6 +1729,36 @@ function modalEnvioUO(c,ctx){
   });
 }
 
+/* ================= PUENTE CON LA MÁGICA =================
+   Lo que el CLM ya sabe no se vuelve a teclear en La Mágica. Los datos van a un
+   buzón del navegador (fap_precarga: mismo sitio, mismo localStorage) y La Mágica
+   se abre con #precarga=<id>, donde id es «sol:<solicitud>» o «ren:<n.º de
+   contrato>». La URL no lleva datos, solo ese identificador: queda en el
+   historial. El buzón usa los nombres del catálogo (contratoNro, fechaContrato,
+   fechaFin, montoTotal…); La Mágica los pasa a sus campos y borra el buzón.
+   Pulsar otra vez abre el mismo expediente: La Mágica no duplica. */
+const PRECARGA_LS="fap_precarga";
+function aLaMagica(id,via,datos){
+  try{localStorage.setItem(PRECARGA_LS,JSON.stringify({id,via,desde:"CLM",creado:new Date().toISOString(),datos}));}
+  catch(e){toast("El navegador no dejó pasar los datos a La Mágica: habrá que escribirlos allá.",7000);}
+  ST.magicaHash="#precarga="+encodeURIComponent(id);
+  go("magica");
+}
+function datosSolicitud(s){
+  return {objeto:s.objeto||"",area:s.area||"",bienServicio:s.tipoBS==="bien"?"Bien":"Servicio",
+    presupuesto:s.monto||"",plazo:s.plazo||"",garantias:!!s.garantias};
+}
+/* Los cuatro del contrato vigente, con el nombre que les da el catálogo: son los
+   que imprime el informe de renovación. montoTotal incluye las adendas. */
+function datosRenovacion(c){
+  return {contratoNro:c.nro,fechaContrato:c.firma||"",fechaFin:c.fin||"",montoTotal:montoDe(c)||"",
+    objeto:c.detalle||"",proveedor:c.proveedor||"",area:c.area||"",areaOriginal:c.areaOriginal||""};
+}
+function renovarEnMagica(c){
+  logAdd("🔁","Renovación abierta en La Mágica con los datos del contrato",c.nro);
+  aLaMagica("ren:"+c.nro,"renovacion",datosRenovacion(c));
+}
+
 /* ================= VISTA: SOLICITUDES (intake precontractual) ================= */
 function estadoSolLabel(e){return {borrador:"Borrador",magica:"En La Mágica",uo:"En la Unidad Operativa",listo:"Formalizado"}[e]||e;}
 function viaSolicitud(s){ /* regla de La Mágica: garantías o plazo > 30 días → contrato */
@@ -1741,6 +1783,7 @@ function vSolicitudes(){
             <div class="ad">${esc(s.area)} · ${esc(s.tipoBS==="bien"?"Bien":"Servicio")} · ${money0(s.monto)} · plazo ${esc(s.plazo)}d ${s.garantias?"· con garantías":""} — vía <b>${s.via==="contrato"?"CONTRATO (Unidad Operativa)":"orden de compra/servicio"}</b></div></div>
           <div style="display:flex;gap:7px;flex:0 0 auto">
             ${k==="borrador"?`<button class="btn sm" data-mv="magica" data-id="${s.id}">Iniciar en La Mágica</button>`:""}
+            ${k==="magica"?`<button class="btn sm line" data-abrir="${s.id}" title="Abre en La Mágica el expediente de esta solicitud">Abrir en La Mágica</button>`:""}
             ${k==="magica"&&s.via==="contrato"?`<button class="btn sm" data-mv="uo" data-id="${s.id}">Marcar enviado a UO</button>`:""}
             ${(k==="magica"&&s.via!=="contrato")||k==="uo"?`<button class="btn sm" data-mv="listo" data-id="${s.id}">Marcar formalizado</button>`:""}
             <button class="btn sm line" data-del="${s.id}" title="Eliminar">✕</button>
@@ -1754,8 +1797,12 @@ function vSolicitudes(){
     const s=CLM.solicitudes.find(x=>x.id===b.dataset.id);if(!s)return;
     s.estado=b.dataset.mv;saveCLM();
     logAdd(s.estado==="listo"?"✅":"➡️",`Solicitud «${s.objeto.slice(0,40)}» → ${estadoSolLabel(s.estado)}`);
-    if(b.dataset.mv==="magica")go("magica");else vSolicitudes();
-    toast("Solicitud actualizada");
+    // Al iniciarla, La Mágica abre un expediente con lo que ya se capturó aquí.
+    if(b.dataset.mv==="magica")aLaMagica("sol:"+s.id,"solicitud",datosSolicitud(s));
+    else{vSolicitudes();toast("Solicitud actualizada");}
+  });
+  $("#view").querySelectorAll("[data-abrir]").forEach(b=>b.onclick=()=>{
+    const s=CLM.solicitudes.find(x=>x.id===b.dataset.abrir);if(s)aLaMagica("sol:"+s.id,"solicitud",datosSolicitud(s));
   });
   $("#view").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
     if(!confirm("¿Eliminar esta solicitud?"))return;

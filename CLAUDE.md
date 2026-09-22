@@ -257,6 +257,26 @@ hechas para eso que conviene reutilizar en vez de rehacer:
 Todo esto lo vigila `scripts/probar_clm.js` (cómo correrlo, al final de la sección
 siguiente). Si añades comportamiento al CLM, añade la comprobación.
 
+### El puente CLM → La Mágica
+
+«Iniciar en La Mágica» (solicitud) y «Renovar en La Mágica» (contrato) no pasan
+datos por la URL: el CLM los deja en `localStorage['fap_precarga']` —mismo sitio,
+mismo almacenamiento— y abre La Mágica con `#precarga=sol:<id>` o
+`#precarga=ren:<n.º>`. Del lado de La Mágica lo recibe `aplicarPrecarga()`.
+
+- **El buzón habla catálogo** (`contratoNro`, `fechaContrato`, `fechaFin`,
+  `montoTotal`, `objeto`, `proveedor`, `area`, `presupuesto`, `plazo`). La Mágica
+  lo traduce a sus campos internos (`contratoAnterior`, `fechaSuscripcionAnt`…).
+  Un dato nuevo que viaje: primero búscalo en el catálogo.
+- **No adivina.** Lo que el CLM no sabe con certeza no se marca: la vía de una
+  solicitud, cuál garantía, un área con dos candidatas. Se avisa y lo elige la AC.
+- **No duplica.** `expDePrecarga()` abre el expediente que ya existe, también una
+  renovación hecha a mano del mismo contrato.
+- **No afloja `requisitos()`.** Lo precargado cuenta como lleno; lo demás se sigue
+  exigiendo. El aviso de lo traído usa el rótulo del campo en pantalla.
+
+Lo prueban la sección 18 de `probar_clm.js` y la 25 de `probar_generador.js`.
+
 ## El puente con la carpeta del expediente
 
 El número de contrato se asigna al final; la carpeta donde se elaboró está numerada por orden

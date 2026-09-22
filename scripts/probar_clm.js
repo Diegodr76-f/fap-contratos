@@ -356,6 +356,59 @@ ok(/Lo registrado en este navegador/.test(texto(w)),'la actividad no promete ser
 const orden=texto(w);
 ok(orden.indexOf('Requiere atención')<orden.indexOf('Estado del portafolio'),'lo urgente va antes que los gráficos');
 
+// ---------------------------------------------------------------- 18
+seccion('18 · Lo que el CLM ya sabe viaja a La Mágica');
+// Contrato 1: vence en 60 días y tuvo adenda (el monto vigente no es el original).
+const enSesenta=new Date(Date.now()+60*86400000).toISOString().slice(0,10);
+const paraRenovar=contratos();
+Object.assign(paraRenovar[0],{fin:enSesenta,montoTotal:1450,adenda:'Sí',area:'Reserva de Producción de Fauna Chimborazo'});
+w=await listo(nuevoDom(paraRenovar,{rol:'ac',user:'Ana Pérez'}));
+const buzon=()=>JSON.parse(w.localStorage.getItem('fap_precarga')||'null');
+const srcMagica=()=>{const f=w.document.getElementById('toolframe');return f?f.getAttribute('src'):'';};
+
+w.go('detalle',0);
+let acciones=[...w.document.querySelectorAll('.act .actbtn')].map(b=>b.id);
+ok(acciones[0]==='a-ren','por vencer, «Renovar en La Mágica» es la primera acción',acciones.join(','));
+w.document.getElementById('a-ren').onclick();
+let bz=buzon();
+ok(bz && bz.id==='ren:FIAS-FAP-2026-001' && bz.via==='renovacion','al pulsarla deja los datos en el buzón');
+ok(bz.datos.contratoNro==='FIAS-FAP-2026-001' && bz.datos.fechaContrato==='2026-01-20'
+   && bz.datos.fechaFin===enSesenta && bz.datos.montoTotal===1450,
+   'con los nombres del catálogo, y el monto vigente CON la adenda',JSON.stringify(bz.datos));
+ok(bz.datos.proveedor==='Servitec' && bz.datos.area==='Reserva de Producción de Fauna Chimborazo','más el proveedor y el área');
+ok(w.eval('ST.view')==='magica' && /generador\/index\.html#precarga=ren%3AFIAS-FAP-2026-001$/.test(srcMagica()),
+   'y abre La Mágica con solo el número en el enlace',srcMagica());
+ok(!/Servitec|1450|Chimborazo/.test(srcMagica()),'ningún dato del contrato viaja en la URL');
+ok(/Renovación abierta en La Mágica/.test(w.eval('CLM.log[0].txt')),'queda en la bitácora');
+w.go('panel'); w.go('magica');
+ok(!/precarga/.test(srcMagica()),'volver a La Mágica por el menú no repite la precarga');
+
+w.go('detalle',1);
+acciones=[...w.document.querySelectorAll('.act .actbtn')].map(b=>b.id);
+ok(acciones.indexOf('a-ren')>0,'lejos del vencimiento se ofrece igual (campaña 2027), pero no en primer lugar',acciones.join(','));
+w.eval("ov(CONTRACTS[2]).terminado=true");
+w.go('detalle',2);
+ok(!w.document.getElementById('a-ren'),'un contrato terminado no se renueva desde aquí');
+
+w.eval(`CLM.solicitudes.unshift({id:'s77',fecha:'2026-09-22',area:'Parque Nacional Yasuní',objeto:'Mantenimiento de senderos 2027',
+  tipoBS:'servicio',monto:4500,plazo:45,garantias:true,estado:'borrador',owner:'Ana Pérez',ac:'Ana Pérez',via:'contrato'})`);
+w.go('solicitudes');
+let iniciar=w.document.querySelector('[data-mv="magica"][data-id="s77"]');
+iniciar.onclick();
+bz=buzon();
+ok(bz && bz.id==='sol:s77' && bz.via==='solicitud','«Iniciar en La Mágica» deja la solicitud en el buzón');
+ok(bz.datos.objeto==='Mantenimiento de senderos 2027' && bz.datos.bienServicio==='Servicio' && bz.datos.presupuesto===4500
+   && bz.datos.plazo===45 && bz.datos.area==='Parque Nacional Yasuní' && bz.datos.garantias===true,
+   'con objeto, bien/servicio, presupuesto, plazo, área y garantías',JSON.stringify(bz.datos));
+ok(/#precarga=sol%3As77$/.test(srcMagica()),'y abre La Mágica con el identificador de la solicitud',srcMagica());
+ok(w.eval("CLM.solicitudes.find(s=>s.id==='s77').estado")==='magica','la solicitud pasa a «En La Mágica»');
+w.go('solicitudes');
+const abrir=w.document.querySelector('[data-abrir="s77"]');
+ok(!!abrir,'y desde ahí se puede volver a abrir su expediente');
+w.localStorage.removeItem('fap_precarga');
+abrir.onclick();
+ok(buzon().id==='sol:s77' && /#precarga=sol%3As77$/.test(srcMagica()),'con el mismo identificador: La Mágica abre el que ya existe');
+
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
 process.exit(fallos?1:0);
 

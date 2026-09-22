@@ -68,7 +68,7 @@ plantillas Word reales (`crm/plantillas/`).
 | **Panel** | KPIs en vivo, estado del portafolio, vencimientos a 12 meses, valor por categoría, alertas urgentes y actividad reciente |
 | **Etapas** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado (antes se llamaba *Pipeline*) |
 | **Contratos** | Repositorio central con búsqueda global (también por n.º de carpeta y código del proceso), filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases, bloque **Expediente** y línea de tiempo |
-| **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa |
+| **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa. «Iniciar en La Mágica» abre el expediente con lo ya capturado |
 | **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar, contratos sin carpeta de elaboración |
 | **Reportes** | Analítica por categoría/área/AC + exportación CSV del portafolio |
 | **Mapa de áreas** | Mapa del Ecuador con las áreas protegidas que tienen contratos: cada círculo es un área, su tamaño el monto (o el n.º de contratos) y su color el estado más urgente; al tocar una se listan sus contratos y montos, con salida a CSV |
@@ -121,6 +121,38 @@ floja, a veces desde el celular, y sin tiempo para aprender una herramienta. La 
 - **Los enlaces no mienten.** El enlace de un contrato lleva su número (`#/detalle/FIAS-FAP-2026-089`),
   no su posición en la lista, que cambia cada mañana: un enlace enviado por correo abre siempre ese
   contrato, también después de entrar.
+
+### Del CLM a La Mágica sin volver a teclear
+
+Lo que el CLM ya sabe no se escribe dos veces. Hay dos puertas:
+
+- **«Iniciar en La Mágica»**, en una solicitud: La Mágica abre un expediente con el objeto, el área,
+  bien o servicio, el presupuesto y el plazo que se capturaron en el CLM. La vía (comparación,
+  selección directa o compra directa) la elige la AC. Si la solicitud pedía garantías, se le avisa
+  que marque cuál: el CLM pregunta «¿garantías?» con un sí o un no, y La Mágica distingue anticipo y
+  fiel cumplimiento — marcar una sería adivinar.
+- **«Renovar en La Mágica»**, en el detalle de un contrato en ejecución: abre la renovación con el
+  número, la fecha de suscripción, el vencimiento, el monto vigente (con adendas), el objeto y el
+  proveedor ya puestos. Sube al primer lugar de las acciones cuando el contrato está por vencer, pero
+  se ofrece siempre: la campaña 2027 prepara en septiembre los contratos que vencen el 31 de diciembre.
+
+**Cómo viajan los datos.** El CLM y La Mágica son del mismo sitio y comparten el almacenamiento del
+navegador. El CLM deja los datos en un buzón (`fap_precarga`) con los nombres del catálogo
+(`contratoNro`, `fechaContrato`, `fechaFin`, `montoTotal`, `objeto`, `proveedor`, `area`…) y abre La
+Mágica con `#precarga=ren:FIAS-FAP-2026-089` o `#precarga=sol:<id>`. **La URL lleva solo el
+identificador**, nunca los datos: una URL queda en el historial. La Mágica los pasa a sus campos,
+vacía el buzón y limpia el enlace, así que recargar no vuelve a precargar.
+
+**Pulsar dos veces no duplica.** Si ese expediente ya existe —o si la AC ya había empezado a mano
+la renovación de ese mismo contrato—, La Mágica lo abre en vez de crear otro.
+
+**El área se empareja con cuidado.** El nombre del CLM se compara con las áreas de la Hoja de Datos
+de la AC: igual, después por su nombre propio («RPF Chimborazo» es «Reserva de Producción de Fauna
+Chimborazo»), al final uno dentro del otro. Si salen dos candidatas no se elige: se le pide a la AC.
+Un área equivocada pone siglas, firmantes y lugar equivocados en todos los documentos.
+
+Nada de esto afloja la regla de siempre: lo que no se trajo se sigue exigiendo para cerrar el
+momento. La AC ve arriba de la captura qué se trajo, con el mismo rótulo que el campo en pantalla.
 
 ### El expediente: del contrato a su carpeta
 
@@ -427,6 +459,9 @@ su fecha en el Momento 2 y el expediente se reactiva solo.
 
 Si la verificación legal dice que el contrato vigente **no** contempla la cláusula, la captura lo
 avisa en el sitio: ese contrato pasa a proceso nuevo y cambia de semana en el calendario.
+
+Desde el CLM, **«Renovar en La Mágica»** abre este expediente con los datos del contrato vigente ya
+puestos: ver [Del CLM a La Mágica sin volver a teclear](#del-clm-a-la-mágica-sin-volver-a-teclear).
 
 Las plantillas se mantienen **a mano, en Word**, como el resto: el formato es de quien firma los
 documentos. Lo que las cuida es la verificación —esquema, concordancia, catálogo y rellenado real—

@@ -787,8 +787,8 @@ function buildTemplateData(extra){
     // Renovación. Los cuatro primeros salen con el nombre de la biblioteca de
     // variables del sistema, no con el del campo interno: son los mismos datos
     // del contrato vigente que el CRM ya publica bajo esos nombres (contratoNro,
-    // fechaContrato, fechaFin, montoTotal), así que un día se pueden precargar en
-    // vez de teclearse. Dentro de dataDef conservan nombres propios porque ahí
+    // fechaContrato, fechaFin, montoTotal), y con esos nombres llegan precargados
+    // desde el CLM (ver aplicarPrecarga). Dentro de dataDef conservan nombres propios porque ahí
     // conviven con fechaInicio, que es el inicio del EXPEDIENTE, no el del
     // contrato.
     contratoNro:d.contratoAnterior||'',
@@ -1163,7 +1163,7 @@ function renderCaptura(){
   setTimeout(renderRail,0);
   return "<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Captura — "+esc(cur().nombre)+"</h1>"
    +"<p style='font-size:15px;color:#6B7180;margin:0 0 18px'>Llena este momento. Elige siempre de las listas.</p>"+stepper
-   +"<div style='display:grid;grid-template-columns:1fr 330px;gap:22px;align-items:start'><div style='display:flex;flex-direction:column;gap:16px;min-width:0'>"+avisoMomento()+sections+nav+"</div><aside id='rail' style='position:sticky;top:8px'></aside></div>";
+   +"<div style='display:grid;grid-template-columns:1fr 330px;gap:22px;align-items:start'><div style='display:flex;flex-direction:column;gap:16px;min-width:0'>"+avisoPrecarga()+avisoMomento()+sections+nav+"</div><aside id='rail' style='position:sticky;top:8px'></aside></div>";
 }
 function block(title,help,inner){return "<div class='card'><div style='font-weight:700;font-size:16px;color:#0B153F;margin-bottom:3px'>"+title+"</div>"+(help?"<div style='font-size:12.5px;color:#7A8090;margin-bottom:14px;line-height:1.45'>"+help+"</div>":"<div style='height:8px'></div>")+inner+"</div>";}
 
@@ -2404,8 +2404,127 @@ function onArea(el){
 function addArea(){ST.cfg.areas=areasList();ST.cfg.areas.push({id:nuevoId('a',ST.cfg.areas.map(function(a){return a.id;})),ap:'',siglas:'',mae:'',maeCargo:'Jefe del Área Protegida',maeGenero:'M',apGenero:'M',lugar:'',ciudad:'Quito'});save();render();}
 function delArea(i){var list=areasList();if(list.length<=1){toast('Debe quedar al menos un área.');return;}var a=list[i];if(!a)return;if(!confirm('¿Eliminar el área «'+(a.ap||'sin nombre')+'»? Los procesos que la usaban tomarán la primera área disponible.'))return;list.splice(i,1);save();render();}
 
+//===================== PRECARGA DESDE EL CLM =====================
+// El CLM ya tiene lo que la AC capturó en su solicitud y los datos del contrato
+// que se va a renovar. Para que no los vuelva a teclear aquí, los deja en un
+// buzón del navegador —el CLM y La Mágica son del mismo sitio y comparten
+// localStorage— y abre La Mágica con #precarga=<id>. La URL lleva solo el
+// identificador (ren:<n.º de contrato> o sol:<id de la solicitud>), nunca los
+// datos: una URL queda en el historial y en los registros.
+// El buzón habla con los nombres del catálogo (contratoNro, fechaContrato,
+// fechaFin, montoTotal, proveedor, objeto, area…) y aquí se pasan a los campos
+// internos, que en la renovación se llaman distinto (ver dataDef).
+// Pulsar dos veces no crea dos expedientes: el que ya existe se abre.
+var PRECARGA_LS='fap_precarga';
+function leerPrecarga(){ try{ var o=JSON.parse(localStorage.getItem(PRECARGA_LS)||'null'); return (o&&o.id)?o:null; }catch(e){ return null; } }
+function borrarPrecarga(){ try{ localStorage.removeItem(PRECARGA_LS); }catch(e){} }
+function claveArea(s){ return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
+// Lo que distingue a un área es su nombre propio, no la categoría: «RPF
+// Chimborazo» y «Reserva de Producción de Fauna Chimborazo» son la misma.
+function nucleoArea(s){
+  return claveArea(s).replace(/^(parque nacional|reserva ecologica|reserva biologica|reserva marina|reserva geobotanica|reserva de produccion de fauna( marin[oa] coster[oa])?|refugio de vida silvestre( y)?( marin[oa] coster[oa])?|area nacional de recreacion|pn|re|rb|rm|rg|rpf|rvs|anr) /,'').trim();
+}
+// El área que manda el CLM contra las de la Hoja de Datos: primero el nombre
+// igual, después el nombre propio igual, al final uno contenido en el otro. En
+// cada paso tiene que salir UNA sola: con dos candidatas no se elige, la AC la
+// escoge arriba del Momento 1. Emparejar mal es peor que no emparejar.
+function areaPorNombre(nombres){
+  var list=areasList(), claves=nombres.map(claveArea).filter(Boolean), nucleos=nombres.map(nucleoArea).filter(Boolean);
+  if(!claves.length) return null;
+  var pasos=[
+    function(a){ return claves.indexOf(claveArea(a.ap))>=0; },
+    function(a){ return nucleos.indexOf(nucleoArea(a.ap))>=0; },
+    function(a){ var k=claveArea(a.ap); return !!k && claves.some(function(c){ return c.indexOf(k)>=0||k.indexOf(c)>=0; }); }
+  ];
+  for(var i=0;i<pasos.length;i++){
+    var hallados=list.filter(function(a){ return a.ap && pasos[i](a); });
+    if(hallados.length===1) return hallados[0];
+    if(hallados.length>1) return null;
+  }
+  return null;
+}
+function expDePrecarga(id){
+  var e=ST.exps.find(function(x){ return x.origen===id; });
+  if(e) return e;
+  // Una renovación que la AC ya había empezado a mano, antes de que existiera el
+  // botón: mismo contrato vigente, misma renovación (el FIAS renueva una sola vez).
+  if(id.indexOf('ren:')===0){
+    var nro=id.slice(4);
+    return ST.exps.find(function(x){ return x.data && x.data.tipoProceso==='Renovación' && String(x.data.contratoAnterior||'').trim()===nro; })||null;
+  }
+  return null;
+}
+function recorta(s,n){ s=String(s==null?'':s).replace(/\s+/g,' ').trim(); return s.length>n?s.slice(0,n-1).trim()+'…':s; }
+function fechaISOoVacio(v){ return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):''; }
+function montoOVacio(v){ var n=num(v); return n>0?String(Math.round(n*100)/100):''; }
+function aplicarPrecarga(){
+  var m=String(location.hash||'').match(/[#&]precarga=([^&]+)/);
+  if(!m) return;
+  var id=m[1]; try{ id=decodeURIComponent(id); }catch(e){}
+  // El hash se limpia ya: recargar la página no debe volver a precargar.
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  var buzon=leerPrecarga(), ya=expDePrecarga(id);
+  if(ya){
+    if(buzon&&buzon.id===id) borrarPrecarga();
+    ST.curId=ya.id; ST.step=0; ST.nav='captura'; save();
+    toast('Ya tenías este expediente: «'+ya.nombre+'». Te lo abro.');
+    return;
+  }
+  if(!buzon||buzon.id!==id){
+    toast('No llegaron los datos desde el CLM. Vuelve a pulsar el botón allá, o crea el proceso con + Nuevo proceso.');
+    return;
+  }
+  var x=buzon.datos||{}, renov=buzon.via==='renovacion';
+  newExp(renov
+    ? ('Renovación '+(x.contratoNro||'')+(x.objeto?' · '+recorta(x.objeto,40):'')).trim()
+    : (recorta(x.objeto,60)||('Proceso '+(ST.exps.length+1))));
+  var c=cur(), d=c.data, traidos=[], notas=[];
+  // Cada rótulo es el del campo en pantalla, para que la AC lo encuentre.
+  function pon(campo,valor,rotulo){ var v=String(valor==null?'':valor).trim(); if(!v) return; d[campo]=v; traidos.push(rotulo); }
+  if(renov){
+    d.tipoProceso='Renovación'; traidos.push('Tipo de proceso');
+    pon('contratoAnterior',x.contratoNro,'Número del contrato vigente');
+    pon('fechaSuscripcionAnt',fechaISOoVacio(x.fechaContrato),'Fecha de suscripción');
+    pon('fechaFinAnterior',fechaISOoVacio(x.fechaFin),'Vence el');
+    pon('montoAnterior',montoOVacio(x.montoTotal),'Monto contratado (USD)');
+    pon('objeto',x.objeto,'Objeto del contrato');
+    if(String(x.proveedor||'').trim()){ d.provs[0].razon=String(x.proveedor).trim(); traidos.push('Razón social'); }
+  }else{
+    pon('objeto',x.objeto,'Objeto del proceso');
+    if(x.bienServicio==='Bien'||x.bienServicio==='Servicio') pon('bienServicio',x.bienServicio,'¿Bien o servicio?');
+    pon('presupuesto',montoOVacio(x.presupuesto),'Presupuesto referencial (USD)');
+    if(num(x.plazo)>0){ d.tipoPlazo='entrega'; pon('plazo',String(Math.round(num(x.plazo))),'Plazo de entrega (días)'); }
+    // El CLM pregunta «¿garantías?» con un sí o un no; aquí son dos y no se sabe
+    // cuál: marcar una sería adivinar, y la AC la tiene que elegir.
+    if(x.garantias) notas.push('La solicitud indicaba garantías contractuales: marca cuál (anticipo o fiel cumplimiento) en el Momento 1. Cualquiera de las dos obliga a contrato.');
+  }
+  var nombresArea=[x.area,x.areaOriginal].filter(Boolean);
+  if(nombresArea.length){
+    var a=areaPorNombre(nombresArea);
+    if(a){ d.areaId=a.id; traidos.push('Área protegida'); }
+    else if(areasList().length>1){ d.areaId=''; notas.push('No encontré «'+x.area+'» entre las áreas de tu Hoja de Datos: elígela arriba.'); }
+    else notas.push('Este proceso es de «'+x.area+'», que no está en tu Hoja de Datos. Revisa el área antes de generar documentos.');
+  }
+  c.origen=id;
+  c.precarga={desde:'CLM',traidos:traidos,notas:notas,visto:false};
+  ST.nav='captura'; ST.step=0;
+  save(); borrarPrecarga();
+}
+// Lo que se trajo, arriba de la captura, hasta que la AC diga «Entendido».
+function avisoPrecarga(){
+  var c=cur(), p=c&&c.precarga;
+  if(!p||p.visto) return '';
+  return "<div class='card' style='border:1.5px solid #C9D3F2;background:#F4F7FE;padding:13px 16px'>"
+   +"<div style='font-weight:700;font-size:14.5px;color:#00249C'>Traído del CLM — no hay que volver a escribirlo</div>"
+   +"<div style='font-size:13px;color:#3A4050;line-height:1.5;margin:4px 0 8px'>"+esc(p.traidos.join(' · '))+". Revísalo y completa lo demás.</div>"
+   +(p.notas.length?"<ul style='margin:0 0 10px;padding-left:18px;font-size:13px;color:#8A5210;line-height:1.5'>"+p.notas.map(function(n){return "<li>"+esc(n)+"</li>";}).join('')+"</ul>":"")
+   +"<button onclick='precargaVista()' style='all:unset;cursor:pointer;background:#00249C;color:#fff;font-weight:700;font-size:13px;padding:8px 15px;border-radius:8px'>Entendido</button></div>";
+}
+function precargaVista(){ var c=cur(); if(c&&c.precarga){ c.precarga.visto=true; save(); render(); } }
+
 //===================== INIT =====================
 load();
+aplicarPrecarga();
 render();
 fetchTemplatesFromFolder();
 </script>
