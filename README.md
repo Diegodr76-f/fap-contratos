@@ -66,7 +66,7 @@ plantillas Word reales (`crm/plantillas/`).
 | Módulo | Qué hace |
 |--------|----------|
 | **Panel** | KPIs en vivo, estado del portafolio, vencimientos a 12 meses, valor por categoría, alertas urgentes y actividad reciente |
-| **Pipeline** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado |
+| **Etapas** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado (antes se llamaba *Pipeline*) |
 | **Contratos** | Repositorio central con búsqueda global (también por n.º de carpeta y código del proceso), filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases, bloque **Expediente** y línea de tiempo |
 | **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa |
 | **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar, contratos sin carpeta de elaboración |
@@ -92,6 +92,35 @@ unifica y cómo agregar un área están en **[`clm/MAPA_AREAS.md`](clm/MAPA_AREA
 **Roles de ingreso:** Administradora (AC), Área protegida o Unidad Operativa
 (portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
 calificaciones, bitácora) se guarda en el navegador (`localStorage`).
+
+### Pensado para la AC en territorio
+
+Quien usa el CLM son veinte administradoras contadoras, muchas en el área protegida, con señal
+floja, a veces desde el celular, y sin tiempo para aprender una herramienta. La regla de diseño es
+**rápido, fácil e intuitivo**, y en concreto:
+
+- **Carga aunque la señal sea mala.** La fuente y las librerías de Word no frenan la primera
+  pantalla; mientras baja la base se ve «Cargando los contratos…» en vez de una página en blanco; y
+  si la descarga no termina en 20 s se entra con la copia embebida, diciéndolo.
+- **La base dice de cuándo es.** El robot anota la hora en que corrió (`generado`, fuera del
+  cifrado) y la píldora de arriba dice «actualizada hoy 06:31». Si tiene dos días o más, se pone en
+  ámbar y dice «Base sin actualizar»: vencimientos calculados con una base vieja no se presentan
+  como vivos.
+- **Funciona en el celular.** El menú es una sola fila que se desliza, el buscador va a lo ancho, el
+  repositorio arranca en tarjetas y los formularios pasan a una columna.
+- **Se busca como se habla.** Sin tildes y con varias palabras en cualquier orden: «condor limpieza»
+  encuentra la limpieza de El Cóndor. Enter abre el primer resultado. El mismo criterio en el
+  buscador de arriba y en el del repositorio.
+- **Entrar es un clic.** El CLM recuerda quién entró la última vez en ese navegador.
+- **Lo urgente primero.** En el panel, «Requiere atención» va antes que los gráficos.
+- **Nada se pierde ni se manda dos veces.** Un clic fuera del formulario (o Escape) pregunta antes
+  de botar lo escrito; los botones que generan un Word o suben archivos se apagan mientras trabajan;
+  si el navegador no deja guardar, se avisa en pantalla.
+- **Los errores tienen vuelta atrás.** Una terminación hecha por error se puede reabrir (mientras
+  no se haya calificado al proveedor).
+- **Los enlaces no mienten.** El enlace de un contrato lleva su número (`#/detalle/FIAS-FAP-2026-089`),
+  no su posición en la lista, que cambia cada mañana: un enlace enviado por correo abre siempre ese
+  contrato, también después de entrar.
 
 ### El expediente: del contrato a su carpeta
 
@@ -140,7 +169,10 @@ node scripts/probar_clm.js
 
 Carga el CLM en un DOM de mentira y lo maneja desde fuera. Cubre el bloque, la búsqueda, el
 listado, el filtro, la alerta y —lo que más importa— que un portafolio **sin ninguna carpeta
-registrada** se siga pintando exactamente igual que antes.
+registrada** se siga pintando exactamente igual que antes. También todo lo de
+[Pensado para la AC en territorio](#pensado-para-la-ac-en-territorio): la búsqueda sin tildes, los
+enlaces por número, el ingreso recordado, los formularios que no se pierden ni se envían dos veces,
+el aviso cuando no se puede guardar, la antigüedad de la base y la terminación que se puede deshacer.
 
 ## Centro de mando diario — herramienta personal
 
@@ -616,6 +648,10 @@ Todas las columnas que el robot lee son **opcionales**: si una no está en el Ex
 vacío y sigue. Vale para las de liquidación (`Fecha de cierre`, `Valor liquidado`, `Saldo no ejecutado`)
 y para las del expediente (`Numero de carpeta interna`, `CodigoProceso`). El robot dice en su resumen cuántos
 contratos traen cada cosa, así que se ve de una si una columna se renombró o se movió.
+
+Junto al bloque cifrado el robot escribe `generado`, la hora UTC en que corrió. No es un dato de
+ningún contrato, por eso va en claro. El CLM lo muestra («actualizada hoy 06:31») y avisa en ámbar
+si la base tiene dos días o más; el CRM y las demás herramientas lo ignoran.
 
 ## Seguridad de los datos (frase de acceso)
 

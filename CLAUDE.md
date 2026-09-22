@@ -234,6 +234,29 @@ Carga el HTML en un DOM de mentira y lo maneja desde fuera. Cubre las cuatro ví
 el almacenamiento, la lista de verificación y la generación real de `.docx`. Si
 tocas la app, corre esto; si añades comportamiento, añade la comprobación.
 
+## El CLM — `clm/index.html`
+
+Lo usan ACs en territorio: señal floja, a veces celular, poca paciencia para la
+tecnología. Cada cambio se mide contra **rápido, fácil e intuitivo**, y hay piezas
+hechas para eso que conviene reutilizar en vez de rehacer:
+
+- **Buscar pasa por `coincide(pajar(c), q)`**: sin tildes, cada palabra en
+  cualquier parte. Si un dato nuevo tiene que poder buscarse, va a `pajar()`, y así
+  lo encuentran a la vez el buscador de arriba y el del repositorio.
+- **Los enlaces llevan el número del contrato**, no su índice: `hashDe()` /
+  `leerHash()`. El índice cambia cada mañana con la base; un enlace por índice abre
+  otro contrato sin avisar. `go('detalle', i)` sigue recibiendo el índice.
+- **`saveCLM()` avisa si falla**, como `lsSet()` en La Mágica. Nada de `catch(e){}`.
+- **Un botón que espera algo (Word, Power Automate) va dentro de `mientras()`**: se
+  apaga, dice qué hace, y devuelve `true` al terminar bien para no reactivarse.
+- **Los formularios se abren con `openModal()`**: marca `o._sucio` al escribir y
+  pregunta antes de botar lo escrito. Una pantalla de «listo» pone `o._sucio=false`.
+- **Estilos del celular en las media queries, no en `style=""`**: un estilo en línea
+  le gana a la media query (así quedaban dos columnas de 150 px en el teléfono).
+
+Todo esto lo vigila `scripts/probar_clm.js` (cómo correrlo, al final de la sección
+siguiente). Si añades comportamiento al CLM, añade la comprobación.
+
 ## El puente con la carpeta del expediente
 
 El número de contrato se asigna al final; la carpeta donde se elaboró está numerada por orden
