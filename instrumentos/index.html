@@ -13359,6 +13359,9 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .campo input,.campo textarea,.campo select{width:100%;padding:7px 9px;border:1px solid var(--borde);border-radius:6px;font-family:inherit;font-size:13px}
 .campo input[readonly]{background:var(--azul-claro);color:var(--azul);font-weight:600}
 .campo textarea[readonly]{background:var(--azul-claro);color:var(--azul);font-weight:600;resize:none;overflow:hidden;line-height:1.4;min-height:34px}
+/* Las notas fuera de un campo (bajo la vista previa, en el lote, en los
+   modales…) no tenían estilo y salían a tamaño de párrafo. */
+.nota{font-size:12px;color:var(--gris);line-height:1.45}
 .campo .nota{font-size:11px;color:var(--gris);margin-top:2px}
 .campo .warn-txt{font-size:11px;color:var(--warn);font-weight:600;margin-top:2px}
 /* El documento en pantalla replica el formato institucional del Word final
@@ -13510,8 +13513,21 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .chip-var{display:inline-block;font-size:10.5px;font-weight:700;background:var(--azul-claro);color:var(--azul);border-radius:4px;padding:1px 6px;margin:2px 3px 0 0}
 .chip-var-warn{background:#FEF3C7;color:#92400E}
 .badge-word{background:#E7F6EE;color:var(--ok)}
-#preview.docx-prev{overflow-x:auto}
+#preview.docx-prev{overflow-x:auto;padding:10px}
+#preview.docx-prev>p,#preview.docx-prev>.aviso-tags{margin:14px}
 #preview.docx-prev p{text-align:left}
+/* Formulario y documento, cada uno con su scroll. Cuando compartían el de
+   #contenido, iluminar en el documento el sitio del campo enfocado movía
+   también el formulario: la vista saltaba mientras se llenaba. Ahora la
+   columna del documento se queda quieta a la vista (sticky) y se desplaza
+   sola; el formulario no se mueve por nada que no haga la AC.
+   --alto-prev lo fija ajustarAltoPreview() con el alto real de #contenido.
+   En pantalla estrecha las columnas se apilan y esto no aplica. */
+@media(min-width:901px){
+  .gen-grid .col-prev{position:sticky;top:0;display:flex;flex-direction:column;max-height:var(--alto-prev,calc(100vh - 170px))}
+  .gen-grid .col-prev .card{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
+  .gen-grid .col-prev #preview{flex:1 1 auto;min-height:0;overflow:auto}
+}
 .var-fila{display:flex;gap:10px;align-items:baseline;padding:7px 10px;border-radius:7px;cursor:pointer;font-size:13px}
 .var-fila:hover{background:var(--azul-claro)}
 .var-fila.sel{background:var(--azul);color:#fff}
@@ -13669,11 +13685,18 @@ const MAPA_REGISTRO = {
 };
 
 /* Cómo se llenan las variables desde una contraparte guardada */
+/* El correo de la contraparte es el del PROVEEDOR: va a {correocontratista}.
+   Antes iba también a {acCorreo}, que en el catálogo es el correo de la AC, y
+   usar una contraparte cambiaba el contacto de la AC por el del proveedor en
+   el documento. Los nombres son los del catálogo (generador/variables_fap.json);
+   correo, direccion y cedula_ruc se quedan por las plantillas propias que ya
+   los usan. */
 const MAPA_CONTRAPARTE = {
   proveedor:'nombre', nombre_proveedor:'nombre', institucion:'nombre', invitado:'nombre',
-  proveedorRuc:'identificacion', cedula_ruc:'identificacion',
-  representante_institucion:'representante',
-  acCorreo:'email', correo:'email', direccion:'direccion'
+  proveedorRuc:'identificacion', invitadoRuc:'identificacion', cedula_ruc:'identificacion',
+  representanteproveedor:'representante', representante_institucion:'representante',
+  correocontratista:'email', correo:'email',
+  ubicacioncontratista:'direccion', invitadoDir:'direccion', direccion:'direccion'
 };
 
 /* ============ Almacenamiento seguro ============ */
@@ -13903,6 +13926,14 @@ function fechaLarga(iso){
   if(!a||!m||!d) return iso;
   return `${d} de ${MESES[m-1]} de ${a}`;
 }
+/* Una fecha se imprime siempre larga («4 de mayo de 2026»). Acepta la ISO del
+   formulario y también la d/m/aaaa que se escribe a mano en una celda del lote:
+   antes esa llegaba al Word tal cual, «04/05/2026», en un documento que se
+   firma. Si el texto no es una fecha reconocible, se deja como está. */
+function fechaImpresa(val){
+  const iso = aISO(val);
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? fechaLarga(iso) : val;
+}
 /* Acepta fechas pegadas desde Excel (d/m/aaaa o d-m-aaaa) y las pasa a ISO */
 function aISO(val){
   const s = String(val).trim();
@@ -14085,6 +14116,8 @@ function variablesSemilla(){
     V('Locales (plantillas HTML)','garantia_tecnica','Duración de la garantía técnica','un (1) año'),
     V('Locales (plantillas HTML)','cronograma_pagos','Cronograma de pagos parciales',''),
     V('Locales (plantillas HTML)','vigencia','Vigencia del convenio','dos (2) años'),
+    V('Locales (plantillas HTML)','compromisos_fias','Compromisos que asume el FIAS en el convenio (texto libre)',''),
+    V('Locales (plantillas HTML)','compromisos_institucion','Compromisos que asume la institución contraparte en el convenio (texto libre)',''),
     V('Locales (plantillas HTML)','institucion','Institución contraparte del convenio',''),
     V('Locales (plantillas HTML)','representante_institucion','Representante de la institución contraparte',''),
     V('Locales (plantillas HTML)','antecedentes','Antecedentes del convenio (texto libre)',''),
@@ -14101,7 +14134,13 @@ function variablesSemilla(){
    entran: el formulario ya las llena por su cuenta. */
 function esRequerido(v){
   const r = buscarVar(v);
-  return !!(r && r.requerido);
+  if(!TOCA_DERIVADAS.has(v)) return !!(r && r.requerido);
+  // Lo que se calcula no se pide: se piden las piezas con que se calcula.
+  const p = plActual();
+  const vars = p ? varsDe(p) : [];
+  if(derivadaDe(v, vars)) return false;
+  if(r && r.requerido) return true;
+  return DERIVADAS.some(d => d.de.includes(v) && derivadaActiva(d, vars) && !!(buscarVar(d.v) || {}).requerido);
 }
 
 function clausulasSemilla(){
@@ -15098,6 +15137,9 @@ function aplicarFilaRegistro(row, datos){
   Object.entries(MAPA_REGISTRO).forEach(([v, campo]) => {
     if(row[campo] !== undefined && row[campo] !== null && row[campo] !== '') datos[v] = String(row[campo]);
   });
+  // «Valor o plazo total» puede venir vacío o en cero en el Excel; entonces el
+  // total es el monto del contrato. Es la misma regla que montoDe() en el CLM.
+  if(!(Number(row.montoTotal) > 0) && Number(row.monto) > 0) datos.montoTotal = String(row.monto);
   return datos;
 }
 function sugerirNumero(){
@@ -15144,6 +15186,30 @@ function origenDe(v){
 }
 const etiqueta = v => v.replace(/_/g,' ').replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g,'$1 $2').toLowerCase().replace(/^\w/, c => c.toUpperCase());
 
+/* ============ Campos que se calculan de otros ============
+   El catálogo lo declara en la descripción de montoTotal: «montoOriginal +
+   montoAumento = montoTotal». Cuando una plantilla usa las tres, el total no se
+   teclea: se calcula. Tecleado podía descuadrar con las otras dos cifras del
+   mismo informe y, al tomar datos del registro, llegaba el total que el
+   registro tenía ANTES de esta adenda. Es lo mismo que hace el CLM.
+   Solo se activa si la plantilla trae todas las piezas: el acta de ajuste
+   lleva original y total pero no aumento (un ajuste puede ser a la baja), y
+   ahí el total se sigue escribiendo a mano. */
+const DERIVADAS = [
+  { v: 'montoTotal', de: ['montoOriginal', 'montoAumento'], como: 'monto original + monto aumento',
+    calc: (o, a) => (aNumero(o) + aNumero(a)).toFixed(2) }
+];
+const TOCA_DERIVADAS = new Set(DERIVADAS.flatMap(d => [d.v, ...d.de]));
+function derivadaActiva(d, vars){ return vars.includes(d.v) && d.de.every(x => vars.includes(x)); }
+function derivadaDe(v, vars){ return DERIVADAS.find(d => d.v === v && derivadaActiva(d, vars)) || null; }
+function completarDerivadas(vars, datos){
+  DERIVADAS.forEach(d => {
+    if(!derivadaActiva(d, vars)) return;
+    const listas = d.de.every(x => String(datos[x] == null ? '' : datos[x]).trim() !== '' && !isNaN(aNumero(datos[x])));
+    datos[d.v] = listas ? d.calc(...d.de.map(x => datos[x])) : '';
+  });
+  return datos;
+}
 /* Completa los campos "letras" (montos u otras cantidades) dentro de un objeto de datos */
 function completarLetras(vars, datos){
   vars.forEach(v => {
@@ -15359,6 +15425,9 @@ function renderGenerar(c, p){
   const vars = varsDe(p);
   const concs = concordanciasDe(vars);
   asegurarConcordancias(vars);          // fija un valor por defecto a cada grupo
+  // Un borrador o un «Reusar datos» del historial pueden traer un total tecleado
+  // de antes de que se calculara solo: se rehace con las cifras que hay.
+  if(vars.some(v => derivadaDe(v, vars))){ completarDerivadas(vars, datosForm); completarLetras(vars, datosForm); }
   const gobern = tagsGobernados();
   const varsCampo = vars.filter(v => !gobern.has(v));   // tags sueltos (no gobernados por un grupo)
   const est = estadoCampos(p);
@@ -15381,6 +15450,11 @@ function renderGenerar(c, p){
       const val = datosForm[v] || '';
       return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span></label><textarea readonly rows="1" id="f_${v}" oninput="return false">${esc(val)}</textarea><div class="nota">Se calcula solo desde «${esc(origenDe(v))}»</div></div>`;
     }
+    const der = derivadaDe(v, vars);
+    if(der){
+      const val = datosForm[v] ? fmtMonto(datosForm[v]) : '';
+      return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span> <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span></label><input readonly id="f_${v}" value="${esc(val)}" placeholder="Se llena al escribir las dos cifras"><div class="nota">Se calcula solo: ${esc(der.como)}</div></div>`;
+    }
     const tipo = esFecha(v) ? 'date' : (esMonto(v) ? 'number' : 'text');
     const extra = esMonto(v) ? ' step="0.01" min="0"' : '';
     const ph = reg && reg.ejemplo ? ` placeholder="${esc(reg.ejemplo)}"` : '';
@@ -15391,6 +15465,14 @@ function renderGenerar(c, p){
     return `<div class="campo"><label>${esc(etiqueta(v))}${ast} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${tagFijo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)">${nota}${warn}</div>`;
   }).join('');
 
+  // La vista previa de Word tarda en rehacerse. Si se repinta la misma
+  // plantilla, se conserva el documento que ya se veía hasta que llegue el
+  // nuevo: con el «Generando…» en su lugar la página se acortaba de golpe,
+  // el navegador recortaba el scroll y la vista saltaba hacia arriba al
+  // añadir una fila, cambiar una concordancia o tomar datos del registro.
+  const prevViejo = document.getElementById('preview');
+  const nodosPrevios = esDocx && prevViejo && prevViejo.getAttribute('data-pl') === p.id && !prevViejo.querySelector('.aviso-tags')
+    ? Array.from(prevViejo.childNodes) : null;
   c.innerHTML = `
     ${htmlAvisoBorrador()}
     <div class="rapidas">
@@ -15416,15 +15498,17 @@ function renderGenerar(c, p){
           <button class="btn sec" onclick="limpiarForm()">Limpiar campos</button>
         </div>
       </div>
-      <div>
+      <div class="col-prev">
         <div class="card" style="padding:0;border:none;background:transparent">
           <h3 style="padding:0 4px">Vista previa</h3>
           ${esDocx
-            ? '<div id="preview" class="docx-prev"><p style="color:var(--gris);font-size:13px">Generando vista previa…</p></div><div class="nota" style="margin-top:6px;padding:0 4px">Vista previa aproximada del contenido. El Word descargado usa el formato exacto de la plantilla (membrete, pies, numeración y estilos incluidos).</div>'
+            ? `<div id="preview" class="docx-prev" data-pl="${esc(p.id)}"><p style="color:var(--gris);font-size:13px">Generando vista previa…</p></div><div class="nota" style="margin-top:6px;padding:0 4px">Vista previa aproximada del contenido. El Word descargado usa el formato exacto de la plantilla (membrete, pies, numeración y estilos incluidos).</div>`
             : `<div id="preview">${membreteHTMLPreview(datosForm)}${limpiarHtmlDoc(rellenarDatos(p.cuerpo, datosForm, true))}</div>`}
         </div>
       </div>
     </div>`;
+  if(nodosPrevios && nodosPrevios.length){ const nuevo = document.getElementById('preview'); if(nuevo) nuevo.replaceChildren(...nodosPrevios); }
+  ajustarAltoPreview();
   c.querySelectorAll('.campo textarea[readonly]').forEach(ajustarAlturaLetras);
   aplicarMarcasFaltantes();   // el innerHTML nuevo no trae las marcas de lo que faltaba
   programarGuardadoBorrador();
@@ -15462,12 +15546,22 @@ function actualizarCampo(v, val){
   datosForm[v] = val;
   const p = plActual(); if(!p) return;
   const vars = varsDe(p);
+  // Lo que cambia con este campo: él mismo y lo que se calcula a partir de él.
+  const cambiadas = [v];
+  DERIVADAS.forEach(d => {
+    if(!d.de.includes(v) || !derivadaActiva(d, vars)) return;
+    completarDerivadas(vars, datosForm);
+    const inp = document.getElementById('f_' + d.v);
+    if(inp) inp.value = datosForm[d.v] ? fmtMonto(datosForm[d.v]) : '';
+    cambiadas.push(d.v);
+  });
   vars.forEach(x => {
-    if(esLetras(x) && origenDe(x).toLowerCase() === v.toLowerCase()){
-      datosForm[x] = val ? formatoLetras(v, val) : '';
-      const inp = document.getElementById('f_' + x);
-      if(inp){ inp.value = datosForm[x]; ajustarAlturaLetras(inp); }
-    }
+    if(!esLetras(x)) return;
+    const o = cambiadas.find(c => origenDe(x).toLowerCase() === c.toLowerCase());
+    if(!o) return;
+    datosForm[x] = datosForm[o] ? formatoLetras(o, datosForm[o]) : '';
+    const inp = document.getElementById('f_' + x);
+    if(inp){ inp.value = datosForm[x]; ajustarAlturaLetras(inp); }
   });
   if(esIdVar(v)){
     const w = document.getElementById('w_' + v);
@@ -15503,8 +15597,9 @@ function estadoCampos(p){
   if(!p) return { editables: [], llenos: 0, pendientes: [] };
   const gobern = tagsGobernados();
   const condDe = p.tipo === 'docx' ? (estructuraDocx(p).condDe || {}) : {};
+  const todas = varsDe(p);
   const cuenta = v => {
-    if(gobern.has(v) || esLetras(v)) return false;
+    if(gobern.has(v) || esLetras(v) || derivadaDe(v, todas)) return false;
     const anc = condDe[v];
     return !(anc && anc.length && anc.some(cn => condForm[cn] === false));
   };
@@ -15617,17 +15712,65 @@ function alternarCondicion(nombre, marcado){
    marcadores de hueco que inserta datosDocx() en modo vista previa, más la
    búsqueda por texto para los valores ya escritos. */
 let varEnfocada = null;
-/* Desplaza SOLO el contenedor de contenido (nunca la ventana) y solo lo justo
+/* Desplaza SOLO el contenedor indicado (nunca la ventana) y solo lo justo
    para que el destino entre en pantalla: scrollIntoView movería también los
    ancestros y devolvería el «sube y baja» que ya estaba corregido. */
-function acercarEnContenido(el){
-  const cont = document.getElementById('contenido');
+function acercarEn(cont, el){
   if(!cont || !el || !el.getBoundingClientRect) return;
   const rc = cont.getBoundingClientRect(), re = el.getBoundingClientRect();
-  const margen = 48;
+  const margen = Math.min(48, cont.clientHeight / 4);
   if(re.top < rc.top + margen) cont.scrollTop -= (rc.top + margen - re.top);
   else if(re.bottom > rc.bottom - margen) cont.scrollTop += (re.bottom - (rc.bottom - margen));
 }
+/* Del documento hacia el formulario: aquí sí se mueve el panel, porque lo pidió
+   la AC al pulsar un marcador; la vista previa se queda donde está. */
+function acercarEnContenido(el){ acercarEn(document.getElementById('contenido'), el); }
+/* Del formulario hacia el documento: se desplaza la vista previa por dentro y
+   nada más. Antes se movía #contenido, que arrastra el formulario, y el campo
+   en que se estaba escribiendo se iba de su sitio en cada cambio de campo.
+   Si la vista previa no tiene scroll propio (pantalla estrecha, donde va debajo
+   del formulario) no se mueve nada: solo se ilumina. */
+function acercarEnPreview(el){
+  const prev = document.getElementById('preview');
+  if(!prev || prev.scrollHeight <= prev.clientHeight + 1) return;
+  acercarEn(prev, el);
+}
+/* El alto de la columna del documento es el de #contenido, que depende de la
+   ventana y de si las pestañas ocupan una o dos líneas: no hay forma de
+   decirlo solo con CSS, así que se mide. */
+function ajustarAltoPreview(){
+  const c = document.getElementById('contenido'); if(!c) return;
+  const cs = getComputedStyle(c);
+  const alto = c.clientHeight - parseFloat(cs.paddingTop || 0) - parseFloat(cs.paddingBottom || 0);
+  if(alto > 200) c.style.setProperty('--alto-prev', alto + 'px');
+}
+/* La página del Word mide lo que mide en papel (612 pt de ancho, con 90 pt de
+   margen a cada lado) y la columna de la vista previa es más estrecha: el
+   texto quedaba cortado a la derecha, y con él el marcador del campo que se
+   estaba llenando. Se reduce la página hasta que quepa entera; nunca se agranda.
+   El zoom va en la propia sección y no en #preview, para que viaje con ella
+   cuando renderGenerar() conserva la vista previa entre repintados. */
+function ajustarZoomDocx(){
+  const el = document.getElementById('preview');
+  if(!el || !el.classList.contains('docx-prev')) return;
+  const secs = Array.from(el.querySelectorAll(':scope > section.docx'));
+  if(!secs.length) return;
+  const cs = getComputedStyle(el);
+  const disponible = el.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+  secs.forEach(s => { s.style.zoom = ''; });
+  const natural = Math.max(...secs.map(s => s.offsetWidth));
+  const z = natural > 0 && disponible > 0 ? Math.min(1, disponible / natural) : 1;
+  if(z < 1) secs.forEach(s => { s.style.zoom = String(Math.floor(z * 1000) / 1000); });
+}
+function ajustarVistaPrevia(){ ajustarAltoPreview(); ajustarZoomDocx(); }
+// ResizeObserver ve también lo que cambia el tamaño sin cambiar la ventana: las
+// pestañas que pasan a dos líneas, el aviso de almacenamiento que aparece o la
+// biblioteca lateral que se oculta.
+if(window.ResizeObserver) window.addEventListener('DOMContentLoaded', () => {
+  const c = document.getElementById('contenido');
+  if(c) new ResizeObserver(ajustarVistaPrevia).observe(c);
+});
+else window.addEventListener('resize', ajustarVistaPrevia);
 function limpiarResaltados(){
   const prev = document.getElementById('preview'); if(!prev) return;
   prev.querySelectorAll('.ph-foco').forEach(x => x.classList.remove('ph-foco'));
@@ -15644,7 +15787,7 @@ function resaltarVarEnPreview(acercar){
   const marcas = prev.querySelectorAll('[data-var="' + varEnfocada + '"]');
   if(marcas.length){
     marcas.forEach(m => m.classList.add('ph-foco'));
-    if(acercar) acercarEnContenido(marcas[0]);
+    if(acercar) acercarEnPreview(marcas[0]);
     return;
   }
   resaltarTextoEnPreview(prev, valorDe(datosForm, varEnfocada), acercar);
@@ -15662,7 +15805,7 @@ function resaltarTextoEnPreview(prev, texto, acercar){
     const span = document.createElement('span');
     span.className = 'ph-busca ph-foco';
     try{ rango.surroundContents(span); }catch(e){ return; }
-    if(acercar) acercarEnContenido(span);
+    if(acercar) acercarEnPreview(span);
     return;
   }
 }
@@ -15728,7 +15871,7 @@ function fmtMonto(x){
 }
 function valorDe(datos, v){
   let val = datos[v] || '';
-  if(esFecha(v) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
+  if(esFecha(v) && val) val = fechaImpresa(val);
   if(val && esDinero(v)) val = fmtMonto(val);
   return val;
 }
@@ -15790,6 +15933,7 @@ function elegirDelRegistro(i){
   const vars = varsDe(p);
   aplicarFilaRegistro(row, datosForm);
   aplicarFijos(vars, datosForm);
+  completarDerivadas(vars, datosForm);
   completarLetras(vars, datosForm);
   cerrarModal(); renderContenido();
 }
@@ -15906,7 +16050,7 @@ function renderLote(c, p){
   if(!p){ c.innerHTML = '<div class="vacio">Elige primero la plantilla (lista de la izquierda)<br>y aquí podrás generar <b>muchos documentos de una sola vez</b>.</div>'; return; }
   const vars = varsDe(p);
   const gobern = tagsGobernados();
-  const columnas = vars.filter(v => !esLetras(v) && !gobern.has(v));
+  const columnas = vars.filter(v => !esLetras(v) && !gobern.has(v) && !derivadaDe(v, vars));
   const concsLote = concordanciasDe(vars);
 
   const tablaLote = loteFilas.length ? `
@@ -15951,7 +16095,7 @@ function renderLote(c, p){
     </div>
     <div class="lote-sec">
       <div class="paso-tit"><span class="num">3</span> Revisar y corregir (${loteFilas.length} documento${loteFilas.length===1?'':'s'})</div>
-      <div style="font-size:12px;color:var(--gris);margin-bottom:8px">Las celdas amarillas están vacías y saldrán como «__________» en el Word; las <b style="color:var(--peligro)">rojas son obligatorias</b> e impiden generar el lote. Los montos en letras y las fechas largas se escriben solos al generar.</div>
+      <div style="font-size:12px;color:var(--gris);margin-bottom:8px">Las celdas amarillas están vacías y saldrán como «__________» en el Word; las <b style="color:var(--peligro)">rojas son obligatorias</b> e impiden generar el lote. Los montos en letras${vars.some(v => derivadaDe(v, vars)) ? ', las fechas largas y el monto total (original + aumento)' : ' y las fechas largas'} se escriben solos al generar.</div>
       ${concsLote.length ? `<div class="nota" style="margin-bottom:8px">⚥ Concordancia: todos los documentos del lote saldrán con ${concsLote.map(g => `<b>${esc(g.etiqueta)}</b> = «${esc((g.opciones||[])[indiceConc(g.nombre)]||'')}»`).join(' · ')} (se elige en la pestaña Generar).</div>` : ''}
       ${tablaLote}
     </div>
@@ -16010,7 +16154,7 @@ function procesarPegado(){
   const usadas = mapaCol.filter(Boolean);
   if(!usadas.length){
     const gob = tagsGobernados();
-    alert('Ningún encabezado coincide con las variables de esta plantilla.\n\nVariables esperadas: ' + vars.filter(v=>!esLetras(v) && !gob.has(v)).join(', '));
+    alert('Ningún encabezado coincide con las variables de esta plantilla.\n\nVariables esperadas: ' + vars.filter(v=>!esLetras(v) && !gob.has(v) && !derivadaDe(v, vars)).join(', '));
     return;
   }
   let n = 0;
@@ -16034,7 +16178,7 @@ async function generarLote(){
   const p = plActual(); if(!p || !loteFilas.length) return;
   const vars = varsDe(p);
   const gobern = tagsGobernados();
-  const columnas = vars.filter(v => !esLetras(v) && !gobern.has(v));
+  const columnas = vars.filter(v => !esLetras(v) && !gobern.has(v) && !derivadaDe(v, vars));
   // Igual que en la descarga individual: lo obligatorio bloquea, lo demás avisa.
   const obligatorias = columnas.filter(esRequerido);
   const sinOblig = obligatorias.length
@@ -16052,7 +16196,7 @@ async function generarLote(){
     const nombresUsados = new Set();
     for(let i = 0; i < loteFilas.length; i++){
       const base = conConcordancias({ ...loteFilas[i] }, vars);
-      const datos = p.tipo === 'docx' ? datosDocx(p, base, true) : completarLetras(vars, base);
+      const datos = p.tipo === 'docx' ? datosDocx(p, base, true) : completarLetras(vars, completarDerivadas(vars, base));
       const blob = p.tipo === 'docx' ? generarBlobDocx(p, datos) : await construirDocx(p, datos);
       let archivo = nombreArchivo(p, datos, i);
       let k = 2;
@@ -16557,11 +16701,12 @@ function estructuraDocx(p){
 /* Arma el objeto de datos que docxtemplater inyecta (ver Catálogo de Tags §9) */
 function datosDocx(p, base, enLote, marcarVacios){
   const est = estructuraDocx(p);
+  base = completarDerivadas(est.escalares, { ...base });
   const datos = {};
   est.escalares.forEach(t => {
     let val = base[t] !== undefined && base[t] !== null ? String(base[t]) : '';
     if(!val && esLetras(t) && base[origenDe(t)]) val = formatoLetras(origenDe(t), base[origenDe(t)]);
-    if(esFecha(t) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
+    if(esFecha(t) && val) val = fechaImpresa(val);
     if(val && esDinero(t)) val = fmtMonto(val);
     datos[t] = val;
   });
@@ -16636,6 +16781,7 @@ function actualizarPreviewDocx(){
         marcarPendientesEnPreview(buffer);
         el.replaceChildren(...buffer.childNodes);
         buffer.remove();
+        ajustarZoomDocx();
         resaltarVarEnPreview(false);
       } else {
         el.innerHTML = '<p style="color:var(--gris)">Vista previa no disponible; el Word se genera igual.</p>';
@@ -18304,7 +18450,7 @@ function insertarClausulaEnDoc(clId, varId){
     const datos = { ...fijos, ...datosForm };
     cuerpo = cuerpo.replace(/\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g, (m, x) => {
       let val = datos[x] || '';
-      if(esFecha(x) && /^\d{4}-\d{2}-\d{2}$/.test(val)) val = fechaLarga(val);
+      if(esFecha(x) && val) val = fechaImpresa(val);
       if(!val && esLetras(x) && datos[origenDe(x)]) val = formatoLetras(origenDe(x), datos[origenDe(x)]);
       if(val && esDinero(x)) val = fmtMonto(val);
       return val ? esc(val) : m;

@@ -1631,6 +1631,22 @@
       "tipo": "texto"
     },
     {
+      "id": "pmzvx8868lhh7n",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "compromisos_fias",
+      "descripcion": "Compromisos que asume el FIAS en el convenio (texto libre)",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
+      "id": "pm2yy4si1rgoh7",
+      "grupo": "Locales (plantillas HTML)",
+      "nombre": "compromisos_institucion",
+      "descripcion": "Compromisos que asume la institución contraparte en el convenio (texto libre)",
+      "ejemplo": "",
+      "tipo": "texto"
+    },
+    {
       "id": "pmtu6qdn9lwxxr",
       "grupo": "Montos e IVA",
       "nombre": "consumoEjecutado",
