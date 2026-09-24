@@ -144,7 +144,7 @@ número en el documento firmado.
 
 Hoy conviven **tres formatos** para esa misma variable —La Mágica trae cifra y
 «incluidos impuestos», el Calificador cifra sin la coletilla, el CRM y el CLM solo
-las palabras—, y hay un documento que ya sale con la frase duplicada. Los tres,
+las palabras—, y un documento que se firma llegó a salir con la frase duplicada. Los tres,
 con ejemplos y con lo que hay que mirar antes de escribir un monto, están en
 `.claude/skills/variables-fap/references/formatos.md`. **Esa es la referencia; no
 la repitas aquí**, o acabarán contándose distinto.

@@ -37,8 +37,8 @@ imprime `USD 1.150,00 (USD 1.150,00 (Mil ciento cincuenta…) incluidos impuesto
 natural de quien viene del generador de instrumentos jurídicos, donde esa variable sí son solo
 las palabras.
 
-**2 · La coletilla duplicada.** Está ocurriendo hoy, en
-`crm/plantillas/14_Informe_adenda.docx`, cláusula novena:
+**2 · La coletilla duplicada.** Pasó de verdad, en `crm/plantillas/14_Informe_adenda.docx`,
+cláusula novena, hasta septiembre de 2026:
 
 ```
 El valor del presente contrato es de {montoTotal} ({montoTotalLetras} con 00/100 dólares de
@@ -46,7 +46,9 @@ los Estados Unidos de América)
 ```
 
 `montoEnLetras()` del CRM **ya termina** en «con 00/100 dólares de los Estados Unidos de
-América», así que el documento sale con la frase dos veces. Ese `.docx` se firma.
+América», así que el documento salía con la frase dos veces, en un informe que se firma. Lo
+usaban el CRM, el CLM y el generador de instrumentos jurídicos, que lleva una copia embebida.
+Hoy dice `({montoTotalLetras})`. Si la corriges en una plantilla, busca sus copias.
 
 ### Antes de escribir un monto en letras
 
