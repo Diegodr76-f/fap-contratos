@@ -176,6 +176,10 @@ if len(out) < 10:
 
 plaintext = json.dumps(out, ensure_ascii=False, default=str).encode("utf-8")
 sobre = cifrar(plaintext, DATA_KEY)
+# Cuándo corrió el robot, en claro y fuera del cifrado: no es un dato de ningún
+# contrato. Con él el CLM dice «actualizada hoy 06:31» y, si el robot deja de
+# correr, avisa en ámbar en vez de presentar como viva una base de hace días.
+sobre["generado"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 with open("crm/contratos_export.json", "w", encoding="utf-8") as f:
     json.dump(sobre, f, ensure_ascii=False)
 
