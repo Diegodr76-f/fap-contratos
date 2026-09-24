@@ -206,45 +206,6 @@ registrada** se siga pintando exactamente igual que antes. También todo lo de
 enlaces por número, el ingreso recordado, los formularios que no se pierden ni se envían dos veces,
 el aviso cuando no se puede guardar, la antigüedad de la base y la terminación que se puede deshacer.
 
-## Centro de mando diario — herramienta personal
-
-**`/centro/index.html`** es una herramienta **personal**, aparte del ciclo de vida de contratos:
-no lee la base del CRM ni toca el CLM. Nace de un problema distinto — que las cosas se olvidan
-porque viven repartidas entre Recordatorios, Microsoft To Do, Planner, los correos marcados y el
-calendario — y las junta en **un solo lugar**.
-
-**La idea:** cuatro plazos en vez de una lista infinita — *Hoy* (ahora), *Corto plazo* (esta
-semana), *Mediano plazo* (este mes) y *Largo plazo* (algún día). Lo que tiene fecha **sube solo** de plazo
-cuando se acerca, así que nada se queda escondido en «algún día», y la **revisión del día** obliga
-a decidir, una por una, qué pasa con lo que se pasó de fecha (lo que ni Recordatorios ni To Do hacen:
-ahí lo vencido se queda en rojo para siempre).
-
-**Qué más trae:** captura en lenguaje natural (*«pagar el arriendo el viernes 9am»* se entiende sola,
-con `#personal`/`#trabajo`/`#curso` y `cada semana`), agenda de ocho días, notas, exportación a
-`.ics` para llevarte los pendientes a Recordatorios, copia de seguridad en JSON y atajos de teclado
-(`/` capturar, `1`–`4` plazos, `r` revisión).
-
-**Automatización con el trabajo:** un único flujo de Power Automate propio trae las tareas de
-**To Do**, las de **Planner** asignadas a ti, los **correos marcados** de Outlook y las reuniones del
-**calendario**; y devuelve a **To Do** lo que escribes aquí, para que la alarma suene donde ya suena
-(celular, Outlook, reloj). El paso a paso está en **[`centro/CONECTAR.md`](centro/CONECTAR.md)**.
-
-> Ojo con un detalle que define el diseño: To Do sí unifica los **correos marcados**, pero las tareas
-> de **Planner** solo las *muestra* en «Asignadas a mí» (no las entrega por API) y el **calendario**
-> nunca está ahí. Por eso el flujo lee tres conectores, no uno.
-
-**Privacidad:** a diferencia del CRM/CLM, aquí **no se publica ningún dato**. Las tareas viven en el
-navegador (`localStorage`) y viajan directo entre tu dispositivo y tu flujo; la URL del flujo se
-guarda solo en tu navegador y nunca en el repositorio. Es una **PWA**: se instala en el celular
-(*Compartir → Añadir a pantalla de inicio*) y en el escritorio, y funciona sin internet — lo que no
-se pueda enviar se envía después.
-
-GitHub Pages gratuito no permite sitios privados, así que la primera vez que abres `/centro/` en
-cada dispositivo te pide **crear tu propia frase de acceso** (no se comparte con nadie ni sale de
-ese navegador); sin ella nadie que encuentre el link ve nada. No es cifrado real —es una cortina,
-no una caja fuerte—, pero cumple su función: nadie entra sin la frase, y como las tareas nunca se
-publican, tampoco hay nada que robar aunque alguien la esquivara.
-
 ## Contratos 2027 — la pantalla de las administradoras
 
 **`/renovaciones/index.html`** es donde cada administrador/a contador/a entra, elige su nombre y ve
@@ -642,7 +603,6 @@ nada.
 - **`/planificador/`** — Planificador adaptativo: planes por rutas alternas, con señales,
   disparadores y tiempos de preparación. Independiente del resto; los planes se guardan en el
   navegador y se exportan a JSON.
-- **`/centro/`** — Centro de mando diario, herramienta personal (independiente del resto).
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
   Se actualiza automáticamente cada día vía Power Automate, que sobrescribe `crm/contratos_export.json`
   con los datos del Excel maestro. La app lo consulta automáticamente al abrirse.
@@ -676,7 +636,6 @@ Cada herramienta tiene su propio enlace en GitHub Pages:
 - Calificador de Ofertas: https://diegodr76-f.github.io/fap-contratos/calificacion/
 - CRM directo: https://diegodr76-f.github.io/fap-contratos/crm/
 - La Mágica: https://diegodr76-f.github.io/fap-contratos/generador/
-- Centro de mando diario (personal): https://diegodr76-f.github.io/fap-contratos/centro/
 
 La raíz (`https://diegodr76-f.github.io/fap-contratos/`) redirige automáticamente al CLM.
 
