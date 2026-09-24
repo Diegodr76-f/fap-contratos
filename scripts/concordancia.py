@@ -416,7 +416,7 @@ def convertir(ruta, escribir=False):
 INTOCABLES = {
     'Cumple|No cumple': 18,
     'Presencial|Virtual': 3,
-    'solicitud|cotización': 3,   # la plantilla 20 trae uno desde el 15-sept
+    'solicitud|cotización': 2,
     'el|la': 1,          # el que va delante de {objeto}
 }
 
