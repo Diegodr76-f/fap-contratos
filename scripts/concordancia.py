@@ -49,6 +49,8 @@ GRUPOS = {
             'ElLaadministradorOrden':    ['El administrador', 'La administradora'],
             'ADMINISTRADORorden':        ['ADMINISTRADOR', 'ADMINISTRADORA'],
             'SecretarioA':               ['Secretario', 'Secretaria'],
+            # quien administra el contrato es la AC (plantilla 20)
+            'elLaAdminContrato':         ['el administrador del contrato', 'la administradora del contrato'],
         }},
     'generoJefeAP': {
         'etiqueta': 'Responsable del área protegida (MAE)',
@@ -73,6 +75,8 @@ GRUPOS = {
             'delDeLaProveedor': ['del proveedor', 'de la proveedora', 'de la empresa proveedora'],
             'ProveedorTitulo':  ['Proveedor', 'Proveedora', 'Proveedora'],
             'proveedorTrato':   ['Señor', 'Señora', 'Señores'],
+            # a una persona natural se le trata de usted; a una empresa, de ustedes
+            'ustedUstedes':     ['usted', 'usted', 'ustedes'],
             'adjudicadoA':      ['adjudicado', 'adjudicada', 'adjudicada'],
         }},
     'generoAP': {
@@ -150,6 +154,7 @@ REGLAS = [
     ('Señor|Señores|Señora',          None, 'proveedorTrato'),
     ('Señor|Señora|Señores',          None, 'proveedorTrato'),
     ('adjudicado|adjudicada',         None, 'adjudicadoA'),
+    ('usted|ustedes',                 None, 'ustedUstedes'),
 
     # — género del área: siempre pegado a {area}; delante de {objeto} NO, porque
     #   el objeto es texto libre y su género no se puede saber —
@@ -197,6 +202,13 @@ TEXTOS = [
     ('del/la Administrador(a)',             '{dellaadministradorAP}'),
     ('Administrador/a del área protegida',  '{AdministradoraAP} del área protegida'),
     ('el/la proveedor',                     '{elLaProveedor}'),
+    # Las dos trampas del género escrito a mano, sin barra: «mantiene con
+    # ustedes» le hablaba en plural a una persona natural, y un artículo escrito
+    # delante de {area} no concuerda con la mitad de las áreas. La plantilla 20
+    # las trajo de vuelta en la subida del 15 de septiembre, que partió de una
+    # copia anterior a esta conversión.
+    ('mantiene con ustedes',                'mantiene con {ustedUstedes}'),
+    ('del {area}',                          '{dellaAP} {area}'),
 ]
 # Lo que se queda con barra, a propósito: «el/la {objeto}» depende del género del
 # objeto, que lo escribe la AC en texto libre. Elegir uno de los dos sería
