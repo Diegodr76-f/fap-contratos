@@ -105,7 +105,7 @@ Parque»), y el número —bien/bienes, día/días— y la naturaleza —adquisi
 contratación— se derivan de lo ya capturado. El motor está en `concordancias()`
 dentro de `generador/index.html`.
 
-**Los 24 controles que quedan NO se tocan, y la razón importa:** «Cumple / No
+**Los 25 controles que quedan NO se tocan, y la razón importa:** «Cumple / No
 cumple» es un juicio sobre cada oferta, «Presencial / Virtual» es cómo asistió
 cada miembro a la sesión, «solicitud / cotización» es qué documento se nombra, y
 el `el/la` que va delante de `{objeto}` depende del género de un texto libre que
@@ -130,7 +130,7 @@ python3 scripts/concordancia.py --verificar   que lo que no es concordancia sigu
 ```
 
 Corre `--verificar` después de cualquier cambio en las plantillas: comprueba que
-los 24 controles de juicio siguen estando, uno por uno.
+los 25 controles de juicio siguen estando, uno por uno.
 
 ## Dos cosas de las plantillas que no se ven leyendo el Word
 
