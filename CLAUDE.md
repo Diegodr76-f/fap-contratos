@@ -275,6 +275,15 @@ hechas para eso que conviene reutilizar en vez de rehacer:
   pregunta antes de botar lo escrito. Una pantalla de «listo» pone `o._sucio=false`.
 - **Estilos del celular en las media queries, no en `style=""`**: un estilo en línea
   le gana a la media query (así quedaban dos columnas de 150 px en el teléfono).
+- **Que un contrato venza no lo hace renovable.** `esRenovable(c)` (junto a
+  `isConsultoria`) es la única fuente: `c.tipo==="Nuevo"` y `c.cat` fuera de
+  `NO_RECURRENTES` (Consultoría, Adquisición de equipos de campo) — la misma
+  regla de `scripts/plan_renovaciones.py` y `renovaciones/index.html`, no la
+  reinventes. El FIAS renueva una sola vez: un contrato con `tipo!=="Nuevo"`
+  ya gastó la suya. «Renovar en La Mágica» se probó una vez solo contra
+  vencido/por vencer y ofrecía renovar una consultoría puntual — cualquier
+  botón o alerta que hable de vencimiento y renovación junta pasa por
+  `esRenovable()`, no solo por `statusLive()`.
 
 Todo esto lo vigila `scripts/probar_clm.js` (cómo correrlo, al final de la sección
 siguiente). Si añades comportamiento al CLM, añade la comprobación.
