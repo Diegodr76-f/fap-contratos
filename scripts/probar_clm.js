@@ -37,9 +37,12 @@ function contratos(){
   const base=(n,extra)=>Object.assign({
     nro:'FIAS-FAP-2026-'+String(n).padStart(3,'0'),
     detalle:'Mantenimiento de instalaciones '+n, area:'RPF Chimborazo',
-    cat:'Servicios', monto:1150, montoTotal:1150, cerrado:false,
+    cat:'Mantenimiento', monto:1150, montoTotal:1150, cerrado:false,
     inicio:'2026-01-15', firma:'2026-01-20', fin:'2030-12-31',
-    tipo:'Contrato', proveedor:'Servitec', plazo:350, adenda:'',
+    // 'Nuevo': el valor real de la columna «Tipo de contrato» que hace a un
+    // contrato renovable (ver esRenovable() en clm/index.html). Los tests que
+    // necesitan lo contrario (ya renovado / no recurrente) lo pisan en extra.
+    tipo:'Nuevo', proveedor:'Servitec', plazo:350, adenda:'',
     tipoAdenda:null, modificacion:null, firmaAdenda:null,
     ac:'Ana Pérez', correo:'ana@fias.org.ec', link:null,
     fcierre:null, liquidado:null, saldo:null,
@@ -408,6 +411,63 @@ ok(!!abrir,'y desde ahí se puede volver a abrir su expediente');
 w.localStorage.removeItem('fap_precarga');
 abrir.onclick();
 ok(buzon().id==='sol:s77' && /#precarga=sol%3As77$/.test(srcMagica()),'con el mismo identificador: La Mágica abre el que ya existe');
+
+// ---------------------------------------------------------------- 19
+seccion('19 · No todo lo que vence se renueva');
+{
+  // El plan de renovaciones 2027 ya lo dice (plan/PLAN_RENOVACIONES_2027.md,
+  // scripts/plan_renovaciones.py, renovaciones/index.html): solo se renueva
+  // un servicio recurrente cuyo «tipo de contrato» todavía sea «Nuevo». Una
+  // consultoría, una adquisición de equipos o un contrato que ya es una
+  // renovación (el FIAS permite renovar una sola vez) van por proceso nuevo,
+  // vengan cuando vengan. «Renovar en La Mágica» tiene que respetar la misma
+  // regla, no solo mirar si el contrato está por vencer.
+  const enDiez=new Date(Date.now()+10*86400000).toISOString().slice(0,10);
+  const base19=contratos();
+  // Consultoría puntual y vencida — como «Delitos Ambientales y Procesos Sancionatorios».
+  Object.assign(base19[0],{cat:'Consultoría',detalle:'Consultoría de delitos ambientales',fin:enDiez,tipo:'Nuevo'});
+  // Adquisición de equipos de campo, por vencer.
+  Object.assign(base19[1],{cat:'Adquisición de equipos de campo',fin:enDiez,tipo:'Nuevo'});
+  // Ya es una renovación (agotó su única vuelta), por vencer.
+  Object.assign(base19[2],{tipo:'Renovación',fin:enDiez});
+  // Sin el dato de tipo (celda vacía en el Excel), por vencer.
+  Object.assign(base19[3],{tipo:'',fin:enDiez});
+  const w19=await listo(nuevoDom(base19,{rol:'ac',user:'Ana Pérez'}));
+  const textoView=()=>w19.document.getElementById('view').textContent;
+
+  w19.go('detalle',0);
+  let btn=w19.document.getElementById('a-ren');
+  ok(!!btn&&btn.disabled,'una consultoría por vencer NO ofrece renovar: el botón está apagado');
+  ok(/consultoría/.test(textoView()),'y dice que es por ser consultoría',textoView().slice(0,300));
+  ok(!btn.onclick,'sin acción: un clic no manda nada a La Mágica');
+
+  w19.go('detalle',1);
+  btn=w19.document.getElementById('a-ren');
+  ok(btn.disabled&&/adquisición de equipos/.test(textoView()),'una adquisición de equipos tampoco se renueva',textoView().slice(0,300));
+
+  w19.go('detalle',2);
+  btn=w19.document.getElementById('a-ren');
+  ok(btn.disabled,'un contrato que ya es una renovación no se vuelve a renovar');
+  ok(/una sola vez/.test(textoView()),'y explica el límite del FIAS: una sola renovación');
+
+  w19.go('detalle',3);
+  btn=w19.document.getElementById('a-ren');
+  ok(btn.disabled,'sin el dato de tipo de contrato tampoco se ofrece — no se adivina');
+  ok(/Tipo de contrato/.test(textoView()),'y dice qué dato falta y dónde corregirlo',textoView().slice(0,400));
+
+  // Las alertas de vencimiento tampoco pueden prometer una renovación que no aplica.
+  w19.go('alertas');
+  const filas=[...w19.document.querySelectorAll('.alert-row')].map(r=>r.textContent);
+  ok(filas.some(t=>/FIAS-FAP-2026-001/.test(t)&&/no se renueva/.test(t)),
+     'la alerta de la consultoría por vencer dice que no se renueva',filas.find(t=>/FIAS-FAP-2026-001/.test(t)));
+  ok(!filas.some(t=>/FIAS-FAP-2026-001/.test(t)&&/ventana de renovación abierta/.test(t)),
+     'y ya no dice «ventana de renovación abierta»');
+
+  // El caso normal — Nuevo y recurrente — sigue igual que en la sección 18.
+  ok(w19.esRenovable(base19[4])===true,'un contrato Nuevo y recurrente sigue siendo renovable',JSON.stringify(base19[4].tipo));
+  ok(w19.esRenovable(base19[0])===false&&w19.esRenovable(base19[1])===false&&w19.esRenovable(base19[2])===false,
+     'consultoría, adquisición de equipos y ya-renovado quedan fuera de esRenovable()');
+}
 
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
 process.exit(fallos?1:0);

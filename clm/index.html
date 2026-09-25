@@ -471,6 +471,23 @@ function manualDocx(txt){return `«COMPLETAR: ${txt}»`;}
 function trunc(s,n){s=String(s==null?"":s);return s.length>n?s.slice(0,n-1).trimEnd()+"…":s;}
 function cleanNro(n){return String(n).replace(/[^0-9A-Za-z]+/g,"_").replace(/^_|_$/g,"");}
 function isConsultoria(c){const s=(norm(c.cat)+" "+norm(c.tipo)+" "+norm(c.detalle));return /consultor|servicio.*profesional|profesional/.test(s);}
+/* Qué contratos se pueden renovar: la misma regla del plan de renovaciones 2027
+   (scripts/plan_renovaciones.py, renovaciones/index.html — no la reinventes aquí).
+   El FIAS permite renovar UNA SOLA VEZ, así que un contrato que ya es una
+   renovación (tipo !== "Nuevo") agotó su cupo: va por proceso administrativo
+   nuevo. Y un objeto que no es servicio recurrente —consultoría, adquisición de
+   equipos— nunca se renueva, así venza: es un estudio o una compra puntual,
+   no algo que continúe. c.tipo es "tipo de contrato" del Excel (columna
+   obligatoria); c.cat es la categoría del proceso. */
+const NO_RECURRENTES=["Consultoría","Adquisición de equipos de campo"];
+function esRenovable(c){return c.tipo==="Nuevo"&&!NO_RECURRENTES.includes(c.cat);}
+function motivoNoRenovable(c){
+  if(NO_RECURRENTES.includes(c.cat))return `Es ${c.cat==="Consultoría"?"una consultoría":"una adquisición de equipos"}, no un servicio recurrente: no admite renovación.`;
+  if(c.tipo&&c.tipo!=="Nuevo")return "Ya es una renovación — el FIAS permite renovar una sola vez. Va por proceso administrativo nuevo.";
+  // Sin el dato no se sabe: mejor decirlo que adivinar (y de paso apunta a
+  // dónde se corrige, igual que la carpeta interna del expediente).
+  return `Falta el «Tipo de contrato» en el Excel maestro: sin saber si es Nuevo no se puede ofrecer la renovación.`;
+}
 function montoEnLetras(n){
   n=Number(n)||0;
   const ent=Math.floor(n), cent=Math.round((n-ent)*100);
@@ -843,8 +860,8 @@ function alertList(){
     const i=CONTRACTS.indexOf(c);
     const o=ov(c),s=statusLive(c),d=diasRestantes(c);
     if(s.key==="vencido")out.push({sev:0,icon:"⛔",col:"var(--red)",bg:"var(--redbg)",t:`Vencido hace ${Math.abs(d)}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${c.area||""}`,i,act:"Terminar",fn:"ter"});
-    else if(s.key==="aviso"&&d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · decide renovación o terminación ya`,i,act:"Abrir",fn:"open"});
-    else if(s.key==="aviso")out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ventana de renovación abierta`,i,act:"Abrir",fn:"open"});
+    else if(s.key==="aviso"&&d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${esRenovable(c)?"decide renovación o terminación ya":"no se renueva — prepara el proceso nuevo ya"}`,i,act:"Abrir",fn:"open"});
+    else if(s.key==="aviso")out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${esRenovable(c)?"ventana de renovación abierta":"no se renueva — va por proceso nuevo"}`,i,act:"Abrir",fn:"open"});
     if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
     if((o.terminado||c.cerrado)&&!o.evaluado)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
   });
@@ -1158,14 +1175,23 @@ function vDetalle(){
   const done=o.terminado||c.cerrado;
   const L=liqDe(c);
   const timeline=contractTimeline(c);
-  // Renovar: con el contrato en ejecución. Cuando ya está en la ventana de
-  // renovación (o vencido, dentro de la retroactividad) sube al primer lugar.
-  // No se limita a esa ventana: la campaña 2027 prepara en septiembre los
-  // contratos que vencen el 31 de diciembre, a más de 90 días.
-  const urgeRenov=!done&&(s.key==="aviso"||s.key==="vencido");
-  const renovBtn=done?"":`<button class="actbtn" id="a-ren">
+  // Renovar: con el contrato en ejecución Y que la regla del plan 2027 deje
+  // renovar (esRenovable, arriba de isConsultoria) — no todo lo que vence se
+  // renueva: lo que ya es una renovación agotó su única vuelta, y una
+  // consultoría o una adquisición de equipos no son servicio recurrente.
+  // Cuando SÍ se puede y ya está en la ventana de renovación (o vencido,
+  // dentro de la retroactividad) sube al primer lugar. No se limita a esa
+  // ventana: la campaña 2027 prepara en septiembre los contratos que vencen
+  // el 31 de diciembre, a más de 90 días.
+  const puedeRenovar=!done&&esRenovable(c);
+  const urgeRenov=puedeRenovar&&(s.key==="aviso"||s.key==="vencido");
+  // El botón no desaparece cuando no aplica: se apaga y dice por qué, igual
+  // que «Calificar proveedor» dice «Disponible al terminar». Que se esconda
+  // sería más confuso justo cuando el contrato está por vencer, que es
+  // cuando la AC lo busca.
+  const renovBtn=done?"":`<button class="actbtn" id="a-ren" ${puedeRenovar?"":"disabled"}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
-              <span><span class="at">Renovar en La Mágica</span><span class="ad">${urgeRenov?`<b style="color:var(--amber)">${esc(vigenciaText(c))}</b> · `:""}abre la renovación con n.º, fechas, monto y proveedor ya puestos</span></span>
+              <span><span class="at">Renovar en La Mágica</span><span class="ad">${puedeRenovar?(urgeRenov?`<b style="color:var(--amber)">${esc(vigenciaText(c))}</b> · `:"")+"abre la renovación con n.º, fechas, monto y proveedor ya puestos":esc(motivoNoRenovable(c))}</span></span>
             </button>`;
   $("#view").innerHTML=`<div class="up">
     <button class="back" id="back">← Volver ${VOLVER_A[ST.from]||"al repositorio"}</button>
@@ -1277,7 +1303,7 @@ function vDetalle(){
   if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
   $("#a-nota").onclick=()=>modalNota(c);
   const re=$("#a-reabrir");if(re)re.onclick=()=>reabrirContrato(c);
-  const rn=$("#a-ren");if(rn)rn.onclick=()=>renovarEnMagica(c);
+  const rn=$("#a-ren");if(rn&&puedeRenovar)rn.onclick=()=>renovarEnMagica(c);
 }
 /* Deshacer una terminación hecha por error. Terminar era un camino sin vuelta:
    un clic en el contrato equivocado lo dejaba «Terminado» para siempre en este
