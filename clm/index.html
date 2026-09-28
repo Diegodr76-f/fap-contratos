@@ -1399,13 +1399,92 @@ async function generarDocx(nombrePlantilla,data,nombreSalida){
   const buf=await loadTemplate(nombrePlantilla);
   const zip=new PizZip(buf.slice(0));
   const DT=window.docxtemplater||window.Docxtemplater;
-  const doc=new DT(zip,{paragraphLoop:true,linebreaks:true,delimiters:{start:"{",end:"}"}});
+  // Una etiqueta sin dato imprimía «undefined» en el documento: pasó con
+  // {dellaAP} cuando la plantilla de adenda la estrenó y el CLM no la entregaba
+  // («la administración undefined Reserva…»). Ahora sale «COMPLETAR», que se ve
+  // y se busca en Word, como el resto de lo que falta.
+  const doc=new DT(zip,{paragraphLoop:true,linebreaks:true,delimiters:{start:"{",end:"}"},
+    nullGetter:part=>part.module?"":manualDocx("dato «"+part.value+"»")});
   doc.render(data);
   const out=doc.getZip().generate({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
   const url=URL.createObjectURL(out);
   const a=document.createElement("a");a.href=url;a.download=nombreSalida+".docx";
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
+/* ================= CONCORDANCIA DE GÉNERO (adenda y acta) =================
+   El informe de adenda y el acta de terminación llevaban 20 cuadros combinados
+   que la AC tenía que elegir a mano en Word, uno por uno. El que se olvidaba
+   imprimía la barra —«Administrador/a contador/a», «el/la CONTRATISTA»— en lo
+   que se firma. Ahora son etiquetas (scripts/concordancia.py, grupos
+   generoAC, generoJefeAP, generoContratista y generoAP) y aquí se resuelven
+   con tres preguntas que se contestan una vez: se recuerdan por persona en
+   fap_generos, que comparten el CLM y el CRM. El género del área no se
+   pregunta: sale de su nombre («la Reserva», «el Parque»).
+   Los valores tienen que ser los mismos de concordancia.py: probar_clm.js lo
+   comprueba leyendo ese archivo. */
+const GENEROS_LS="fap_generos";
+const OPC_AC=[{v:"M",l:"Administrador contador"},{v:"F",l:"Administradora contadora"}];
+const OPC_JEFE=[{v:"M",l:"Hombre — «el administrador del área»"},{v:"F",l:"Mujer — «la administradora del área»"}];
+const OPC_PROV=[{v:"M",l:"Persona natural — hombre («el señor»)"},{v:"F",l:"Persona natural — mujer («la señora»)"},{v:"E",l:"Empresa («la empresa»)"}];
+// Es una comodidad, no trabajo de la AC: si el navegador no deja guardarla, la
+// elección vale igual para este documento y la próxima vez se vuelve a preguntar.
+function leerGeneros(){try{const o=JSON.parse(localStorage.getItem(GENEROS_LS)||"{}");return {ac:o.ac||{},prov:o.prov||{},jefe:o.jefe||{}};}catch(e){return {ac:{},prov:{},jefe:{}};}}
+function guardarGeneros(g){try{localStorage.setItem(GENEROS_LS,JSON.stringify(g));}catch(e){}}
+function generoAreaDe(nombre){return /^(la\s+)?(reserva|estacion|area|zona|isla|laguna|direccion)/.test(plano(nombre).trim())?"F":"M";}
+// Una razón social de empresa se reconoce por su forma jurídica. Es una
+// propuesta que se ve y se cambia, igual que el género del área en La Mágica;
+// una persona natural no se propone: hombre o mujer no se deduce del nombre.
+function pareceEmpresa(n){return /(^|[\s,.])(s\.?\s?a\.?s?|cia\.?|ltda\.?|compania|corporacion|consorcio|empresa|cooperativa|fundacion|asociacion)([\s,.]|$)/.test(plano(n));}
+function generoPropuesto(c){
+  const G=leerGeneros(),jefe=G.jefe[c.area||""]||{};
+  return {ac:G.ac[c.ac||""]||"",prov:G.prov[c.proveedor||""]||(pareceEmpresa(c.proveedor)?"E":""),
+    jefe:jefe.g||"",jefeNombre:jefe.nombre||"",area:generoAreaDe(c.area)};
+}
+function selGenero(id,label,opts,val){
+  return `<div class="frow"><label for="${id}">${label}</label><select id="${id}"><option value="">— elige —</option>${opts.map(x=>`<option value="${x.v}"${x.v===val?" selected":""}>${esc(x.l)}</option>`).join("")}</select></div>`;
+}
+function bloqueGeneros(c,conJefe){
+  const g=generoPropuesto(c);
+  return `<div class="secdiv">Cómo se nombra a cada uno en el documento</div>
+    <div class="frow2">${selGenero("gAc","La AC firma como",OPC_AC,g.ac)}${selGenero("gProv",`El proveedor (${esc(trunc(c.proveedor||"—",32))}) es`,OPC_PROV,g.prov)}</div>
+    ${conJefe?selGenero("gJefe","Quien administra el área por el MAE es",OPC_JEFE,g.jefe):""}
+    <div class="note" style="margin:2px 0 4px">Se elige una vez: la próxima vez ya aparece elegido. Con esto el Word sale sin «el/la» ni «Administrador/a».</div>`;
+}
+/* Lee lo elegido; si falta algo, dice QUÉ falta (con el rótulo de pantalla). */
+function leerGenerosModal(o,c,conJefe){
+  const ac=$("#gAc",o).value,prov=$("#gProv",o).value,jefe=conJefe?$("#gJefe",o).value:"";
+  const falta=[];
+  if(!ac)falta.push("La AC firma como");
+  if(!prov)falta.push("El proveedor es");
+  if(conJefe&&!jefe)falta.push("Quien administra el área por el MAE es");
+  if(falta.length){alert("Falta elegir: "+falta.join(" · ")+".");return null;}
+  return {ac,prov,jefe:jefe||"M",area:generoAreaDe(c.area)};
+}
+function recordarGeneros(c,g,jefeNombre){
+  const G=leerGeneros();
+  if(c.ac)G.ac[c.ac]=g.ac;
+  if(c.proveedor)G.prov[c.proveedor]=g.prov;
+  if(g.conJefe&&c.area)G.jefe[c.area]={g:g.jefe,nombre:jefeNombre||""};
+  guardarGeneros(G);
+}
+function concordanciasDoc(g){
+  const dos=(x,m,f)=>x==="F"?f:m,tres=(x,m,f,e)=>x==="E"?e:x==="F"?f:m;
+  return {
+    AdminContador:dos(g.ac,"Administrador Contador","Administradora Contadora"),
+    administradoracontadora:dos(g.ac,"administrador contador","administradora contadora"),
+    elLaAdminContrato:dos(g.ac,"el administrador del contrato","la administradora del contrato"),
+    administradorAP:dos(g.jefe,"administrador","administradora"),
+    ellaadministradorAP:dos(g.jefe,"el administrador","la administradora"),
+    dellaadministradorAP:dos(g.jefe,"del administrador","de la administradora"),
+    contratistaTrato:tres(g.prov,"el señor","la señora","la empresa"),
+    elLaContratista:tres(g.prov,"el CONTRATISTA","la CONTRATISTA","la CONTRATISTA"),
+    ElLaContratista:tres(g.prov,"El CONTRATISTA","La CONTRATISTA","La CONTRATISTA"),
+    dellaContratista:tres(g.prov,"del CONTRATISTA","de la CONTRATISTA","de la CONTRATISTA"),
+    ProveedorTitulo:tres(g.prov,"Proveedor","Proveedora","Proveedora"),
+    dellaAP:dos(g.area,"del","de la")
+  };
 }
 
 /* --- Modificar (aumento de monto / adenda de plazo) --- */
@@ -1434,6 +1513,7 @@ function modalModificar(c){
       <div class="frow"><label>Código de partida</label><input id="partida" placeholder="Ej.: 5.3.01"></div></div>
       <div class="frow"><label>Nombre de la línea presupuestaria</label><input id="lineaNombre" placeholder="Nombre de la partida en el PAG"></div>
       <div class="note" style="margin:2px 0 4px">Lo que dejes vacío queda marcado con «COMPLETAR» en el Word.</div>
+      ${bloqueGeneros(c,false)}
     </div>
     <div class="frow" id="plazoRow" style="display:none"><label>Plazo adicional / nueva fecha</label><input id="plazoTxt" placeholder="Ej.: 60 días adicionales · nueva finalización 30 nov 2026"></div>
     <div class="frow"><label>Justificación (opcional para monto, obligatoria para plazo)</label><textarea id="just" placeholder="Motivo técnico y contractual…"></textarea></div>
@@ -1477,9 +1557,10 @@ function modalModificar(c){
     if(d.v!=="monto"&&!$("#plazoTxt",o).value.trim()){alert("Indica el plazo adicional o la nueva fecha.");return;}
     let titulo;
     if(d.v==="monto"){
+      const gen=leerGenerosModal(o,c,false);if(!gen)return;
       const inc_v=parseFloat(inc.value)||0,montoOriginal=c.monto||0,montoTotal=montoOriginal+inc_v;
       const M=manualDocx;
-      const data={contratoNro:c.nro,objeto:c.detalle||"",proveedor:c.proveedor||"",
+      const data={...concordanciasDoc(gen),contratoNro:c.nro,objeto:c.detalle||"",proveedor:c.proveedor||"",
         proveedorRuc:$("#rucM",o).value.trim()||M("RUC del proveedor"),
         ac:c.ac||"",area:c.area||"",siglas:$("#siglas",o).value.trim()||M("siglas del área"),
         fecha:longDate(todayISO()),fechaContrato:longDate(c.firma),
@@ -1492,6 +1573,7 @@ function modalModificar(c){
       titulo="Informe de aumento de monto (FAP-2026-11)";
       try{await generarDocx("14_Informe_adenda.docx",data,`BORRADOR_Informe_aumento_monto_${cleanNro(c.nro)}`);}
       catch(err){alert("No se pudo generar el documento: "+err.message);return;}
+      recordarGeneros(c,gen);
       logAdd("📄",`Borrador de ${titulo} generado (+${money(inc_v)}, ${d.pct.toFixed(1)}%)`,c.nro);
     }else{
       if(!just){alert("Ingresa la justificación.");return;}
@@ -1562,8 +1644,9 @@ function modalTerminar(c){
     <div class="secdiv">Comparecientes y datos del acta (FAP-2026-12)</div>
     <div class="frow2"><div class="frow"><label>Cédula de la AC</label><input id="cedulaAc" placeholder="N.º de cédula"></div>
     <div class="frow"><label>RUC del proveedor</label><input id="ruc" placeholder="N.º de RUC"></div></div>
-    <div class="frow"><label>Administrador/a del área (MAE)</label><input id="jefe" placeholder="Nombre de quien administra el área por el MAE"></div>
+    <div class="frow"><label>Administrador/a del área (MAE)</label><input id="jefe" placeholder="Nombre de quien administra el área por el MAE" value="${esc(generoPropuesto(c).jefeNombre)}"></div>
     <div class="frow"><label>Ciudad de suscripción</label><input id="ciudad" value="Quito"></div>
+    ${bloqueGeneros(c,true)}
     <div class="frow2"><div class="frow"><label>Fecha del acta</label><input id="fter" type="date" value="${todayISO()}"></div>
     <div class="frow"><label>Fecha real de entrega</label><input id="frec" type="date" value="${todayISO()}"></div></div>
     <div class="secdiv">Liquidación económica</div>
@@ -1580,8 +1663,9 @@ function modalTerminar(c){
     const fter=$("#fter",o).value,obs=$("#obs",o).value.trim()||novDefault;
     const frec=$("#frec",o).value,ciudad=$("#ciudad",o).value.trim()||"Quito";
     const totalLiq=parseFloat($("#total",o).value)||montoDe(c);
+    const gen=leerGenerosModal(o,c,true);if(!gen)return;gen.conJefe=true;
     const M=manualDocx;
-    const data={contratoNro:c.nro,objeto:c.detalle||"",proveedor:c.proveedor||"",
+    const data={...concordanciasDoc(gen),contratoNro:c.nro,objeto:c.detalle||"",proveedor:c.proveedor||"",
       proveedorRuc:$("#ruc",o).value.trim()||M("RUC del proveedor"),
       ac:c.ac||"",cedulaAc:$("#cedulaAc",o).value.trim()||M("cédula de la AC"),
       area:c.area||"",jefe:$("#jefe",o).value.trim()||M("administrador/a del área — MAE"),
@@ -1592,6 +1676,7 @@ function modalTerminar(c){
       total:money(totalLiq).replace("$","")};
     try{await generarDocx("15_Acta_de_terminacion.docx",data,`BORRADOR_Acta_terminacion_${cleanNro(c.nro)}`);}
     catch(err){alert("No se pudo generar el acta: "+err.message);return;}
+    recordarGeneros(c,gen,$("#jefe",o).value.trim());
     const O=ov(c);O.terminado=true;O.causal=causal;O.fter=fter;
     O.pendienteEnvio={tipoEnvio:"Acta de terminación (FAP-2026-12)",instrumento:"Acta de terminación y liquidación"};
     saveCLM();

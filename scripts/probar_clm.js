@@ -286,6 +286,8 @@ let generaciones=0;
 w.generarDocx=()=>{ generaciones++; return new Promise(()=>{}); };   // un Word que tarda
 w.modalTerminar(w.eval('CONTRACTS[0]'));
 o=w.document.querySelector('.overlay');
+// el acta ahora pide antes cómo se nombra a cada uno (sección 20)
+[['#gAc','F'],['#gProv','E'],['#gJefe','M']].forEach(([id,v])=>{const e=o.querySelector(id);if(e)e.value=v;});
 let gen=o.querySelector('#gen');
 gen.onclick(); gen.onclick();
 await pausa(20);
@@ -467,6 +469,137 @@ seccion('19 · No todo lo que vence se renueva');
   ok(w19.esRenovable(base19[4])===true,'un contrato Nuevo y recurrente sigue siendo renovable',JSON.stringify(base19[4].tipo));
   ok(w19.esRenovable(base19[0])===false&&w19.esRenovable(base19[1])===false&&w19.esRenovable(base19[2])===false,
      'consultoría, adquisición de equipos y ya-renovado quedan fuera de esRenovable()');
+}
+
+// ---------------------------------------------------------------- 20
+seccion('20 · La adenda y el acta salen sin «el/la» ni «undefined»');
+{
+  // Se rellenan las plantillas REALES (crm/plantillas/) con el motor que usa el
+  // navegador (clm/vendor/), pasando por los formularios del CLM, y se lee el
+  // Word que sale. Hasta septiembre llevaban 20 cuadros combinados que imprimían
+  // «Administrador/a contador/a» si la AC no los tocaba, y la adenda decía «la
+  // administración undefined Reserva…» porque nadie le entregaba {dellaAP}.
+  const leer=f=>fs.readFileSync(path.join(RAIZ,f));
+  const base20=contratos();
+  Object.assign(base20[0],{proveedor:'Servitec',area:'Reserva de Producción de Fauna Chimborazo',ac:'Ana Pérez'});
+  Object.assign(base20[1],{proveedor:'María Lema',area:'Parque Nacional Cotopaxi',ac:'Ana Pérez'});
+  const w20=await listo(nuevoDom(base20,{rol:'ac',user:'Ana Pérez'}));
+  w20.eval(leer('clm/vendor/pizzip.min.js').toString());
+  w20.eval(leer('clm/vendor/docxtemplater.min.js').toString());
+  w20.fetch=url=>{
+    const m=String(url).match(/plantillas\/(.+)$/);
+    if(!m)return Promise.reject(new Error('no esperado: '+url));
+    const b=leer('crm/plantillas/'+decodeURIComponent(m[1]));
+    return Promise.resolve({ok:true,arrayBuffer:()=>Promise.resolve(new w20.Uint8Array(b).buffer)});
+  };
+  const salidas=[],avisos=[];
+  w20.URL.createObjectURL=blob=>{salidas.push(blob);return 'blob:prueba';};
+  w20.URL.revokeObjectURL=()=>{};
+  w20.alert=m=>avisos.push(m);
+  w20.HTMLAnchorElement.prototype.click=function(){};   // la descarga: jsdom no navega
+  // El texto del Word, párrafo por párrafo.
+  const textoWord=async blob=>{
+    const zip=new w20.PizZip(await blob.arrayBuffer());
+    return zip.file('word/document.xml').asText().split('</w:p>')
+      .map(p=>(p.match(/<w:t[^>]*>[^<]*<\/w:t>/g)||[]).map(t=>t.replace(/<[^>]+>/g,'')).join(''))
+      .filter(t=>t.trim()).join('\n');
+  };
+  // Lo que no puede salir en un documento que se firma.
+  const huecos=t=>{
+    const r=[];
+    if(/undefined/.test(t))r.push('undefined');
+    const barras=t.match(/\b[A-Za-zÁÉÍÓÚáéíóúñ]+\/(a|la|as)\b/g); if(barras)r.push(barras.join(','));
+    if(/\{[A-Za-z]+\}/.test(t))r.push('etiqueta sin rellenar');
+    if(/COMPLETAR: dato/.test(t))r.push('etiqueta sin dato: '+(t.match(/COMPLETAR: dato «[^»]+»/g)||[]).join(','));
+    return r;
+  };
+  const elegir=(o,id,v)=>{const s=o.querySelector('#'+id);s.value=v;s.dispatchEvent(new w20.Event('change',{bubbles:true}));};
+
+  // --- Informe de adenda
+  w20.modalModificar(w20.eval('CONTRACTS[0]'));
+  let o=w20.document.querySelector('.overlay');
+  o.querySelector('#inc').value='300'; o.querySelector('#inc').dispatchEvent(new w20.Event('input'));
+  ok(o.querySelector('#gAc').value===''&&o.querySelector('#gProv').value==='',
+     'la primera vez no se adivina: ni la AC ni una persona natural traen género puesto');
+  await o.querySelector('#gen').onclick(); await pausa(30);
+  ok(salidas.length===0&&/Falta elegir: La AC firma como · El proveedor es/.test(avisos.pop()||''),
+     'sin elegirlos no se genera, y dice QUÉ falta');
+  elegir(o,'gAc','F'); elegir(o,'gProv','E');
+  await o.querySelector('#gen').onclick(); await pausa(60);
+  ok(salidas.length===1,'con los dos elegidos, el informe se genera',avisos.join(' | '));
+  let t=await textoWord(salidas[0]);
+  ok(huecos(t).length===0,'el informe no trae barras, huecos ni «undefined»',huecos(t).join(' · '));
+  ok(/la administración de la Reserva de Producción de Fauna Chimborazo/.test(t),
+     '«de la Reserva»: el género del área sale de su nombre, sin preguntar');
+  ok(/el FIAS y la empresa Servitec, suscribieron/.test(t),'«la empresa Servitec», no «el señor/señora/empresa»');
+  ok(/y la empresa Servitec, para el/.test(t),'y ya no dice «y por el Sr.» a una empresa');
+  ok(/prestados por la empresa Servitec, con RUC/.test(t)&&!/"\.la empresa/.test(t),
+     'el cuadro que estaba arrastrado al final del párrafo vuelve delante del nombre');
+  ok(/Administradora Contadora/.test(t),'y firma la «Administradora Contadora», como en La Mágica');
+  o.remove();
+
+  // Lo elegido se recuerda: la próxima vez ya aparece.
+  w20.modalModificar(w20.eval('CONTRACTS[0]'));
+  o=w20.document.querySelector('.overlay');
+  ok(o.querySelector('#gAc').value==='F'&&o.querySelector('#gProv').value==='E','la segunda vez ya viene elegido');
+  o.remove();
+
+  // --- Acta de terminación: otra área, otro proveedor, jefa de área
+  w20.modalTerminar(w20.eval('CONTRACTS[1]'));
+  o=w20.document.querySelector('.overlay');
+  ok(o.querySelector('#gAc').value==='F','la AC ya no se vuelve a preguntar: se recuerda en el acta también');
+  o.querySelector('#jefe').value='Luisa Paca';
+  await o.querySelector('#gen').onclick(); await pausa(30);
+  ok(salidas.length===1&&/El proveedor es · Quien administra el área por el MAE es/.test(avisos.pop()||''),
+     'el acta tampoco sale sin el género del proveedor y de quien administra el área');
+  elegir(o,'gProv','F'); elegir(o,'gJefe','F');
+  await o.querySelector('#gen').onclick(); await pausa(60);
+  ok(salidas.length===2,'con todo elegido, el acta se genera',avisos.join(' | '));
+  t=await textoWord(salidas[1]);
+  ok(huecos(t).length===0,'el acta no trae barras, huecos ni «undefined»',huecos(t).join(' · '));
+  ok(/en calidad de administradora contadora, con cédula/.test(t),'«en calidad de administradora contadora»');
+  ok(/Luisa Paca, en calidad de administradora del Parque Nacional Cotopaxi/.test(t),'«administradora del Parque»: jefa, y el área en masculino');
+  ok(/del FIAS y de la administradora del área protegida/.test(t),'«de la administradora del área», no «del Administrador/a»');
+  ok(/La CONTRATISTA ejecutó/.test(t)&&/por parte de la CONTRATISTA/.test(t)&&/certifica que la CONTRATISTA/.test(t),
+     '«la CONTRATISTA» en las cuatro apariciones, también la que estaba escrita a mano');
+  ok(/aprobación por la administradora del área protegida y\/o por la administradora del contrato\./.test(t),
+     'y se corrige «aprobación por del administrador»');
+  ok(/\nProveedora(\n|$)/.test(t),'bajo la firma del proveedor: «Proveedora»');
+  o.remove();
+  // El nombre de quien administra el área se recuerda por área, con su género.
+  w20.modalTerminar(w20.eval('CONTRACTS[1]'));
+  o=w20.document.querySelector('.overlay');
+  ok(o.querySelector('#jefe').value==='Luisa Paca'&&o.querySelector('#gJefe').value==='F','el nombre y el género de la jefa del área ya vienen puestos');
+  o.remove();
+
+  // --- Lo que se propone y lo que no
+  ok(w20.pareceEmpresa('Limpiezas Andinas Cía. Ltda.')&&w20.pareceEmpresa('Servitec S.A.')&&!w20.pareceEmpresa('María Lema')&&!w20.pareceEmpresa('Luisa Sánchez'),
+     'una empresa se reconoce por su forma jurídica; un nombre de persona no');
+  ok(['Reserva Biológica El Cóndor','Área Nacional de Recreación Isla Santay','Dirección de Áreas Protegidas y Otras Formas de Conservación'].every(a=>w20.generoAreaDe(a)==='F')
+     &&['Parque Nacional Cotopaxi','Refugio de Vida Silvestre Pasochoa'].every(a=>w20.generoAreaDe(a)==='M'),
+     'el género del área: la Reserva, el Área, la Dirección; el Parque, el Refugio');
+
+  // --- Una etiqueta sin dato ya no imprime «undefined»
+  salidas.length=0;
+  await w20.generarDocx('14_Informe_adenda.docx',{},'prueba'); await pausa(30);
+  t=await textoWord(salidas[0]);
+  ok(!/undefined/.test(t)&&/«COMPLETAR: dato «dellaAP»»/.test(t),'lo que falte sale «COMPLETAR», visible, y no «undefined»');
+
+  // --- Los valores son los de scripts/concordancia.py: una sola fuente
+  const py=fs.readFileSync(path.join(RAIZ,'scripts','concordancia.py'),'utf8');
+  const grupo=(nombre)=>{const m=py.match(new RegExp("'"+nombre+"':\\s*\\{[\\s\\S]*?'tags':\\s*\\{([\\s\\S]*?)\\}\\}"));
+    const tags={};(m?m[1]:'').replace(/'(\w+)':\s*\[([^\]]*)\]/g,(_,k,v)=>{tags[k]=v.match(/'([^']*)'/g).map(x=>x.slice(1,-1));});return tags;};
+  const ejes={generoAC:['ac',['M','F']],generoJefeAP:['jefe',['M','F']],generoContratista:['prov',['M','F','E']],
+    generoAP:['area',['M','F']],generoProveedor:['prov',['M','F','E']]};
+  const distintos=[];
+  for(const [g,[eje,vals]] of Object.entries(ejes)){
+    const tags=grupo(g);
+    vals.forEach((v,i)=>{
+      const d=w20.concordanciasDoc(Object.assign({ac:'M',jefe:'M',prov:'M',area:'M'},{[eje]:v}));
+      for(const k of Object.keys(tags))if(k in d&&d[k]!==tags[k][i])distintos.push(`${k}[${v}]: ${d[k]} ≠ ${tags[k][i]}`);
+    });
+  }
+  ok(distintos.length===0,'cada valor coincide con el de concordancia.py',distintos.join(' | '));
 }
 
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));

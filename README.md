@@ -587,6 +587,23 @@ De paso salió un defecto de las plantillas: el cuadro de «ordenador/a de gasto
 opción dejaba **«en mi calidad de ordenador de gasto de gasto»** en los tres memorandos
 de inicio. Ya no.
 
+**El informe de adenda y el acta de terminación** (`crm/plantillas/`, los que rellenan
+el CLM y el CRM) quedaron fuera de esa primera conversión y llegaron así a finales de
+septiembre de 2026: 20 cuadros más, «y por el **Sr.** {proveedor}» escrito a mano, un
+cuadro arrastrado al final de un párrafo («…del “objeto”.**el señor**»), «aprobación por
+**del** administrador», y un `{dellaAP}` que ninguna de las dos herramientas entregaba —el
+informe decía **«la administración undefined Reserva…»**—. Ahora el script recorre las
+dos carpetas y convierte los 20, y el CLM y el CRM preguntan tres cosas al generar:
+
+| Qué | Cuántas veces |
+|---|---|
+| Cómo firma la AC (Administrador/a Contador/a) | una vez por AC |
+| Si el proveedor es hombre, mujer o **empresa** (propuesta cuando la razón social lleva S.A., Cía., Ltda.…) | una vez por proveedor |
+| Quién administra el área por el MAE, y su género (solo el acta) | una vez por área |
+
+Lo elegido se recuerda en el navegador y lo comparten el CLM y el CRM. El género del área
+no se pregunta: sale de su nombre («la Reserva», «el Parque», «la Dirección»).
+
 ### Cambiar o añadir una plantilla
 
 1. Deja el `.docx` en `generador/plantillas/`.
