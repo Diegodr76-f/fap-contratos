@@ -244,6 +244,13 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   Un `catch(e){}` mudo hace que la AC pierda el expediente sin enterarse.
 - Las plantillas nuevas van a `TPL_SLOTS` (en la app) y a `ORDEN` (en
   `scripts/embeber_plantillas.py`).
+- **Cada pulsación de «Enviar a la Unidad Operativa» es una tarea más en la
+  Unidad**: el flujo no reconoce un envío repetido. `enviarUnidad()` apaga el
+  botón mientras sube, pide confirmación si el expediente ya se envió
+  (`enviadoUO`) o si el intento anterior se cortó sin respuesta
+  (`envioUOIncierto`: pudo haber llegado), y no pasa de 70 MB en total, que con
+  el base64 es el techo de 100 MB del disparador HTTP. Así llegaron tres tareas
+  del mismo proceso el 28 de septiembre de 2026.
 
 ### Probarla
 

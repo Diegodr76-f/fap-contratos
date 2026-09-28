@@ -1826,15 +1826,39 @@ function renderUnidad(){
      +"<div style='margin-top:16px'><label class='fl'>Observaciones (opcional)</label><textarea class='inp' id='uoObs' rows='2' placeholder='Notas para la Unidad Operativa'></textarea></div>"
      +"<div style='margin-top:16px'><label class='fl'>Adjunte los archivos del proceso</label>"
        +"<input type='file' id='uoFiles' multiple accept='.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,image/*,video/*,audio/*' style='display:block;width:100%;padding:10px;border:1.5px dashed #C7D0EC;border-radius:9px;background:#F7F8FC' onchange='uoListFiles()'>"
-       +"<div class='help'>Hasta 10 archivos, 100 MB cada uno. Word, Excel, PPT, PDF, imagen, video o audio.</div>"
+       +"<div class='help'>Hasta 10 archivos y 70 MB en total. Word, Excel, PPT, PDF, imagen, video o audio.</div>"
        +"<div id='uoFileList' style='margin-top:8px;font-size:13px'><span style='color:#9AA0B2'>Ning\u00fan archivo seleccionado.</span></div>"
      +"</div>"
      +"<div style='margin-top:14px;padding:10px 12px;border-radius:8px;background:#F7F9FD;border:1px dashed #DCE2F7;color:#00249C;font-weight:600;font-size:13px'>Carpeta sugerida en SharePoint/OneDrive: "+esc(uoCarpeta())+"</div>"
+     +"<div id='uoPrevio'>"+uoPrevio()+"</div>"
      +(envioBloqueado()
         ? "<button disabled style='box-sizing:border-box;width:100%;text-align:center;margin-top:18px;background:#EFF1F6;color:#A7AEC0;border:none;font-weight:700;font-size:15px;padding:13px;border-radius:10px'>Completa la lista de verificación para enviar</button>"
-        : "<button onclick='enviarUnidad()' style='all:unset;cursor:pointer;box-sizing:border-box;width:100%;text-align:center;margin-top:18px;background:#00249C;color:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:10px'>Enviar a la Unidad Operativa</button>")
+        : "<button id='uoBtn' onclick='enviarUnidad()'"+(UO_ENVIANDO?' disabled':'')+" style='all:unset;cursor:pointer;box-sizing:border-box;width:100%;text-align:center;margin-top:18px;background:"+(UO_ENVIANDO?'#EFF1F6;color:#A7AEC0':'#00249C;color:#fff')+";font-weight:700;font-size:15px;padding:13px;border-radius:10px'>"+uoBotonTexto()+"</button>")
      +"<p id='uoStatus' style='margin-top:12px;font-weight:700;color:#1E7A4D;font-size:14px' role='status' aria-live='polite'></p>"
    +"</div>";
+}
+
+// Cada pulsación de «Enviar» es una ejecución del flujo: carpeta, tarea en
+// Planner y correo. Nada del lado de Power Automate la reconoce como repetida
+// —idEnvio lleva la hora—, así que el freno está aquí. Pasó el 28 de
+// septiembre de 2026: un envío de 10 archivos tardaba unos tres minutos en
+// subir, el botón seguía activo y sin decir nada del envío anterior, y la
+// Unidad recibió tres tareas del mismo proceso. Las tres ejecuciones, además,
+// escribían los mismos archivos a la vez y se estorbaban: una tardó 17 minutos.
+var UO_ENVIANDO=false;
+// El disparador HTTP de Power Automate no acepta peticiones de más de 100 MB,
+// y el base64 hincha un tercio: 70 MB de archivos son ~93 MB de petición.
+var UO_MAX_TOTAL=70*1024*1024;
+function uoBotonTexto(){
+  var c=cur();
+  if(UO_ENVIANDO) return 'Enviando\u2026 no cierres esta pesta\u00f1a';
+  return (c&&(c.enviadoUO||c.envioUOIncierto)) ? 'Enviar de nuevo (la Unidad recibir\u00e1 otra tarea)' : 'Enviar a la Unidad Operativa';
+}
+function uoPrevio(){
+  var c=cur(); if(!c) return '';
+  if(c.enviadoUO) return "<div style='margin-top:16px;font-size:13.5px;color:#1E7A4D;background:#E7F4EC;border:1px solid #CDE8D6;border-radius:9px;padding:11px 13px;line-height:1.5'><b>Ya se envi\u00f3 a la Unidad Operativa</b> el "+esc(fechaHora(c.enviadoUO.fecha))+" con "+(c.enviadoUO.archivos||0)+" archivo(s). La Unidad ya tiene su tarea: vuelve a enviar solo si tienes que mandar archivos corregidos.</div>";
+  if(c.envioUOIncierto) return "<div style='margin-top:16px;font-size:13.5px;color:#8A5210;background:#FBF1E1;border:1px solid #F0E0C0;border-radius:9px;padding:11px 13px;line-height:1.5'><b>El intento del "+esc(fechaHora(c.envioUOIncierto.fecha))+" pudo haber llegado.</b> Se cort\u00f3 la conexi\u00f3n antes de la respuesta. Antes de reenviar, revisa si te lleg\u00f3 el correo de confirmaci\u00f3n.</div>";
+  return '';
 }
 
 // Queda registrado en el expediente: es una de las columnas de Mis procesos.
@@ -1869,7 +1893,12 @@ function enviarUnidad(){
   var files=filesEl?filesEl.files:null;
   if(!files||!files.length){ setS('Adjunta al menos un archivo del proceso.','#B23B3B'); toast('Adjunta al menos un archivo del proceso.'); return; }
   if(files.length>10){ setS('El l\u00edmite es de 10 archivos por env\u00edo.','#B23B3B'); toast('M\u00e1ximo 10 archivos.'); return; }
-  for(var k=0;k<files.length;k++){ if(files[k].size>100*1024*1024){ setS('El archivo \u00ab'+files[k].name+'\u00bb supera los 100 MB.','#B23B3B'); toast('Un archivo supera los 100 MB.'); return; } }
+  var total=0; for(var k=0;k<files.length;k++) total+=files[k].size;
+  if(total>UO_MAX_TOTAL){ setS('Los archivos suman '+kb(total)+' y el l\u00edmite por env\u00edo es de 70 MB en total. Reduce los PDF o env\u00eda los archivos grandes aparte.','#B23B3B'); toast('Los archivos pasan de 70 MB en total.'); return; }
+  if(UO_ENVIANDO){ toast('El env\u00edo anterior todav\u00eda se est\u00e1 subiendo.'); return; }
+  var c=cur();
+  if(c&&c.enviadoUO&&!confirm('Este proceso ya se envi\u00f3 a la Unidad Operativa el '+fechaHora(c.enviadoUO.fecha)+' con '+(c.enviadoUO.archivos||0)+' archivo(s).\n\nSi lo env\u00edas de nuevo, la Unidad recibir\u00e1 OTRA tarea y otra copia de los archivos. \u00bfEnviar de todas formas?')) return;
+  if(c&&!c.enviadoUO&&c.envioUOIncierto&&!confirm('El intento del '+fechaHora(c.envioUOIncierto.fecha)+' pudo haber llegado: se cort\u00f3 la conexi\u00f3n antes de la respuesta.\n\n\u00bfRevisaste que no te lleg\u00f3 el correo de confirmaci\u00f3n? Si ya lleg\u00f3, reenviar crea otra tarea.\n\n\u00bfEnviar de todas formas?')) return;
   var val=function(id){ var e=document.getElementById(id); return e?String(e.value).trim():''; };
   var meta={
     idEnvio:(cur()?cur().id:'')+'|'+new Date().toISOString(),
@@ -1880,6 +1909,9 @@ function enviarUnidad(){
     objeto:val('uoObjeto'), observaciones:val('uoObs'),
     nombreCarpeta:uoCarpeta(), fecha:new Date().toISOString()
   };
+  var fin=function(){ UO_ENVIANDO=false; var b=document.getElementById('uoBtn'); if(b){ b.disabled=false; b.style.background='#00249C'; b.style.color='#fff'; b.textContent=uoBotonTexto(); } };
+  UO_ENVIANDO=true;
+  var btn=document.getElementById('uoBtn'); if(btn){ btn.disabled=true; btn.style.background='#EFF1F6'; btn.style.color='#A7AEC0'; btn.textContent=uoBotonTexto(); }
   setS('Preparando '+files.length+' archivo(s)\u2026','#00249C');
   var arr=[]; for(var i=0;i<files.length;i++) arr.push(files[i]);
   Promise.all(arr.map(function(fl){ return fileToB64(fl).then(function(b){ return {nombre:fl.name, tipo:fl.type||'application/octet-stream', tamanio:fl.size, contenido:b}; }); }))
@@ -1889,15 +1921,30 @@ function enviarUnidad(){
       try{ console.log('Env\u00edo a Unidad Operativa (configura FLOW_DOCS_URL para subirlo):',payload); }catch(e){}
       setS('Env\u00edo preparado ('+archivos.length+' archivo(s)). Configura la URL del flujo (FLOW_DOCS_URL) para subirlo a la Unidad Operativa.','#B4690E');
       toast('Env\u00edo preparado. Falta configurar la URL del flujo.');
-      return;
+      fin(); return;
     }
-    setS('Enviando a la Unidad Operativa\u2026','#00249C');
+    setS('Enviando '+archivos.length+' archivo(s) ('+kb(total)+') a la Unidad Operativa\u2026 Con se\u00f1al floja puede tardar varios minutos: no cierres la pesta\u00f1a ni vuelvas a pulsar.','#00249C');
+    var http=false;
     fetch(FLOW_DOCS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return true; })
-      .then(function(){ marcarEnviadoUO(archivos.length); setS('\u2713 Enviado a la Unidad Operativa. Se subieron '+archivos.length+' archivo(s) para su revisi\u00f3n.','#1E7A4D'); toast('Proceso enviado a la Unidad Operativa.'); })
-      .catch(function(e){ setS('No se pudo enviar ('+((e&&e.message)||'error')+'). Revisa la URL del flujo o tu conexi\u00f3n e int\u00e9ntalo de nuevo.','#B23B3B'); toast('No se pudo enviar el proceso.'); });
+      .then(function(r){ if(!r.ok){ http=true; throw new Error('HTTP '+r.status); } return true; })
+      .then(function(){
+        if(c){ delete c.envioUOIncierto; }
+        marcarEnviadoUO(archivos.length); fin();
+        setS('\u2713 Enviado a la Unidad Operativa. Se subieron '+archivos.length+' archivo(s) para su revisi\u00f3n. No hace falta volver a enviarlo: el correo de confirmaci\u00f3n puede tardar unos minutos.','#1E7A4D');
+        toast('Proceso enviado a la Unidad Operativa.');
+        var p=document.getElementById('uoPrevio'); if(p) p.innerHTML=uoPrevio();
+      }, function(e){
+        // Si el flujo respondió con un error, no corrió: reintentar es seguro.
+        // Si se cortó la conexión, la petición pudo haber llegado entera y el
+        // flujo estar corriendo — el caso en que reintentar crea una tarea más.
+        if(!http && c){ c.envioUOIncierto={fecha:new Date().toISOString(), archivos:archivos.length}; save(); }
+        fin();
+        var p=document.getElementById('uoPrevio'); if(p) p.innerHTML=uoPrevio();
+        if(http){ setS('La Unidad Operativa no recibi\u00f3 el env\u00edo ('+e.message+'). Puedes intentarlo de nuevo.','#B23B3B'); toast('No se pudo enviar el proceso.'); }
+        else { setS('Se cort\u00f3 la conexi\u00f3n antes de la respuesta ('+((e&&e.message)||'error')+'). Puede que el env\u00edo s\u00ed haya llegado: espera el correo de confirmaci\u00f3n antes de reenviar.','#B4690E'); toast('No se sabe si el env\u00edo lleg\u00f3: revisa tu correo antes de reenviar.'); }
+      });
   })
-  .catch(function(){ setS('No se pudieron leer los archivos adjuntos.','#B23B3B'); toast('No se pudieron leer los archivos.'); });
+  .catch(function(){ fin(); setS('No se pudieron leer los archivos adjuntos.','#B23B3B'); toast('No se pudieron leer los archivos.'); });
 }
 
 //===================== HISTORIAL / REGISTRO CENTRAL =====================
