@@ -771,5 +771,83 @@ seccion('25 · Lo que viene del CLM no se vuelve a teclear');
   ok(wp.ST.exps.length===0 && wp.localStorage.getItem('fap_precarga')!==null,'sin #precarga no se toca nada, aunque haya un buzón');
 }
 
-console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
-process.exit(fallos?1:0);
+// ---------------------------------------------------------------- 26
+// El 28 de septiembre de 2026 la Unidad Operativa recibió tres tareas del mismo
+// proceso: tres pulsaciones, tres ejecuciones del flujo, con tres minutos entre
+// cada una — lo que tardaban en subir los 10 archivos. El botón seguía activo y
+// la pantalla no decía nada del envío anterior.
+seccion('26 · Un proceso llega UNA vez a la Unidad Operativa');
+(async function(){
+  const espera=async(cond,ms)=>{ const t0=Date.now(); while(!cond() && Date.now()-t0<(ms||3000)) await new Promise(r=>setTimeout(r,10)); return cond(); };
+  const prepara=(win,archivos)=>{
+    win.ST.cfg.areas=[{id:'a1',ap:'Reserva Ecológica Illinizas',siglas:'REI'}];
+    win.ST.cfg.ac='Lcda. Ana Torres'; win.ST.cfg.acCorreo='atorres@fias.org.ec';
+    win.newExp('Combustible REI Zona Media Baja'); win.D().areaId='a1';
+    win.envioBloqueado=()=>false; win.checklistPendientes=()=>[]; win.scrollTo=()=>{};
+    win.go('unidad');
+    const el=win.document.getElementById('uoFiles');
+    Object.defineProperty(el,'files',{value:archivos||[new win.File(['%PDF-1.4 hola'],'informe.pdf',{type:'application/pdf'}),new win.File(['x'],'cotizacion.pdf',{type:'application/pdf'})]});
+    return el;
+  };
+  const texto=(win,id)=>{ const e=win.document.getElementById(id); return e?e.textContent:''; };
+
+  // --- Mientras sube, pulsar otra vez no manda nada
+  let wu=nuevoDom(), llamadas=0, suelta;
+  wu.fetch=()=>{ llamadas++; return new Promise(r=>{ suelta=r; }); };
+  prepara(wu);
+  ok(texto(wu,'uoBtn')==='Enviar a la Unidad Operativa','sin envío previo, el botón dice lo de siempre');
+  wu.enviarUnidad();
+  await espera(()=>llamadas>0);
+  ok(wu.document.getElementById('uoBtn').disabled===true,'mientras sube, el botón se apaga');
+  ok(/vuelvas a pulsar/.test(texto(wu,'uoStatus')),'y el aviso dice que puede tardar y que no se vuelva a pulsar',texto(wu,'uoStatus'));
+  wu.enviarUnidad(); wu.enviarUnidad();
+  await new Promise(r=>setTimeout(r,100));
+  ok(llamadas===1,'dos pulsaciones más durante la subida: sigue habiendo UNA petición al flujo',llamadas);
+  suelta({ok:true,status:202});
+  await espera(()=>!!wu.cur().enviadoUO);
+  ok(wu.cur().enviadoUO && wu.cur().enviadoUO.archivos===2,'al responder el flujo, el envío queda registrado en el expediente');
+  ok(wu.document.getElementById('uoBtn').disabled===false && /Enviar de nuevo/.test(texto(wu,'uoBtn')),'el botón vuelve, pero dice que reenviar crea otra tarea',texto(wu,'uoBtn'));
+  ok(/Ya se envi/.test(texto(wu,'uoPrevio')),'y la pantalla muestra cuándo se envió');
+
+  // --- Reenviar pregunta, y «no» no manda nada
+  let preguntas=[]; wu.confirm=m=>{ preguntas.push(m); return false; };
+  wu.fetch=()=>{ llamadas++; return Promise.resolve({ok:true,status:202}); };
+  wu.enviarUnidad();
+  await new Promise(r=>setTimeout(r,100));
+  ok(llamadas===1 && preguntas.length===1 && /OTRA tarea/.test(preguntas[0]),'reenviar pregunta antes, y al decir que no no se manda nada',llamadas);
+  wu.confirm=()=>true; wu.enviarUnidad();
+  await espera(()=>llamadas===2);
+  ok(llamadas===2,'si la AC confirma (archivos corregidos), sí se reenvía');
+  wu.go('procesos'); wu.go('unidad');
+  ok(/Ya se envi/.test(texto(wu,'uoPrevio')),'al volver a la pantalla, el envío anterior sigue a la vista');
+
+  // --- Conexión cortada: pudo haber llegado, no se invita a reintentar sin más
+  wu=nuevoDom(); llamadas=0;
+  wu.fetch=()=>{ llamadas++; return Promise.reject(new TypeError('Failed to fetch')); };
+  prepara(wu); wu.enviarUnidad();
+  await espera(()=>!!wu.cur().envioUOIncierto);
+  ok(!!wu.cur().envioUOIncierto && !wu.cur().enviadoUO,'conexión cortada: el intento queda anotado como incierto, no como enviado');
+  ok(/espera el correo de confirmaci/.test(texto(wu,'uoStatus')),'y se pide esperar el correo antes de reenviar',texto(wu,'uoStatus'));
+  ok(/pudo haber llegado/.test(texto(wu,'uoPrevio')),'la pantalla lo recuerda');
+  preguntas=[]; wu.confirm=m=>{ preguntas.push(m); return false; };
+  wu.enviarUnidad(); await new Promise(r=>setTimeout(r,100));
+  ok(llamadas===1 && /correo de confirmaci/.test(preguntas[0]||''),'reintentar pregunta si llegó el correo',preguntas[0]);
+
+  // --- El flujo respondió con error: no corrió, reintentar es seguro
+  wu=nuevoDom(); llamadas=0;
+  wu.fetch=()=>{ llamadas++; return Promise.resolve({ok:false,status:500}); };
+  prepara(wu); wu.enviarUnidad();
+  await espera(()=>/intentarlo de nuevo/.test(texto(wu,'uoStatus')));
+  ok(!wu.cur().envioUOIncierto && !wu.cur().enviadoUO && /intentarlo de nuevo/.test(texto(wu,'uoStatus')),'HTTP 500: ni enviado ni incierto, y se puede reintentar sin pregunta');
+  ok(wu.document.getElementById('uoBtn').disabled===false,'el botón vuelve a estar activo');
+
+  // --- Más de 70 MB en total no sale: el disparador no pasa de 100 MB con el base64
+  wu=nuevoDom(); llamadas=0;
+  wu.fetch=()=>{ llamadas++; return Promise.resolve({ok:true,status:202}); };
+  prepara(wu,[{name:'a.pdf',size:40*1024*1024},{name:'b.pdf',size:40*1024*1024}]);
+  wu.enviarUnidad(); await new Promise(r=>setTimeout(r,50));
+  ok(llamadas===0 && /70 MB en total/.test(texto(wu,'uoStatus')),'80 MB en dos archivos: se avisa antes de subir nada',texto(wu,'uoStatus'));
+
+  console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
+  process.exit(fallos?1:0);
+})();
