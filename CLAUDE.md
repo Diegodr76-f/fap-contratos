@@ -123,6 +123,19 @@ El conversor trabaja **con lista blanca**: convierte solo lo que una regla nombr
 explícitamente, y deja intacto todo lo demás. Si aparece un control sin regla,
 avisa y no lo toca.
 
+**Recorre dos carpetas: `generador/plantillas/` y `crm/plantillas/`.** La primera
+conversión solo miró La Mágica, y el informe de adenda y el acta de terminación —que
+rellenan el CLM y el CRM— siguieron con 20 cuadros hasta septiembre de 2026, más un
+«y por el Sr. {proveedor}» escrito a mano y un `{dellaAP}` que ninguna de las dos
+herramientas entregaba: el informe salía con «la administración **undefined**
+Reserva…». En esas dos el proveedor ya firmó, así que es **contratista** (grupo
+`generoContratista`, nombres que ya estaban en el catálogo). Las preguntas las hace
+`bloqueGeneros()`, igual en `clm/index.html` y `crm/index.html`, y se recuerdan en
+`localStorage['fap_generos']`, que comparten las dos; `concordanciasDoc()` tiene que
+dar los mismos valores que `GRUPOS`, y `probar_clm.js` (sección 20) lo comprueba
+leyendo este script. Y `generarDocx()` de las dos imprime «COMPLETAR» —no
+`undefined`— si una plantilla trae una etiqueta que la herramienta no entrega.
+
 ```bash
 python3 scripts/concordancia.py --revisar     qué se convertiría y qué no
 python3 scripts/concordancia.py --aplicar     reescribe las plantillas

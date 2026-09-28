@@ -32,6 +32,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLANTILLAS = os.path.join(RAIZ, 'generador', 'plantillas')
+# Las dos plantillas del CLM y del CRM (informe de adenda y acta de terminación)
+# se quedaron fuera de la conversión: el script solo miraba La Mágica, y ellas
+# siguieron imprimiendo «Administrador/a contador/a» y «el/la CONTRATISTA» en
+# lo que se firma. Ahora se recorren las dos carpetas.
+CARPETAS = [PLANTILLAS, os.path.join(RAIZ, 'crm', 'plantillas')]
+
+
+def _plantillas():
+    for carpeta in CARPETAS:
+        if not os.path.isdir(carpeta):
+            continue
+        for f in sorted(os.listdir(carpeta)):
+            if f.endswith('.docx'):
+                yield carpeta, f
 
 # ---------------------------------------------------------------- los grupos
 # Cada grupo es una elección que gobierna varias etiquetas a la vez. El orden de
@@ -79,6 +93,19 @@ GRUPOS = {
             'ustedUstedes':     ['usted', 'usted', 'ustedes'],
             'adjudicadoA':      ['adjudicado', 'adjudicada', 'adjudicada'],
         }},
+    # En la adenda y el acta el proveedor ya firmó: es el contratista. Estos
+    # nombres ya estaban en el catálogo (grupo «Contratista»); el ejemplo del
+    # catálogo es el formato: «el CONTRATISTA», con la palabra en mayúsculas,
+    # que es como la escriben el acta y los contratos.
+    'generoContratista': {
+        'etiqueta': 'Contratista (persona natural o empresa)',
+        'opciones': ['Persona natural — masculino', 'Persona natural — femenino', 'Persona jurídica (empresa)'],
+        'tags': {
+            'contratistaTrato': ['el señor', 'la señora', 'la empresa'],
+            'elLaContratista':  ['el CONTRATISTA', 'la CONTRATISTA', 'la CONTRATISTA'],
+            'ElLaContratista':  ['El CONTRATISTA', 'La CONTRATISTA', 'La CONTRATISTA'],
+            'dellaContratista': ['del CONTRATISTA', 'de la CONTRATISTA', 'de la CONTRATISTA'],
+        }},
     'generoAP': {
         'etiqueta': 'Género del nombre del área protegida',
         'opciones': ['Masculino (el Parque, el Refugio)', 'Femenino (la Reserva, la Estación)'],
@@ -125,10 +152,21 @@ REGLAS = [
     ('El administrador|La administradora', r'^\s*de la orden',        'ElLaadministradorOrden'),
     ('ADMINISTRADOR|ADMINISTRADORA',       r'^\s*DE LA ORDEN',        'ADMINISTRADORorden'),
     ('del administrador|de la administradora', r'^\s*del área',       'dellaadministradorAP'),
+    # acta de terminación: «{jefe}, en calidad de [administrador] [del/la] {area}»
+    ('administrador|administradora',       r'^\s*del/la',             'administradorAP'),
+    # «…aprobación por [del/la] [Administrador/a] del área protegida y/o por
+    # [el/la] [Administrador/a] de contrato»: el primer cuadro sobraba («por
+    # del administrador»). Cada cuadro toma una etiqueta y TEXTOS, abajo, junta
+    # cada pareja en la que corresponde. La AC es la administradora del contrato.
+    ('del|de la',                          r'^\s*Administrador/a',    'ellaadministradorAP'),
+    ('el|la',                              r'^\s*Administrador/a',    'elLaAdminContrato'),
+    ('administrador|administradora',       r'^\s*de contrato',        'elLaAdminContrato'),
     ('administrador|administradora',       r'^\s*del área',           'administradorAP'),
     ('Administrador|Administradora',       None,                      'AdministradoraAP'),
 
     # — género de la AC —
+    # bajo la firma va con mayúscula aunque el cuadro traiga las opciones en minúscula
+    ('administrador contador|administradora contadora', r'^\s*FIAS', 'AdminContador'),
     ('Administrador contador|Administradora contadora', None, 'AdminContador'),
     ('Administrador Contador|Administradora Contadora', None, 'AdminContador'),
     ('administrador contador|administradora contadora', None, 'administradoracontadora'),
@@ -155,6 +193,12 @@ REGLAS = [
     ('Señor|Señora|Señores',          None, 'proveedorTrato'),
     ('adjudicado|adjudicada',         None, 'adjudicadoA'),
     ('usted|ustedes',                 None, 'ustedUstedes'),
+
+    # — género del contratista (adenda y acta: ya hay contrato) —
+    ('el señor|la señora|la empresa', None, 'contratistaTrato'),
+    ('el|la',     r'^\s*CONTRATISTA', 'elLaContratista'),
+    ('El|La',     r'^\s*CONTRATISTA', 'ElLaContratista'),
+    ('del|de la', r'^\s*CONTRATISTA', 'dellaContratista'),
 
     # — género del área: siempre pegado a {area}; delante de {objeto} NO, porque
     #   el objeto es texto libre y su género no se puede saber —
@@ -209,6 +253,22 @@ TEXTOS = [
     # copia anterior a esta conversión.
     ('mantiene con ustedes',                'mantiene con {ustedUstedes}'),
     ('del {area}',                          '{dellaAP} {area}'),
+    # — informe de adenda y acta de terminación (CLM y CRM) —
+    # «y por el Sr. {proveedor}» trataba de señor a una empresa y a una señora.
+    ('y por el Sr. {proveedor}',            'y {contratistaTrato} {proveedor}'),
+    # un cuadro «el señor/señora/empresa» quedó arrastrado al final del párrafo:
+    # imprimía «…del “{objeto}".el señor». Vuelve delante del nombre.
+    ('prestados por  {proveedor}',          'prestados por {contratistaTrato} {proveedor}'),
+    ('“{objeto}".{contratistaTrato}',       '“{objeto}".'),
+    # las parejas de cuadros del acta (ver REGLAS): una etiqueta por pareja
+    ('del {administradorAP} del área protegida', '{dellaadministradorAP} del área protegida'),
+    ('{ellaadministradorAP} {administradorAP} del área', '{ellaadministradorAP} del área'),
+    ('{elLaAdminContrato} {elLaAdminContrato} de contrato', '{elLaAdminContrato}'),
+    # las etiquetas del contratista ya traen la palabra (formato del catálogo)
+    ('{elLaContratista} CONTRATISTA',       '{elLaContratista}'),
+    ('{ElLaContratista} CONTRATISTA',       '{ElLaContratista}'),
+    ('{dellaContratista} CONTRATISTA',      '{dellaContratista}'),
+    ('del/la CONTRATISTA',                  '{dellaContratista}'),
 ]
 # Lo que se queda con barra, a propósito: «el/la {objeto}» depende del género del
 # objeto, que lo escribe la AC en texto libre. Elegir uno de los dos sería
@@ -425,10 +485,8 @@ def cmd_verificar():
     """Comprueba que lo que no es concordancia sigue estando."""
     import collections
     hay = collections.Counter()
-    for f in sorted(os.listdir(PLANTILLAS)):
-        if not f.endswith('.docx'):
-            continue
-        xml = zipfile.ZipFile(os.path.join(PLANTILLAS, f)).read('word/document.xml').decode('utf8')
+    for carpeta, f in _plantillas():
+        xml = zipfile.ZipFile(os.path.join(carpeta, f)).read('word/document.xml').decode('utf8')
         for sdt in re.findall(r'<w:sdt>.*?</w:sdt>', xml, re.S):
             if '<w:comboBox' in sdt or '<w:dropDownList' in sdt:
                 ops = '|'.join(re.findall(r'w:displayText="([^"]*)"', sdt))
@@ -451,7 +509,7 @@ def cmd_verificar():
     print()
     try:
         import validar_docx
-        return validar_docx.validar(PLANTILLAS)
+        return max(validar_docx.validar(c) for c in CARPETAS if os.path.isdir(c))
     except ImportError:
         print('  (no encontré validar_docx.py para comprobar que abren)')
         return 0
@@ -467,10 +525,8 @@ def main():
     conocidas = _tags_conocidas()
     total_c = total_q = 0
     resto = {}
-    for f in sorted(os.listdir(PLANTILLAS)):
-        if not f.endswith('.docx'):
-            continue
-        conv, quedan = convertir(os.path.join(PLANTILLAS, f), escribir)
+    for carpeta, f in _plantillas():
+        conv, quedan = convertir(os.path.join(carpeta, f), escribir)
         total_c += len(conv); total_q += len(quedan)
         for ops, cola, _ in quedan:
             resto.setdefault(ops, []).append(f)
