@@ -298,6 +298,19 @@ hechas para eso que conviene reutilizar en vez de rehacer:
   botón o alerta que hable de vencimiento y renovación junta pasa por
   `esRenovable()`, no solo por `statusLive()`.
 
+- **La tabla del listado tiene que caber, y «Abrir» no puede esconderse.** Llegó a
+  nueve columnas: con las fechas y el estado sin partirse, en una pantalla de 1366 la
+  columna «Contrato» quedaba fuera de vista, con la barra para desplazarse al pie de
+  139 filas. Hoy son siete (la categoría va bajo el objeto, el vencimiento bajo el
+  estado), «Contrato» va fija a la derecha (`.td-sig`, `position:sticky`) y en
+  1280 px o menos el área baja bajo el objeto en vez de ser columna. Antes de añadir
+  una columna: ¿cabe en 1280 px con la barra del navegador puesta? **Se mide en
+  Chromium con las barras reales** (Playwright oculta las barras al lanzar; hay que
+  pasarle `ignoreDefaultArgs:['--hide-scrollbars']`), no se calcula: jsdom no tiene
+  anchos y `probar_clm.js` solo puede vigilar la estructura. Y un elemento con
+  `all:unset` vuelve a `content-box`: si lleva `width:calc(100% - …)` más relleno, se
+  pasa (así se cortaba la barra lateral) — ponle `box-sizing:border-box`.
+
 Todo esto lo vigila `scripts/probar_clm.js` (cómo correrlo, al final de la sección
 siguiente). Si añades comportamiento al CLM, añade la comprobación.
 

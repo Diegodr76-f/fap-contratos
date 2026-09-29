@@ -602,6 +602,57 @@ seccion('20 · La adenda y el acta salen sin «el/la» ni «undefined»');
   ok(distintos.length===0,'cada valor coincide con el de concordancia.py',distintos.join(' | '));
 }
 
+// ---------------------------------------------------------------- 21
+seccion('21 · La lista: «Abrir» nunca queda fuera de vista');
+{
+  // La tabla llegó a tener nueve columnas y, en una pantalla normal, «Contrato»
+  // —donde está «Abrir»— quedaba más allá del borde, con la barra para
+  // desplazarse al pie de una lista de 139 filas. jsdom no calcula anchos: aquí se
+  // comprueba la estructura que lo evita; el ancho real se miró en Chromium.
+  const l=conTildes();
+  l[1].fin='2020-01-01';                                          // vencido
+  l[2].cerrado=true; l[2].fcierre='2026-03-01'; l[2].liquidado=1000; l[2].saldo=150;
+  const w21=await listo(nuevoDom(l));
+  w21.go('contratos');
+  const doc=w21.document;
+  const cab=()=>[...doc.querySelectorAll('table.list thead th')].map(t=>t.textContent.trim());
+  const fila=nro=>doc.querySelector(`table.list tbody tr[data-open="${w21.eval(`CONTRACTS.findIndex(c=>c.nro==='${nro}')`)}"]`);
+  ok(cab().join('|')==='N.º|Objeto|Área|Proveedor|Monto|Estado|Contrato','siete columnas: categoría y vencimiento viven dentro de otras',cab().join('|'));
+  const ths=[...doc.querySelectorAll('table.list thead th')], filas=[...doc.querySelectorAll('table.list tbody tr')];
+  ok(ths[ths.length-1].classList.contains('td-sig') && filas.every(r=>r.lastElementChild.classList.contains('td-sig')),
+     '«Contrato» es la última columna y es la que se queda fija');
+  ok(/table\.list \.td-sig\{position:sticky;right:0/.test(HTML),'y la regla que la fija a la derecha está en el CSS');
+  const f1=fila('FIAS-FAP-2026-001');
+  ok(!!f1.querySelector('.td-sig a.signed[href="https://ejemplo.org/contrato-001.pdf"]'),'«Abrir» está en esa columna');
+  ok(f1.querySelector('.td-obj .catchip').textContent==='Mantenimiento' && doc.querySelectorAll('table.list tbody .catchip').length===filas.length,
+     'la categoría va bajo el objeto, una por fila');
+  const f3=fila('FIAS-FAP-2026-003');
+  ok(f3.querySelector('.td-area').textContent==='Reserva Biológica El Cóndor' && f3.querySelector('.td-obj .oa').textContent==='Reserva Biológica El Cóndor',
+     'el área está en su columna y, para pantallas angostas, también bajo el objeto');
+  ok(/@media\(max-width:1280px\)\{table\.list \.td-area\{display:none\}\.td-obj \.oa\{display:block\}\}/.test(HTML),
+     'y la regla que cambia una por otra está en el CSS');
+  const e=nro=>fila(nro).querySelector('.td-est');
+  ok(/días restantes/.test(e('FIAS-FAP-2026-001').textContent) && !/~/.test(e('FIAS-FAP-2026-001').textContent)
+     && e('FIAS-FAP-2026-001').querySelector('.sub').textContent==='Vence 31 dic 2030',
+     'el estado va corto («93 días restantes») y la fecha de fin debajo',e('FIAS-FAP-2026-001').textContent);
+  ok(/Vencido hace/.test(e('FIAS-FAP-2026-002').textContent) && e('FIAS-FAP-2026-002').querySelector('.sub').textContent==='Venció 1 ene 2020',
+     'un vencido dice «Venció»',e('FIAS-FAP-2026-002').textContent);
+  ok(/Contrato cerrado/.test(e('FIAS-FAP-2026-003').textContent) && e('FIAS-FAP-2026-003').querySelector('.sub').textContent==='Fin 31 dic 2030',
+     'un cerrado dice «Fin»',e('FIAS-FAP-2026-003').textContent);
+  ok(/~\d+ meses/.test(w21.vigenciaText(w21.eval('CONTRACTS[0]'))) && !/~/.test(w21.vigenciaText(w21.eval('CONTRACTS[0]'),true)),
+     'el texto largo («· ~N meses») sigue existiendo para el detalle y las tarjetas');
+
+  w21.eval("ST.filter='ter'"); w21.go('contratos');
+  ok(cab().join('|')==='N.º|Objeto|Área|Proveedor|Monto|Liquidado|Cierre|Estado|Contrato' && doc.querySelector('table.list').classList.contains('ter'),
+     '«Terminados» trae liquidado y cierre, y sigue terminando en «Contrato»',cab().join('|'));
+  ok(!doc.querySelector('table.list .td-est .sub') && !!doc.querySelector('table.list .td-sig'),
+     'sin repetir la fecha de fin, que ahí es la de cierre');
+  ok(/@media\(max-width:1460px\)\{table\.list\.ter \.td-area\{display:none\}/.test(HTML),
+     'y el área baja antes, porque hay dos columnas más');
+  ok(/\.navitem\{all:unset;box-sizing:border-box/.test(HTML),
+     'la barra lateral no se pasa de ancho: «all:unset» deja la caja en content-box');
+}
+
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
 process.exit(fallos?1:0);
 
