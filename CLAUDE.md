@@ -314,6 +314,31 @@ hechas para eso que conviene reutilizar en vez de rehacer:
 Todo esto lo vigila `scripts/probar_clm.js` (cómo correrlo, al final de la sección
 siguiente). Si añades comportamiento al CLM, añade la comprobación.
 
+### El pool de proveedores
+
+La alerta «Proveedor sin calificar» pedía todo lo terminado de cualquier año, y a la
+Unidad Operativa le llegaba una por contrato del portafolio entero. Tres reglas lo
+sostienen hoy (sección 22 de `probar_clm.js`):
+
+- **`calificacionDe(c)` es la única fuente de «¿está calificado?».** Stepper, detalle,
+  alerta, pool, avisos y CSV pasan por ahí; nada lee `ov(c).evaluado` directo. Hoy mira
+  solo el navegador; cuando exista el Registro de Calificaciones compartido (una hoja
+  del Excel maestro que lea el robot, a un archivo cifrado **aparte**, para que
+  `contratos_export.json` no cambie), se añade ahí y nada más se toca. Los cortes
+  90/80/70/60 viven en `tierCalificacion()`, una sola tabla para el modal y el pool.
+- **Solo se pide calificar desde `CALIFICA_DESDE` (2026-01-01)**, una fecha fija y no
+  «el año en curso». `pideCalificacion()` decide; la AC recibe una alerta por contrato
+  suyo y la Unidad Operativa **una agregada**, como la de carpetas.
+- **`claveProv()` une solo lo que no cambia a quién se nombra** —mayúsculas, tildes,
+  puntos, «S.A.», «Cía. Ltda.»— y nada por parecido: la base no trae RUC y juntar la
+  calificación de uno con los contratos de otro es peor que tenerlos separados. El
+  nombre que se muestra es la escritura más repetida en todo el portafolio, para que
+  la lista de una AC, la de la Unidad y la ficha digan lo mismo.
+
+La ficha del proveedor enlaza por su clave (`#/proveedor/<clave>`), igual que el
+detalle por número de contrato. Su tabla de contratos tiene dos columnas a propósito:
+con cinco, en la columna izquierda a 1280 px, «Calificar» quedaba fuera de vista.
+
 ### El puente CLM → La Mágica
 
 «Iniciar en La Mágica» (solicitud) y «Renovar en La Mágica» (contrato) no pasan

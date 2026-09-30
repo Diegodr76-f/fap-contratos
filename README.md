@@ -68,8 +68,9 @@ plantillas Word reales (`crm/plantillas/`).
 | **Panel** | KPIs en vivo, estado del portafolio, vencimientos a 12 meses, valor por categoría, alertas urgentes y actividad reciente |
 | **Etapas** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado (antes se llamaba *Pipeline*) |
 | **Contratos** | Repositorio central con búsqueda global (también por n.º de carpeta y código del proceso), filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases, bloque **Expediente** y línea de tiempo |
+| **Proveedores** | El pool de proveedores: cada uno con sus contratos (activos y cerrados), monto contratado, áreas, categorías, AC, última calificación con semáforo y lo que falta calificar. Filtros (con contratos activos, por calificar, observados, no elegibles), búsqueda, CSV y una ficha por proveedor con el promedio por indicador y la historia de calificaciones |
 | **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa. «Iniciar en La Mágica» abre el expediente con lo ya capturado |
-| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar, contratos sin carpeta de elaboración |
+| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar (solo lo terminado o cerrado desde 2026), contratos sin carpeta de elaboración |
 | **Reportes** | Analítica por categoría/área/AC + exportación CSV del portafolio |
 | **Mapa de áreas** | Mapa del Ecuador con las áreas protegidas que tienen contratos: cada círculo es un área, su tamaño el monto (o el n.º de contratos) y su color el estado más urgente; al tocar una se listan sus contratos y montos, con salida a CSV |
 | **Bitácora** | Registro de auditoría de cada acción (autor, fecha, contrato) |
@@ -78,7 +79,8 @@ plantillas Word reales (`crm/plantillas/`).
 **Acciones del ciclo de vida** (desde el detalle del contrato, con las plantillas
 oficiales): modificación con reglas 25 % (adenda) / 50 % (bloqueo) e informe
 FAP-2026-11; terminación con causal y acta FAP-2026-12; calificación de proveedor
-FO-AD-ABC-017 (13 criterios, 40/30/5/25) con CSV para el banco de calificaciones;
+FO-AD-ABC-017 (13 criterios, 40/30/5/25) con CSV para el banco de calificaciones
+(ver *El pool de proveedores*, más abajo);
 y envío a la Unidad Operativa por el mismo flujo de Power Automate
 (`FLOW_DOCS_URL`) que usan La Mágica y el CRM.
 
@@ -121,6 +123,31 @@ floja, a veces desde el celular, y sin tiempo para aprender una herramienta. La 
 - **Los enlaces no mienten.** El enlace de un contrato lleva su número (`#/detalle/FIAS-FAP-2026-089`),
   no su posición en la lista, que cambia cada mañana: un enlace enviado por correo abre siempre ese
   contrato, también después de entrar.
+
+### El pool de proveedores
+
+El menú **Proveedores** reúne lo que antes había que buscar contrato por contrato: con quién se
+trabaja, por cuánto, en qué áreas y con qué resultado. Cada proveedor tiene su **ficha**, con su
+propio enlace (`#/proveedor/servitec`), y el buscador de arriba también encuentra proveedores.
+
+- **Se agrupa por el nombre del Excel, con cuidado.** La base no trae RUC, así que el proveedor es
+  su nombre. Las mayúsculas, las tildes, los puntos y la forma societaria al final («S.A.», «Cía.
+  Ltda.», «S.A.S.») no separan a un proveedor; dos nombres distintos sí, aunque se parezcan: unir
+  por parecido sería adivinar, y pegarle a uno la calificación de otro es peor que tenerlos
+  separados. La ficha muestra las otras formas en que está escrito en el Excel.
+- **La alerta de calificar pide solo lo que toca.** Solo los contratos terminados o cerrados **desde
+  el 1 de enero de 2026**; lo anterior aparece en el pool como «sin calificar», pero no alerta. La
+  AC recibe una alerta por cada contrato suyo, y la Unidad Operativa, que ve el portafolio entero,
+  **una sola** que abre el pool filtrado en «Por calificar».
+- **El historial pesa en la siguiente decisión.** Si la última calificación del proveedor es menor a
+  70 (no elegible), el detalle de sus contratos vivos lo dice en rojo y «Renovar en La Mágica» pide
+  confirmación antes de abrir la renovación; entre 70 y 79,99 («Aceptable – Observado») el aviso es
+  ámbar. No se bloquea: la decisión es de la AC, pero no pasa sin que la vea.
+- **Por ahora las calificaciones viven en el navegador donde se hicieron**, igual que antes: el
+  pool, los avisos y las alertas solo ven lo calificado en esa computadora, y el CSV se sigue
+  pegando a mano. El paso siguiente es un **Registro de Calificaciones** compartido —una hoja del
+  Excel maestro que lea el robot—, para que una calificación hecha en una computadora apague la
+  alerta en todas. El CLM ya está preparado: todo pasa por una sola función, `calificacionDe()`.
 
 ### Del CLM a La Mágica sin volver a teclear
 
