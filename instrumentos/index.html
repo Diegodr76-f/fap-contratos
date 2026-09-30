@@ -14576,7 +14576,10 @@ let borradorAviso = null;   // { fecha } del borrador que se acaba de recuperar,
 const PREF_BORRADOR = 'fap_gen_borrador_';
 const TOPE_DOC_EDITADO = 400000;   // un documento retocado a mano pesa ~30 KB; más que esto no se guarda
 function hayAlgoQueGuardar(){
-  return Object.values(datosForm).some(v => String(v == null ? '' : v).trim())
+  // Un campo que vale lo mismo que su dato fijo no es algo que la AC escribió:
+  // sin esto, un formulario recién limpiado se guardaba como borrador y al
+  // recargar salía «Recuperamos lo que habías llenado» sobre un formulario vacío.
+  return Object.entries(datosForm).some(([k, v]) => String(v == null ? '' : v).trim() && v !== fijos[k])
       || Object.keys(condForm).length > 0
       || Object.values(listasForm).some(f => Array.isArray(f) && f.some(x => Object.values(x||{}).some(y => String(y||'').trim())))
       || (editandoDoc && !!docEditado);
@@ -14636,6 +14639,49 @@ function descartarBorrador(){
 function ocultarAvisoBorrador(){
   borradorAviso = null;
   renderContenido();
+}
+/* ============ Después de descargar: listo para el siguiente ============
+   Descargar era el final del documento, pero el formulario se quedaba lleno y
+   para empezar otro había que pulsar «Limpiar campos». Ahora se limpia solo,
+   igual que ese botón (los datos fijos se quedan), y arriba queda un aviso con
+   la salida de emergencia: si justo después se ve una errata, «Volver a los
+   datos de este» los trae de vuelta tal cual, incluido el documento retocado a
+   mano, que el historial no guarda. El aviso se va al empezar el siguiente. */
+let ultimaDescarga = null;   // { plId, archivo, snap } del último documento descargado
+function fotoFormulario(){
+  return JSON.parse(JSON.stringify({ datos: datosForm, cond: condForm, listas: listasForm, conc: concSel, editandoDoc, docEditado }));
+}
+function pasarAlSiguiente(p, archivo){
+  ultimaDescarga = { plId: p.id, archivo, snap: fotoFormulario() };
+  pedirResetScroll();   // documento nuevo: se empieza desde arriba
+  limpiarForm();
+  // Lo que el formulario en blanco tiene de salida (los datos fijos): si al
+  // volver hay algo distinto, es que ya se empezó el siguiente.
+  ultimaDescarga.enBlanco = JSON.stringify(fotoFormulario());
+}
+function htmlAvisoDescarga(){
+  if(!ultimaDescarga || ultimaDescarga.plId !== seleccion) return '';
+  return `<div class="aviso-borrador" id="aviso-descarga">✓ Se descargó «${esc(ultimaDescarga.archivo)}». El formulario quedó listo para el siguiente.
+    <button class="btn sec" onclick="volverAUltimaDescarga()">↩ Volver a los datos de este</button>
+    <button class="btn sec" onclick="cerrarAvisoDescarga()" title="Los datos siguen en Historial → Reusar datos">✕</button></div>`;
+}
+function volverAUltimaDescarga(){
+  const u = ultimaDescarga;
+  if(!u || u.plId !== seleccion) return;
+  if(JSON.stringify(fotoFormulario()) !== u.enBlanco &&
+     !confirm('Ya empezaste a llenar el siguiente documento. Si vuelves a los datos del que descargaste, lo que llevas escrito se pierde.\n\n¿Volver de todas formas?')) return;
+  datosForm = u.snap.datos; condForm = u.snap.cond; listasForm = u.snap.listas; concSel = u.snap.conc;
+  editandoDoc = u.snap.editandoDoc; docEditado = u.snap.docEditado;
+  camposFaltantes = new Set();
+  ultimaDescarga = null;
+  guardarBorrador();
+  renderContenido();
+}
+/* Se quita sin repintar el formulario: se llama mientras se escribe. */
+function cerrarAvisoDescarga(){
+  ultimaDescarga = null;
+  const el = document.getElementById('aviso-descarga');
+  if(el) el.remove();
 }
 /* Borradores de plantillas que ya no existen: se limpian al arrancar para que
    no se queden ocupando espacio para siempre. */
@@ -15287,6 +15333,7 @@ function fijarSeleccion(id){
   seleccion = id || null;
   camposFaltantes = new Set();
   borradorAviso = null;
+  ultimaDescarga = null;
   store.set('fap_gen_ultima_seleccion', id || '');
 }
 /* Expande la carpeta dada y todas sus carpetas ancestras, para que un ítem
@@ -15474,7 +15521,7 @@ function renderGenerar(c, p){
   const nodosPrevios = esDocx && prevViejo && prevViejo.getAttribute('data-pl') === p.id && !prevViejo.querySelector('.aviso-tags')
     ? Array.from(prevViejo.childNodes) : null;
   c.innerHTML = `
-    ${htmlAvisoBorrador()}
+    ${htmlAvisoDescarga()}${htmlAvisoBorrador()}
     <div class="rapidas">
       <button class="btn sec" onclick="abrirPickerRegistro()" ${registroEstado!=='ok'?'title="El registro aún no está cargado"':''}>📇 Tomar datos del registro</button>
       <button class="btn sec" onclick="abrirPickerContraparte()">👤 Usar contraparte guardada</button>
@@ -15544,6 +15591,7 @@ function refrescarProgreso(){
 }
 function actualizarCampo(v, val){
   datosForm[v] = val;
+  if(ultimaDescarga) cerrarAvisoDescarga();   // ya se está llenando el siguiente
   const p = plActual(); if(!p) return;
   const vars = varsDe(p);
   // Lo que cambia con este campo: él mismo y lo que se calcula a partir de él.
@@ -17221,6 +17269,7 @@ async function descargarWord(){
       historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(crudos)) });
       if(historial.length > 500) historial.length = 500;
       guardar();
+      pasarAlSiguiente(p, archivo);
     }catch(e){
       alert('No se pudo generar el documento Word.\n\nDetalle: ' + explicarErrorDocx(e));
     }
@@ -17241,6 +17290,7 @@ async function descargarWord(){
     historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(datosForm)) });
     if(historial.length > 500) historial.length = 500;
     guardar();
+    pasarAlSiguiente(p, archivo);
   }catch(e){
     alert('No se pudo generar el documento.\n\nDetalle: ' + e.message);
   }
