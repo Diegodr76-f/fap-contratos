@@ -268,6 +268,41 @@
   .scorebox .lab{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
   .semaforo{font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:99px}
   .scorebtn.on{background:var(--navy)!important;color:#fff!important;border-color:var(--navy)!important}
+  .semaforo.sm{font-size:11.5px;padding:3px 9px;white-space:nowrap}
+  /* pool de proveedores */
+  table.list.prov{min-width:700px}
+  .td-prov{font-weight:700;min-width:220px;max-width:360px}
+  .td-prov .pc{margin-top:4px;font-size:11.5px;font-weight:600;color:var(--muted)}
+  .pendn{display:inline-block;min-width:22px;text-align:center;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:#DDF3F0;color:var(--teal)}
+  .provaviso{border-radius:11px;padding:10px 13px;margin:10px 0 4px;font-size:12.5px;line-height:1.5}
+  .provaviso.r{background:var(--redbg);color:var(--red)}
+  .provaviso.a{background:var(--amberbg);color:var(--amber)}
+  .provaviso small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+  .histcal{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line2);font-size:12.5px}
+  .histcal:last-child{border-bottom:0}
+  .histcal .bar{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+  .histcal .bar>div{height:100%;border-radius:99px}
+  /* Un grid no deja encoger a sus hijos por debajo de su contenido: sin esto, la
+     tabla de contratos de la ficha empujaba la página a 761 px en un celular. */
+  .detail>*{min-width:0}
+  /* Lo mismo dentro de la ficha del contrato: una palabra larga («Radiocomunicaciones»)
+     ensanchaba una columna de 143 px y la página se pasaba 7 px en el celular. */
+  .dl>div{min-width:0}.dl .v{overflow-wrap:anywhere}
+  .fichaprov .fp-contr{margin-top:14px}
+  /* Dos columnas y no cinco: en la columna izquierda de la ficha (570 px a 1280)
+     cinco columnas dejaban «Calificar» fuera de vista, a la derecha. */
+  table.list.fp-tab{min-width:0}
+  .fp-tab .td-obj{min-width:0;max-width:none}
+  .fp-tab .fp-sub{font-size:12px;font-weight:600;color:var(--muted);margin-top:3px}
+  .fp-tab td:last-child{width:1%;white-space:nowrap}
+  .histcal.hist .semaforo.sm{white-space:normal;display:inline-block;text-align:center;line-height:1.35;max-width:58%}
+  @media(max-width:920px){
+    /* En una sola columna la calificación va antes que la lista de contratos,
+       que puede ser larga: es lo primero que se viene a ver. */
+    .fichaprov{display:flex;flex-direction:column;gap:14px}
+    .fichaprov>.fp-izq{display:contents}
+    .fichaprov .fp-head{order:0}.fichaprov .fp-cal{order:1}.fichaprov .fp-contr{order:2;margin-top:0}
+  }
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:12px 19px;border-radius:11px;width:max-content;max-width:calc(100vw - 30px);line-height:1.45;box-shadow:0 14px 40px rgba(11,21,63,.3);z-index:90;animation:up .22s ease}
   .empty{text-align:center;padding:50px 20px;color:var(--muted)}
 
@@ -613,14 +648,16 @@ function mySolicitudes(){
 /* ================= ROUTER ================= */
 // En pantalla angosta (celular) el listado de 8 columnas no se puede leer: se
 // arranca en tarjetas. La AC puede cambiarlo igual con el botón de siempre.
-let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:(window.innerWidth&&window.innerWidth<700)?"cards":"table",repQ:"",sinCarpeta:false,from:null,fromY:0};
-const VIEWS={panel:"Panel de control",pipeline:"Etapas del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",mapa:"Mapa de áreas protegidas",actividad:"Bitácora de actividad",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
+let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:(window.innerWidth&&window.innerWidth<700)?"cards":"table",repQ:"",sinCarpeta:false,from:null,fromY:0,prov:null,provQ:"",provFiltro:"all",provSort:"monto"};
+const VIEWS={panel:"Panel de control",pipeline:"Etapas del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",mapa:"Mapa de áreas protegidas",actividad:"Bitácora de actividad",proveedores:"Proveedores",proveedor:"Ficha del proveedor",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
 /* El enlace del detalle lleva el NÚMERO del contrato, no su posición en la lista.
    La posición cambia cada mañana, cuando el robot rehace la base desde el Excel:
    un enlace guardado o enviado por correo abría al día siguiente OTRO contrato,
    sin ningún aviso. Los enlaces viejos por posición (#/detalle/5) se siguen
-   aceptando: un número de contrato siempre lleva letras (FIAS-FAP-…). */
+   aceptando: un número de contrato siempre lleva letras (FIAS-FAP-…).
+   La ficha de un proveedor lleva su clave (claveProv), por la misma razón. */
 function hashDe(view){
+  if(view==="proveedor")return "#/proveedor/"+encodeURIComponent(ST.prov||"");
   const c=view==="detalle"?CONTRACTS[ST.cur]:null;
   return "#/"+view+(c?"/"+encodeURIComponent(c.nro):"");
 }
@@ -630,6 +667,7 @@ function leerHash(){
   let cur=null,clave=null;
   if(m[2]!=null){
     try{clave=decodeURIComponent(m[2]);}catch(e){clave=m[2];}
+    if(m[1]==="proveedor")return {view:m[1],cur:null,clave,prov:clave};
     cur=/^\d+$/.test(clave)?+clave:CONTRACTS.findIndex(c=>c.nro===clave);
     if(cur<0||!CONTRACTS[cur])cur=null;
   }
@@ -645,6 +683,10 @@ window.addEventListener("hashchange",()=>{
   const h=leerHash();if(!h)return;
   const actual=CONTRACTS[ST.cur];
   // Mismo contrato (aunque haya dos filas con el mismo número): no repintar.
+  if(h.view==="proveedor"){
+    if(ST.view==="proveedor"&&h.prov===ST.prov)return;
+    ST.view="proveedor";ST.prov=h.prov;render();return;
+  }
   if(h.view===ST.view&&(h.view!=="detalle"||h.clave==null||(actual&&(h.clave===actual.nro||+h.clave===ST.cur))))return;
   if(h.view==="detalle"&&h.cur==null){   // un número que ya no está en la base
     if(h.clave!=null)toast("No encontré el contrato "+h.clave+" en la base de hoy.");
@@ -658,7 +700,7 @@ window.addEventListener("hashchange",()=>{
 function render(){
   if(!SES){renderLogin();return;}
   const app=$("#app");
-  const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${badge}</span>`:""}</button>`;
+  const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')||(id==='proveedores'&&ST.view==='proveedor')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${badge}</span>`:""}</button>`;
   const nAlerts=alertList().length;
   const I={
     panel:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
@@ -671,6 +713,7 @@ function render(){
     map:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3 3 5.5v15L9 18l6 3 6-2.5v-15L15 6z"/><path d="M9 3v15M15 6v15"/></svg>',
     magic:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 21 9-9"/><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M12.2 6.2 11 5"/></svg>',
     grid:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>',
+    people:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg>',
     scale:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M7 21h10M6 7h12l-3 5a3 3 0 0 1-6 0zM6 7 3 12a3 3 0 0 0 6 0zM18 7l3 5a3 3 0 0 1-6 0z"/></svg>'
   };
   app.innerHTML=`
@@ -681,6 +724,7 @@ function render(){
       ${nav("panel","Panel",I.panel)}
       ${nav("pipeline","Etapas",I.pipe)}
       ${nav("contratos","Contratos",I.repo)}
+      ${nav("proveedores","Proveedores",I.people)}
       ${nav("solicitudes","Solicitudes",I.sol)}
       ${nav("alertas","Alertas",I.bell,nAlerts||"")}
       <div class="navgrp">Análisis</div>
@@ -717,7 +761,7 @@ function render(){
   const side=$("aside.side",app),on=$(".navitem.on",app);
   if(side&&on&&side.scrollWidth>side.clientWidth)side.scrollLeft=Math.max(0,on.offsetLeft-70);
   bindGlobalSearch();
-  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,mapa:vMapa,actividad:vActividad,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>{const h=ST.magicaHash||"";ST.magicaHash="";vFrame("../generador/index.html"+h,"La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa).");},crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
+  const V={panel:vPanel,pipeline:vPipeline,contratos:vContratos,detalle:vDetalle,solicitudes:vSolicitudes,alertas:vAlertas,reportes:vReportes,mapa:vMapa,actividad:vActividad,proveedores:vProveedores,proveedor:vProveedor,calificacion:()=>vFrame("../calificacion/index.html","Calcula y ordena las ofertas de cada convocatoria (consultorías por puntos o bienes Cumple/No cumple) y genera el acta de calificación."),magica:()=>{const h=ST.magicaHash||"";ST.magicaHash="";vFrame("../generador/index.html"+h,"La Mágica funciona completa aquí dentro (plantillas Word, momentos 1–4, envío a la Unidad Operativa).");},crmx:()=>vFrame("../crm/index.html","El CRM original, tal cual lo conocen las ACs.")};
   (V[ST.view]||vPanel)();
 }
 
@@ -730,18 +774,26 @@ function buscarGlobal(q,max){
     .sort((a,b)=>(b.mio-a.mio)||(nroKey(b.c)-nroKey(a.c)))
     .slice(0,max||8);
 }
+/* Y los proveedores, cuyo nombre coincide: van después de los contratos para que
+   Enter siga abriendo el primer contrato, como siempre. */
+function buscarProv(q,max){
+  return [...agruparProv(CONTRACTS).values()].filter(p=>coincide(p.variantes.join(" "),q))
+    .sort((a,b)=>b.contratos.length-a.contratos.length).slice(0,max||3);
+}
 function bindGlobalSearch(){
   const inp=$("#gq"),box=$("#gres");
   let hits=[],sel=0;
-  const abrir=h=>{box.style.display="none";inp.value="";go("detalle",h.i);};
+  const abrir=h=>{box.style.display="none";inp.value="";if(h.p)abrirProv(h.p.clave);else go("detalle",h.i);};
   const pinta=()=>{
-    box.innerHTML=hits.map((h,k)=>`<div class="gres${k===sel?" sel":""}" data-k="${k}"><div class="a">${esc(h.c.nro)} — ${esc(trunc(h.c.detalle,70))}</div><div class="b">${esc(h.c.area||"")} · ${esc(h.c.proveedor||"")}${h.c.carpeta?` · 📁 carpeta ${esc(h.c.carpeta)}`:""}${h.mio?"":` · <i>de ${esc(h.c.ac||"otra AC")}</i>`}</div></div>`).join("");
+    box.innerHTML=hits.map((h,k)=>h.p
+      ?`<div class="gres${k===sel?" sel":""}" data-k="${k}"><div class="a">👥 ${esc(h.p.nombre)}</div><div class="b">Proveedor · ${h.p.contratos.length} contrato${h.p.contratos.length===1?"":"s"} · ${h.p.ultima?esc(puntos(h.p.ultima.score)+"/100 · "+h.p.ultima.sem):"sin calificar"}</div></div>`
+      :`<div class="gres${k===sel?" sel":""}" data-k="${k}"><div class="a">${esc(h.c.nro)} — ${esc(trunc(h.c.detalle,70))}</div><div class="b">${esc(h.c.area||"")} · ${esc(h.c.proveedor||"")}${h.c.carpeta?` · 📁 carpeta ${esc(h.c.carpeta)}`:""}${h.mio?"":` · <i>de ${esc(h.c.ac||"otra AC")}</i>`}</div></div>`).join("");
     box.querySelectorAll("[data-k]").forEach(el=>el.onmousedown=e=>{e.preventDefault();abrir(hits[+el.dataset.k]);});
   };
   inp.oninput=()=>{
     const q=inp.value.trim();
     if(q.length<2){box.style.display="none";hits=[];return;}
-    hits=buscarGlobal(q);sel=0;
+    hits=buscarGlobal(q).concat(buscarProv(q).map(p=>({p})));sel=0;
     if(!hits.length){box.innerHTML=`<div class="gres"><span class="b">Sin resultados. Prueba con menos palabras.</span></div>`;box.style.display="";return;}
     pinta();box.style.display="";
   };
@@ -819,6 +871,7 @@ function renderLogin(){
     // Si se llegó por un enlace (p. ej. el de un contrato que mandaron por correo),
     // al entrar se abre eso y no el panel.
     const h=leerHash();
+    if(h&&h.prov!=null)ST.prov=h.prov;
     if(h&&h.view==="detalle"&&h.cur!=null)go("detalle",h.cur);
     else go(h&&h.view!=="detalle"?h.view:"panel");
   };
@@ -874,6 +927,110 @@ function stackEstado(segs){ /* status: colores reservados + etiqueta visible + l
   return `<div class="stackbar">${bar}</div><div class="legend">${leg}</div>`;
 }
 
+/* ================= PROVEEDORES: calificación y agrupación ================= */
+/* Los cortes de la calificación FO-AD-ABC-017. Una sola tabla para el modal, el
+   pool de proveedores y los avisos: si el modal dijera «Aceptable» y la ficha
+   «Deficiente» para el mismo puntaje, la AC no sabría a cuál creerle. */
+function tierCalificacion(s){
+  if(s>=90)return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
+  if(s>=80)return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
+  if(s>=70)return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber)",elegible:true,observado:true,cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, actualizar la calificación de inmediato."};
+  if(s>=60)return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"No se considerará en próximos procesos de contratación."};
+  return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
+}
+/* ¿Está calificado el proveedor de este contrato? Es la ÚNICA pregunta que el
+   resto del CLM hace: el stepper, el detalle, la alerta, el pool y los CSV pasan
+   por aquí. Hoy la respuesta vive solo en este navegador (ov(c)); cuando exista
+   el Registro de Calificaciones compartido, se añade aquí y nada más cambia. */
+function calificacionDe(c){
+  const o=ov(c);
+  if(!o.evaluado)return null;
+  const score=Number(o.score)||0,t=tierCalificacion(score);
+  return {nro:c.nro,score,sem:o.sem||t.sem,t,elegible:t.elegible,fecha:o.fechaCalif||null,aportes:o.aportes||null};
+}
+/* Solo se pide calificar lo terminado o cerrado desde esta fecha. Es fija, no
+   «el año en curso»: un contrato cerrado en 2026 no deja de deberla el 1 de
+   enero. Lo anterior se ve en el pool como «sin calificar», pero no alerta. */
+const CALIFICA_DESDE="2026-01-01";
+/* Cuándo terminó: la terminación registrada en el CLM, si no el cierre del
+   Excel, si no el fin de vigencia. Sin ninguna fecha, se pide igual: es mejor
+   una alerta de más que perder una calificación de este año. */
+function fechaTermino(c){return ov(c).fter||c.fcierre||c.fin||null;}
+function pideCalificacion(c){
+  const o=ov(c);
+  if(!(o.terminado||c.cerrado)||calificacionDe(c))return false;
+  const f=fechaTermino(c);
+  return !f||f>=CALIFICA_DESDE;
+}
+/* Quién es el mismo proveedor. La base no trae RUC: solo el nombre como se
+   escribió en el Excel. Se unen las diferencias que no cambian a quién se nombra
+   —mayúsculas, tildes, puntos, la forma societaria al final («S.A.», «Cía.
+   Ltda.»)— y NADA más. Dos nombres que siguen distintos son dos proveedores:
+   unir por parecido sería adivinar, y juntar la calificación de uno con los
+   contratos de otro es peor que tenerlos separados. */
+function claveProv(nombre){
+  const base=plano(nombre).replace(/\./g,"").replace(/[^a-z0-9]+/g," ").trim();
+  let s=base,prev;
+  do{prev=s;s=s.replace(/(^|\s)(s a s|sas|s a|sa|c a|ca|cia ltda|ltda|cia|e p|ep|scc)$/,"").trim();}while(s&&s!==prev);
+  return s||base;
+}
+/* El pool: los proveedores de una lista de contratos. Las calificaciones se
+   toman de TODO el portafolio, no solo de la lista: la ficha y el listado tienen
+   que dar el mismo semáforo, aunque la AC vea solo sus contratos. */
+function agruparProv(lista){
+  // Del portafolio entero salen también las escrituras del nombre, para que el
+  // proveedor se llame igual en el listado de una AC, en el de la Unidad
+  // Operativa y en su ficha: la escritura que más se repite.
+  const cal={},nom={};
+  CONTRACTS.forEach(c=>{
+    const n=String(c.proveedor||"").trim();if(!n)return;
+    const k=claveProv(n);
+    (nom[k]||(nom[k]={}))[n]=(nom[k][n]||0)+1;
+    const q=calificacionDe(c);if(q)(cal[k]||(cal[k]=[])).push(q);
+  });
+  const M=new Map();
+  lista.forEach(c=>{
+    const n=String(c.proveedor||"").trim();if(!n)return;
+    const k=claveProv(n);
+    let p=M.get(k);
+    if(!p){p={clave:k,contratos:[],activos:0,monto:0,areas:{},cats:{},acs:{},porCalificar:0};M.set(k,p);}
+    p.contratos.push(c);
+    const s=statusLive(c).key;
+    if(s==="vigente"||s==="aviso"||s==="vencido")p.activos++;
+    p.monto+=montoDe(c);
+    if(c.area)p.areas[c.area]=(p.areas[c.area]||0)+1;
+    if(c.cat)p.cats[c.cat]=(p.cats[c.cat]||0)+1;
+    if(c.ac)p.acs[c.ac]=(p.acs[c.ac]||0)+1;
+    if(pideCalificacion(c))p.porCalificar++;
+  });
+  const orden=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).map(e=>e[0]);
+  M.forEach(p=>{
+    p.variantes=orden(nom[p.clave]||{});p.nombre=p.variantes[0];
+    p.areas=orden(p.areas);p.cats=orden(p.cats);p.acs=orden(p.acs);
+    p.califs=(cal[p.clave]||[]).slice().sort(porFechaCalif);
+    p.ultima=p.califs.length?p.califs[p.califs.length-1]:null;
+    p.promedio=p.califs.length?Math.round(p.califs.reduce((a,q)=>a+q.score,0)/p.califs.length*100)/100:null;
+  });
+  return M;
+}
+function porFechaCalif(a,b){return String(a.fecha||"").localeCompare(String(b.fecha||""))||String(a.nro).localeCompare(String(b.nro));}
+function proveedores(){return [...agruparProv(myContracts()).values()];}
+function fichaProv(clave){return agruparProv(CONTRACTS).get(clave)||null;}
+/* La última calificación del proveedor de un contrato, venga del contrato que
+   venga: es la que pesa para renovarlo o volver a contratarlo. */
+function ultimaCalifProv(c){
+  if(!String(c.proveedor||"").trim())return null;
+  const k=claveProv(c.proveedor);
+  const qs=CONTRACTS.filter(x=>x.proveedor&&claveProv(x.proveedor)===k).map(calificacionDe).filter(Boolean).sort(porFechaCalif);
+  return qs.length?qs[qs.length-1]:null;
+}
+function pajarProv(p){return [p.variantes.join(" "),p.areas.join(" "),p.cats.join(" "),p.acs.join(" "),p.contratos.map(c=>c.nro).join(" ")].join(" ");}
+function puntos(n){return Number(n).toFixed(2).replace(".",",");}
+/* El semáforo de una calificación. «corto» deja solo el puntaje (el resultado va
+   en el title): es para columnas angostas, donde la frase completa no cabe. */
+function semChip(q,sm,corto){return q?`<span class="semaforo${sm?" sm":""}" style="background:${q.t.bg};color:${q.t.fg}"${corto?` title="${esc(q.t.sem)}"`:""}>${puntos(q.score)}${corto?"":" · "+esc(q.t.sem)}</span>`:`<span style="color:var(--muted2);font-size:12px;font-weight:600">Sin calificar</span>`;}
+function abrirProv(clave){ST.prov=clave;go("proveedor");}
+
 /* ================= ALERTAS (motor de reglas) ================= */
 function alertList(){
   const out=[];
@@ -884,8 +1041,14 @@ function alertList(){
     else if(s.key==="aviso"&&d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${esRenovable(c)?"decide renovación o terminación ya":"no se renueva — prepara el proceso nuevo ya"}`,i,act:"Abrir",fn:"open"});
     else if(s.key==="aviso")out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${esRenovable(c)?"ventana de renovación abierta":"no se renueva — va por proceso nuevo"}`,i,act:"Abrir",fn:"open"});
     if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
-    if((o.terminado||c.cerrado)&&!o.evaluado)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
+    // Quien califica es la AC del contrato: a ella, una alerta por contrato. A la
+    // Unidad Operativa, que ve el portafolio entero, una sola agregada (abajo).
+    if(SES.rol!=="uo"&&pideCalificacion(c))out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
   });
+  if(SES&&SES.rol==="uo"){
+    const pend=myContracts().filter(pideCalificacion).length;
+    if(pend)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`${pend} contrato${pend===1?"":"s"} de ${CALIFICA_DESDE.slice(0,4)} con el proveedor sin calificar`,d:"Terminados o cerrados desde el "+fdate(CALIFICA_DESDE)+" · los califica la AC de cada contrato",i:null,act:"Ver",fn:"pcal"});
+  }
   // Una sola alerta agregada, no una por contrato: lo que falta por registrar es
   // mantenimiento del portafolio, no un pendiente de cada expediente. Es de la
   // Unidad Operativa, que es quien tiene las carpetas, y solo aparece cuando la
@@ -982,6 +1145,7 @@ function bindAlertRows(){
     const fn=b.dataset.fn;
     if(fn==="sol"){go("solicitudes");return;}
     if(fn==="carp"){ST.sinCarpeta=true;ST.filter="all";go("contratos");return;}
+    if(fn==="pcal"){ST.provFiltro="pend";ST.provQ="";go("proveedores");return;}
     const i=+b.dataset.i;const c=CONTRACTS[i];
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
     else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
@@ -1187,14 +1351,193 @@ function tableHTML(list){
       </tr>`;}).join("")}</tbody></table></div>`;
 }
 
+/* ================= VISTA: PROVEEDORES (pool) ================= */
+/* Cada proveedor con todo lo que se sabe de él: con cuántos contratos está,
+   por cuánto, en qué áreas, cómo lo han calificado y qué falta calificar. Es la
+   «vista 360» de los CLM comerciales, hecha con lo que ya trae la base. */
+const PROV_FILTROS=[["all","Todos"],["activos","Con contratos activos"],["pend","Por calificar"],["obs","Observados"],["noeleg","No elegibles"]];
+function provFiltra(p,f){
+  if(f==="activos")return p.activos>0;
+  if(f==="pend")return p.porCalificar>0;
+  if(f==="obs")return !!(p.ultima&&p.ultima.t.observado);
+  if(f==="noeleg")return !!(p.ultima&&!p.ultima.elegible);
+  return true;
+}
+function provLista(todos){
+  const l=todos.filter(p=>provFiltra(p,ST.provFiltro)&&(!ST.provQ||coincide(pajarProv(p),ST.provQ)));
+  const nota=p=>p.ultima?p.ultima.score:1000;   // sin calificar, al final
+  const S={
+    monto:(a,b)=>b.monto-a.monto,
+    contratos:(a,b)=>b.contratos.length-a.contratos.length||b.monto-a.monto,
+    calif:(a,b)=>nota(a)-nota(b)||b.monto-a.monto,
+    nombre:(a,b)=>a.nombre.localeCompare(b.nombre)
+  };
+  return l.sort(S[ST.provSort]||S.monto);
+}
+function provEmptyHTML(){
+  const f=[];
+  if(ST.provQ)f.push(`la búsqueda «${esc(ST.provQ)}»`);
+  if(ST.provFiltro!=="all")f.push(`«${esc((PROV_FILTROS.find(x=>x[0]===ST.provFiltro)||[,""])[1])}»`);
+  return `<div class="empty"><div style="font-weight:700;color:var(--ink)">${f.length?"Ningún proveedor con ese filtro":"No hay proveedores en tus contratos"}</div>
+    ${f.length?`<div style="font-size:13px;margin-top:3px">Estás filtrando por ${f.join(" y ")}.</div><button class="btn sm line" id="limpiarProv" style="margin-top:12px">Quitar filtros y ver todos</button>`:""}</div>`;
+}
+function areasTxt(p){return p.areas.length?`${esc(p.areas[0])}${p.areas.length>1?` <span style="color:var(--muted);font-weight:600">+${p.areas.length-1}</span>`:""}`:"—";}
+/* Las tres categorías más frecuentes y cuántas más: con todas, un proveedor de
+   seis rubros ocupaba cuatro renglones de la lista. Completas, en la ficha. */
+function catsTxt(p){return p.cats.length?esc(p.cats.slice(0,3).join(" · "))+(p.cats.length>3?` +${p.cats.length-3}`:""):"—";}
+function provTablaHTML(l){
+  if(!l.length)return provEmptyHTML();
+  return `<div class="tablewrap"><table class="list prov">
+    <thead><tr><th>Proveedor</th><th>Contratos</th><th>Monto contratado</th><th>Áreas</th><th>Última calificación</th><th>Por calificar</th></tr></thead>
+    <tbody>${l.map(p=>`<tr data-prov="${esc(p.clave)}">
+      <td class="td-prov">${esc(p.nombre)}<div class="pc">${catsTxt(p)}</div></td>
+      <td style="white-space:nowrap"><b>${p.contratos.length}</b><div style="font-size:11.5px;color:var(--muted)">${p.activos} activo${p.activos===1?"":"s"}</div></td>
+      <td style="white-space:nowrap">${money(p.monto)}</td>
+      <td>${areasTxt(p)}</td>
+      <td>${semChip(p.ultima,true)}</td>
+      <td>${p.porCalificar?`<span class="pendn">${p.porCalificar}</span>`:`<span style="color:var(--muted2)">—</span>`}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+}
+function provCardsHTML(l){
+  if(!l.length)return provEmptyHTML();
+  return `<div class="grid">`+l.map(p=>{
+    const q=p.ultima,cls=!q?"":!q.elegible?"r":q.t.observado?"a":"g";
+    return `<div class="cc ${cls}" data-prov="${esc(p.clave)}">
+      <div class="cc-title" style="margin-top:0">${esc(p.nombre)}</div>
+      <div class="cc-area">${catsTxt(p)}</div>
+      <div class="cc-meta"><span><b>${p.contratos.length}</b> contrato${p.contratos.length===1?"":"s"} · ${p.activos} activo${p.activos===1?"":"s"}</span><span>·</span><span><b>${money(p.monto)}</b></span></div>
+      <div class="cc-meta" style="margin-top:5px"><span>${areasTxt(p)}</span></div>
+      <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">${semChip(q,true)}${p.porCalificar?`<span class="pendn" title="Contratos por calificar">⭐ ${p.porCalificar}</span>`:""}</div>
+    </div>`;}).join("")+`</div>`;
+}
+function vProveedores(){
+  const todos=proveedores(),lista=provLista(todos);
+  const sel="padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer";
+  const sorts=[["monto","Mayor monto"],["contratos","Más contratos"],["calif","Peor calificación"],["nombre","Nombre (A–Z)"]];
+  const cuenta=l=>l.length===todos.length?`${todos.length} proveedor${todos.length===1?"":"es"}`:`Mostrando <b style="color:var(--ink)">${l.length}</b> de ${todos.length}`;
+  const pinta=()=>{const l=provLista(todos);$("#provbody").innerHTML=ST.viewMode==="cards"?provCardsHTML(l):provTablaHTML(l);$("#provcount").innerHTML=cuenta(l);bindProv();};
+  $("#view").innerHTML=`<div class="up">
+    <p class="psub" style="margin-bottom:12px">Cada proveedor con sus contratos, montos y calificaciones. Se agrupan por el nombre del Excel: mayúsculas, tildes o «S.A.» no los separan, pero dos nombres distintos sí. <b>Por ahora las calificaciones se guardan en este navegador</b>: las hechas en otra computadora no aparecen aquí.</p>
+    <div class="toolbar">
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="pq" placeholder="Buscar proveedor, área, categoría o contrato…" value="${esc(ST.provQ)}">
+      </div>
+      <select id="provSort" title="Ordenar la lista" style="${sel};max-width:190px">
+        ${sorts.map(([k,l])=>`<option value="${k}"${ST.provSort===k?" selected":""}>↕ ${l}</option>`).join("")}
+      </select>
+      <div class="viewtog">
+        <button data-v="table" class="${ST.viewMode==="table"?"on":""}">Listado</button>
+        <button data-v="cards" class="${ST.viewMode==="cards"?"on":""}">Tarjetas</button>
+      </div>
+      <button class="btn sm line" id="provCsv">⬇ CSV</button>
+    </div>
+    <div class="chips">
+      ${PROV_FILTROS.map(([k,l])=>{const n=todos.filter(p=>provFiltra(p,k)).length;return `<button class="chip ${ST.provFiltro===k?"on":""}" data-pf="${k}">${l} · ${n}</button>`;}).join("")}
+    </div>
+    <div style="margin:14px 0 10px"><span id="provcount" style="font-size:12.5px;color:var(--muted);font-weight:600">${cuenta(lista)}</span></div>
+    <div id="provbody">${ST.viewMode==="cards"?provCardsHTML(lista):provTablaHTML(lista)}</div>
+  </div>`;
+  $("#pq").oninput=e=>{ST.provQ=e.target.value;pinta();};
+  $("#provSort").onchange=e=>{ST.provSort=e.target.value;vProveedores();};
+  $("#view").querySelectorAll(".chip[data-pf]").forEach(b=>b.onclick=()=>{ST.provFiltro=b.dataset.pf;vProveedores();});
+  $("#view").querySelectorAll(".viewtog button").forEach(b=>b.onclick=()=>{ST.viewMode=b.dataset.v;vProveedores();});
+  $("#provCsv").onclick=()=>{
+    const l=provLista(todos);
+    const head=["Proveedor","Otras escrituras","Contratos","Activos","Monto contratado","Areas","Categorias","AC","Ultima calificacion","Resultado","Fecha calificacion","Promedio","Por calificar"];
+    const rows=l.map(p=>[p.nombre,p.variantes.slice(1).join(" | "),p.contratos.length,p.activos,p.monto.toFixed(2),p.areas.join(" | "),p.cats.join(" | "),p.acs.join(" | "),
+      p.ultima?p.ultima.score.toFixed(2):"",p.ultima?p.ultima.sem:"",p.ultima&&p.ultima.fecha||"",p.promedio!=null?p.promedio.toFixed(2):"",p.porCalificar]
+      .map(v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`).join(";"));
+    const blob=new Blob(["﻿"+[head.join(";")].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Proveedores_CLM_FAP_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
+    logAdd("⬇️","Exportación CSV de proveedores");
+    toast("CSV de proveedores exportado");
+  };
+  bindProv();
+}
+function bindProv(){
+  $("#view").querySelectorAll("[data-prov]").forEach(el=>el.onclick=()=>abrirProv(el.dataset.prov));
+  const lp=$("#limpiarProv");if(lp)lp.onclick=()=>{ST.provQ="";ST.provFiltro="all";vProveedores();};
+}
+
+/* La ficha: todos los contratos del proveedor en el portafolio (también los de
+   otras AC, como el buscador de arriba) y su historia de calificaciones. */
+const PESOS_CALIF=[["Calidad",40],["Plazo",30],["Atención",5],["Cumplimiento contractual",25]];
+function vProveedor(){
+  const p=fichaProv(ST.prov);
+  if(!p){if(ST.prov)toast("No encontré ese proveedor en la base de hoy.");go("proveedores");return;}
+  const mios=new Set(myContracts());
+  const cs=p.contratos.slice().sort((a,b)=>(mios.has(b)-mios.has(a))||(nroKey(b)-nroKey(a)));
+  // Quien califica es la AC del contrato: «Calificar» solo en los propios; en
+  // los de otra AC se dice que está pendiente, sin ofrecer el botón.
+  const tuyos=cs.filter(c=>mios.has(c)&&pideCalificacion(c)).length;
+  const conAportes=p.califs.filter(q=>Array.isArray(q.aportes)&&q.aportes.length===4);
+  const indic=conAportes.length?PESOS_CALIF.map(([n,w],k)=>{const prom=conAportes.reduce((a,q)=>a+q.aportes[k],0)/conAportes.length;return {n,w,prom,pct:Math.round(prom/w*100)};}):null;
+  const col=pct=>pct>=80?"var(--green)":pct>=70?"var(--amber)":"var(--red)";
+  $("#view").innerHTML=`<div class="up">
+    <button class="back" id="back">← Volver a los proveedores</button>
+    <div class="detail fichaprov">
+      <div class="fp-izq">
+        <div class="panel fp-head">
+          <div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between;flex-wrap:wrap">
+            <div style="min-width:0"><div class="cc-nro" style="margin-bottom:3px">Proveedor</div>
+              <div class="h-title">${esc(p.nombre)}</div>
+              ${p.variantes.length>1?`<div class="cc-area" style="margin-bottom:0">También escrito en el Excel como: ${p.variantes.slice(1).map(esc).join(" · ")}</div>`:""}</div>
+            ${semChip(p.ultima)}
+          </div>
+          <div class="dl" style="margin-top:14px">
+            <div><div class="k">Contratos</div><div class="v">${p.contratos.length} · ${p.activos} activo${p.activos===1?"":"s"}</div></div>
+            <div><div class="k">Monto contratado (incl. adendas)</div><div class="v">${money(p.monto)}</div></div>
+            <div><div class="k">Calificaciones</div><div class="v">${p.califs.length?`${p.califs.length} · promedio ${puntos(p.promedio)}/100`:"Ninguna todavía"}</div></div>
+            <div><div class="k">Por calificar</div><div class="v" style="${p.porCalificar?"color:var(--teal)":""}">${p.porCalificar?`${p.porCalificar} contrato${p.porCalificar===1?"":"s"}${SES.rol!=="uo"&&tuyos!==p.porCalificar?` · ${tuyos} tuyo${tuyos===1?"":"s"}`:""}`:"Nada pendiente"}</div></div>
+            <div class="full"><div class="k">Áreas protegidas</div><div class="v" style="line-height:1.5">${esc(p.areas.join(" · ")||"—")}</div></div>
+            <div class="full"><div class="k">Administradoras</div><div class="v" style="line-height:1.5">${esc(p.acs.join(" · ")||"—")}</div></div>
+            <div class="full"><div class="k">Categorías</div><div class="v">${p.cats.map(k=>catChip(k)).join(" ")||"—"}</div></div>
+          </div>
+        </div>
+        <div class="panel fp-contr">
+          <p class="ptitle">Contratos</p>
+          <p class="psub">Todos los del portafolio con este proveedor${SES.rol!=="uo"?"; primero los tuyos":""}.</p>
+          <div class="tablewrap"><table class="list fp-tab">
+            <thead><tr><th>Contrato</th><th>Calificación</th></tr></thead>
+            <tbody>${cs.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c),q=calificacionDe(c);
+              return `<tr data-open="${i}">
+                <td class="td-obj"><div class="td-nro" style="margin-bottom:2px">${esc(c.nro)}</div>${esc(c.detalle)}
+                  <div class="fp-sub">${esc(c.area||"")}${mios.has(c)?"":` · de ${esc(c.ac||"otra AC")}`}</div>
+                  <div class="fp-sub" style="color:var(--ink)"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(s.label)} · ${money(montoDe(c))}</div></td>
+                <td>${q?semChip(q,true,true):!pideCalificacion(c)?`<span style="color:var(--muted2)">—</span>`:mios.has(c)?`<button class="btn sm" data-cal="${i}">Calificar</button>`:`<span class="pendn" title="La califica la AC del contrato">pendiente</span>`}</td>
+              </tr>`;}).join("")}</tbody></table></div>
+        </div>
+      </div>
+      <div class="fp-cal">
+        <div class="panel">
+          <p class="ptitle">Calificaciones</p>
+          <p class="psub">FO-AD-ABC-017 · registradas en este navegador.</p>
+          ${p.califs.length?`
+            ${indic?`<div style="margin-bottom:14px">${indic.map(x=>`<div class="histcal"><span style="flex:0 0 150px">${esc(x.n)} <span style="color:var(--muted)">(${x.w}%)</span></span><div class="bar"><div style="width:${x.pct}%;background:${col(x.pct)}"></div></div><b style="flex:0 0 44px;text-align:right">${x.pct}%</b></div>`).join("")}</div>`:""}
+            <div class="secdiv">Historia</div>
+            ${p.califs.slice().reverse().map(q=>`<div class="histcal hist"><div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--navy)">${esc(q.nro)}</div><div style="font-size:11.5px;color:var(--muted)">${q.fecha?fdate(q.fecha):"sin fecha"}</div></div>${semChip(q,true)}</div>`).join("")}
+            ${p.ultima&&(!p.ultima.elegible||p.ultima.t.observado)?`<div class="provaviso ${p.ultima.elegible?"a":"r"}" style="margin-top:12px">${esc(p.ultima.t.cons)}</div>`:""}`
+          :`<div class="empty" style="padding:22px 10px">Sin calificaciones registradas.${p.porCalificar?"<br>Califícalo desde sus contratos terminados.":""}</div>`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  $("#back").onclick=()=>go("proveedores");
+  $("#view").querySelectorAll("[data-cal]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();const c=CONTRACTS[+b.dataset.cal];go("detalle",+b.dataset.cal);setTimeout(()=>modalCalificar(c),80);});
+  $("#view").querySelectorAll("tr[data-open]").forEach(el=>el.onclick=()=>go("detalle",+el.dataset.open));
+}
+
 /* ================= VISTA: DETALLE ================= */
 function vDetalle(){
   const c=CONTRACTS[ST.cur];
   if(!c){go("contratos");return;}
   const o=ov(c),s=statusLive(c),consult=isConsultoria(c);
   const done=o.terminado||c.cerrado;
+  const cal=calificacionDe(c);
   const L=liqDe(c);
   const timeline=contractTimeline(c);
+  const avisoProv=done?"":avisoProvHTML(c);
   // Renovar: con el contrato en ejecución Y que la regla del plan 2027 deje
   // renovar (esRenovable, arriba de isConsultoria) — no todo lo que vence se
   // renueva: lo que ya es una renovación agotó su única vuelta, y una
@@ -1224,6 +1567,7 @@ function vDetalle(){
               <div class="cc-area">${esc(c.area||"")}</div></div>
             <span class="badge ${s.b}">${esc(s.label)}</span>
           </div>
+          ${avisoProv}
           <div class="linkbar">
             <span style="color:var(--navy)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></span>
             <div style="flex:1"><div style="font-size:12.5px;font-weight:700">Contrato firmado</div><div style="font-size:11.5px;color:var(--muted)">${c.link?"Documento en el repositorio institucional":"Sin vínculo registrado en la base"}</div></div>
@@ -1240,11 +1584,11 @@ function vDetalle(){
             <div class="step past"><span class="d">✓</span> Solicitud</div><div class="flow-line"></div>
             <div class="step past"><span class="d">✓</span> Firma</div><div class="flow-line"></div>
             <div class="step ${done?"past":"on"}"><span class="d">${done?"✓":"3"}</span> Ejecución</div><div class="flow-line"></div>
-            <div class="step ${done?(o.evaluado?"past":"on"):""}"><span class="d">${o.evaluado?"✓":"4"}</span> Terminación</div><div class="flow-line"></div>
-            <div class="step ${o.evaluado?"past":""}"><span class="d">${o.evaluado?"✓":"5"}</span> Calificación</div>
+            <div class="step ${done?(cal?"past":"on"):""}"><span class="d">${cal?"✓":"4"}</span> Terminación</div><div class="flow-line"></div>
+            <div class="step ${cal?"past":""}"><span class="d">${cal?"✓":"5"}</span> Calificación</div>
           </div>
           <div class="dl">
-            <div><div class="k">Proveedor</div><div class="v">${esc(c.proveedor||"—")}</div></div>
+            <div><div class="k">Proveedor</div><div class="v">${c.proveedor?`<button class="linkbtn" id="a-prov" style="font-size:inherit" title="Ver la ficha del proveedor: sus contratos y calificaciones">${esc(c.proveedor)}</button>`:"—"}</div></div>
             <div><div class="k">Categoría</div><div class="v">${catChip(c.cat)}${consult?' <span style="color:var(--navy);font-size:11px;font-weight:700">servicios profesionales</span>':""}</div></div>
             <div><div class="k">Monto original (incl. IVA)</div><div class="v">${money(c.monto)}</div></div>
             <div><div class="k">Valor total vigente</div><div class="v" style="${montoDe(c)!==c.monto?"color:var(--navy)":""}">${money(montoDe(c))}${montoDe(c)!==c.monto?" · con adenda":""}</div></div>
@@ -1256,7 +1600,7 @@ function vDetalle(){
             <div><div class="k">Vigencia (hoy)</div><div class="v" style="color:${s.cls==="r"?"var(--red)":s.cls==="a"?"var(--amber)":"var(--ink)"}">${esc(vigenciaText(c))}</div></div>
             ${tieneAdenda(c)?`<div class="full"><div class="k">Adenda registrada</div><div class="v" style="line-height:1.5">${esc(c.tipoAdenda||"Adenda")}${montoAdenda(c)?` · <b style="color:var(--navy)">+${money(montoAdenda(c))}</b>`:""}${c.firmaAdenda?` · firmada el ${fdate(c.firmaAdenda)}`:""}${c.modificacion?`<div style="font-size:12px;color:var(--muted)">${esc(c.modificacion)}</div>`:""}</div></div>`:""}
             ${o.terminado?`<div class="full"><div class="k">Terminación</div><div class="v" style="color:var(--navy)">${esc(o.causal||"")} · ${fdate(o.fter)}</div></div>`:""}
-            ${o.evaluado?`<div class="full"><div class="k">Calificación del proveedor</div><div class="v">${esc(o.score)}/100 · ${esc(o.sem)}</div></div>`:""}
+            ${cal?`<div class="full"><div class="k">Calificación del proveedor</div><div class="v">${puntos(cal.score)}/100 · ${esc(cal.sem)}</div></div>`:""}
           </div>
         </div>
         ${L?`<div class="panel" style="margin-top:14px">
@@ -1296,9 +1640,9 @@ function vDetalle(){
               <span><span class="at">Terminar contrato</span><span class="ad">Acta de terminación FAP-2026-12 · escoger causal</span></span>
             </button>
             ${urgeRenov?"":renovBtn}
-            <button class="actbtn" id="a-cal" ${(!done||o.evaluado)?"disabled":""}>
+            <button class="actbtn" id="a-cal" ${(!done||cal)?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7Z"/></svg></span>
-              <span><span class="at">Calificar proveedor</span><span class="ad">${done?(o.evaluado?"Calificación registrada ✓":"FO-AD-ABC-017 · 13 criterios"):"Disponible al terminar"}</span></span>
+              <span><span class="at">Calificar proveedor</span><span class="ad">${done?(cal?"Calificación registrada ✓":"FO-AD-ABC-017 · 13 criterios"):"Disponible al terminar"}</span></span>
             </button>
             <button class="actbtn" id="a-env" ${!o.pendienteEnvio?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg></span>
@@ -1309,7 +1653,7 @@ function vDetalle(){
               <span><span class="at">Añadir nota</span><span class="ad">Observación interna en la bitácora del contrato</span></span>
             </button>
           </div>
-          ${o.evaluado?`<div class="note" style="margin-top:12px">Calificación: <b>${esc(o.score)}/100</b> · ${esc(o.sem)}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. Queda pendiente la <b>calificación del proveedor</b>.${(o.terminado&&!c.cerrado)?`<div style="margin-top:8px"><button class="linkbtn" id="a-reabrir">¿Lo terminaste por error? Reabrir el contrato</button></div>`:""}</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
+          ${cal?`<div class="note" style="margin-top:12px">Calificación: <b>${puntos(cal.score)}/100</b> · ${esc(cal.sem)}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. ${pideCalificacion(c)?"Queda pendiente la <b>calificación del proveedor</b>.":`Terminó antes del ${fdate(CALIFICA_DESDE)}: su calificación no se exige, aunque puedes registrarla.`}${(o.terminado&&!c.cerrado)?`<div style="margin-top:8px"><button class="linkbtn" id="a-reabrir">¿Lo terminaste por error? Reabrir el contrato</button></div>`:""}</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
         </div>
       </div>
     </div>
@@ -1319,7 +1663,9 @@ function vDetalle(){
     go(a);if(y)window.scrollTo(0,y);   // y a la misma altura de la lista
   };
   if(!done){$("#a-mod").onclick=()=>modalModificar(c);$("#a-ter").onclick=()=>modalTerminar(c);}
-  if(done&&!o.evaluado)$("#a-cal").onclick=()=>modalCalificar(c);
+  if(done&&!cal)$("#a-cal").onclick=()=>modalCalificar(c);
+  const ap=$("#a-prov");if(ap)ap.onclick=()=>abrirProv(claveProv(c.proveedor));
+  const avp=$("#aviso-prov");if(avp)avp.onclick=()=>abrirProv(claveProv(c.proveedor));
   if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
   $("#a-nota").onclick=()=>modalNota(c);
   const re=$("#a-reabrir");if(re)re.onclick=()=>reabrirContrato(c);
@@ -1331,7 +1677,7 @@ function vDetalle(){
    calificación ya salió en el CSV) y si el Excel no lo da por cerrado. */
 function reabrirContrato(c){
   const o=ov(c);
-  if(!o.terminado||o.evaluado||c.cerrado)return;
+  if(!o.terminado||calificacionDe(c)||c.cerrado)return;
   if(!confirm(`¿Reabrir ${c.nro}?\n\nVuelve a quedar en ejecución. El acta de terminación que ya se descargó no se borra de tu computadora: descártala y no la envíes.`))return;
   delete o.terminado;delete o.causal;delete o.fter;
   if(o.pendienteEnvio&&/terminaci/i.test(o.pendienteEnvio.tipoEnvio||""))o.pendienteEnvio=null;
@@ -1339,7 +1685,19 @@ function reabrirContrato(c){
   logAdd("↩️","Terminación deshecha: el contrato vuelve a ejecución",c.nro);
   toast("Contrato reabierto");render();
 }
-const VOLVER_A={panel:"al panel",pipeline:"a las etapas",contratos:"al repositorio",solicitudes:"a las solicitudes",alertas:"a las alertas",
+/* El cartel del detalle cuando el proveedor viene con mala nota: rojo si no es
+   elegible, ámbar si quedó «Observado». Solo en contratos vivos, que es donde
+   todavía se decide algo (renovar, adendar). Dice de dónde sale la nota, y que
+   por ahora solo se ven las calificaciones hechas en este navegador. */
+function avisoProvHTML(c){
+  const q=ultimaCalifProv(c);
+  if(!q||(q.elegible&&!q.t.observado))return "";
+  const r=!q.elegible;
+  return `<div class="provaviso ${r?"r":"a"}">${r?"⛔":"⚠️"} <b>${r?"Proveedor no elegible":"Proveedor observado"}</b>: ${puntos(q.score)}/100 · ${esc(q.sem)}${q.fecha?` (${fdate(q.fecha)})`:""} en el contrato ${esc(q.nro)}. ${esc(q.t.cons)}
+    <button class="linkbtn" id="aviso-prov" style="margin-left:4px">Ver su ficha</button>
+    <small>Calificaciones registradas en este navegador.</small></div>`;
+}
+const VOLVER_A={panel:"al panel",pipeline:"a las etapas",contratos:"al repositorio",proveedores:"a los proveedores",proveedor:"a la ficha del proveedor",solicitudes:"a las solicitudes",alertas:"a las alertas",
   reportes:"a los reportes",mapa:"al mapa",actividad:"a la bitácora",calificacion:"al calificador",magica:"a La Mágica",crmx:"al CRM clásico"};
 function contractTimeline(c){
   const o=ov(c),ev=[];
@@ -1743,13 +2101,7 @@ function modalCalificar(c){
     <div class="scorebox"><div><div class="lab">Calificación final</div><div class="big" id="score" style="color:var(--navy)">—</div></div><div id="semwrap"></div></div>
     <div id="conseq" style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:11px"></div>
     <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="gen">Registrar y exportar</button></div>`);
-  function tier(s){
-    if(s>=90)return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
-    if(s>=80)return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
-    if(s>=70)return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber)",elegible:true,cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, actualizar la calificación de inmediato."};
-    if(s>=60)return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"No se considerará en próximos procesos de contratación."};
-    return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
-  }
+  const tier=tierCalificacion;
   function calc(){
     let total=0;
     const aportes=GRUPOS.map((g,gi)=>{
@@ -1772,7 +2124,9 @@ function modalCalificar(c){
   calc();
   $("#cancel",o).onclick=()=>closeModal(o);
   $("#gen",o).onclick=()=>{
-    const O=ov(c);O.evaluado=true;O.score=o._score.toFixed(2);O.sem=o._t.sem;saveCLM();
+    const O=ov(c);O.evaluado=true;O.score=o._score.toFixed(2);O.sem=o._t.sem;
+    // La fecha ordena la historia del proveedor; los aportes dan su promedio por indicador.
+    O.fechaCalif=todayISO();O.aportes=o._aportes.map(a=>Math.round(a.aporte*100)/100);saveCLM();
     const BOM="\uFEFF",ap=o._aportes;
     const csv=BOM+[
       ["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones"].join(";"),
@@ -1886,6 +2240,11 @@ function datosRenovacion(c){
     objeto:c.detalle||"",proveedor:c.proveedor||"",area:c.area||"",areaOriginal:c.areaOriginal||""};
 }
 function renovarEnMagica(c){
+  // Renovar a un proveedor calificado como no elegible no se prohíbe —la decisión
+  // es de la AC—, pero no puede pasar sin que lo vea (estilo CPARS: el desempeño
+  // pasado pesa en la siguiente contratación).
+  const q=ultimaCalifProv(c);
+  if(q&&!q.elegible&&!confirm(`${c.proveedor} está calificado como NO ELEGIBLE: ${puntos(q.score)}/100 · ${q.sem}${q.fecha?", el "+fdate(q.fecha):""} (contrato ${q.nro}).\n\n${q.t.cons}\n\n¿Abrir la renovación de todos modos?`))return;
   logAdd("🔁","Renovación abierta en La Mágica con los datos del contrato",c.nro);
   aLaMagica("ren:"+c.nro,"renovacion",datosRenovacion(c));
 }
@@ -2024,7 +2383,7 @@ function vReportes(){
   $("#expCsv").onclick=()=>{
     const BOM="\uFEFF";
     const head=["Nro","Objeto","Area","Categoria","Proveedor","AC","Monto original","Monto vigente","Inicio","Firma","Fin","Estado","Adenda","Calificacion"];
-    const rows=mine.map(c=>{const o=ov(c);return [c.nro,c.detalle,c.area,c.cat,c.proveedor,c.ac,c.monto,montoDe(c),c.inicio,c.firma,c.fin,statusLive(c).label,tieneAdenda(c)?(c.tipoAdenda||"Sí"):"No",o.evaluado?o.score:""].map(v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`).join(";");});
+    const rows=mine.map(c=>{const q=calificacionDe(c);return [c.nro,c.detalle,c.area,c.cat,c.proveedor,c.ac,c.monto,montoDe(c),c.inicio,c.firma,c.fin,statusLive(c).label,tieneAdenda(c)?(c.tipoAdenda||"Sí"):"No",q?q.score.toFixed(2):""].map(v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`).join(";");});
     const blob=new Blob([BOM+[head.join(";")].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Portafolio_CLM_FAP_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
     logAdd("⬇️","Exportación CSV del portafolio");
@@ -2412,7 +2771,7 @@ async function boot(){
   if(!CONTRACTS.length)dataSource={label:"Sin datos disponibles",live:false};
   canonAreas(CONTRACTS);   // unifica las variantes de escritura del área protegida
   const h=leerHash();
-  if(h){ST.view=h.view;if(h.cur!=null)ST.cur=h.cur;else if(h.view==="detalle")ST.view="contratos";}
+  if(h){ST.view=h.view;if(h.cur!=null)ST.cur=h.cur;else if(h.view==="detalle")ST.view="contratos";if(h.prov!=null)ST.prov=h.prov;}
   render();
 }
 boot();

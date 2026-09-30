@@ -653,6 +653,154 @@ seccion('21 · La lista: «Abrir» nunca queda fuera de vista');
      'la barra lateral no se pasa de ancho: «all:unset» deja la caja en content-box');
 }
 
+// ---------------------------------------------------------------- 22
+seccion('22 · El pool de proveedores');
+{
+  // La alerta «Proveedor sin calificar» se pedía para todo lo terminado, de
+  // cualquier año, y a la Unidad Operativa le llegaba una por contrato del
+  // portafolio entero. Y no había dónde ver a un proveedor como tal.
+  const pool=()=>{
+    const l=contratos();
+    l[0].proveedor='Servitec S.A.';                                    // vivo, de Ana
+    Object.assign(l[1],{proveedor:'SERVITEC SA',cerrado:true,fcierre:'2026-03-10'});        // debe calificación
+    Object.assign(l[2],{proveedor:'servitec s. a.',cerrado:true,fcierre:'2025-11-30'});     // de 2025: no alerta
+    Object.assign(l[3],{proveedor:'Servitel',cerrado:true,fcierre:'2026-05-01',ac:'María Guamán',area:'Parque Nacional Yasuní'});
+    Object.assign(l[4],{proveedor:'Limpiezas Andinas Cía. Ltda.',cat:'Limpieza',monto:9000,montoTotal:9000});
+    return l;
+  };
+  let w22=await listo(nuevoDom(pool()));
+  const cp=n=>w22.claveProv(n);
+  ok(cp('Servitec S.A.')===cp('SERVITEC SA') && cp('SERVITEC SA')===cp('servitec s. a.') && cp('Servitec')===cp('Servitec S.A.'),
+     'mayúsculas, puntos y «S.A.» no separan a un proveedor',[cp('Servitec S.A.'),cp('SERVITEC SA'),cp('servitec s. a.')].join('|'));
+  ok(cp('Limpiezas Andinas Cía. Ltda.')===cp('LIMPIEZAS ANDINAS CIA LTDA') && cp('Construcciones S.A.S.')===cp('construcciones'),
+     'tampoco «Cía. Ltda.» ni «S.A.S.», con o sin tilde');
+  ok(cp('Servitel')!==cp('Servitec') && cp('Andina Sanitaria')!==cp('Andina'),
+     'pero dos nombres distintos siguen siendo dos: no se une por parecido');
+
+  const provs=w22.proveedores(), serv=provs.find(p=>p.clave==='servitec');
+  ok(provs.length===3,'tres proveedores en el portafolio',provs.map(p=>p.nombre).join(' | '));
+  ok(serv && serv.contratos.length===3 && serv.activos===1 && serv.variantes.length===3,
+     'Servitec junta sus tres contratos y recuerda las tres escrituras',serv&&JSON.stringify(serv.variantes));
+  ok(serv.porCalificar===1,'y debe una sola calificación: la de 2025 no se pide',serv.porCalificar);
+
+  let al=w22.alertList(), cal=al.filter(a=>/sin calificar/.test(a.t));
+  ok(cal.length===1 && cal[0].fn==='pcal' && /^2 contratos de 2026/.test(cal[0].t),
+     'la Unidad Operativa recibe UNA alerta agregada, no una por contrato',cal.map(a=>a.t).join(' | '));
+  ok(!al.some(a=>/Proveedor sin calificar — /.test(a.t)),'y ninguna suelta');
+  w22.go('panel');
+  w22.document.querySelector('.alert-row .go[data-fn="pcal"]').onclick();
+  ok(w22.eval('ST.view')==='proveedores' && w22.eval('ST.provFiltro')==='pend','su botón abre el pool filtrado en «Por calificar»');
+  ok(w22.document.querySelectorAll('table.list.prov tbody tr').length===2,'donde están los dos proveedores que deben calificación');
+  ok(/Proveedores/.test(w22.document.querySelector('aside.side').textContent) && w22.document.querySelector('.navitem.on').dataset.go==='proveedores',
+     'Proveedores está en el menú, y marcado');
+
+  // La administradora: una por contrato, solo los suyos y solo de 2026.
+  w22=await listo(nuevoDom(pool(),{rol:'ac',user:'Ana Pérez'}));
+  al=w22.alertList().filter(a=>/sin calificar/.test(a.t));
+  ok(al.length===1 && al[0].t==='Proveedor sin calificar — FIAS-FAP-2026-002' && al[0].fn==='cal',
+     'la AC recibe la de su contrato de 2026, y no la de 2025',al.map(a=>a.t).join(' | '));
+  w22.go('detalle',2);
+  ok(/Terminó antes del 1 ene 2026/.test(texto(w22)) && !w22.document.getElementById('a-cal').disabled,
+     'el de 2025 dice por qué no se exige, y deja calificarlo igual');
+
+  // Calificar desde el propio modal: 0 en todo da 0/100, «No recomendado».
+  w22.URL.createObjectURL=()=>'blob:x'; w22.URL.revokeObjectURL=()=>{};
+  w22.HTMLAnchorElement.prototype.click=function(){};
+  w22.go('detalle',1);
+  w22.document.getElementById('a-cal').onclick();
+  let m=w22.document.querySelector('.overlay');
+  m.querySelectorAll('.scorebtn[data-v="0"]').forEach(b=>b.onclick());
+  m.querySelector('#gen').onclick();
+  w22.document.querySelector('#okpasos').onclick();
+  const q=w22.calificacionDe(w22.eval('CONTRACTS[1]'));
+  ok(q && q.score===0 && !q.elegible && q.fecha===w22.todayISO() && q.aportes.length===4,
+     'la calificación queda con su fecha y sus cuatro aportes',JSON.stringify(q));
+  ok(!w22.alertList().some(a=>/sin calificar/.test(a.t)),'y su alerta se apaga');
+  ok(w22.proveedores().find(p=>p.clave==='servitec').porCalificar===0,'también el contador del pool');
+
+  // El proveedor quedó no elegible: se ve en su otro contrato, el vivo.
+  w22.go('detalle',0);
+  const av=w22.document.querySelector('.provaviso');
+  ok(av && av.classList.contains('r') && /Proveedor no elegible/.test(av.textContent) && /FIAS-FAP-2026-002/.test(av.textContent),
+     'el detalle de su contrato vivo lo avisa en rojo, diciendo de dónde sale la nota',av&&av.textContent.replace(/\s+/g,' '));
+  ok(/este navegador/.test(av.textContent),'y que solo cuenta lo calificado en este navegador');
+  w22._responde=false; const antes=w22._confirmas;
+  w22.document.getElementById('a-ren').onclick();
+  ok(w22._confirmas===antes+1 && w22.eval('ST.view')==='detalle' && !w22.localStorage.getItem('fap_precarga'),
+     'renovarlo pide confirmación, y si la AC dice que no, no se abre nada');
+  w22._responde=true;
+  w22.document.getElementById('a-ren').onclick();
+  ok(w22.eval('ST.view')==='magica' && JSON.parse(w22.localStorage.getItem('fap_precarga')).id==='ren:FIAS-FAP-2026-001',
+     'si dice que sí, sigue: la decisión es suya');
+
+  // «Observado» (70 a 79,99) avisa en ámbar.
+  w22.eval("Object.assign(ov(CONTRACTS[1]),{score:'75.00',sem:'Aceptable – Observado'})");
+  w22.go('detalle',0);
+  ok(w22.document.querySelector('.provaviso.a'),'un proveedor observado se avisa en ámbar');
+  w22.eval("Object.assign(ov(CONTRACTS[1]),{score:'85.00',sem:'Satisfactorio'})");
+  w22.go('detalle',0);
+  ok(!w22.document.querySelector('.provaviso'),'y uno satisfactorio no lleva cartel');
+
+  // Los cortes son los del formulario FO-AD-ABC-017, una sola tabla.
+  const T=s=>w22.tierCalificacion(s);
+  ok(T(90).sem==='Confiable (Preferente)' && T(89.99).sem==='Satisfactorio' && T(80).elegible && T(79.99).observado
+     && T(70).elegible && !T(69.99).elegible && T(60).sem==='Deficiente – Inaceptable' && T(59.99).sem==='No recomendado',
+     'los cortes 90 / 80 / 70 / 60 no cambiaron');
+  ok(!/function tier\(s\)\{/.test(HTML),'y el modal ya no lleva su propia copia de la tabla');
+
+  // La ficha, su enlace y el buscador.
+  w22.abrirProv('servitec');
+  ok(w22.location.hash==='#/proveedor/servitec' && w22.eval('ST.view')==='proveedor','la ficha tiene su propio enlace',w22.location.hash);
+  ok(/Servitec S\.A\./.test(texto(w22)) && /También escrito en el Excel como/.test(texto(w22)) && w22.document.querySelectorAll('#view tr[data-open]').length===3,
+     'con su nombre, las otras escrituras y sus tres contratos');
+  ok(/85,00 · Satisfactorio/.test(texto(w22)) && w22.document.querySelectorAll('.histcal').length>=5,
+     'su calificación, el promedio por indicador y la historia');
+  let w22b=await listo(nuevoDom(pool(),{rol:'ac',user:'Ana Pérez'},{hash:'#/proveedor/servitec'}));
+  ok(w22b.eval('ST.view')==='proveedor' && /Servitec/.test(texto(w22b)),'un enlace a la ficha abre la ficha');
+  w22b=await listo(nuevoDom(pool(),{rol:'ac',user:'Ana Pérez'},{hash:'#/proveedor/nadie'}));
+  ok(w22b.eval('ST.view')==='proveedores','un proveedor que no está devuelve al listado',w22b.eval('ST.view'));
+  ok(w22.buscarProv('servitec').length===1 && w22.buscarProv('limpiezas cia').length===1,'el buscador de arriba encuentra proveedores');
+  w22.abrirProv('servitel');
+  ok(!w22.document.querySelector('#view [data-cal]') && /pendiente/.test(w22.document.querySelector('#view tr[data-open] td:last-child').textContent),
+     'en la ficha, el contrato de otra AC dice «pendiente» sin ofrecer «Calificar»: lo califica su AC');
+  ok(/1 contrato · 0 tuyos/.test(texto(w22)),'y el contador separa lo que le toca a ella',texto(w22).match(/Por calificar[^A-Z]*/)&&texto(w22).match(/Por calificar[^A-Z]*/)[0]);
+  {
+    // El nombre sale del portafolio entero: la AC que escribió «Radio Andes» una
+    // vez ve el mismo nombre que la Unidad Operativa y que la ficha.
+    const l=contratos().slice(0,3);
+    l[0].proveedor='Radio Andes';
+    Object.assign(l[1],{proveedor:'RADIO ANDES S.A.',ac:'María Guamán'});
+    Object.assign(l[2],{proveedor:'RADIO ANDES S.A.',ac:'María Guamán'});
+    const wn=await listo(nuevoDom(l,{rol:'ac',user:'Ana Pérez'}));
+    const lista=wn.proveedores();
+    ok(lista.length===1 && lista[0].nombre==='RADIO ANDES S.A.' && wn.fichaProv('radio andes').nombre==='RADIO ANDES S.A.',
+       'el proveedor se llama igual en la lista de cada AC y en su ficha: la escritura más repetida',lista.map(p=>p.nombre).join('|'));
+    ok(lista[0].contratos.length===1,'aunque la lista de la AC cuente solo su contrato');
+  }
+
+  // Lo que se midió en Chromium (jsdom no tiene anchos): la tabla de la ficha va
+  // en dos columnas, porque con cinco «Calificar» quedaba fuera de vista a 1280
+  // px, y los hijos del grid pueden encoger, porque si no la ficha empujaba la
+  // página a 761 px en un celular de 375.
+  w22.abrirProv('servitec');
+  ok([...w22.document.querySelectorAll('table.fp-tab thead th')].map(t=>t.textContent).join('|')==='Contrato|Calificación',
+     'la tabla de la ficha tiene dos columnas: contrato y calificación');
+  ok(/\.detail>\*\{min-width:0\}/.test(HTML) && /\.dl>div\{min-width:0\}/.test(HTML),
+     'y el CSS deja encoger las columnas del detalle y de la ficha');
+
+  // El listado: columnas, filtros y búsqueda sin tildes.
+  w22.eval("ST.provFiltro='all';ST.provQ='';ST.viewMode='table'");
+  w22.go('proveedores');
+  const cab=[...w22.document.querySelectorAll('table.list.prov thead th')].map(t=>t.textContent.trim()).join('|');
+  ok(cab==='Proveedor|Contratos|Monto contratado|Áreas|Última calificación|Por calificar','seis columnas',cab);
+  ok(w22.document.querySelector('table.list.prov tbody tr').dataset.prov==='limpiezas andinas','por omisión, el de mayor monto primero');
+  w22.eval("ST.provQ='limpieza cia'"); w22.go('proveedores');
+  ok(w22.document.querySelectorAll('table.list.prov tbody tr').length===1,'la búsqueda perdona tildes y puntos');
+  w22.eval("ST.provQ='';ST.provFiltro='noeleg'"); w22.go('proveedores');
+  ok(/Ningún proveedor con ese filtro/.test(texto(w22)) && w22.document.getElementById('limpiarProv'),
+     'un filtro vacío dice por qué y ofrece salir');
+}
+
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
 process.exit(fallos?1:0);
 
