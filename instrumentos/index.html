@@ -13290,6 +13290,7 @@ header .spacer{flex:1}
 header button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);color:#fff;font-family:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer}
 header button:hover{background:rgba(255,255,255,.22)}
 #chip-registro.reg-ok{background:rgba(255,255,255,.25);border-color:#8FE3B4}
+#chip-registro.reg-pend{background:#FEF3C7;color:#7A4B0A;border-color:#F5D77A}
 #aviso-storage{display:none;background:#FEF3C7;color:#92400E;font-size:12px;padding:6px 20px;flex-shrink:0}
 
 /* ---------- Layout ---------- */
@@ -13649,7 +13650,7 @@ tr:hover td{background:var(--azul-claro)}
   </div>
 </main>
 
-<div id="modal-fondo" onclick="if(event.target===this)cerrarModal()">
+<div id="modal-fondo">
   <div id="modal"></div>
 </div>
 
@@ -14554,7 +14555,7 @@ let seleccion = null;
 let tabActual = 'generar';
 let datosForm = {};
 let registro = [];
-let registroEstado = 'cargando'; // cargando | ok | error
+let registroEstado = 'cargando'; // cargando | ok | protegido (cifrado, falta la frase) | error
 let loteFilas = [];
 let editandoDoc = false;
 let docEditado = '';
@@ -15139,31 +15140,109 @@ async function fapAbrirRegistro(data){
     return Array.isArray(lista) ? lista : null;
   }catch(e){ return 'protegido'; }
 }
-async function cargarRegistro(){
-  let protegido = false;
+/* Con la señal floja un fetch puede quedarse colgado minutos sin fallar (el CLM
+   lo resuelve igual): a los 20 s se abandona y el chip dice «sin conexión». */
+async function bajarSobreRegistro(){
   for(const url of RUTAS_REGISTRO){
+    const ctl = window.AbortController ? new AbortController() : null;
+    const reloj = setTimeout(() => { if(ctl) ctl.abort(); }, 20000);
     try{
-      const r = await fetch(url, { cache:'no-store' });
-      if(r.ok){
-        const lista = await fapAbrirRegistro(await r.json());
-        if(lista === 'protegido'){ protegido = true; continue; }
-        if(Array.isArray(lista)){ registro = lista; registroEstado = 'ok'; pintarChipRegistro(); if(tabActual==='lote') renderContenido(); return; }
-      }
+      const r = await fetch(url, { cache:'no-store', signal: ctl ? ctl.signal : undefined });
+      if(r.ok) return await r.json();
     }catch(e){ /* siguiente ruta */ }
+    finally{ clearTimeout(reloj); }
   }
-  registroEstado = protegido ? 'protegido' : 'error';
+  return null;
+}
+let registroSobre = null;       // el JSON cifrado tal como se publicó, para no volver a bajarlo al desbloquear
+let registroGenerado = null;    // cuándo lo escribió el robot (va fuera del cifrado)
+async function cargarRegistro(){
+  const sobre = await bajarSobreRegistro();
+  if(!sobre){ registroEstado = 'error'; pintarChipRegistro(); return; }
+  registroGenerado = (sobre && !Array.isArray(sobre) && sobre.generado) || null;
+  const lista = await fapAbrirRegistro(sobre);
+  if(Array.isArray(lista)){
+    registro = lista; registroEstado = 'ok'; registroSobre = null;
+    pintarChipRegistro(); if(tabActual==='lote') renderContenido();
+    return;
+  }
+  if(lista === 'protegido'){ registroSobre = sobre; registroEstado = 'protegido'; }
+  else registroEstado = 'error';
   pintarChipRegistro();
+}
+/* Misma frase que el CLM y en el mismo sitio (localStorage['fap_data_key']): se
+   escribe una vez en cualquiera de las dos herramientas y abre las dos. */
+function fapGuardarClave(p){ try{ localStorage.setItem(FAP_KEY_LS, p); return true; }catch(e){ return false; } }
+async function desbloquearRegistro(){
+  if(!registroSobre){ await cargarRegistro(); if(registroEstado === 'ok') return true; if(!registroSobre) return false; }
+  let aviso = '';
+  for(;;){
+    const r = await pedirDatos({
+      titulo: 'Desbloquear el registro de contratos',
+      ok: 'Desbloquear',
+      ayuda: (aviso ? `<b style="color:var(--peligro)">${esc(aviso)}</b><br>` : '') +
+        'El registro de contratos se publica cifrado. Escribe la <b>frase de acceso</b> que te compartió tu equipo, la misma del CLM. Queda guardada en este navegador y abre las dos herramientas.' +
+        '<br><a href="#" onclick="cerrarModal();document.getElementById(\'reg-file\').click();return false">¿Sin conexión? Cargar el archivo a mano</a>',
+      campos: [{ nombre:'frase', etiqueta:'Frase de acceso', tipo:'clave' }],
+      validar: v => v.frase ? '' : 'Escribe la frase de acceso.'
+    });
+    if(!r) return false;
+    let lista = null;
+    try{ lista = await fapDecrypt(registroSobre, r.frase); }catch(e){ lista = null; }
+    if(Array.isArray(lista)){
+      // Guardar va aparte de descifrar: un navegador que no deja guardar no
+      // vuelve «incorrecta» una frase correcta.
+      const guardada = fapGuardarClave(r.frase);
+      registro = lista; registroEstado = 'ok'; registroSobre = null;
+      pintarChipRegistro(); renderContenido();
+      avisar(guardada ? `Registro desbloqueado: ${lista.length} contratos.` : `Registro desbloqueado: ${lista.length} contratos. Este navegador no deja guardar la frase: se pedirá de nuevo la próxima vez.`);
+      return true;
+    }
+    aviso = 'Frase incorrecta. Inténtalo de nuevo.';
+  }
+}
+/* Cuándo se actualizó la base, como en la píldora del CLM: una base de hace dos
+   días o más no se presenta como viva. */
+function edadRegistro(){
+  if(!registroGenerado) return null;
+  const f = new Date(registroGenerado); if(isNaN(f)) return null;
+  const dia = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dias = Math.round((dia(new Date()) - dia(f)) / 86400000);
+  const hora = f.toLocaleTimeString('es-EC', { hour:'2-digit', minute:'2-digit' });
+  return { dias, vieja: dias >= 2,
+    txt: dias <= 0 ? `actualizada hoy ${hora}` : dias === 1 ? 'actualizada ayer' : `actualizada hace ${dias} días` };
 }
 function pintarChipRegistro(){
   const b = document.getElementById('chip-registro');
-  if(registroEstado==='ok'){ b.textContent = `📇 Registro: ${registro.length} contratos`; b.classList.add('reg-ok'); b.title = 'Registro de contratos cargado. Clic para recargar.'; }
-  else if(registroEstado==='protegido'){ b.textContent = '📇 Registro: protegido · cargar archivo'; b.classList.remove('reg-ok'); b.title = 'El registro se publica cifrado y en este navegador no hay frase de acceso válida. Desbloquea el CLM una vez y vuelve a pulsar aquí, o carga el archivo a mano.'; }
-  else if(registroEstado==='error'){ b.textContent = '📇 Registro: sin conexión · cargar archivo'; b.classList.remove('reg-ok'); b.title = 'No se pudo descargar el registro. Clic para cargar el archivo contratos_export.json manualmente.'; }
-  else { b.textContent = '📇 Registro: cargando…'; }
+  b.classList.remove('reg-ok', 'reg-pend');
+  if(registroEstado==='ok'){
+    const e = edadRegistro();
+    b.textContent = `📇 Registro: ${registro.length} contratos${e && e.vieja ? ' · sin actualizar' : ''}`;
+    b.classList.add(e && e.vieja ? 'reg-pend' : 'reg-ok');
+    b.title = `Registro de contratos cargado${e ? ' (' + e.txt + ')' : ''}. Clic para recargar.`;
+  }
+  else if(registroEstado==='protegido'){
+    b.textContent = '📇 Registro: protegido · desbloquear'; b.classList.add('reg-pend');
+    b.title = 'El registro de contratos se publica cifrado. Pulsa y escribe la frase de acceso (la misma del CLM): queda guardada y abre las dos herramientas.';
+  }
+  else if(registroEstado==='error'){
+    b.textContent = '📇 Registro: sin conexión · reintentar'; b.classList.add('reg-pend');
+    b.title = 'No se pudo descargar el registro. Clic para reintentar; si sigue sin conexión, te dejo cargar el archivo contratos_export.json a mano.';
+  }
+  else { b.textContent = '📇 Registro: cargando…'; b.title = 'Registro de contratos del CRM (Excel maestro)'; }
 }
-function clicChipRegistro(){
-  if(registroEstado==='error' || registroEstado==='protegido') document.getElementById('reg-file').click();
-  else { registroEstado='cargando'; pintarChipRegistro(); cargarRegistro(); }
+async function clicChipRegistro(){
+  if(registroEstado === 'cargando') return;
+  if(registroEstado === 'protegido'){ desbloquearRegistro(); return; }
+  const eraError = registroEstado === 'error';
+  registroEstado = 'cargando'; pintarChipRegistro();
+  await cargarRegistro();
+  if(registroEstado === 'protegido'){ desbloquearRegistro(); return; }
+  // Reintentar primero; solo si sigue sin haber red se ofrece el archivo a mano.
+  if(eraError && registroEstado === 'error'){
+    avisar('Sigue sin conexión. Elige el archivo contratos_export.json para cargarlo a mano.', 'err');
+    document.getElementById('reg-file').click();
+  }
 }
 function cargarRegistroArchivo(ev){
   const file = ev.target.files[0]; if(!file) return;
@@ -15171,9 +15250,10 @@ function cargarRegistroArchivo(ev){
   reader.onload = async () => {
     try{
       const lista = await fapAbrirRegistro(JSON.parse(reader.result));
-      if(lista === 'protegido') throw new Error('El archivo está cifrado y en este navegador no hay una frase de acceso válida. Desbloquea el CLM una vez y vuelve a intentarlo.');
+      if(lista === 'protegido') throw new Error('El archivo está cifrado y en este navegador no hay una frase de acceso válida. Desbloquea el registro con su frase (botón «Registro») y vuelve a cargarlo.');
       if(!Array.isArray(lista)) throw new Error('El archivo no contiene una lista de contratos.');
-      registro = lista; registroEstado = 'ok'; pintarChipRegistro(); renderContenido();
+      registro = lista; registroEstado = 'ok'; registroSobre = null; registroGenerado = null;
+      pintarChipRegistro(); renderContenido();
     }catch(e){ alert('No se pudo leer el registro: ' + e.message); }
     ev.target.value = '';
   };
@@ -15523,7 +15603,7 @@ function renderGenerar(c, p){
   c.innerHTML = `
     ${htmlAvisoDescarga()}${htmlAvisoBorrador()}
     <div class="rapidas">
-      <button class="btn sec" onclick="abrirPickerRegistro()" ${registroEstado!=='ok'?'title="El registro aún no está cargado"':''}>📇 Tomar datos del registro</button>
+      <button class="btn sec" onclick="abrirPickerRegistro()" ${registroEstado==='protegido'?'title="El registro está protegido: te pediré la frase de acceso"':(registroEstado!=='ok'?'title="El registro aún no está cargado"':'')}>📇 Tomar datos del registro</button>
       <button class="btn sec" onclick="abrirPickerContraparte()">👤 Usar contraparte guardada</button>
       ${tieneNumero ? `<button class="btn sec" onclick="aplicarNumeroSugerido()">№ Sugerir número siguiente</button>` : ''}
     </div>
@@ -15902,8 +15982,9 @@ function salirEdicionDoc(){
   guardarBorrador();
   renderContenido();
 }
-function aplicarNumeroSugerido(){
+async function aplicarNumeroSugerido(){
   const p = plActual(); if(!p) return;
+  if(registroEstado === 'protegido' && !(await desbloquearRegistro())) return;
   if(registroEstado !== 'ok'){ alert('Para sugerir el número siguiente necesito el registro de contratos cargado (botón «Registro» arriba a la derecha).'); return; }
   const num = sugerirNumero();
   varsDe(p).forEach(v => { if(/numero|nro$/i.test(v)) datosForm[v] = num; });
@@ -15939,9 +16020,16 @@ function rellenarDatos(html, datos, preview){
 }
 
 /* ============ Selector: registro de contratos ============ */
-function abrirPickerRegistro(){
+async function abrirPickerRegistro(){
+  if(registroEstado === 'protegido'){
+    // Era un callejón: el botón decía «el registro no está cargado» y mandaba a la
+    // cabecera. Ahora pide la frase aquí mismo y sigue donde se quedó.
+    if(await desbloquearRegistro()) abrirPickerRegistro();
+    return;
+  }
+  if(registroEstado === 'cargando'){ avisar('El registro todavía se está descargando. Prueba en unos segundos.'); return; }
   if(registroEstado !== 'ok'){
-    alert('El registro de contratos todavía no está cargado.\n\nSi estás sin conexión, usa el botón «Registro» de la cabecera para cargar el archivo contratos_export.json manualmente.');
+    alert('No se pudo descargar el registro de contratos.\n\nPulsa el botón «Registro» de la cabecera para reintentar o para cargar el archivo contratos_export.json a mano.');
     return;
   }
   abrirModal(`
@@ -16006,7 +16094,7 @@ function renderContrapartes(c){
   c.innerHTML = `
     <div class="hist-acciones">
       <button class="btn" onclick="editarContraparte(-1)">+ Nueva contraparte</button>
-      <button class="btn sec" onclick="importarProveedoresRegistro()" ${registroEstado!=='ok'?'disabled title="El registro no está cargado"':''}>Importar proveedores del registro</button>
+      <button class="btn sec" onclick="importarProveedoresRegistro()" ${registroEstado!=='ok'?'disabled title="El registro no está cargado: desbloquéalo con el botón «Registro» de la cabecera"':''}>Importar proveedores del registro</button>
     </div>
     ${contrapartes.length ? `
       <div class="campo" style="margin:4px 0 12px">
@@ -16131,7 +16219,9 @@ function renderLote(c, p){
               <button class="btn mini" onclick="agregarMarcadosAlLote()">＋ Añadir marcados al lote</button>
               <button class="btn sec mini" onclick="marcarVisibles(true)">Marcar todos</button>
               <button class="btn sec mini" onclick="marcarVisibles(false)">Desmarcar</button>
-            </div>` : `<div style="font-size:12.5px;color:var(--gris)">El registro no está disponible. Usa el botón «Registro» de la cabecera para cargar el archivo contratos_export.json, o pega los datos desde Excel aquí a la derecha. →</div>`}
+            </div>` : registroEstado==='protegido'
+              ? `<div style="font-size:12.5px;color:var(--gris)">El registro está protegido con la frase de acceso del CLM.<div style="margin-top:8px"><button class="btn mini" onclick="desbloquearRegistro()">🔓 Desbloquear el registro</button></div></div>`
+              : `<div style="font-size:12.5px;color:var(--gris)">El registro no está disponible. Usa el botón «Registro» de la cabecera para reintentar o para cargar el archivo contratos_export.json, o pega los datos desde Excel aquí a la derecha. →</div>`}
         </div>
         <div>
           <div style="font-size:12.5px;font-weight:700;margin-bottom:6px">O pegar desde Excel</div>
@@ -17539,6 +17629,7 @@ function avisar(texto, tipo){
 /* ============ Modal genérico ============ */
 function abrirModal(html){
   soltarPedirDatos(null);   // si el modal traía un formulario pendiente, se da por cancelado
+  modalSucio = false;
   const m = document.getElementById('modal');
   const fondo = document.getElementById('modal-fondo');
   // Si el modal ya estaba abierto, es un re-dibujo (p. ej. tras guardar un
@@ -17552,8 +17643,36 @@ function abrirModal(html){
 }
 function cerrarModal(){
   soltarPedirDatos(null);
+  modalSucio = false;
   document.getElementById('modal-fondo').classList.remove('abierto');
 }
+/* Un clic fuera del recuadro cierra el formulario, y cerraba también al soltar
+   ahí una selección de texto: se escribe en un campo, se arrastra el ratón para
+   seleccionarlo, se suelta unos píxeles fuera del recuadro y el formulario se iba
+   con todo lo escrito, sin preguntar. El navegador manda el «clic» al elemento
+   común a donde se pulsó y donde se soltó, que en ese caso es el fondo.
+   Ahora solo cierra si el clic EMPEZÓ en el fondo, y si ya hay algo escrito
+   pregunta antes (como el CLM). «Cancelar», ✕ y Escape cierran sin preguntar:
+   ahí la AC ya decidió. */
+let modalSucio = false;
+let pulsoEnFondo = false;
+(function(){
+  const fondo = document.getElementById('modal-fondo');
+  fondo.addEventListener('pointerdown', (e) => { pulsoEnFondo = (e.target === fondo); }, true);
+  const ensucia = (e) => {
+    const t = e.target;
+    if(t && t.matches && t.matches('input,textarea,select,[contenteditable="true"]')) modalSucio = true;
+  };
+  fondo.addEventListener('input', ensucia);
+  fondo.addEventListener('change', ensucia);
+  fondo.addEventListener('click', (e) => {
+    const vino = pulsoEnFondo;
+    pulsoEnFondo = false;
+    if(e.target !== fondo || !vino) return;
+    if(modalSucio && !confirm('¿Cerrar sin terminar?\n\nSe perderá lo que escribiste en este formulario.')) return;
+    cerrarModal();
+  });
+})();
 
 /* ============ Formulario en el modal (en vez de prompt()) ============
    Las altas cortas (nombre de carpeta, de cláusula, de variante, tamaño de una
@@ -17582,6 +17701,8 @@ function campoPedirHTML(c){
       const [v, t] = Array.isArray(o) ? o : [o, o];
       return `<option value="${esc(v)}" ${String(v) === val ? 'selected' : ''}>${esc(t)}</option>`;
     }).join('')}</select>`;
+  else if(c.tipo === 'clave')
+    control = `<input type="password" id="${id}" autocomplete="current-password"${ph}>`;
   else if(c.tipo === 'numero')
     control = `<input type="number" id="${id}" value="${esc(val)}"${c.min != null ? ` min="${c.min}"` : ''}${c.max != null ? ` max="${c.max}"` : ''}>`;
   else
