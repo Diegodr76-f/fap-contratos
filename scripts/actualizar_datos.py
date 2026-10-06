@@ -74,6 +74,14 @@ C = dict(
     fcierre=col("fecha de cierre"),
     liquidado=col("valor liquidado"),
     saldo=col("saldo no ejecutado", "saldo"),
+    # El puente con el expediente. El número de contrato se asigna al final, así
+    # que nada lo ata a la carpeta donde se elaboró: esa correspondencia solo la
+    # sabe quien la vivió, y estas dos columnas son donde se escribe.
+    #  · carpeta        -> "Numero de carpeta interna" en la hoja 2026
+    #  · codigoProceso  -> el código del expediente de la AC (RPFCH-2026-007)
+    carpeta=col("numero de carpeta", "número de carpeta", "n.º de carpeta",
+                "carpeta interna", "carpeta"),
+    codigoProceso=col("codigoproceso", "código del proceso", "codigo del proceso"),
 )
 estado_cols = [j for j, h in enumerate(hdr) if "estado" in h and "gesti" in h] \
               or [j for j, h in enumerate(hdr) if "estado" in h]
@@ -114,6 +122,15 @@ def num2(v):
     n = num(v)
     return None if n is None else round(n, 2)
 
+def texto(v):
+    """Un código que se escribe a mano. La carpeta «47» llega desde Excel como
+    número y publicarla como «47.0» rompería la búsqueda en el CLM."""
+    if v is None:
+        return None
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return str(v).strip() or None
+
 out = []
 for row in ws.iter_rows(min_row=3, values_only=True):
     correo, nro = row[C["correo"]], row[C["nro"]]
@@ -149,6 +166,8 @@ for row in ws.iter_rows(min_row=3, values_only=True):
         fcierre=iso(val(row, "fcierre")),
         liquidado=num2(val(row, "liquidado")),
         saldo=num2(val(row, "saldo")),
+        carpeta=texto(val(row, "carpeta")),
+        codigoProceso=texto(val(row, "codigoProceso")),
     ))
 
 if len(out) < 10:
@@ -157,6 +176,10 @@ if len(out) < 10:
 
 plaintext = json.dumps(out, ensure_ascii=False, default=str).encode("utf-8")
 sobre = cifrar(plaintext, DATA_KEY)
+# Cuándo corrió el robot, en claro y fuera del cifrado: no es un dato de ningún
+# contrato. Con él el CLM dice «actualizada hoy 06:31» y, si el robot deja de
+# correr, avisa en ámbar en vez de presentar como viva una base de hace días.
+sobre["generado"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 with open("crm/contratos_export.json", "w", encoding="utf-8") as f:
     json.dump(sobre, f, ensure_ascii=False)
 
@@ -168,4 +191,5 @@ if faltan:
 print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['link'])} con link, "
       f"{sum(1 for c in out if c['cerrado'])} cerrados, "
-      f"{sum(1 for c in out if c['liquidado'] is not None)} con liquidación.")
+      f"{sum(1 for c in out if c['liquidado'] is not None)} con liquidación, "
+      f"{sum(1 for c in out if c['carpeta'])} con carpeta interna.")

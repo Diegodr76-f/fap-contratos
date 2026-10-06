@@ -66,10 +66,11 @@ plantillas Word reales (`crm/plantillas/`).
 | Módulo | Qué hace |
 |--------|----------|
 | **Panel** | KPIs en vivo, estado del portafolio, vencimientos a 12 meses, valor por categoría, alertas urgentes y actividad reciente |
-| **Pipeline** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado |
-| **Contratos** | Repositorio central con búsqueda global, filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases y línea de tiempo |
-| **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa |
-| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar |
+| **Etapas** | Kanban del ciclo completo: Solicitud → En ejecución → Por vencer → Vencido → Terminado (antes se llamaba *Pipeline*) |
+| **Contratos** | Repositorio central con búsqueda global (también por n.º de carpeta y código del proceso), filtros por estado/categoría, listado y tarjetas; detalle con stepper de 5 fases, bloque **Expediente** y línea de tiempo |
+| **Proveedores** | El pool de proveedores: cada uno con sus contratos (activos y cerrados), monto contratado, áreas, categorías, AC, última calificación con semáforo y lo que falta calificar. Filtros (con contratos activos, por calificar, observados, no elegibles), búsqueda, CSV y una ficha por proveedor con el promedio por indicador y la historia de calificaciones |
+| **Solicitudes** | Intake precontractual: la regla oficial (garantías o plazo > 30 días → contrato) decide la vía y enruta a La Mágica o a la Unidad Operativa. «Iniciar en La Mágica» abre el expediente con lo ya capturado |
+| **Alertas** | Motor de reglas: vencidos, ventana de renovación (≤90 d), envíos pendientes a la UO, proveedores sin calificar (solo lo terminado o cerrado desde 2026), contratos sin carpeta de elaboración |
 | **Reportes** | Analítica por categoría/área/AC + exportación CSV del portafolio |
 | **Mapa de áreas** | Mapa del Ecuador con las áreas protegidas que tienen contratos: cada círculo es un área, su tamaño el monto (o el n.º de contratos) y su color el estado más urgente; al tocar una se listan sus contratos y montos, con salida a CSV |
 | **Bitácora** | Registro de auditoría de cada acción (autor, fecha, contrato) |
@@ -78,13 +79,14 @@ plantillas Word reales (`crm/plantillas/`).
 **Acciones del ciclo de vida** (desde el detalle del contrato, con las plantillas
 oficiales): modificación con reglas 25 % (adenda) / 50 % (bloqueo) e informe
 FAP-2026-11; terminación con causal y acta FAP-2026-12; calificación de proveedor
-FO-AD-ABC-017 (13 criterios, 40/30/5/25) con CSV para el banco de calificaciones;
+FO-AD-ABC-017 (13 criterios, 40/30/5/25) con CSV para el banco de calificaciones
+(ver *El pool de proveedores*, más abajo);
 y envío a la Unidad Operativa por el mismo flujo de Power Automate que usan
 La Mágica y el CRM (ver **[Las URLs de los flujos](#las-urls-de-los-flujos)**).
 
 El **Mapa de áreas** es autónomo como el resto del CLM: la silueta del país es un
 trazado SVG incrustado (Natural Earth, dominio público) y las coordenadas de las
-44 áreas protegidas viven en una tabla fija dentro del propio archivo, así que no
+45 áreas protegidas viven en una tabla fija dentro del propio archivo, así que no
 llama a ningún servicio de mapas —funciona igual en redes que bloquean CDNs y sin
 internet—. La procedencia de cada coordenada, las variantes de nombre que el CLM
 unifica y cómo agregar un área están en **[`clm/MAPA_AREAS.md`](clm/MAPA_AREAS.md)**.
@@ -93,44 +95,143 @@ unifica y cómo agregar un área están en **[`clm/MAPA_AREAS.md`](clm/MAPA_AREA
 (portafolio completo). El estado propio del CLM (solicitudes, terminaciones,
 calificaciones, bitácora) se guarda en el navegador (`localStorage`).
 
-## Centro de mando diario — herramienta personal
+### Pensado para la AC en territorio
 
-**`/centro/index.html`** es una herramienta **personal**, aparte del ciclo de vida de contratos:
-no lee la base del CRM ni toca el CLM. Nace de un problema distinto — que las cosas se olvidan
-porque viven repartidas entre Recordatorios, Microsoft To Do, Planner, los correos marcados y el
-calendario — y las junta en **un solo lugar**.
+Quien usa el CLM son veinte administradoras contadoras, muchas en el área protegida, con señal
+floja, a veces desde el celular, y sin tiempo para aprender una herramienta. La regla de diseño es
+**rápido, fácil e intuitivo**, y en concreto:
 
-**La idea:** cuatro plazos en vez de una lista infinita — *Hoy* (ahora), *Corto plazo* (esta
-semana), *Mediano plazo* (este mes) y *Largo plazo* (algún día). Lo que tiene fecha **sube solo** de plazo
-cuando se acerca, así que nada se queda escondido en «algún día», y la **revisión del día** obliga
-a decidir, una por una, qué pasa con lo que se pasó de fecha (lo que ni Recordatorios ni To Do hacen:
-ahí lo vencido se queda en rojo para siempre).
+- **Carga aunque la señal sea mala.** La fuente y las librerías de Word no frenan la primera
+  pantalla; mientras baja la base se ve «Cargando los contratos…» en vez de una página en blanco; y
+  si la descarga no termina en 20 s se entra con la copia embebida, diciéndolo.
+- **La base dice de cuándo es.** El robot anota la hora en que corrió (`generado`, fuera del
+  cifrado) y la píldora de arriba dice «actualizada hoy 06:31». Si tiene dos días o más, se pone en
+  ámbar y dice «Base sin actualizar»: vencimientos calculados con una base vieja no se presentan
+  como vivos.
+- **Funciona en el celular.** El menú es una sola fila que se desliza, el buscador va a lo ancho, el
+  repositorio arranca en tarjetas y los formularios pasan a una columna.
+- **Se busca como se habla.** Sin tildes y con varias palabras en cualquier orden: «condor limpieza»
+  encuentra la limpieza de El Cóndor. Enter abre el primer resultado. El mismo criterio en el
+  buscador de arriba y en el del repositorio.
+- **Entrar es un clic.** El CLM recuerda quién entró la última vez en ese navegador.
+- **Lo urgente primero.** En el panel, «Requiere atención» va antes que los gráficos.
+- **Nada se pierde ni se manda dos veces.** Un clic fuera del formulario (o Escape) pregunta antes
+  de botar lo escrito; los botones que generan un Word o suben archivos se apagan mientras trabajan;
+  si el navegador no deja guardar, se avisa en pantalla.
+- **Los errores tienen vuelta atrás.** Una terminación hecha por error se puede reabrir (mientras
+  no se haya calificado al proveedor).
+- **Los enlaces no mienten.** El enlace de un contrato lleva su número (`#/detalle/FIAS-FAP-2026-089`),
+  no su posición en la lista, que cambia cada mañana: un enlace enviado por correo abre siempre ese
+  contrato, también después de entrar.
 
-**Qué más trae:** captura en lenguaje natural (*«pagar el arriendo el viernes 9am»* se entiende sola,
-con `#personal`/`#trabajo`/`#curso` y `cada semana`), agenda de ocho días, notas, exportación a
-`.ics` para llevarte los pendientes a Recordatorios, copia de seguridad en JSON y atajos de teclado
-(`/` capturar, `1`–`4` plazos, `r` revisión).
+### El pool de proveedores
 
-**Automatización con el trabajo:** un único flujo de Power Automate propio trae las tareas de
-**To Do**, las de **Planner** asignadas a ti, los **correos marcados** de Outlook y las reuniones del
-**calendario**; y devuelve a **To Do** lo que escribes aquí, para que la alarma suene donde ya suena
-(celular, Outlook, reloj). El paso a paso está en **[`centro/CONECTAR.md`](centro/CONECTAR.md)**.
+El menú **Proveedores** reúne lo que antes había que buscar contrato por contrato: con quién se
+trabaja, por cuánto, en qué áreas y con qué resultado. Cada proveedor tiene su **ficha**, con su
+propio enlace (`#/proveedor/servitec`), y el buscador de arriba también encuentra proveedores.
 
-> Ojo con un detalle que define el diseño: To Do sí unifica los **correos marcados**, pero las tareas
-> de **Planner** solo las *muestra* en «Asignadas a mí» (no las entrega por API) y el **calendario**
-> nunca está ahí. Por eso el flujo lee tres conectores, no uno.
+- **Se agrupa por el nombre del Excel, con cuidado.** La base no trae RUC, así que el proveedor es
+  su nombre. Las mayúsculas, las tildes, los puntos y la forma societaria al final («S.A.», «Cía.
+  Ltda.», «S.A.S.») no separan a un proveedor; dos nombres distintos sí, aunque se parezcan: unir
+  por parecido sería adivinar, y pegarle a uno la calificación de otro es peor que tenerlos
+  separados. La ficha muestra las otras formas en que está escrito en el Excel.
+- **La alerta de calificar pide solo lo que toca.** Solo los contratos terminados o cerrados **desde
+  el 1 de enero de 2026**; lo anterior aparece en el pool como «sin calificar», pero no alerta. La
+  AC recibe una alerta por cada contrato suyo, y la Unidad Operativa, que ve el portafolio entero,
+  **una sola** que abre el pool filtrado en «Por calificar».
+- **El historial pesa en la siguiente decisión.** Si la última calificación del proveedor es menor a
+  70 (no elegible), el detalle de sus contratos vivos lo dice en rojo y «Renovar en La Mágica» pide
+  confirmación antes de abrir la renovación; entre 70 y 79,99 («Aceptable – Observado») el aviso es
+  ámbar. No se bloquea: la decisión es de la AC, pero no pasa sin que la vea.
+- **Por ahora las calificaciones viven en el navegador donde se hicieron**, igual que antes: el
+  pool, los avisos y las alertas solo ven lo calificado en esa computadora, y el CSV se sigue
+  pegando a mano. El paso siguiente es un **Registro de Calificaciones** compartido —una hoja del
+  Excel maestro que lea el robot—, para que una calificación hecha en una computadora apague la
+  alerta en todas. El CLM ya está preparado: todo pasa por una sola función, `calificacionDe()`.
 
-**Privacidad:** a diferencia del CRM/CLM, aquí **no se publica ningún dato**. Las tareas viven en el
-navegador (`localStorage`) y viajan directo entre tu dispositivo y tu flujo; la URL del flujo se
-guarda solo en tu navegador y nunca en el repositorio. Es una **PWA**: se instala en el celular
-(*Compartir → Añadir a pantalla de inicio*) y en el escritorio, y funciona sin internet — lo que no
-se pueda enviar se envía después.
+### Del CLM a La Mágica sin volver a teclear
 
-GitHub Pages gratuito no permite sitios privados, así que la primera vez que abres `/centro/` en
-cada dispositivo te pide **crear tu propia frase de acceso** (no se comparte con nadie ni sale de
-ese navegador); sin ella nadie que encuentre el link ve nada. No es cifrado real —es una cortina,
-no una caja fuerte—, pero cumple su función: nadie entra sin la frase, y como las tareas nunca se
-publican, tampoco hay nada que robar aunque alguien la esquivara.
+Lo que el CLM ya sabe no se escribe dos veces. Hay dos puertas:
+
+- **«Iniciar en La Mágica»**, en una solicitud: La Mágica abre un expediente con el objeto, el área,
+  bien o servicio, el presupuesto y el plazo que se capturaron en el CLM. La vía (comparación,
+  selección directa o compra directa) la elige la AC. Si la solicitud pedía garantías, se le avisa
+  que marque cuál: el CLM pregunta «¿garantías?» con un sí o un no, y La Mágica distingue anticipo y
+  fiel cumplimiento — marcar una sería adivinar.
+- **«Renovar en La Mágica»**, en el detalle de un contrato en ejecución: abre la renovación con el
+  número, la fecha de suscripción, el vencimiento, el monto vigente (con adendas), el objeto y el
+  proveedor ya puestos. Sube al primer lugar de las acciones cuando el contrato está por vencer, pero
+  se ofrece siempre: la campaña 2027 prepara en septiembre los contratos que vencen el 31 de diciembre.
+
+**Cómo viajan los datos.** El CLM y La Mágica son del mismo sitio y comparten el almacenamiento del
+navegador. El CLM deja los datos en un buzón (`fap_precarga`) con los nombres del catálogo
+(`contratoNro`, `fechaContrato`, `fechaFin`, `montoTotal`, `objeto`, `proveedor`, `area`…) y abre La
+Mágica con `#precarga=ren:FIAS-FAP-2026-089` o `#precarga=sol:<id>`. **La URL lleva solo el
+identificador**, nunca los datos: una URL queda en el historial. La Mágica los pasa a sus campos,
+vacía el buzón y limpia el enlace, así que recargar no vuelve a precargar.
+
+**Pulsar dos veces no duplica.** Si ese expediente ya existe —o si la AC ya había empezado a mano
+la renovación de ese mismo contrato—, La Mágica lo abre en vez de crear otro.
+
+**El área se empareja con cuidado.** El nombre del CLM se compara con las áreas de la Hoja de Datos
+de la AC: igual, después por su nombre propio («RPF Chimborazo» es «Reserva de Producción de Fauna
+Chimborazo»), al final uno dentro del otro. Si salen dos candidatas no se elige: se le pide a la AC.
+Un área equivocada pone siglas, firmantes y lugar equivocados en todos los documentos.
+
+Nada de esto afloja la regla de siempre: lo que no se trajo se sigue exigiendo para cerrar el
+momento. La AC ve arriba de la captura qué se trajo, con el mismo rótulo que el campo en pantalla.
+
+### El expediente: del contrato a su carpeta
+
+El número de contrato (`FIAS-FAP-2026-089`) se asigna **al final**, cuando la Unidad Operativa
+ya elaboró el documento. La carpeta donde se elaboró está numerada por **orden de llegada** —la
+1 es la primera que se elaboró—, así que su número no dice nada del contrato, ni del área, ni
+del proveedor: solo dice *cuándo tocó*. Nada ata una cosa con la otra, y por eso revisar «el
+mantenimiento de Chimborazo» era buscar el contrato en el CLM y después la carpeta a ojo, entre
+las que se parecieran.
+
+Esa correspondencia no se puede deducir: solo la sabe quien elaboró los contratos. Así que se
+escribe en **columnas de la hoja `2026` del Excel maestro**:
+
+| Columna | Qué lleva |
+|---|---|
+| `Numero de carpeta interna` | El número de la carpeta del expediente (`47`) |
+| `CodigoProceso` | El código del expediente de la AC que arma La Mágica (`RPFCH-2026-007`) — opcional, todavía no existe |
+
+Las dos son opcionales y el robot no se rompe si no están (lee con el mismo `col()`/`val()`
+tolerante que usa para la liquidación). Tampoco hay que llenarlas de una sentada: cada vez que se
+busca una carpeta se escribe su número en esa fila, y esa búsqueda no se repite nunca más.
+
+**Los 138 contratos de 2026 ya la tienen llena**, del 1 al 141 y sin repetidos, así que el
+histórico entero quedó conectado de entrada.
+
+Con eso, el CLM deja de ser un callejón sin salida:
+
+- **Bloque «Expediente»** en el detalle del contrato, con los tres números que hasta ahora vivían
+  en sistemas distintos —contrato, código del proceso y n.º de carpeta interna— en una sola fila.
+  Los que faltan dicen *sin registrar*; no se esconden.
+- **Búsqueda en las dos direcciones**: escribir `47` encuentra el contrato de esa carpeta, y
+  escribir `Chimborazo` muestra su n.º de carpeta sin abrir el detalle. Ese es el camino que
+  antes se hacía a ojo.
+- **El número en el listado y en las tarjetas**, bajo el número de contrato.
+- **Filtro «Sin carpeta» y una alerta agregada** —una sola, no una por contrato— para ir bajando
+  lo que falta. Las dos son de la Unidad Operativa, que es quien tiene las carpetas, y solo
+  aparecen cuando ya hay alguna carpeta registrada: antes de empezar serían un cartel permanente
+  que no dice nada.
+
+Cuando se toque esta parte del CLM:
+
+```bash
+npm install jsdom
+node scripts/probar_clm.js
+```
+
+Carga el CLM en un DOM de mentira y lo maneja desde fuera. Cubre el bloque, la búsqueda, el
+listado, el filtro, la alerta y —lo que más importa— que un portafolio **sin ninguna carpeta
+registrada** se siga pintando exactamente igual que antes. También todo lo de
+[Pensado para la AC en territorio](#pensado-para-la-ac-en-territorio): la búsqueda sin tildes, los
+enlaces por número, el ingreso recordado, los formularios que no se pierden ni se envían dos veces,
+el aviso cuando no se puede guardar, la antigüedad de la base y la terminación que se puede deshacer.
 
 ## Contratos 2027 — la pantalla de las administradoras
 
@@ -347,6 +448,9 @@ su fecha en el Momento 2 y el expediente se reactiva solo.
 Si la verificación legal dice que el contrato vigente **no** contempla la cláusula, la captura lo
 avisa en el sitio: ese contrato pasa a proceso nuevo y cambia de semana en el calendario.
 
+Desde el CLM, **«Renovar en La Mágica»** abre este expediente con los datos del contrato vigente ya
+puestos: ver [Del CLM a La Mágica sin volver a teclear](#del-clm-a-la-mágica-sin-volver-a-teclear).
+
 Las plantillas se mantienen **a mano, en Word**, como el resto: el formato es de quien firma los
 documentos. Lo que las cuida es la verificación —esquema, concordancia, catálogo y rellenado real—
 descrita más abajo.
@@ -510,6 +614,23 @@ De paso salió un defecto de las plantillas: el cuadro de «ordenador/a de gasto
 opción dejaba **«en mi calidad de ordenador de gasto de gasto»** en los tres memorandos
 de inicio. Ya no.
 
+**El informe de adenda y el acta de terminación** (`crm/plantillas/`, los que rellenan
+el CLM y el CRM) quedaron fuera de esa primera conversión y llegaron así a finales de
+septiembre de 2026: 20 cuadros más, «y por el **Sr.** {proveedor}» escrito a mano, un
+cuadro arrastrado al final de un párrafo («…del “objeto”.**el señor**»), «aprobación por
+**del** administrador», y un `{dellaAP}` que ninguna de las dos herramientas entregaba —el
+informe decía **«la administración undefined Reserva…»**—. Ahora el script recorre las
+dos carpetas y convierte los 20, y el CLM y el CRM preguntan tres cosas al generar:
+
+| Qué | Cuántas veces |
+|---|---|
+| Cómo firma la AC (Administrador/a Contador/a) | una vez por AC |
+| Si el proveedor es hombre, mujer o **empresa** (propuesta cuando la razón social lleva S.A., Cía., Ltda.…) | una vez por proveedor |
+| Quién administra el área por el MAE, y su género (solo el acta) | una vez por área |
+
+Lo elegido se recuerda en el navegador y lo comparten el CLM y el CRM. El género del área
+no se pregunta: sale de su nombre («la Reserva», «el Parque», «la Dirección»).
+
 ### Cambiar o añadir una plantilla
 
 1. Deja el `.docx` en `generador/plantillas/`.
@@ -526,7 +647,6 @@ nada.
 - **`/planificador/`** — Planificador adaptativo: planes por rutas alternas, con señales,
   disparadores y tiempos de preparación. Independiente del resto; los planes se guardan en el
   navegador y se exportan a JSON.
-- **`/centro/`** — Centro de mando diario, herramienta personal (independiente del resto).
 - **`/crm/`** — CRM de Contratos para Administradoras Contadoras (ACs). Publicado en GitHub Pages.
   Se actualiza automáticamente cada día vía Power Automate, que sobrescribe `crm/contratos_export.json`
   con los datos del Excel maestro. La app lo consulta automáticamente al abrirse.
@@ -542,6 +662,14 @@ nada.
   (ver **[Las URLs de los flujos](#las-urls-de-los-flujos)**).
   Lo que la campaña de renovaciones 2027 añadió está en
   [La Mágica para las renovaciones](#la-mágica-para-las-renovaciones).
+- **`/instrumentos/`** — Generador de Instrumentos Legales para la Unidad Legal
+  (`instrumentos/index.html`). Genera contratos, convenios y actas en Word. El modo principal
+  son **plantillas Word reales** etiquetadas con `{tags}` —mismo motor docxtemplater que La
+  Mágica—, con plantillas HTML como modo secundario para documentos rápidos. Aporta tres piezas
+  que las demás herramientas no tienen: un **repositorio de cláusulas** con variantes vinculadas,
+  **grupos de concordancia** como dato (una elección gobierna varias palabras a la vez) y la
+  marca de **campo obligatorio**, que impide descargar un documento al que le falta un dato
+  esencial. Toma los datos del registro de contratos y genera en lote.
 
 ## URL pública
 
@@ -553,7 +681,6 @@ Cada herramienta tiene su propio enlace en GitHub Pages:
 - Calificador de Ofertas: https://diegodr76-f.github.io/fap-contratos/calificacion/
 - CRM directo: https://diegodr76-f.github.io/fap-contratos/crm/
 - La Mágica: https://diegodr76-f.github.io/fap-contratos/generador/
-- Centro de mando diario (personal): https://diegodr76-f.github.io/fap-contratos/centro/
 
 La raíz (`https://diegodr76-f.github.io/fap-contratos/`) redirige automáticamente al CLM.
 
@@ -563,6 +690,15 @@ El archivo `crm/contratos_export.json` NO se edita a mano. Lo sobrescribe el rob
 (`scripts/actualizar_datos.py`) todas las mañanas a partir de la hoja "Export" del Excel maestro. Si el
 flujo falla, la AC puede seguir usando el botón "Actualizar base desde Excel" dentro de la app como
 respaldo manual.
+
+Todas las columnas que el robot lee son **opcionales**: si una no está en el Excel, publica ese campo
+vacío y sigue. Vale para las de liquidación (`Fecha de cierre`, `Valor liquidado`, `Saldo no ejecutado`)
+y para las del expediente (`Numero de carpeta interna`, `CodigoProceso`). El robot dice en su resumen cuántos
+contratos traen cada cosa, así que se ve de una si una columna se renombró o se movió.
+
+Junto al bloque cifrado el robot escribe `generado`, la hora UTC en que corrió. No es un dato de
+ningún contrato, por eso va en claro. El CLM lo muestra («actualizada hoy 06:31») y avisa en ámbar
+si la base tiene dos días o más; el CRM y las demás herramientas lo ignoran.
 
 ## Seguridad de los datos (frase de acceso)
 

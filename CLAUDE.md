@@ -39,6 +39,21 @@ Dos comprobaciones lo sostienen, y conviene correr ambas antes de dar algo por b
 `scripts/variables.py --check` mira las plantillas, y `scripts/probar_generador.js`
 mira lo que La Mágica les entrega —y, de paso, rellena las 18 de verdad.
 
+`--check` recorre **todas** las carpetas con `.docx` del repositorio, descubriéndolas
+en vez de listarlas, para que una herramienta nueva quede cubierta el día que nace y
+no el día que alguien se acuerde. Antes miraba solo `generador/plantillas/`, y por ese
+hueco el Calificador creció con 76 etiquetas propias sin que nada se quejara. Lo único
+que se salta es `bases/`, y está declarado en `CARPETAS_A_MANO`: esos `.docx` se
+rellenan a mano con `[CORCHETES]`, no con etiquetas de docxtemplater.
+
+Y ya no hace falta acordarse: `.github/workflows/comprobaciones.yml` corre todo esto
+en cada push y cada pull request.
+
+**La norma viaja.** `.claude/skills/variables-fap/` es la misma regla empaquetada como
+skill, con su copia del catálogo y del script, para que aplique también fuera de este
+repositorio. Dentro de él manda siempre el catálogo del repositorio, nunca la copia; el
+CI comprueba que las dos no se separen.
+
 ## Que los .docx se abran: `scripts/validar_docx.py`
 
 **Un .docx puede ser un zip con XML impecable y aun así estar roto.** En
@@ -96,9 +111,30 @@ cada miembro a la sesión, «solicitud / cotización» es qué documento se nomb
 el `el/la` que va delante de `{objeto}` depende del género de un texto libre que
 escribe la AC — elegir uno sería adivinar.
 
+**Lo que la conversión no vio: el género escrito a mano.** El conversor solo mira
+cuadros combinados, así que una plantilla que ya traía «Señores» o «ustedes»
+escritos pasó intacta — y la solicitud de cotización le decía «Señores / José
+Lecaro … mantiene con ustedes» a una persona natural. Van `{proveedorTrato}`
+(Señor/Señora/Señores) y `{ustedUstedes}`, y delante de `{area}` nunca un
+artículo a mano: `{dellaAP}`, `{ellaAP}` o `{allaAP}`. `probar_generador.js`
+rastrea las tres trampas en las 18 plantillas.
+
 El conversor trabaja **con lista blanca**: convierte solo lo que una regla nombra
 explícitamente, y deja intacto todo lo demás. Si aparece un control sin regla,
 avisa y no lo toca.
+
+**Recorre dos carpetas: `generador/plantillas/` y `crm/plantillas/`.** La primera
+conversión solo miró La Mágica, y el informe de adenda y el acta de terminación —que
+rellenan el CLM y el CRM— siguieron con 20 cuadros hasta septiembre de 2026, más un
+«y por el Sr. {proveedor}» escrito a mano y un `{dellaAP}` que ninguna de las dos
+herramientas entregaba: el informe salía con «la administración **undefined**
+Reserva…». En esas dos el proveedor ya firmó, así que es **contratista** (grupo
+`generoContratista`, nombres que ya estaban en el catálogo). Las preguntas las hace
+`bloqueGeneros()`, igual en `clm/index.html` y `crm/index.html`, y se recuerdan en
+`localStorage['fap_generos']`, que comparten las dos; `concordanciasDoc()` tiene que
+dar los mismos valores que `GRUPOS`, y `probar_clm.js` (sección 20) lo comprueba
+leyendo este script. Y `generarDocx()` de las dos imprime «COMPLETAR» —no
+`undefined`— si una plantilla trae una etiqueta que la herramienta no entrega.
 
 ```bash
 python3 scripts/concordancia.py --revisar     qué se convertiría y qué no
@@ -119,6 +155,13 @@ América) incluidos impuestos`. En la plantilla van **solos**; escribir
 instrumentos jurídicos, donde esa variable sí son solo las palabras— duplica el
 número en el documento firmado.
 
+Hoy conviven **tres formatos** para esa misma variable —La Mágica trae cifra y
+«incluidos impuestos», el Calificador cifra sin la coletilla, el CRM y el CLM solo
+las palabras—, y un documento que se firma llegó a salir con la frase duplicada. Los tres,
+con ejemplos y con lo que hay que mirar antes de escribir un monto, están en
+`.claude/skills/variables-fap/references/formatos.md`. **Esa es la referencia; no
+la repitas aquí**, o acabarán contándose distinto.
+
 **Las plantillas se editan en Word, a mano.** No hay script que las genere: el
 formato es de quien firma los documentos. Después de tocar una, siempre:
 
@@ -129,6 +172,37 @@ python3 scripts/variables.py --check   # ¿usa nombres del catálogo?
 python3 scripts/concordancia.py --verificar
 python3 scripts/embeber_plantillas.py  # y el seed, en el mismo commit
 ```
+
+## Un documento «listo» no puede salir con un hueco
+
+El informe de renovación imprimía «suscrito el **,** cuyo objeto es…» porque el
+Momento 1 se cerraba sin la fecha de suscripción: el dato se imprime, pero nada
+lo exigía. La regla, entonces: **si una plantilla imprime un dato, el momento
+que lo captura no se cierra sin él** —`renM1Done()` y compañía—, y si además
+condiciona el envío, va también a `checklistEnvio()`.
+
+`probar_generador.js` lo vigila para las cuatro vías: llena solo lo que la app
+exige para cerrar cada momento, y comprueba que toda etiqueta de todo documento
+marcado listo tenga dato. Si añades una etiqueta a una plantilla, esa
+comprobación te dirá si dejaste el hueco abierto.
+
+## Decir QUÉ falta, no solo que falta algo
+
+Los requisitos de cada momento son **una sola lista**, `requisitos(step)`, con el
+rótulo de cada campo tal y como aparece en el formulario. De ahí salen las cinco
+cosas, así que no pueden contradecirse:
+
+- el ✓ del momento (`m1Done()`…`m4Done()` cuelgan de `pasoHecho()`),
+- el aviso ámbar de arriba de la captura, con enlace que lleva el cursor al campo,
+- el punto y el borde ámbar del propio campo (`marcaFalta`, `bordeFalta`),
+- el «Falta por llenar: …» de cada documento bloqueado en Documentos,
+- el «faltan N datos» de cada fila de Mis procesos.
+
+**Al añadir un requisito se añade a `requisitos()`, nunca a un `mXDone()`**, y el
+rótulo tiene que ser el mismo que el del campo en pantalla: si el aviso dice
+«Objeto del contrato» y el formulario dice «Objeto del proceso», la AC busca algo
+que no existe. `requisitosDatos()` hace lo propio con la Hoja de Datos, que sale
+impresa en todo: el nombre de la AC va en cada firma y las siglas arman el código.
 
 ## La renovación no lleva notificación
 
@@ -194,6 +268,125 @@ node scripts/probar_generador.js
 Carga el HTML en un DOM de mentira y lo maneja desde fuera. Cubre las cuatro vías,
 el almacenamiento, la lista de verificación y la generación real de `.docx`. Si
 tocas la app, corre esto; si añades comportamiento, añade la comprobación.
+
+## El CLM — `clm/index.html`
+
+Lo usan ACs en territorio: señal floja, a veces celular, poca paciencia para la
+tecnología. Cada cambio se mide contra **rápido, fácil e intuitivo**, y hay piezas
+hechas para eso que conviene reutilizar en vez de rehacer:
+
+- **Buscar pasa por `coincide(pajar(c), q)`**: sin tildes, cada palabra en
+  cualquier parte. Si un dato nuevo tiene que poder buscarse, va a `pajar()`, y así
+  lo encuentran a la vez el buscador de arriba y el del repositorio.
+- **Los enlaces llevan el número del contrato**, no su índice: `hashDe()` /
+  `leerHash()`. El índice cambia cada mañana con la base; un enlace por índice abre
+  otro contrato sin avisar. `go('detalle', i)` sigue recibiendo el índice.
+- **`saveCLM()` avisa si falla**, como `lsSet()` en La Mágica. Nada de `catch(e){}`.
+- **Un botón que espera algo (Word, Power Automate) va dentro de `mientras()`**: se
+  apaga, dice qué hace, y devuelve `true` al terminar bien para no reactivarse.
+- **Los formularios se abren con `openModal()`**: marca `o._sucio` al escribir y
+  pregunta antes de botar lo escrito. Una pantalla de «listo» pone `o._sucio=false`.
+- **Estilos del celular en las media queries, no en `style=""`**: un estilo en línea
+  le gana a la media query (así quedaban dos columnas de 150 px en el teléfono).
+- **Que un contrato venza no lo hace renovable.** `esRenovable(c)` (junto a
+  `isConsultoria`) es la única fuente: `c.tipo==="Nuevo"` y `c.cat` fuera de
+  `NO_RECURRENTES` (Consultoría, Adquisición de equipos de campo) — la misma
+  regla de `scripts/plan_renovaciones.py` y `renovaciones/index.html`, no la
+  reinventes. El FIAS renueva una sola vez: un contrato con `tipo!=="Nuevo"`
+  ya gastó la suya. «Renovar en La Mágica» se probó una vez solo contra
+  vencido/por vencer y ofrecía renovar una consultoría puntual — cualquier
+  botón o alerta que hable de vencimiento y renovación junta pasa por
+  `esRenovable()`, no solo por `statusLive()`.
+
+- **La tabla del listado tiene que caber, y «Abrir» no puede esconderse.** Llegó a
+  nueve columnas: con las fechas y el estado sin partirse, en una pantalla de 1366 la
+  columna «Contrato» quedaba fuera de vista, con la barra para desplazarse al pie de
+  139 filas. Hoy son siete (la categoría va bajo el objeto, el vencimiento bajo el
+  estado), «Contrato» va fija a la derecha (`.td-sig`, `position:sticky`) y en
+  1280 px o menos el área baja bajo el objeto en vez de ser columna. Antes de añadir
+  una columna: ¿cabe en 1280 px con la barra del navegador puesta? **Se mide en
+  Chromium con las barras reales** (Playwright oculta las barras al lanzar; hay que
+  pasarle `ignoreDefaultArgs:['--hide-scrollbars']`), no se calcula: jsdom no tiene
+  anchos y `probar_clm.js` solo puede vigilar la estructura. Y un elemento con
+  `all:unset` vuelve a `content-box`: si lleva `width:calc(100% - …)` más relleno, se
+  pasa (así se cortaba la barra lateral) — ponle `box-sizing:border-box`.
+
+Todo esto lo vigila `scripts/probar_clm.js` (cómo correrlo, al final de la sección
+siguiente). Si añades comportamiento al CLM, añade la comprobación.
+
+### El pool de proveedores
+
+La alerta «Proveedor sin calificar» pedía todo lo terminado de cualquier año, y a la
+Unidad Operativa le llegaba una por contrato del portafolio entero. Tres reglas lo
+sostienen hoy (sección 22 de `probar_clm.js`):
+
+- **`calificacionDe(c)` es la única fuente de «¿está calificado?».** Stepper, detalle,
+  alerta, pool, avisos y CSV pasan por ahí; nada lee `ov(c).evaluado` directo. Hoy mira
+  solo el navegador; cuando exista el Registro de Calificaciones compartido (una hoja
+  del Excel maestro que lea el robot, a un archivo cifrado **aparte**, para que
+  `contratos_export.json` no cambie), se añade ahí y nada más se toca. Los cortes
+  90/80/70/60 viven en `tierCalificacion()`, una sola tabla para el modal y el pool.
+- **Solo se pide calificar desde `CALIFICA_DESDE` (2026-01-01)**, una fecha fija y no
+  «el año en curso». `pideCalificacion()` decide; la AC recibe una alerta por contrato
+  suyo y la Unidad Operativa **una agregada**, como la de carpetas.
+- **`claveProv()` une solo lo que no cambia a quién se nombra** —mayúsculas, tildes,
+  puntos, «S.A.», «Cía. Ltda.»— y nada por parecido: la base no trae RUC y juntar la
+  calificación de uno con los contratos de otro es peor que tenerlos separados. El
+  nombre que se muestra es la escritura más repetida en todo el portafolio, para que
+  la lista de una AC, la de la Unidad y la ficha digan lo mismo.
+
+La ficha del proveedor enlaza por su clave (`#/proveedor/<clave>`), igual que el
+detalle por número de contrato. Su tabla de contratos tiene dos columnas a propósito:
+con cinco, en la columna izquierda a 1280 px, «Calificar» quedaba fuera de vista.
+
+### El puente CLM → La Mágica
+
+«Iniciar en La Mágica» (solicitud) y «Renovar en La Mágica» (contrato) no pasan
+datos por la URL: el CLM los deja en `localStorage['fap_precarga']` —mismo sitio,
+mismo almacenamiento— y abre La Mágica con `#precarga=sol:<id>` o
+`#precarga=ren:<n.º>`. Del lado de La Mágica lo recibe `aplicarPrecarga()`.
+
+- **El buzón habla catálogo** (`contratoNro`, `fechaContrato`, `fechaFin`,
+  `montoTotal`, `objeto`, `proveedor`, `area`, `presupuesto`, `plazo`). La Mágica
+  lo traduce a sus campos internos (`contratoAnterior`, `fechaSuscripcionAnt`…).
+  Un dato nuevo que viaje: primero búscalo en el catálogo.
+- **No adivina.** Lo que el CLM no sabe con certeza no se marca: la vía de una
+  solicitud, cuál garantía, un área con dos candidatas. Se avisa y lo elige la AC.
+- **No duplica.** `expDePrecarga()` abre el expediente que ya existe, también una
+  renovación hecha a mano del mismo contrato.
+- **No afloja `requisitos()`.** Lo precargado cuenta como lleno; lo demás se sigue
+  exigiendo. El aviso de lo traído usa el rótulo del campo en pantalla.
+
+Lo prueban la sección 18 de `probar_clm.js` y la 25 de `probar_generador.js`.
+
+## El puente con la carpeta del expediente
+
+El número de contrato se asigna al final; la carpeta donde se elaboró está numerada por orden
+de llegada. Nada ata una cosa con la otra y **no se puede deducir**: solo lo sabe quien elaboró
+los contratos. Por eso se escribe a mano en la hoja `2026` del Excel maestro: la columna
+`Numero de carpeta interna` —que el robot publica como `carpeta`— y, opcional y todavía
+inexistente, `CodigoProceso`. Los 138 contratos de 2026 ya la traen llena.
+
+Se consideró emparejarlo solo, por fecha y por orden, y se descartó: el orden de elaboración no
+sigue al de firma, así que estaría adivinando — y un emparejado equivocado es peor que el vacío,
+porque da un enlace que abre con confianza la carpeta que no es.
+
+Dos reglas que sostienen esto:
+
+- **Toda columna que lee el robot es opcional.** `col()` devuelve `None` si no está y `val()` lo
+  absorbe; el Excel es de otra persona y se reordena. Al añadir una columna, la comprobación que
+  de verdad importa es que **sin ella se publique exactamente lo mismo que antes**.
+- **La carpeta `47` llega de Excel como número.** Pasa por `texto()`, que la publica como `'47'`
+  y no como `'47.0'` — si no, la búsqueda del CLM no la encuentra.
+
+Se llama *carpeta interna*, que es como se llama la columna y como lo dice quien la creó. No
+*expediente*: en el catálogo, `{codigo}` ya es «código del expediente» y es el de la AC. Son dos
+cosas distintas del mismo caso, y el bloque **Expediente** del CLM existe para mostrarlas juntas.
+
+```bash
+npm install jsdom
+node scripts/probar_clm.js    # después de tocar el CLM
+```
 
 ## Datos de contratos
 

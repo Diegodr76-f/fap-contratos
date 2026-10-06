@@ -1,0 +1,84 @@
+# Las comprobaciones del repositorio, en cada push y cada pull request.
+#
+# Existen desde hace tiempo y son buenas; lo que faltaba era que alguien las
+# corriera. El 15 de septiembre una subida por la interfaz web de GitHub regresó
+# una plantilla de producción, y tres de estas comprobaciones llevaban en rojo
+# dos días sin que nadie se enterara. Eso es lo que este archivo evita.
+#
+# No hay gestor de dependencias a propósito: .gitignore excluye package.json
+# porque las aplicaciones no tienen ninguna. Por eso las tres de las pruebas se
+# instalan aquí con la versión fijada — incluida jsdom, que CLAUDE.md no fijaba y
+# es la que más se mueve.
+
+name: Comprobaciones
+
+on:
+  push:
+    # El robot diario reescribe este archivo a las 11:30 UTC. Sin esto habría una
+    # corrida al día que no comprueba nada nuevo.
+    paths-ignore:
+      - 'crm/contratos_export.json'
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # lxml no es opcional aquí: sin él, validar_docx.py hace solo las
+      # comprobaciones de estructura y se pierde justo lo que caza el orden de
+      # los hijos de <w:tblPr>, que es lo que dejó once plantillas rotas.
+      - name: Dependencias de Python
+        run: pip install --quiet lxml==5.3.0
+
+      # Cada paso corre aunque el anterior falle: se quiere el cuadro completo de
+      # una corrida, no ir arreglando de uno en uno.
+      - name: Las plantillas usan el vocabulario del catálogo
+        if: ${{ !cancelled() }}
+        run: python3 scripts/variables.py --check
+
+      - name: Los .docx se abren en Word
+        if: ${{ !cancelled() }}
+        run: python3 scripts/validar_docx.py
+
+      - name: Los controles que no son concordancia siguen ahí
+        if: ${{ !cancelled() }}
+        run: python3 scripts/concordancia.py --verificar
+
+      - name: El seed embebido coincide con las plantillas sueltas
+        if: ${{ !cancelled() }}
+        run: python3 scripts/embeber_plantillas.py --check
+
+      - uses: actions/setup-node@v4
+        if: ${{ !cancelled() }}
+        with:
+          node-version: '22'
+
+      - name: Dependencias de las pruebas
+        if: ${{ !cancelled() }}
+        run: npm install --no-save --no-audit --no-fund jsdom@30.1.0 pizzip@3.2.0 docxtemplater@3.66.4
+
+      - name: La Mágica se maneja y rellena sus plantillas
+        if: ${{ !cancelled() }}
+        run: node scripts/probar_generador.js
+
+      - name: El CLM
+        if: ${{ !cancelled() }}
+        run: node scripts/probar_clm.js
+
+      # La skill lleva su propia copia del catálogo y del script, porque fuera de
+      # este repositorio no hay ninguno de los dos. Dos copias en el mismo árbol
+      # se desincronizan solas; esto lo hace imposible. Un enlace simbólico no
+      # vale: al copiar la carpeta a las skills personales apuntaría a la nada,
+      # que es justo el caso de uso que la motiva.
+      - name: La copia de la skill no se ha quedado atrás
+        if: ${{ !cancelled() }}
+        run: |
+          cmp generador/variables_fap.json .claude/skills/variables-fap/references/variables_fap.json
+          cmp scripts/variables.py         .claude/skills/variables-fap/scripts/variables.py
