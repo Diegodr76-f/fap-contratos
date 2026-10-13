@@ -388,6 +388,22 @@ npm install jsdom
 node scripts/probar_clm.js    # después de tocar el CLM
 ```
 
+## El Generador de Instrumentos — `instrumentos/index.html`
+
+Trae plantillas Word **semilla** embebidas en `window.__DOCX_SEEDS__`, cada una con su
+`seedKey` en `plantillasSemillaDocx()`. Las notificaciones de adjudicación y de no
+adjudicación (oficio del Director Ejecutivo: Antecedente · Base legal · Notificación)
+tienen su `.docx` suelto en `instrumentos/plantillas/`; al cambiarlo hay que volver a
+meterlo en el seed a mano, en el mismo commit.
+
+- **La marca `fap_gen_docx_semillas` es la lista de `seedKey` ya ofrecidas** (el `'1'`
+  antiguo equivale a adenda y acta). Una semilla nueva llega sola a quien ya tenía las
+  otras, y una que la AC borró no reaparece. Al sembrar se crean los grupos de
+  concordancia que sus tags necesitan (`consolidarConcordanciasAuto(tags)`): si no, el
+  género sale como campos de texto sueltos.
+- **Sus montos en letras son solo las palabras**, como en el CRM: la cifra la pone la
+  plantilla, `USD {monto} ({montoLetras})`.
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:

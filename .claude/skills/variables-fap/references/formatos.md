@@ -19,6 +19,7 @@ palabras en algunas herramientas**. Hoy conviven tres formatos:
 | **La Mágica** (`generador/index.html`) | `USD 1.150,00 (Mil ciento cincuenta con 00/100 dólares de los Estados Unidos de América) incluidos impuestos` |
 | **Calificador** (`calificacion/index.html`) | `USD 1.150,00 (Mil ciento cincuenta…)` — con cifra, **sin** «incluidos impuestos» |
 | **CRM y CLM** (`crm/index.html`, `clm/index.html`) | `Mil ciento cincuenta con 00/100 dólares de los Estados Unidos de América` — **solo las palabras** |
+| **Generador de instrumentos** (`instrumentos/index.html`) | igual que el CRM: **solo las palabras**. Sus notificaciones escriben `USD {monto} ({montoLetras}) incluidos impuestos` |
 
 Cada plantilla está escrita para su herramienta, y eso es lo que las hace incompatibles cruzadas:
 

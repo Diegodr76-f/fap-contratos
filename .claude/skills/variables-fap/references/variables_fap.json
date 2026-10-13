@@ -2316,6 +2316,33 @@
       "ejemplo": "",
       "tipo": "repetible",
       "origen": ""
+    },
+    {
+      "id": "pmc2z4gbfrehfv",
+      "grupo": "Proceso",
+      "nombre": "baseLegal",
+      "descripcion": "Base legal de las notificaciones: lo que el Ciclo del FAP dice del gasto, con su numeral y entre comillas. Cambia con el gasto (combustible, consultoría…), por eso no va fijo en la plantilla. Puede ocupar varias líneas.",
+      "ejemplo": "En el Ciclo del FAP, para gastos operativos básicos se indica dentro de los gastos operativos susceptibles de financiamiento los siguientes: “3.4.3 Componente: Conservación y Manejo (…) 3) Combustible y mantenimiento vehículos: incluye aceites, lubricantes y repuestos menores.”",
+      "tipo": "texto",
+      "origen": ""
+    },
+    {
+      "id": "pm54xnft4ufdqn",
+      "grupo": "Fechas",
+      "nombre": "fechaOfertaInvitado",
+      "descripcion": "Fecha en que el proveedor invitado presentó su oferta, en la notificación de no adjudicación. No confundir con {fechaRecepOferta}, que es la de la oferta adjudicada.",
+      "ejemplo": "28 de septiembre de 2026",
+      "tipo": "fecha",
+      "origen": ""
+    },
+    {
+      "id": "pmbxzoemkt9kpd",
+      "grupo": "Proceso",
+      "nombre": "motivoNoAdjudicacion",
+      "descripcion": "Por qué no se aceptó la oferta, redactado para seguir a «su propuesta no fue aceptada debido a que…». Sin punto final.",
+      "ejemplo": "se ubicó en segundo lugar con un puntaje de 67,63/80 luego de la evaluación de los requerimientos solicitados en la oferta técnica",
+      "tipo": "texto",
+      "origen": ""
     }
   ]
 }
