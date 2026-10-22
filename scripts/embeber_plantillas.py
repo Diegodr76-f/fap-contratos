@@ -8,7 +8,11 @@ disco, sin conexión y sin la carpeta al lado. Antes se incrustaba a mano; con
 este script, cambiar o añadir una plantilla es dejar el .docx en la carpeta y
 volver a correrlo.
 
-El `cfg` de ejemplo que ya trae el seed se conserva tal cual.
+El seed del repositorio NO lleva `cfg`. Llevaba uno de ejemplo —una AC, un
+jefe de área y el Yasuní— que una AC nueva heredaba como si fuera suyo y que
+nada marcaba como pendiente: se habría impreso en las firmas. La copia que
+exporta un coordinador desde la app (exportBuild) sí lleva el suyo, y la app le
+pide a quien la abre que lo confirme.
 
 Uso:
     python3 scripts/embeber_plantillas.py
@@ -70,7 +74,7 @@ def seed_actual(linea):
     return json.loads(m.group(1))
 
 
-def construir_seed(cfg):
+def construir_seed():
     archivos = sorted(f for f in os.listdir(PLANTILLAS) if f.endswith('.docx'))
     faltan = [f for f in archivos if f not in ORDEN]
     if faltan:
@@ -84,10 +88,7 @@ def construir_seed(cfg):
             continue
         with open(ruta, 'rb') as f:
             tpls[nombre] = base64.b64encode(f.read()).decode('ascii')
-    seed = {'v': None, 'tpls': tpls}
-    if cfg:
-        seed['cfg'] = cfg
-    return seed
+    return {'v': None, 'tpls': tpls}
 
 
 def serializar(seed):
@@ -102,10 +103,10 @@ def main():
     i = indice_seed(lineas)
     viejo = seed_actual(lineas[i])
 
-    seed = construir_seed(viejo.get('cfg'))
+    seed = construir_seed()
     # La versión del seed solo sube si las plantillas cambiaron: así una copia
     # ya instalada no vuelve a pisar nada sin motivo.
-    if seed['tpls'] == viejo.get('tpls'):
+    if seed['tpls'] == viejo.get('tpls') and 'cfg' not in viejo:
         print('El seed ya está al día (%d plantillas, v=%s).'
               % (len(seed['tpls']), viejo.get('v')))
         return 0
@@ -120,10 +121,13 @@ def main():
                        and seed['tpls'][k] != viejo['tpls'][k])
     quitadas = sorted(set(viejo.get('tpls') or {}) - set(seed['tpls']))
 
-    seed['v'] = int(max(os.path.getmtime(os.path.join(PLANTILLAS, k))
-                        for k in seed['tpls']) * 1000)
-    if seed['v'] <= int(viejo.get('v') or 0):
-        seed['v'] = int(viejo.get('v') or 0) + 1
+    if seed['tpls'] == viejo.get('tpls'):
+        seed['v'] = viejo.get('v')            # solo se quitó el cfg de ejemplo
+    else:
+        seed['v'] = int(max(os.path.getmtime(os.path.join(PLANTILLAS, k))
+                            for k in seed['tpls']) * 1000)
+        if seed['v'] <= int(viejo.get('v') or 0):
+            seed['v'] = int(viejo.get('v') or 0) + 1
 
     lineas[i] = serializar(seed)
     with io.open(HTML, 'w', encoding='utf8') as f:

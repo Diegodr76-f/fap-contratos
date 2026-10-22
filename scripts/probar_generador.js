@@ -210,6 +210,7 @@ ok(archivados && archivados.indexOf('FAP_historial_archivado')===0,'y descarga l
 seccion('13 · Las otras vías siguen funcionando');
 w=nuevoDom();
 w.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+w.ST.cfg.ac='Lcda. Ana Torres'; w.ST.cfg.acCorreo='atorres@fias.org.ec';
 w.newExp('Combustible Q1');
 const c=w.D();
 c.areaId='a1'; c.tipoProceso='Comparación de precios'; c.bienServicio='Bien'; c.tipoBien='Activo fijo';
@@ -593,6 +594,7 @@ seccion('22 · El aviso dice QUÉ falta, no solo que falta algo');
 {
   const w8=nuevoDom();
   w8.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  w8.ST.cfg.ac='Lcda. Ana Torres'; w8.ST.cfg.acCorreo='atorres@fias.org.ec';
   w8.newExp('Aviso');
   const da=w8.D();
   Object.assign(da,{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien'});
@@ -795,20 +797,20 @@ seccion('26 · IVA por ítem: una compra puede mezclar 15 % y 0 %');
     wi.ST.cfg.ac='Lcda. María Salazar'; wi.ST.cfg.acCorreo='m@fias.org.ec';
     wi.newExp('Víveres y combustible');
     Object.assign(wi.D(),{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Bien',tipoBien:'Activo fijo',
-      fechaInicio:'2026-10-20',numero:'9',objeto:'Víveres y combustible para patrullaje',plazo:'5',presupuesto:'2000',fechaRecepcion:'2026-10-25',
+      fechaInicio:'2026-10-20',numero:'9',objeto:'Víveres y combustible para patrullaje',plazo:'5',presupuesto:'1000',fechaRecepcion:'2026-10-25',
       partida:'3.1.2.2',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura',
       items:[{desc:'Arroz 50 kg',unidad:'Unidad',cantidad:'10',punit:'48',iva:'0'},
-             {desc:'Gasolina súper',unidad:'Galón',cantidad:'150',punit:'3.9',iva:'15'},
-             {desc:'Repelente 200 ml',unidad:'Unidad',cantidad:'40',punit:'4.5',iva:'15'}]});
-    wi.D().provs[0]={razon:'Comercial Orellana',ruc:'1790012345001',dir:'Av. 9 de Octubre',tel:'',monto:'1365.75',fof:'',genero:'E'};
+             {desc:'Gasolina súper',unidad:'Galón',cantidad:'80',punit:'3.9',iva:'15'},
+             {desc:'Repelente 200 ml',unidad:'Unidad',cantidad:'20',punit:'4.5',iva:'15'}]});
+    wi.D().provs[0]={razon:'Comercial Orellana',ruc:'1790012345001',dir:'Av. 9 de Octubre',tel:'',monto:'948.30',fof:'',genero:'E'};
     wi.save(); return wi;
   };
   const wi=viveres();
   const t=wi.itemTotals();
-  ok(t.sub===1245 && t.iva===114.75 && t.total===1359.75,'subtotal 1.245,00 · IVA 114,75 · total 1.359,75',[t.sub,t.iva,t.total].join(' · '));
-  ok(t.tarifas.length===2 && t.tarifas[0].pct===15 && t.tarifas[0].base===765 && t.tarifas[1].pct===0 && t.tarifas[1].base===480,
-     'el IVA se agrupa por tarifa, de la mayor a la menor: 15 % sobre 765,00 y 0 % sobre 480,00');
-  // La oferta de 1.365,75 no cuadra con el detalle: el momento no se cierra y dice por qué
+  ok(t.sub===882 && t.iva===60.3 && t.total===942.3,'subtotal 882,00 · IVA 60,30 · total 942,30',[t.sub,t.iva,t.total].join(' · '));
+  ok(t.tarifas.length===2 && t.tarifas[0].pct===15 && t.tarifas[0].base===402 && t.tarifas[1].pct===0 && t.tarifas[1].base===480,
+     'el IVA se agrupa por tarifa, de la mayor a la menor: 15 % sobre 402,00 y 0 % sobre 480,00');
+  // La oferta de 948,30 no cuadra con el detalle: el momento no se cierra y dice por qué
   ok(wi.m2Done()===false,'si el detalle no cuadra con el monto, el Momento 2 no se cierra');
   const fc=wi.faltan(1).find(x=>x.campo==='cuadre');
   ok(fc && /cuadre con el monto del proveedor/.test(fc.label) && /6,00/.test(fc.label),'y el aviso dice qué falta y por cuánto: '+(fc&&fc.label));
@@ -818,44 +820,44 @@ seccion('26 · IVA por ítem: una compra puede mezclar 15 % y 0 %');
   let html=wi.document.getElementById('app').innerHTML;
   ok(/No cuadra con el monto del proveedor/.test(html),'el recuadro de totales lo avisa en el momento, al lado de los números');
   // Con el monto bien puesto, cuadra
-  wi.D().provs[0].monto='1359.75'; wi.save(); wi.render();
-  ok(wi.m2Done()===true,'con la oferta real (1.359,75) el Momento 2 se cierra',wi.faltan(1).map(x=>x.label).join(' | '));
+  wi.D().provs[0].monto='942.30'; wi.save(); wi.render();
+  ok(wi.m2Done()===true,'con la oferta real (942,30) el Momento 2 se cierra',wi.faltan(1).map(x=>x.label).join(' | '));
   ok(/Cuadra con el monto del proveedor/.test(wi.document.getElementById('app').innerHTML),'y el recuadro lo confirma en verde');
   ok(wi.documents().find(x=>x.id==='entrega').ready===true,'y el acta ya se puede generar');
   const iv=wi.checklistEnvio().find(x=>x.label==='IVA aplicado y declarado');
-  ok(iv.ok && /15 % sobre USD 765,00 y del 0 % sobre USD 480,00/.test(iv.detalle),'la lista de verificación declara cada tarifa con su base: '+iv.detalle);
+  ok(iv.ok && /15 % sobre USD 402,00 y del 0 % sobre USD 480,00/.test(iv.detalle),'la lista de verificación declara cada tarifa con su base: '+iv.detalle);
 
   // Lo que recibe la plantilla
   const datos=wi.buildTemplateData();
   ok(datos.ivaMixto===true && datos.ivas.length===2,'{#ivas} trae una fila por tarifa e {ivaMixto} es verdadero');
-  ok(datos.ivas[0].ivaPct==='15' && datos.ivas[0].subtotal==='765,00' && datos.ivas[0].iva==='114,75'
+  ok(datos.ivas[0].ivaPct==='15' && datos.ivas[0].subtotal==='402,00' && datos.ivas[0].iva==='60,30'
      && datos.ivas[1].ivaPct==='0' && datos.ivas[1].subtotal==='480,00' && datos.ivas[1].iva==='0,00',
      'cada fila con su tarifa, su base y su IVA',JSON.stringify(datos.ivas));
   ok(datos.ivaPct==='15% y 0','{ivaPct} suelto enumera las tarifas, para la plantilla que no use el bloque: '+datos.ivaPct);
   ok(datos.items.map(x=>x.ivaPct).join(',')==='0,15,15','y cada ítem lleva la suya en {#items}');
   // El documento de verdad
   const out=rellena(wi,'7_Orden_de_compra.docx');
-  ok(/IVA \(15%\) sobre USD 765,00\s*114,75/.test(out),'la orden imprime «IVA (15%) sobre USD 765,00 · 114,75»');
+  ok(/IVA \(15%\) sobre USD 402,00\s*60,30/.test(out),'la orden imprime «IVA (15%) sobre USD 402,00 · 60,30»');
   ok(/IVA \(0%\) sobre USD 480,00\s*0,00/.test(out),'y «IVA (0%) sobre USD 480,00 · 0,00»');
-  ok(/TOTAL\s*1\.359,75/.test(out),'con el total que cuadra con la oferta');
+  ok(/TOTAL\s*942,30/.test(out),'con el total que cuadra con la oferta');
 
   // Con una sola tarifa, el documento sale exactamente como antes
   wi.ivaATodos('15');
   ok(wi.D().items.every(x=>x.iva==='15') && wi.D().ivaPct==='15','«Todos al 15 %» pone la misma tarifa a todos los ítems');
   const out1=rellena(wi,'7_Orden_de_compra.docx');
-  ok(/IVA \(15%\)\s*186,75/.test(out1) && !/sobre USD/.test(out1),'con una sola tarifa: «IVA (15%) · 186,75», sin «sobre», igual que siempre');
+  ok(/IVA \(15%\)\s*132,30/.test(out1) && !/sobre USD/.test(out1),'con una sola tarifa: «IVA (15%) · 132,30», sin «sobre», igual que siempre');
   ok(wi.buildTemplateData().ivaPct==='15' && wi.buildTemplateData().ivaMixto===false,'y {ivaPct} vuelve a ser «15»');
   // Un ítem nuevo nace con la última tarifa aplicada a todos
   wi.ivaATodos('0'); wi.addItem();
   ok(wi.D().items[3].iva==='0','un ítem nuevo nace con la tarifa que se aplicó a todos');
 
   // Las ocho plantillas con tabla de valores se rellenan con tarifas mezcladas
-  const wm=viveres(); wm.D().provs[0].monto='1359.75'; wm.save();
+  const wm=viveres(); wm.D().provs[0].monto='942.30'; wm.save();
   ['7_Orden_de_compra.docx','8_Orden_de_servicio.docx','9_Acta_entrega_recepcion.docx','10_Informe_satisfaccion.docx',
    '12_Acta_entrega_area_protegida.docx','16_Orden_de_compra_director.docx','17_Orden_de_servicio.docx','18_Informe_satisfaccion_CD.docx']
   .forEach(f=>{
     let o=''; try{ o=rellena(wm,f); }catch(e){ o='ERROR '+e.message; }
-    ok(/IVA \(15%\) sobre USD 765,00/.test(o) && /IVA \(0%\) sobre USD 480,00/.test(o), f+' imprime una fila de IVA por tarifa', o.slice(0,80));
+    ok(/IVA \(15%\) sobre USD 402,00/.test(o) && /IVA \(0%\) sobre USD 480,00/.test(o), f+' imprime una fila de IVA por tarifa', o.slice(0,80));
   });
 
   // «Otra…»: cualquier porcentaje, validado
@@ -872,7 +874,7 @@ seccion('26 · IVA por ítem: una compra puede mezclar 15 % y 0 %');
   // Cambiar la tarifa en el desplegable recalcula en el momento
   const sel3=wm.document.querySelector("select[data-ik='iva'][data-i='1']");
   sel3.value='0'; wm.onItem(sel3);
-  ok(wm.itemTotals().iva===round2js(180*0.08) && /IVA \(8 %\) sobre USD 180,00/.test(wm.document.getElementById('a_totales').textContent),
+  ok(wm.itemTotals().iva===round2js(90*0.08) && /IVA \(8 %\) sobre USD 90,00/.test(wm.document.getElementById('a_totales').textContent),
      'cambiar la tarifa de un ítem recalcula el recuadro sin recargar: '+wm.document.getElementById('a_totales').textContent.replace(/\s+/g,' ').slice(0,120));
 
   // El umbral de USD 8.000 se mide con el IVA real
@@ -947,6 +949,144 @@ seccion('27 · Pegar el detalle desde Excel');
   wx.confirm=()=>true;
   pega('');
   ok(/vacío/.test(wx.document.getElementById('toast').textContent),'pegar nada avisa, sin alert');
+}
+
+seccion('28 · Compra directa: hasta USD 1.000, con IVA');
+// Por encima, la vía es comparación de precios o selección directa por
+// excepción. Se mide lo mayor de lo que haya: presupuesto, oferta o detalle.
+{
+  const cd=()=>{
+    const wc=nuevoDom();
+    wc.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+    wc.ST.cfg.ac='Lcda. Ana Torres'; wc.ST.cfg.acCorreo='atorres@fias.org.ec';
+    wc.newExp('Víveres');
+    Object.assign(wc.D(),{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Servicio',fechaInicio:'2026-11-03',numero:'12',
+      objeto:'Alimentación del personal',partida:'3.1.2.2',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura',plazo:'5',
+      presupuesto:'1800',items:[{desc:'Raciones',unidad:'Servicio',cantidad:'100',punit:'',iva:'15'}]});
+    wc.D().provs[0]={razon:'Comedor La Selva',ruc:'',dir:'',tel:'',monto:'',fof:'',genero:'M'};
+    wc.save(); return wc;
+  };
+  const wc=cd();
+  const r=wc.faltan(0).find(x=>/Compra directa solo hasta/.test(x.label));
+  ok(r && r.campo==='presupuesto' && /USD 1\.000,00/.test(r.label) && /USD 1\.800,00/.test(r.label),
+     'con un presupuesto de 1.800 el Momento 1 dice por qué no sigue: '+(r&&r.label));
+  ok(wc.m1Done()===false,'y no se cierra');
+  ok(wc.documents().every(x=>!x.ready && x.bloqueo),'ningún documento de la compra directa se puede generar');
+  ok(wc.checklistPendientes().some(x=>x.label==='Compra directa dentro del límite'),'y la lista de verificación lo frena');
+  wc.ST.nav='captura'; wc.ST.step=0; wc.render();
+  let html=wc.document.getElementById('app').innerHTML;
+  ok(/La compra directa llega hasta USD 1\.000,00/.test(html) && /Pasar a comparación de precios/.test(html),'el cartel lo explica junto al presupuesto y ofrece cambiar de vía en un clic');
+  ok([...wc.document.querySelectorAll("select[data-k='tipoProceso'] option")].some(o=>/Compra directa — 1 proveedor, hasta USD 1\.000/.test(o.textContent)),
+     'el desplegable ya lo dice al elegir: «Compra directa — 1 proveedor, hasta USD 1.000»');
+  // Al escribir el presupuesto el cartel aparece y desaparece solo
+  const pres=wc.document.querySelector("[data-k='presupuesto']");
+  pres.value='900'; wc.onField(pres);
+  ok(wc.document.querySelector('.cartel-cd').innerHTML==='' && !wc.faltan(0).some(x=>/Compra directa solo/.test(x.label)),'con 900 el cartel se va, sin recargar la pantalla');
+  pres.value='1000'; wc.onField(pres);
+  ok(!wc.cdExcede(),'USD 1.000 justos todavía es compra directa');
+  pres.value='1000.01'; wc.onField(pres);
+  ok(/llega hasta/.test(wc.document.querySelector('.cartel-cd').innerHTML),'y un centavo más ya no');
+  // La oferta también cuenta
+  const wo=cd(); Object.assign(wo.D(),{presupuesto:'950'}); wo.D().provs[0].monto='1150'; wo.save();
+  ok(wo.faltan(1).some(x=>x.campo==='p0.monto' && /Compra directa solo hasta/.test(x.label)),'un presupuesto de 950 con una oferta de 1.150 tampoco pasa');
+  // Cambiar de vía conserva lo escrito
+  wc.D().presupuesto='1800'; wc.save();
+  wc.cambiarVia('Comparación de precios');
+  ok(wc.D().tipoProceso==='Comparación de precios' && wc.D().presupuesto==='1800' && wc.D().provs[0].razon==='Comedor La Selva' && wc.D().items[0].desc==='Raciones',
+     '«Pasar a comparación de precios» cambia la vía y conserva presupuesto, proveedor e ítems');
+  ok(wc.ST.nav==='captura' && wc.ST.step===0 && !wc.cdExcede(),'y deja a la AC en el Momento 1 para completar lo que pide la vía nueva');
+}
+
+seccion('29 · Lo que encontró el recorrido como AC');
+{
+  // Una instalación nueva empieza en blanco: nada de ejemplo pasa por real
+  const wn=nuevoDom();
+  ok(!wn.__SEED__.cfg,'el seed del repositorio no trae una Hoja de Datos de ejemplo');
+  ok(wn.ST.cfg.ac==='' && wn.ST.cfg.areas.length===1 && wn.ST.cfg.areas[0].ap==='','instalación nueva: AC vacía y un área en blanco para llenar');
+  ok(wn.faltanDeDatos().map(x=>x.label).indexOf('Nombre de la administradora contadora')>=0,'y la Hoja de Datos lo pide');
+  wn.render();
+  ok(wn.document.getElementById('badge_datos').style.display!=='none','el menú marca la Hoja de Datos mientras le falte algo');
+  // El relleno «XXX» de versiones anteriores no es un nombre
+  const wx=nuevoDom(win=>win.localStorage.setItem('fap_v3',JSON.stringify({cfg:{ac:'XXX',acCorreo:'XXX@fias.org.ec',areas:[{id:'a1',ap:'PNY',siglas:'PNY',mae:'M',maeCargo:'J',ciudad:'Quito'}]},exps:[]})));
+  ok(wx.faltanDeDatos().map(x=>x.label).join('|')==='Nombre de la administradora contadora|Correo de la administradora contadora','«XXX» cuenta como vacío');
+  // La copia que exporta un coordinador trae su Hoja de Datos: hay que confirmarla
+  const HTMLc=HTML.replace('window.__SEED__={"v":','window.__SEED__={"cfg":{"ac":"Lcda. Coordinadora","acCorreo":"c@fias.org.ec","ap":"RPF Chimborazo","siglas":"RPFCH","mae":"L. Paca","maeCargo":"Jefa"},"v":');
+  const wcf=new JSDOM(HTMLc,{url:'http://localhost/generador/index.html',runScripts:'dangerously',beforeParse(win){win.fetch=undefined;}}).window;
+  ok(wcf.ST.cfg.revisar===true && /Confirmar que la Hoja de Datos es la tuya/.test(wcf.faltanDeDatos()[0].label),'una Hoja de Datos que llega precargada se pide confirmar antes de firmar con ella');
+  wcf.ST.nav='datos'; wcf.render();
+  const btnConf=[...wcf.document.querySelectorAll('button')].find(b=>/son mis datos/.test(b.textContent));
+  ok(!!btnConf,'la Hoja de Datos ofrece «Revisé: son mis datos»');
+  btnConf.onclick();
+  ok(!wcf.ST.cfg.revisar && wcf.faltanDeDatos().length===0,'y con eso queda confirmada');
+  // El género del área se propone al escribir su nombre, y el desplegable lo muestra
+  wn.ST.nav='datos'; wn.render();
+  const apIn=wn.document.querySelector("[data-ai='0'][data-ak='ap']");
+  apIn.value='Reserva Ecológica Cofán Bermejo'; wn.onArea(apIn);
+  ok(wn.ST.cfg.areas[0].apGenero==='F' && wn.document.querySelector("select[data-ai='0'][data-ak='apGenero']").value==='F',
+     '«Reserva…» propone femenino y el desplegable lo muestra al escribir');
+
+  // Un proceso recién creado no aparenta tener momentos completos
+  const wp=nuevoDom();
+  wp.ST.cfg.ac='A'; wp.ST.cfg.acCorreo='a@b'; Object.assign(wp.ST.cfg.areas[0],{ap:'PN Yasuní',siglas:'PNY',mae:'M'});
+  wp.prompt=()=>{ throw new Error('no debería preguntar'); };
+  wp.crearExp();
+  ok(wp.ST.exps.length===1 && wp.ST.nav==='captura','«+ Nuevo proceso» abre la captura sin preguntar nada');
+  ok(wp.doneArr().every(x=>!x) && wp.momentoAlcanzado()===0,'y ningún momento sale con ✓ antes de elegir la vía (antes el 4 aparecía hecho)');
+  ok(wp.faltan(3)[0].nav==='m1','lo que falta en los demás momentos remite al Momento 1');
+  ok(/Empieza por el tipo de proceso/.test(wp.document.getElementById('aviso_momento').textContent),'en vez de doce pendientes, por dónde empezar');
+  // El nombre sale del objeto mientras la AC no le ponga otro
+  const dp=wp.D(); dp.tipoProceso='Compra directa'; dp.bienServicio='Bien'; wp.save(); wp.render();
+  const obj=wp.document.querySelector("[data-k='objeto']");
+  obj.value='Adquisición de botas de caucho para guardaparques'; wp.onField(obj);
+  ok(wp.cur().nombre==='Adquisición de botas de caucho para guardaparques','el proceso toma el nombre de su objeto');
+  ok(wp.document.getElementById('cap_nombre').textContent===wp.cur().nombre,'y el título lo muestra al momento');
+  wp.prompt=()=>'Botas 2026'; wp.renombrarExp();
+  obj.value='Otra cosa'; wp.onField(wp.document.querySelector("[data-k='objeto']"));
+  ok(wp.cur().nombre==='Botas 2026','con «✎ Cambiar nombre» el nombre ya es de la AC y el objeto no lo pisa');
+  // El aviso de arriba y la marca del campo se apagan al escribir, sin recargar
+  wp.ST.step=0; wp.render();
+  ok(/Fecha de inicio/.test(wp.document.getElementById('aviso_momento').textContent),'antes de llenarla, la fecha de inicio está en el aviso');
+  const fi=wp.document.querySelector("[data-k='fechaInicio']");
+  fi.value='2026-11-03'; wp.onField(fi);
+  ok(!/Fecha de inicio/.test(wp.document.getElementById('aviso_momento').textContent),'al llenarla sale del aviso en el momento');
+  ok(wp.document.querySelector("[data-dot='fechaInicio']").style.display==='none' && fi.style.borderColor==='','y su punto y su borde ámbar se apagan');
+  // La unidad se propone al escribir la descripción
+  const desc=wp.document.querySelector("[data-i='0'][data-ik='desc']");
+  desc.value='Botas de caucho talla 42'; wp.onItem(desc);
+  ok(wp.D().items[0].unidad==='Unidad' && wp.document.querySelector("[data-i='0'][data-ik='unidad']").value==='Unidad','la unidad se propone sola («Unidad» en un bien)');
+  // El trato del proveedor se propone desde la razón social
+  const raz=wp.document.querySelector("[data-p='0'][data-pk='razon']");
+  raz.value='Comercial Orellana Cía. Ltda.'; wp.onProv(raz);
+  ok(wp.D().provs[0].genero==='E' && wp.document.querySelector("[data-p='0'][data-pk='genero']").value==='E','«Comercial Orellana Cía. Ltda.» se propone como empresa');
+  raz.value='José Lecaro'; wp.onProv(raz);
+  ok(wp.D().provs[0].genero==='M','y si resulta una persona, vuelve a persona natural');
+  const gsel=wp.document.querySelector("[data-p='0'][data-pk='genero']"); gsel.value='F'; wp.onProv(gsel);
+  raz.value='Ferretería La Económica'; wp.onProv(raz);
+  ok(wp.D().provs[0].genero==='F','lo que la AC eligió a mano no se pisa');
+  // El número: se recuerda el último de esa área y ese año
+  Object.assign(wp.D(),{fechaInicio:'2026-11-03',numero:'7',areaId:wp.ST.cfg.areas[0].id}); wp.save();
+  wp.newExp('Otro'); Object.assign(wp.D(),{fechaInicio:'2026-11-20',areaId:wp.ST.cfg.areas[0].id}); wp.save();
+  ok(/El último que usaste en PNY en 2026 es el 7/.test(wp.ayudaNumero()),'al numerar se recuerda el último usado: '+wp.ayudaNumero());
+
+  // Lo que no aplica se dice así, no «Bloqueado» con una lista vacía
+  const wa=nuevoDom();
+  wa.ST.cfg.areas=[{id:'a1',ap:'PN Yasuní',siglas:'PNY',ciudad:'Quito',mae:'M',maeCargo:'J',lugar:'L'}];
+  wa.ST.cfg.ac='A'; wa.ST.cfg.acCorreo='a@b';
+  wa.newExp('Activo'); Object.assign(wa.D(),{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien',tipoBien:'Activo fijo'}); wa.save();
+  const recep=wa.documents().find(x=>x.id==='recep');
+  ok(recep.noAplica===true,'el acta del Momento 3 de un bien no aplica: su acta va en el 4');
+  wa.ST.nav='documentos'; wa.render();
+  const htmlDocs=wa.document.getElementById('app').innerHTML;
+  ok(/No aplica/.test(htmlDocs),'Documentos la muestra como «No aplica»');
+  ok(!/Falta por llenar:<\/b>\s*<\/div>/.test(htmlDocs),'y ningún documento dice «Falta por llenar:» sin decir qué');
+  wa.ST.nav='captura'; wa.render(); wa.renderRail();
+  const rail=wa.document.getElementById('rail').textContent;
+  ok((rail.match(/Acta de entrega-recepción/g)||[]).length===1,'el panel «Documentos que aplican» ya no la lista dos veces');
+  ok(wa.resumenExp(wa.cur()).docsTot===wa.documents().filter(x=>x.tpl&&!x.noAplica).length,'y Mis procesos no la cuenta como pendiente');
+  // Un documento del Momento 2 dice también lo que falta del 1
+  const total=wa.faltan(0).length+wa.faltan(1).length;
+  ok(/^M1: /.test(wa.resumenFaltanHasta(1)) && new RegExp('y '+(total-3)+' más$').test(wa.resumenFaltanHasta(1)),
+     'lo que le falta a un documento del Momento 2 cuenta también lo del 1: '+wa.resumenFaltanHasta(1));
 }
 
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));

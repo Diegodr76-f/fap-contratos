@@ -198,11 +198,30 @@ cosas, así que no pueden contradecirse:
 - el «Falta por llenar: …» de cada documento bloqueado en Documentos,
 - el «faltan N datos» de cada fila de Mis procesos.
 
+Y se ve **mientras se escribe**: `marcaFalta()` y `bordeFalta()` pintan siempre su marca
+(`data-dot`, `data-falta`), visible o no, y `refrescarFaltas()` —desde `recompute()`— las
+apaga y rehace el aviso sin repintar la pantalla ni perder el cursor. Un campo nuevo que
+use esas dos funciones queda cubierto solo.
+
+Un documento que no corresponde a la vía —el acta del Momento 3 de un bien, que se
+cierra en el 4— lleva `noAplica:true`: se muestra como «No aplica», no como
+«Bloqueado», y no cuenta en el panel lateral ni en Mis procesos.
+
 **Al añadir un requisito se añade a `requisitos()`, nunca a un `mXDone()`**, y el
 rótulo tiene que ser el mismo que el del campo en pantalla: si el aviso dice
 «Objeto del contrato» y el formulario dice «Objeto del proceso», la AC busca algo
 que no existe. `requisitosDatos()` hace lo propio con la Hoja de Datos, que sale
 impresa en todo: el nombre de la AC va en cada firma y las siglas arman el código.
+
+## Compra directa: hasta USD 1.000, con IVA
+
+Por encima, la vía es comparación de precios o selección directa por excepción.
+`LIMITE_CD` y `cdExcede()` son la única fuente; se mide lo mayor entre el
+presupuesto, la oferta y el total del detalle (`montoCD()`), con IVA como el
+umbral de 8.000. Es requisito del Momento 1 (presupuesto) y del 2 (oferta),
+bloquea los documentos de la vía y está en `checklistEnvio()`. El cartel
+(`cartelCD()`, en contenedores `.cartel-cd` que `recompute()` refresca) ofrece
+cambiar de vía en un clic con `cambiarVia()`, que conserva lo escrito.
 
 ## La renovación no lleva notificación
 
@@ -250,6 +269,10 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   y el seed embebido de `index.html`. Al cambiar una, corre
   `python3 scripts/embeber_plantillas.py` para reconstruir el seed, y súbelo en el
   mismo commit. `--check` avisa si quedaron desfasados.
+- **Una instalación nueva empieza en blanco.** El seed del repositorio no lleva `cfg`:
+  traía una AC, un jefe y un área de ejemplo que la Hoja de Datos daba por buenos. La
+  copia que exporta un coordinador (`exportBuild`) sí lleva el suyo, y se marca
+  `cfg.revisar` hasta que quien la abre confirme que es la suya. «XXX» cuenta como vacío.
 - **A `localStorage` solo va lo que la AC escribió**: expedientes, historial, cola
   de envío y las plantillas que subió a mano. El seed nunca se copia allí — llenaba
   2 MB de una cuota de 5.
