@@ -286,6 +286,15 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   multiplica por un porcentaje. En las plantillas, la fila de IVA es `{#ivas}…{/ivas}` (una por
   tarifa) con `{#ivaMixto} sobre USD {subtotal}{/ivaMixto}` dentro, para que con una sola tarifa
   el documento salga igual que antes. Una plantilla nueva con tabla de valores, igual.
+- **El detalle de ítems se llena como una hoja de cálculo** (`itemRows()`, `teclaItem()`):
+  Enter baja al ítem siguiente y en el último crea otro, pegar varias filas en una
+  descripción las reparte (`pegarEnItem()`, que usa el mismo `leerPegado()` del panel), y
+  quitar ofrece «Deshacer». Cantidad y precio son `type='text'` con `inputmode='decimal'`
+  —sin flechitas que los cambian con la rueda— y pasan por `numTecleado()`: un solo
+  separador es el decimal. **Cada** ítem con descripción necesita cantidad y unidad
+  (`itemFalta()`, `primerItemIncompleto()`), y en el documento la cantidad sale con
+  `fmtCantidad()` («1.500», «2,5»). Las columnas están en `.fila-item`, no en línea, para que
+  en el teléfono la media query las vuelva tarjeta.
 - **El detalle tiene que cuadrar con el monto** (`cuadreMonto()`): la orden imprime el monto en
   letras y el total de la tabla, y si no cuadran el papel firmado se contradice. Por eso es un
   requisito del momento de los precios y frena los documentos que imprimen la tabla.

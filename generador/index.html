@@ -42,6 +42,16 @@
   .pasos{display:flex;gap:4px;background:#fff;border:1px solid #E7EAF4;border-radius:13px;padding:6px;margin-bottom:20px}
   .paso{all:unset;cursor:pointer;flex:1;display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:9px}
   .desliza-x{overflow-x:auto}
+  /* La tabla del detalle. En el teléfono cada ítem es una tarjeta: la
+     descripción a todo lo ancho y debajo lo demás, sin desplazarse de lado. */
+  .fila-item{display:grid;grid-template-columns:22px minmax(180px,1fr) 128px 96px 26px 26px;gap:6px;align-items:start;margin-bottom:6px}
+  .fila-item.cp{grid-template-columns:22px minmax(140px,1fr) 100px 64px 86px 70px 88px 24px}
+  .items-in{min-width:470px}
+  /* En clase y no en línea: un all:unset en style="" borraría también la
+     posición que la media query le da en el teléfono. */
+  .btn-celda{all:unset;cursor:pointer;text-align:center;padding-top:8px}
+  .leyenda-cel{display:none}
+  .items-in.cp{min-width:636px}
   @media(max-width:1100px){.cap-grid{grid-template-columns:minmax(0,1fr)}.cap-rail{position:static}}
   @media(max-width:760px){
     .app-cuerpo{flex-direction:column}
@@ -54,6 +64,19 @@
     .pasos{overflow-x:auto}
     .paso{flex:1 0 auto;padding:8px}
     .cab-progreso,.cab-sub{display:none}
+    .items-in,.items-in.cp{min-width:0}
+    .fila-item.fila-cab{display:none}
+    .leyenda-cel{display:block}
+    .fila-item{grid-template-columns:22px 1fr 1fr 28px 28px;border-bottom:1px solid #F0F2F8;padding-bottom:8px;margin-bottom:8px}
+    .fila-item .c-desc{grid-column:2/-1}
+    .fila-item .c-uni{grid-column:2;grid-row:2}
+    .fila-item .c-cant{grid-column:3;grid-row:2}
+    .fila-item .c-dup{grid-column:4;grid-row:2}
+    .fila-item .c-del{grid-column:5;grid-row:2}
+    .fila-item.cp{grid-template-columns:22px 1fr 1fr 1fr 24px}
+    .fila-item.cp .c-pu{grid-column:4;grid-row:2}
+    .fila-item.cp .c-iva{grid-column:2;grid-row:3}
+    .fila-item.cp .c-tot{grid-column:3/5;grid-row:3}
   }
 </style>
 </head>
@@ -309,7 +332,9 @@ var CLAUSULA_RENOV=['Sí, el contrato vigente la contempla','No, el contrato vig
 var BIEN_SERVICIO=['Bien','Servicio'];
 var SI_NO=['Sí','No'];
 var FUENTE=['Fondo de Áreas Protegidas - FAP','Subcuenta Ecuador Azul','Subcuenta Amazonía Norte','Lundin Gold','PlusPetrol'];
-var UNIDAD=['Unidad','Servicio','Global','Metro','Litro','Kilogramo','Galón','Hora','Día'];
+// Las unidades de una compra del FAP: botas por par, víveres por saco o
+// quintal, papel por resma. Las que faltaban se escribían como «Unidad».
+var UNIDAD=['Unidad','Par','Juego','Kit','Caja','Paquete','Docena','Rollo','Resma','Saco','Quintal','Kilogramo','Libra','Litro','Galón','Metro','Metro cuadrado','Metro cúbico','Servicio','Global','Hora','Día','Mes','Evento','Persona'];
 var TIPO_BIEN=['Activo fijo','Bien de control'];
 var GARANTIA=['Aplica','No aplica'];
 // Cómo sesionó la Comisión de Calificación. No es concordancia de género: es
@@ -501,6 +526,11 @@ function requisitos(step){
     var q=cuadreMonto();
     req(q.ok,'cuadre','Que el detalle de ítems cuadre con el '+montoRotulo()+' (diferencia de '+money(Math.abs(q.dif))+')');
   }
+  // El enlace del aviso lleva a la primera celda sin precio.
+  function precios(){
+    var fp=primerItemIncompleto(['punit']);
+    req(itemsPriced(), fp?('i'+fp.i+'.punit'):'', 'Precio unitario de cada ítem'+(fp?' (falta en el ítem '+(fp.i+1)+')':''));
+  }
   function comunes1(){
     if(areasList().length>1) req(d.areaId,'areaId','Área protegida de este proceso');
     req(d.tipoProceso,'tipoProceso','Tipo de proceso');
@@ -513,7 +543,11 @@ function requisitos(step){
     req(d.partida,'partida','Línea presupuestaria');
     req(d.fuente,'fuente','Fuente de financiamiento');
     req(d.formaPago,'formaPago','Documentos requeridos para el pago');
-    req(d.items.some(function(it){return it.desc&&it.cantidad&&it.unidad;}),'','Al menos un ítem con descripción, unidad y cantidad');
+    // Cada ítem con su cantidad y su unidad, no solo el primero: un segundo
+    // ítem sin cantidad salía impreso con el hueco en el documento.
+    if(!nItems()) req(false,'i0.desc','Al menos un ítem en el detalle');
+    else { var fi=primerItemIncompleto(['cantidad','unidad']);
+      req(!fi, fi?('i'+fi.i+'.'+fi.k):'', 'Cantidad y unidad de cada ítem'+(fi?' (falta en el ítem '+(fi.i+1)+')':'')); }
   }
   if(esRenov()){
     if(step===0){
@@ -543,7 +577,7 @@ function requisitos(step){
     else if(step===2){
       req(d.fechaCotizacion,'fechaCotizacion','Fecha de la cotización');
       req(adjMonto()>0,'p0.monto','Monto cotizado');
-      req(itemsPriced(),'','Precio unitario de cada ítem');
+      precios();
       cuadre();
     }
     else req(c&&c.enviadoUO,'','Enviar el expediente a la Unidad Operativa');
@@ -586,7 +620,7 @@ function requisitos(step){
       req(d.fechaAdj,'fechaAdj','Fecha de adjudicación');
       req(d.adjudicado,'adjudicado','Proveedor adjudicado');
     }
-    req(itemsPriced(),'','Precio unitario de cada ítem');
+    precios();
     cuadre();
     return L;
   }
@@ -896,7 +930,7 @@ function getTpl(slot){ return ST.tpls[slot]; }
 function buildTemplateData(extra){
   var d=D(),c=ST.cfg,ar=A(),L=linea(),t=itemTotals(),adj=adjProvObj();
   var items=d.items.filter(function(it){return it.desc;}).map(function(it,i){
-    return {n:i+1, cantidad:String(it.cantidad||''), unidad:it.unidad||'', desc:it.desc||'',
+    return {n:i+1, cantidad:fmtCantidad(it.cantidad), unidad:it.unidad||'', desc:it.desc||'',
       punit:num(it.punit)>0?moneyN(num(it.punit)):'', ptotal:moneyN(num(it.cantidad)*num(it.punit)),
       ivaPct:fmtPct(tarifaItem(it))};
   });
@@ -1056,8 +1090,8 @@ function irAlPrimerCampo(){
     return;
   }
 }
-function go(nav){ST.nav=nav;render();arriba();}
-function setStep(i){ST.step=i;render();irAlPrimerCampo();}
+function go(nav){ST.nav=nav;ITEM_BORRADO=null;render();arriba();}
+function setStep(i){ST.step=i;ITEM_BORRADO=null;render();irAlPrimerCampo();}
 
 function headerArea(){
   var list=areasList();
@@ -1112,7 +1146,7 @@ function renderExpBox(){
    +(ST.exps.length?"<button onclick=\"go('procesos')\" style='all:unset;cursor:pointer;display:block;text-align:center;color:#00249C;font-weight:700;font-size:12px;padding:7px 0 0;margin-top:4px;width:100%'>Ver mis "+ST.exps.length+" proceso"+(ST.exps.length===1?'':'s')+" →</button>":"")
    +"</div>";
 }
-function switchExp(id){ST.curId=id;ST.step=0;save();render();}
+function switchExp(id){ST.curId=id;ST.step=0;ITEM_BORRADO=null;save();render();}
 // Crear un proceso no pregunta nada: se abre la captura y el nombre sale del
 // objeto a medida que se escribe. Se puede cambiar con «✎ Cambiar nombre».
 function crearExp(){ newExp(); ST.nav='captura'; render(); irAlPrimerCampo(); }
@@ -1227,9 +1261,16 @@ function refrescarFaltas(){
   for(var i=0;i<els.length;i++){ var on=!!f[els[i].getAttribute('data-falta')]; els[i].style.borderColor=on?'#E5C98A':''; els[i].style.background=on?'#FFFCF5':''; }
   var dots=document.querySelectorAll('[data-dot]');
   for(var j=0;j<dots.length;j++) dots[j].style.display=f[dots[j].getAttribute('data-dot')]?'':'none';
+  // Las celdas del detalle se marcan por sí mismas: todas las que falten, no
+  // solo la primera que nombra el aviso.
+  var celdas=document.querySelectorAll("[data-ik='cantidad'],[data-ik='unidad'],[data-ik='punit']");
+  for(var c=0;c<celdas.length;c++){ var on2=itemFalta(+celdas[c].dataset.i,celdas[c].dataset.ik); celdas[c].style.borderColor=on2?'#E5C98A':''; celdas[c].style.background=on2?'#FFFCF5':''; }
+  var ni=document.getElementById('a_nitems'); if(ni){ var n=nItems(); ni.textContent=n+(n===1?' ítem':' ítems'); }
 }
 // De la lista de arriba al campo: «Fecha de adjudicación» lleva el cursor ahí.
 function selectorCampo(campo){
+  var mi=/^i(\d+)\.(\w+)$/.exec(campo);          // una celda del detalle: «i3.cantidad»
+  if(mi) return "[data-i='"+mi[1]+"'][data-ik='"+mi[2]+"']";
   if(campo.indexOf('p0.')===0) return "[data-p='0'][data-pk='"+campo.slice(3)+"']";
   return "[data-k='"+campo+"']";
 }
@@ -1367,7 +1408,7 @@ function renderCaptura(){
    +"<span style='font-size:13px;color:#9AA0B2;font-weight:600'>Paso "+(ST.step+1)+" de 4</span>"
    +(ST.step<3?"<button onclick='setStep("+(ST.step+1)+")' style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#00249C'>Siguiente →</button>":"<button onclick=\"go('documentos')\" style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#00249C'>Ir a Documentos →</button>")
    +"</div>";
-  setTimeout(renderRail,0);
+  setTimeout(function(){ renderRail(); ajustarDescripciones(); },0);
   return "<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Captura — <span id='cap_nombre'>"+esc(cur().nombre)+"</span> <button onclick='renombrarExp()' title='Cambiar el nombre con que aparece en Mis procesos' style='all:unset;cursor:pointer;font-size:13px;font-weight:700;color:#00249C;vertical-align:middle;margin-left:6px'>✎ Cambiar nombre</button></h1>"
    +"<p style='font-size:15px;color:#6B7180;margin:0 0 18px'>Llena este momento. Elige siempre de las listas.</p>"+stepper
    +"<div class='cap-grid'><div style='display:flex;flex-direction:column;gap:16px;min-width:0'>"+avisoPrecarga()+"<div id='aviso_momento'>"+avisoMomento()+"</div>"+sections+nav+"</div><aside id='rail' class='cap-rail'></aside></div>";
@@ -1704,46 +1745,94 @@ function tarifasOpciones(){
   return out.sort(function(a,b){ return num(b)-num(a); });
 }
 function ptotalTexto(it){ var n=round2(num(it.cantidad)*num(it.punit)); return n>0?moneyN(n):'—'; }
+// Un número tecleado: «1,5» y «1.5» son lo mismo, porque en Ecuador se escribe
+// de las dos maneras. Un solo separador es el decimal; con los dos, el último.
+// Se guarda limpio («1.5») sin tocar lo que hay en pantalla mientras se escribe.
+function numTecleado(s){
+  s=String(s==null?'':s).replace(/[^\d.,]/g,'');
+  if(!/\d/.test(s)) return '';
+  var ip=s.lastIndexOf('.'), ic=s.lastIndexOf(',');
+  if(ip>=0&&ic>=0){ var dec=ip>ic?'.':','; s=s.split(dec==='.'?',':'.').join('').replace(dec,'.'); }
+  else if(ip>=0||ic>=0){ var partes=s.split(ip>=0?'.':','); s=partes.length>2?partes.join(''):partes.join('.'); }
+  var n=parseFloat(s);
+  return isNaN(n)?'':String(n);
+}
+// La cantidad en el documento, a la ecuatoriana: «1.500», «2,5».
+function fmtCantidad(v){ var n=num(v); return n>0?n.toLocaleString('es-EC',{maximumFractionDigits:3}):String(v||''); }
+// ¿A este ítem le falta este dato? Solo cuenta un ítem con descripción: una
+// fila vacía al final no es un pendiente.
+function itemFalta(i,k){
+  var it=D().items[i]; if(!it||!it.desc) return false;
+  if(k==='cantidad') return !(num(it.cantidad)>0);
+  if(k==='unidad') return !it.unidad;
+  if(k==='punit') return !(num(it.punit)>0);
+  return false;
+}
+function primerItemIncompleto(campos){
+  var its=D().items;
+  for(var i=0;i<its.length;i++) for(var j=0;j<campos.length;j++) if(itemFalta(i,campos[j])) return {i:i,k:campos[j]};
+  return null;
+}
+function marcaItem(i,k){ return itemFalta(i,k)?";border-color:#E5C98A;background:#FFFCF5":""; }
+function nItems(){ return D().items.filter(function(it){ return it.desc; }).length; }
+// Lo último que se quitó, para poder deshacerlo.
+var ITEM_BORRADO=null;
 function itemRows(withPrice){
-  var d=D(),t=itemTotals();
+  var d=D(), n=d.items.length;
   // Con precios son siete columnas: la tabla tiene un ancho mínimo y, si no
   // cabe (teléfono), se desplaza dentro de su recuadro en vez de aplastarse.
-  var cols=withPrice?'22px minmax(140px,1fr) 100px 62px 84px 72px 88px 22px':'22px minmax(160px,1fr) 120px 80px 22px';
-  var minW=withPrice?630:420;
-  var head="<div style='display:grid;grid-template-columns:"+cols+";gap:6px;margin-bottom:6px;font-size:11px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.3px'><span></span><span>Descripción</span><span>Unidad</span><span>Cant.</span>"+(withPrice?"<span>P. unit</span><span title='Tarifa de IVA del ítem'>IVA</span><span style='text-align:right'>Total</span>":"")+"<span></span></div>";
+  // Las columnas viven en .fila-item (y .cp, con precios): en el teléfono una
+  // media query las vuelve tarjeta, cosa que un estilo en línea impediría.
+  var cp=withPrice?' cp':'';
+  var muchos=n>12;
+  var th="font-size:11px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.3px";
+  var head="<div class='fila-item fila-cab"+cp+"' style='padding:6px 0;margin:0;"+th+(muchos?";position:sticky;top:0;background:#fff;z-index:1":"")+"'><span></span><span>Descripción</span><span>Unidad</span><span>Cantidad</span>"
+    +(withPrice?"<span>P. unit</span><span title='Tarifa de IVA del ítem'>IVA</span><span style='text-align:right'>Total</span><span></span>":"<span></span><span></span>")+"</div>";
   var opcIva=withPrice?tarifasOpciones():[];
+  var celda="padding:7px 9px";
   var rows=d.items.map(function(it,i){
     // Una unidad pegada desde Excel que no está en la lista se muestra igual,
     // en vez de dejar el desplegable en «—» con el dato escondido.
     var unidades=UNIDAD.slice(); if(it.unidad && unidades.indexOf(it.unidad)<0) unidades.push(it.unidad);
-    var r="<div style='display:grid;grid-template-columns:"+cols+";gap:6px;align-items:center;margin-bottom:6px'>"
-     +"<span style='font-size:12px;color:#9AA0B2;text-align:center'>"+(i+1)+"</span>"
-     +"<input class='inp' style='padding:7px 9px' placeholder='Descripción' value=\""+esc(it.desc)+"\" data-i='"+i+"' data-ik='desc' oninput='onItem(this)'>"
-     +"<select class='inp' style='padding:7px 4px' data-i='"+i+"' data-ik='unidad' onchange='onItem(this)'><option value=''>—</option>"+unidades.map(function(u){return "<option value=\""+esc(u)+"\" "+(it.unidad===u?'selected':'')+">"+esc(u)+"</option>";}).join('')+"</select>"
-     +"<input class='inp' style='padding:7px 9px' type='number' placeholder='Cant.' value=\""+esc(it.cantidad)+"\" data-i='"+i+"' data-ik='cantidad' oninput='onItem(this)'>";
+    var ev=" data-i='"+i+"' oninput='onItem(this)' onkeydown='teclaItem(event,this)'";
+    var r="<div class='fila-item"+cp+"'>"
+     +"<span class='c-num' style='font-size:12px;color:#9AA0B2;text-align:center;padding-top:10px'>"+(i+1)+"</span>"
+     // La descripción crece con el texto: una especificación larga se lee entera.
+     +"<textarea class='inp desc-item c-desc' rows='1' placeholder='"+(i===0&&!it.desc?'Escribe o pega aquí desde Excel':'Descripción')+"' data-ik='desc'"+ev+" onpaste='pegarEnItem(event,this)' style='"+celda+";resize:none;overflow:hidden;line-height:1.35;min-height:36px'>"+esc(it.desc)+"</textarea>"
+     +"<select class='inp c-uni' data-i='"+i+"' data-ik='unidad' onchange='onItem(this)' style='padding:7px 4px"+marcaItem(i,'unidad')+"'><option value=''>—</option>"+unidades.map(function(u){return "<option value=\""+esc(u)+"\" "+(it.unidad===u?'selected':'')+">"+esc(u)+"</option>";}).join('')+"</select>"
+     // Texto y no type=number: sin flechitas que cambian la cantidad al rodar el
+     // ratón, y acepta «1,5» con el teclado en español.
+     +"<input class='inp c-cant' type='text' inputmode='decimal' autocomplete='off' placeholder='Cantidad' aria-label='Cantidad del ítem "+(i+1)+"' value=\""+esc(it.cantidad)+"\" data-ik='cantidad'"+ev+" style='"+celda+";text-align:right"+marcaItem(i,'cantidad')+"'>";
     if(withPrice){
       var actual=fmtPct(tarifaItem(it)).replace(',','.');
-      r+="<input class='inp' style='padding:7px 9px' type='number' placeholder='0.00' value=\""+esc(it.punit)+"\" data-i='"+i+"' data-ik='punit' oninput='onItem(this)'>"
-       +"<select class='inp' style='padding:7px 4px' title='Tarifa de IVA de este ítem' data-i='"+i+"' data-ik='iva' onchange='onItem(this)'>"
+      r+="<input class='inp c-pu' type='text' inputmode='decimal' autocomplete='off' placeholder='P. unit.' aria-label='Precio unitario del ítem "+(i+1)+"' value=\""+esc(it.punit)+"\" data-ik='punit'"+ev+" style='"+celda+";text-align:right"+marcaItem(i,'punit')+"'>"
+       +"<select class='inp c-iva' style='padding:7px 4px' title='Tarifa de IVA de este ítem' data-i='"+i+"' data-ik='iva' onchange='onItem(this)'>"
        +opcIva.map(function(p){return "<option value='"+p+"' "+(p===actual?'selected':'')+">"+fmtPct(p)+" %</option>";}).join('')
        +"<option value='otra'>Otra…</option></select>"
-       +"<span id='a_ptot"+i+"' style='font-size:13px;color:#3A4050;text-align:right;font-variant-numeric:tabular-nums'>"+ptotalTexto(it)+"</span>";
+       +"<span id='a_ptot"+i+"' class='c-tot' style='font-size:13px;color:#3A4050;text-align:right;font-variant-numeric:tabular-nums;padding-top:10px'>"+ptotalTexto(it)+"</span>";
+    }else{
+      r+="<button type='button' class='btn-celda c-dup' tabindex='-1' onclick='duplicarItem("+i+")' title='Duplicar este ítem (para tallas, colores o variantes)' style='color:#00249C;font-size:15px'>⧉</button>";
     }
-    r+=(d.items.length>1?"<button onclick='delItem("+i+")' title='Quitar este ítem' style='all:unset;cursor:pointer;color:#B23B3B;text-align:center;font-weight:700'>×</button>":"<span></span>")+"</div>";
+    r+=(n>1?"<button type='button' class='btn-celda c-del' tabindex='-1' onclick='delItem("+i+")' title='Quitar este ítem' style='color:#B23B3B;font-weight:700'>×</button>":"<span class='c-del'></span>")+"</div>";
     return r;
   }).join('');
-  var tabla="<div class='desliza-x'><div style='min-width:"+minW+"px'>"+head+rows+"</div></div>";
-  var rowsWrap = d.items.length>8 ? "<div style='max-height:360px;overflow:auto;border:1px solid #F0F2F8;border-radius:8px;padding:10px'>"+tabla+"</div>" : tabla;
-  var counter="<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px'>"
-    +"<label style='font-size:12.5px;font-weight:700;color:#3A4050'>Número de ítems</label>"
-    +"<input id='itemcount' class='inp' style='width:90px' type='number' min='1' max='300' value='"+d.items.length+"'>"
-    +"<button onclick=\"setItemCount(document.getElementById('itemcount').value)\" style='all:unset;cursor:pointer;background:#EEF1FB;color:#00249C;font-weight:700;font-size:13px;padding:8px 14px;border-radius:8px'>Aplicar</button>"
-    +"<button onclick='addItem()' style='all:unset;cursor:pointer;color:#00249C;font-weight:700;font-size:13px;padding:8px 6px'>+ Agregar uno</button>"
-    +"<button onclick='togglePaste()' style='all:unset;cursor:pointer;background:"+(PASTE_OPEN?'#00249C':'#EEF1FB')+";color:"+(PASTE_OPEN?'#fff':'#00249C')+";font-weight:700;font-size:13px;padding:8px 14px;border-radius:8px'>📋 Pegar desde Excel</button>"
-    +"<span style='font-size:11.5px;color:#9AA0B2'>Crea de golpe las filas que necesites (ej.: 100).</span></div>";
-  var out=counter+pastePanel()+rowsWrap;
+  var agregar="<button type='button' onclick='addItem()' style='all:unset;cursor:pointer;box-sizing:border-box;display:block;width:100%;text-align:center;border:1.5px dashed #C7D0EC;border-radius:9px;padding:9px;color:#00249C;font-weight:700;font-size:13px;margin-top:2px'>+ Agregar ítem</button>";
+  // Con muchos ítems la lista tiene su propio desplazamiento y la cabecera
+  // queda fija arriba, para no perder de vista qué columna es cuál.
+  var tabla="<div class='desliza-x' style='"+(muchos?'max-height:65vh;overflow:auto;border:1px solid #F0F2F8;border-radius:8px;padding:0 8px 8px':'')+"'><div class='items-in"+cp+"'>"+head+rows+"</div></div>";
+  var nd=nItems();
+  var barra="<div style='display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px'>"
+    +"<span id='a_nitems' style='font-size:12.5px;font-weight:700;color:#00249C;background:#EEF1FB;padding:5px 11px;border-radius:99px'>"+nd+(nd===1?' ítem':' ítems')+"</span>"
+    +"<button type='button' onclick='togglePaste()' style='all:unset;cursor:pointer;background:"+(PASTE_OPEN?'#00249C':'#EEF1FB')+";color:"+(PASTE_OPEN?'#fff':'#00249C')+";font-weight:700;font-size:13px;padding:7px 13px;border-radius:8px'>📋 Pegar desde Excel</button>"
+    +"<span style='font-size:11.5px;color:#9AA0B2;line-height:1.4'><b style='color:#7A8090'>Enter</b> pasa al ítem siguiente y en el último crea otro. Varias filas de Excel se pueden pegar directo en una descripción.</span></div>";
+  var deshacer=(ITEM_BORRADO && cur() && ITEM_BORRADO.exp===cur().id)
+    ? "<div style='display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;font-size:12.8px;color:#5A6072;background:#F7F8FC;border:1px solid #E7EAF4;border-radius:8px;padding:8px 11px'>Quitaste «"+esc(recorta(ITEM_BORRADO.it.desc||'ítem sin descripción',50))+"».<button type='button' onclick='deshacerBorrado()' style='all:unset;cursor:pointer;color:#00249C;font-weight:700'>Deshacer</button></div>"
+    : "";
+  // En el teléfono no hay cabecera de columnas: una línea dice qué es cada casilla.
+  var leyenda="<div class='leyenda-cel' style='font-size:12px;color:#7A8090;margin:0 0 8px'>Debajo de cada descripción: <b>unidad · cantidad</b>"+(withPrice?" · <b>precio unitario</b>, y luego <b>IVA · total</b>":"")+".</div>";
+  var out=barra+pastePanel()+deshacer+leyenda+tabla+agregar;
   if(withPrice){
-    out+="<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 4px'>"
+    out+="<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 4px'>"
      +"<span style='font-size:12.5px;font-weight:700;color:#3A4050'>¿Todo con la misma tarifa?</span>"
      +TARIFAS_IVA.map(function(p){return "<button type='button' onclick=\"ivaATodos('"+p+"')\" style='all:unset;cursor:pointer;background:#EEF1FB;color:#00249C;font-weight:700;font-size:12.5px;padding:6px 12px;border-radius:7px'>Todos al "+p+" %</button>";}).join('')
      +"</div>"
@@ -1773,14 +1862,76 @@ function totalesHTML(){
 function onItem(el){
   var i=+el.dataset.i,k=el.dataset.ik;
   if(k==='iva' && el.value==='otra'){ pedirTarifa(i); return; }
-  var it=D().items[i]; it[k]=el.value;
+  var it=D().items[i]; if(!it) return;
+  var v=el.value;
+  if(k==='desc'){
+    // Una descripción es una línea: un salto que llegue pegado se vuelve espacio.
+    if(/[\r\n]/.test(v)){ v=v.replace(/\s*[\r\n]+\s*/g,' '); el.value=v; }
+    autoAlto(el);
+  }
+  it[k]=(k==='cantidad'||k==='punit')?numTecleado(v):v;
   // Al escribir la descripción, la unidad se propone sola: casi todo es
   // «Unidad» en un bien y «Servicio» en un servicio. Se cambia si no es.
-  if(k==='desc' && el.value && !it.unidad){
+  if(k==='desc' && v && !it.unidad){
     it.unidad=D().bienServicio==='Servicio'?'Servicio':'Unidad';
     var su=document.querySelector("select[data-i='"+i+"'][data-ik='unidad']"); if(su) su.value=it.unidad;
   }
   save(); recompute();
+}
+// La descripción crece con lo escrito, sin barra de desplazamiento propia.
+function autoAlto(el){ if(!el||!el.style) return; el.style.height='auto'; if(el.scrollHeight>0) el.style.height=el.scrollHeight+'px'; }
+function ajustarDescripciones(){ var t=document.querySelectorAll('.desc-item'); for(var i=0;i<t.length;i++) autoAlto(t[i]); }
+// Como en una hoja de cálculo: Enter baja al ítem siguiente y, en el último,
+// crea otro; las flechas suben y bajan entre cantidades y precios.
+function teclaItem(ev,el){
+  var i=+el.dataset.i, k=el.dataset.ik, n=D().items.length;
+  if(ev.key==='Enter' && !ev.shiftKey && !ev.altKey && !ev.ctrlKey && !ev.metaKey){
+    ev.preventDefault();
+    if(i<n-1){ enfocarItem(i+1,k); return; }
+    if(D().items[i].desc) addItem();          // solo crea uno si este ya tiene algo
+    return;
+  }
+  if((ev.key==='ArrowDown'||ev.key==='ArrowUp') && el.tagName==='INPUT'){
+    var j=i+(ev.key==='ArrowDown'?1:-1);
+    if(j>=0 && j<n){ ev.preventDefault(); enfocarItem(j,k); }
+  }
+}
+function enfocarItem(i,k){
+  var el=document.querySelector("[data-i='"+i+"'][data-ik='"+(k||'desc')+"']"); if(!el) return;
+  try{ el.focus(); }catch(e){}
+  try{ if(el.tagName==='INPUT') el.select(); else if(el.setSelectionRange){ var l=el.value.length; el.setSelectionRange(l,l); } }catch(e2){}
+  try{ el.scrollIntoView({block:'nearest'}); }catch(e3){}
+}
+// Agregar, duplicar o quitar deja el cursor donde sigue el trabajo.
+function addItem(){ var its=D().items; its.push(itemNuevo()); ITEM_BORRADO=null; save(); render(); enfocarItem(its.length-1,'desc'); }
+function duplicarItem(i){
+  var its=D().items, o=its[i]; if(!o) return;
+  its.splice(i+1,0,{desc:o.desc,unidad:o.unidad,cantidad:o.cantidad,punit:o.punit,iva:o.iva});
+  ITEM_BORRADO=null; save(); render(); enfocarItem(i+1,'desc');
+}
+function delItem(i){
+  var its=D().items; if(its.length<2||!its[i]) return;
+  ITEM_BORRADO={exp:cur().id, i:i, it:its.splice(i,1)[0]};
+  save(); render();
+}
+function deshacerBorrado(){
+  var b=ITEM_BORRADO, c=cur(); if(!b||!c||b.exp!==c.id) return;
+  var its=D().items; its.splice(Math.min(b.i,its.length),0,b.it);
+  ITEM_BORRADO=null; save(); render(); enfocarItem(Math.min(b.i,its.length-1),'desc');
+}
+// Varias filas de Excel pegadas en una descripción se reparten en ítems desde
+// esa fila, sin abrir el panel. Una sola línea se pega como siempre.
+function pegarEnItem(ev,el){
+  var cb=ev.clipboardData||window.clipboardData;
+  var txt=cb&&cb.getData?(cb.getData('text')||cb.getData('Text')||''):'';
+  if(!/[\t\n]/.test(txt.replace(/\s+$/,''))) return;
+  ev.preventDefault();
+  var nuevos=leerPegado(txt.trim()); if(!nuevos.length) return;
+  var d=D(), i=+el.dataset.i, desde=d.items.slice(i);
+  if(desde.length && !desde[0].desc && !desde[0].cantidad && !desde[0].punit) desde.shift();
+  d.items=d.items.slice(0,i).concat(nuevos,desde);
+  ITEM_BORRADO=null; save(); render(); enfocarItem(i+nuevos.length-1,'desc');
+  toast('Se pegaron '+nuevos.length+' ítem(s). Revisa cantidades y unidades.');
 }
 // «Otra…»: un porcentaje que no está en la lista (una tarifa especial, una
 // reducida por feriado). Se valida y, si no sirve, el ítem se queda como estaba.
@@ -1798,9 +1949,6 @@ function ivaATodos(p){
   d.items.forEach(function(it){ it.iva=String(p); });
   save(); render(); toast('Todos los ítems quedan con IVA del '+fmtPct(p)+' %.');
 }
-function setItemCount(n){n=parseInt(n,10);if(isNaN(n))return;n=Math.max(1,Math.min(300,n));var items=D().items;if(n>items.length){while(items.length<n)items.push(itemNuevo());}else if(n<items.length){items.length=n;}save();render();}
-function addItem(){D().items.push(itemNuevo());save();render();}
-function delItem(i){D().items.splice(i,1);save();render();}
 
 //===================== PEGAR ÍTEMS DESDE EXCEL =====================
 var PASTE_OPEN=false;
@@ -1813,7 +1961,15 @@ var UNIT_SYN={'unidad':'Unidad','u':'Unidad','u.':'Unidad','und':'Unidad','unid'
  'kilogramo':'Kilogramo','kilogramos':'Kilogramo','kilo':'Kilogramo','kg':'Kilogramo','kgs':'Kilogramo',
  'galon':'Galón','galón':'Galón','galones':'Galón','gal':'Galón',
  'hora':'Hora','horas':'Hora','h':'Hora','hr':'Hora','hrs':'Hora',
- 'dia':'Día','día':'Día','dias':'Día','días':'Día','d':'Día'};
+ 'dia':'Día','día':'Día','dias':'Día','días':'Día','d':'Día',
+ 'par':'Par','pares':'Par','pr':'Par','juego':'Juego','juegos':'Juego','jgo':'Juego','kit':'Kit','kits':'Kit',
+ 'caja':'Caja','cajas':'Caja','cj':'Caja','paquete':'Paquete','paquetes':'Paquete','paq':'Paquete','pqt':'Paquete',
+ 'docena':'Docena','docenas':'Docena','doc':'Docena','rollo':'Rollo','rollos':'Rollo','resma':'Resma','resmas':'Resma',
+ 'saco':'Saco','sacos':'Saco','quintal':'Quintal','quintales':'Quintal','qq':'Quintal',
+ 'libra':'Libra','libras':'Libra','lb':'Libra','lbs':'Libra',
+ 'm2':'Metro cuadrado','m²':'Metro cuadrado','metro cuadrado':'Metro cuadrado','metros cuadrados':'Metro cuadrado',
+ 'm3':'Metro cúbico','m³':'Metro cúbico','metro cubico':'Metro cúbico','metro cúbico':'Metro cúbico','metros cúbicos':'Metro cúbico',
+ 'mes':'Mes','meses':'Mes','evento':'Evento','eventos':'Evento','persona':'Persona','personas':'Persona','pax':'Persona'};
 function normUnit(s){return UNIT_SYN[(s||'').trim().toLowerCase()]||'';}
 // Un número tal como llega de Excel o de una proforma: «1.150,50», «1,150.50»,
 // «USD 3,90». Con los dos separadores, el último es el decimal; con uno solo

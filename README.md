@@ -491,6 +491,16 @@ tarifa el documento sale igual que siempre —«IVA (15%)»—; con varias, cada
 «IVA (15%) sobre USD 765,00» e «IVA (0%) sobre USD 480,00». Los expedientes anteriores heredan en
 cada ítem el IVA único que tenían, así que sus totales no cambian.
 
+### El detalle de ítems
+
+Se llena como una hoja de cálculo: **Enter** pasa al ítem siguiente y en el último crea otro;
+las flechas suben y bajan entre cantidades y precios; varias filas copiadas de Excel se pegan
+**directo en una descripción** y se reparten solas. Cantidad y precio aceptan «1,5» o «1.5» y
+no cambian por accidente con la rueda del ratón. ⧉ duplica un ítem (tallas, colores), y quitar
+uno ofrece «Deshacer». Cada ítem necesita su cantidad y su unidad —antes bastaba con el
+primero— y la celda que falta se marca. En el teléfono cada ítem es una tarjeta. Ya no está
+«Número de ítems / Aplicar», que al bajar el número borraba filas sin avisar.
+
 ### Compra directa hasta USD 1.000
 
 La compra directa llega hasta **USD 1.000, con IVA**; por encima, la vía es comparación de

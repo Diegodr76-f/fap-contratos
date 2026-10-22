@@ -913,15 +913,15 @@ seccion('27 · Pegar el detalle desde Excel');
   pega(['Ítem\tCant.\tDescripción\tUnidad\tP. Unitario\tIVA %\tTotal',
         '1\t10\tArroz 50 kg\tu\t48,00\t0%\t480,00',
         '2\t150\tGasolina súper\tgal\t3,90\t15%\t585,00',
-        '3\t2\tCaja de clavos\tCaja\t1.150,50\tExento\t2.301,00',
+        '3\t2\tAgua destilada\tBidón\t1.150,50\tExento\t2.301,00',
         '\t\tSUBTOTAL\t\t\t\t3.366,00',
         '\t\tTOTAL\t\t\t\t3.453,75'].join('\n'));
   const it=wx.D().items;
   ok(it.length===3,'se leen los 3 ítems; la fila de títulos y las de totales no son ítems',it.map(x=>x.desc).join(' | '));
   ok(it[0].desc==='Arroz 50 kg' && it[0].cantidad==='10' && it[0].punit==='48','las columnas se reconocen por su título, en cualquier orden');
   ok(it[0].unidad==='Unidad' && it[1].unidad==='Galón','«u» y «gal» se vuelven Unidad y Galón');
-  ok(it[2].unidad==='Caja','una unidad que no está en la lista se conserva');
-  ok(wx.document.querySelector("select[data-i='2'][data-ik='unidad']").value==='Caja','y el desplegable la muestra, no se queda en «—»');
+  ok(it[2].unidad==='Bidón','una unidad que no está en la lista se conserva');
+  ok(wx.document.querySelector("select[data-i='2'][data-ik='unidad']").value==='Bidón','y el desplegable la muestra, no se queda en «—»');
   ok(it[2].punit==='1150.5' && it[1].punit==='3.9','«1.150,50» y «3,90» se leen como en Ecuador');
   ok(it[0].iva==='0' && it[1].iva==='15' && it[2].iva==='0','la columna IVA trae la tarifa de cada ítem («0%», «15%», «Exento»)');
   // Una columna «IVA» con el VALOR del impuesto no se toma por tarifa: «12,00»
@@ -1087,6 +1087,85 @@ seccion('29 · Lo que encontró el recorrido como AC');
   const total=wa.faltan(0).length+wa.faltan(1).length;
   ok(/^M1: /.test(wa.resumenFaltanHasta(1)) && new RegExp('y '+(total-3)+' más$').test(wa.resumenFaltanHasta(1)),
      'lo que le falta a un documento del Momento 2 cuenta también lo del 1: '+wa.resumenFaltanHasta(1));
+}
+
+seccion('30 · El detalle de ítems se llena como una hoja de cálculo');
+{
+  const wt=nuevoDom();
+  wt.ST.cfg.areas=[{id:'a1',ap:'PN Yasuní',siglas:'PNY',ciudad:'Quito',mae:'M',maeCargo:'J',lugar:'L'}];
+  wt.ST.cfg.ac='A'; wt.ST.cfg.acCorreo='a@b';
+  wt.newExp('Uniformes');
+  Object.assign(wt.D(),{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Bien',tipoBien:'Bien de control',
+    items:[{desc:'',unidad:'',cantidad:'',punit:'',iva:'15'}]});
+  wt.save(); wt.ST.nav='captura'; wt.ST.step=0; wt.render();
+  const q=(i,k)=>wt.document.querySelector("[data-i='"+i+"'][data-ik='"+k+"']");
+  const tecla=(el,key)=>{ const ev=new wt.KeyboardEvent('keydown',{key:key,bubbles:true,cancelable:true}); el.dispatchEvent(ev); return ev.defaultPrevented; };
+  const escribe=(el,v)=>{ el.value=v; wt.onItem(el); };
+  ok(!wt.document.getElementById('itemcount') && !/Número de ítems/.test(wt.document.getElementById('app').innerHTML),
+     'ya no está «Número de ítems / Aplicar», que borraba filas sin avisar al bajar el número');
+  // Escribir y Enter: el siguiente ítem aparece con el cursor puesto
+  escribe(q(0,'desc'),'Buzos volatilizados varios');
+  ok(wt.D().items[0].unidad==='Unidad','la unidad se propone al escribir la descripción');
+  ok(tecla(q(0,'desc'),'Enter') && wt.D().items.length===2,'Enter en el último ítem crea otro');
+  ok(wt.document.activeElement===q(1,'desc'),'y deja el cursor en su descripción');
+  ok(!tecla(q(1,'desc'),'Tab') && wt.D().items.length===2,'otras teclas no hacen nada raro');
+  tecla(q(1,'desc'),'Enter');
+  ok(wt.D().items.length===2,'Enter en un ítem vacío no crea otro vacío');
+  escribe(q(1,'desc'),'Buzos estampados personalizados');
+  // Cantidades: coma o punto, sin flechitas
+  ok(q(0,'cantidad').type==='text' && q(0,'cantidad').getAttribute('inputmode')==='decimal','la cantidad es un campo de texto con teclado numérico: sin flechitas ni rueda que la cambien');
+  escribe(q(0,'cantidad'),'60');
+  tecla(q(0,'cantidad'),'Enter');
+  ok(wt.document.activeElement===q(1,'cantidad'),'Enter en la cantidad baja a la cantidad del ítem siguiente');
+  tecla(q(1,'cantidad'),'ArrowUp');
+  ok(wt.document.activeElement===q(0,'cantidad'),'y la flecha hacia arriba sube');
+  escribe(q(1,'cantidad'),'2,5');
+  ok(wt.D().items[1].cantidad==='2.5','«2,5» se guarda como 2,5 y no como 25');
+  ok(wt.numTecleado('1.250,5')==='1250.5' && wt.numTecleado('1,250.5')==='1250.5' && wt.numTecleado('abc')==='' && wt.numTecleado('1.5')==='1.5',
+     'los dos separadores se entienden: «1.250,5», «1,250.5», «1.5»');
+  ok(wt.fmtCantidad('1500')==='1.500' && wt.fmtCantidad('2.5')==='2,5' && wt.fmtCantidad('60')==='60','en el documento la cantidad sale a la ecuatoriana: «1.500», «2,5»');
+  ok(wt.buildTemplateData().items[1].cantidad==='2,5','y así llega a la plantilla');
+  // Cada ítem con su cantidad, no solo el primero
+  escribe(q(1,'cantidad'),'');
+  const fc=wt.faltan(0).find(x=>/Cantidad y unidad de cada ítem/.test(x.label));
+  ok(fc && fc.campo==='i1.cantidad' && /ítem 2/.test(fc.label),'un segundo ítem sin cantidad ya no pasa: «'+(fc&&fc.label)+'»');
+  ok(/E5C98A/i.test(q(1,'cantidad').getAttribute('style')||'') || q(1,'cantidad').style.borderColor!=='','la celda que falta se marca en ámbar');
+  wt.irACampo('i1.cantidad');
+  ok(wt.document.activeElement===q(1,'cantidad'),'el enlace del aviso lleva el cursor a esa celda');
+  escribe(q(1,'cantidad'),'30');
+  ok(q(1,'cantidad').style.borderColor==='' && !/Cantidad y unidad/.test(wt.document.getElementById('aviso_momento').textContent),'al llenarla se apaga la marca y sale del aviso, sin recargar');
+  // Duplicar para tallas y variantes
+  wt.duplicarItem(0);
+  ok(wt.D().items.length===3 && wt.D().items[1].desc==='Buzos volatilizados varios' && wt.D().items[1].cantidad==='60','⧉ duplica el ítem justo debajo, con su cantidad y unidad');
+  ok(wt.document.activeElement===q(1,'desc'),'y deja el cursor en la copia para cambiarle la talla');
+  // Quitar con deshacer
+  wt.delItem(1);
+  ok(wt.D().items.length===2 && /Deshacer/.test(wt.document.getElementById('app').innerHTML),'quitar un ítem ofrece «Deshacer»');
+  wt.delItem(0);
+  wt.deshacerBorrado();
+  ok(wt.D().items.length===2 && wt.D().items[0].desc==='Buzos volatilizados varios','«Deshacer» lo devuelve a su lugar');
+  // Pegar varias filas directo en una descripción
+  wt.addItem();
+  let prevenido=false;
+  wt.pegarEnItem({clipboardData:{getData:()=>'Gorras\tUnidad\t40\nBotas de caucho\tpares\t25\nPonchos de agua\tu\t25\n'},preventDefault(){prevenido=true;}}, q(2,'desc'));
+  ok(prevenido && wt.D().items.length===5 && wt.D().items[2].desc==='Gorras' && wt.D().items[4].desc==='Ponchos de agua','tres filas de Excel pegadas en una descripción se vuelven tres ítems, sin abrir el panel');
+  ok(wt.D().items[3].unidad==='Par' && wt.D().items[3].cantidad==='25','«pares» se reconoce como Par');
+  prevenido=false;
+  wt.pegarEnItem({clipboardData:{getData:()=>'Una sola línea\n'},preventDefault(){prevenido=true;}}, q(4,'desc'));
+  ok(!prevenido && wt.D().items.length===5,'una sola línea se pega normal, dentro de la celda');
+  escribe(q(4,'desc'),'Ponchos\nde agua');
+  ok(wt.D().items[4].desc==='Ponchos de agua','un salto de línea en la descripción se vuelve espacio');
+  ok(wt.UNIDAD.indexOf('Par')>=0 && wt.UNIDAD.indexOf('Resma')>=0 && wt.UNIDAD.indexOf('Quintal')>=0,'hay unidades para lo que se compra: Par, Resma, Quintal…');
+  ok(/5 ítems/.test(wt.document.getElementById('a_nitems').textContent),'el contador dice cuántos ítems hay');
+  // En el Momento 2, el aviso lleva a la primera celda sin precio
+  Object.assign(wt.D().provs[0],{razon:'P',monto:'100'}); wt.save();
+  wt.ST.step=1; wt.render();
+  const fp=wt.faltan(1).find(x=>/Precio unitario de cada ítem/.test(x.label));
+  ok(fp && fp.campo==='i0.punit' && /ítem 1/.test(fp.label),'en el Momento 2 el aviso nombra el primer ítem sin precio y lleva a su celda');
+  escribe(q(0,'punit'),'12,50');
+  ok(wt.D().items[0].punit==='12.5' && wt.document.getElementById('a_ptot0').textContent==='750,00','el precio acepta coma y el total de la fila se calcula al momento');
+  tecla(q(0,'punit'),'Enter');
+  ok(wt.document.activeElement===q(1,'punit'),'Enter baja al precio del ítem siguiente');
 }
 
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
