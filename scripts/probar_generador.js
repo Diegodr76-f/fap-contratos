@@ -771,5 +771,183 @@ seccion('25 · Lo que viene del CLM no se vuelve a teclear');
   ok(wp.ST.exps.length===0 && wp.localStorage.getItem('fap_precarga')!==null,'sin #precarga no se toca nada, aunque haya un buzón');
 }
 
+seccion('26 · IVA por ítem: una compra puede mezclar 15 % y 0 %');
+// Antes había un solo IVA para todo el detalle. Una compra de víveres y
+// combustible —arroz al 0 %, gasolina al 15 %— salía con IVA de más: el total
+// no cuadraba con la oferta, la orden decía una cifra en letras y otra en la
+// tabla, y podía cruzar en falso el umbral de USD 8.000 del Director.
+{
+  const textoDocx=b64=>{
+    const zip=new PizZip(b64,{base64:true}); let t='';
+    zip.file(/word\/document\.xml/).forEach(f=>{
+      t+=f.asText().replace(/<\/w:p>/g,'\n').replace(/<(?!\/?w:t[ >])[^>]*>/g,'').replace(/<\/?w:t[^>]*>/g,'')+'\n';
+    });
+    return t;
+  };
+  const rellena=(w,slot)=>{
+    const doc=new Docxtemplater(new PizZip(w.ST.tpls[slot],{base64:true}),{paragraphLoop:true,linebreaks:true,nullGetter:()=>''});
+    doc.render(w.buildTemplateData());
+    return textoDocx(doc.getZip().generate({type:'base64'}));
+  };
+  const viveres=()=>{
+    const wi=nuevoDom();
+    wi.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',maeGenero:'M',apGenero:'M',lugar:'El Coca'}];
+    wi.ST.cfg.ac='Lcda. María Salazar'; wi.ST.cfg.acCorreo='m@fias.org.ec';
+    wi.newExp('Víveres y combustible');
+    Object.assign(wi.D(),{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Bien',tipoBien:'Activo fijo',
+      fechaInicio:'2026-10-20',numero:'9',objeto:'Víveres y combustible para patrullaje',plazo:'5',presupuesto:'2000',fechaRecepcion:'2026-10-25',
+      partida:'3.1.2.2',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura',
+      items:[{desc:'Arroz 50 kg',unidad:'Unidad',cantidad:'10',punit:'48',iva:'0'},
+             {desc:'Gasolina súper',unidad:'Galón',cantidad:'150',punit:'3.9',iva:'15'},
+             {desc:'Repelente 200 ml',unidad:'Unidad',cantidad:'40',punit:'4.5',iva:'15'}]});
+    wi.D().provs[0]={razon:'Comercial Orellana',ruc:'1790012345001',dir:'Av. 9 de Octubre',tel:'',monto:'1365.75',fof:'',genero:'E'};
+    wi.save(); return wi;
+  };
+  const wi=viveres();
+  const t=wi.itemTotals();
+  ok(t.sub===1245 && t.iva===114.75 && t.total===1359.75,'subtotal 1.245,00 · IVA 114,75 · total 1.359,75',[t.sub,t.iva,t.total].join(' · '));
+  ok(t.tarifas.length===2 && t.tarifas[0].pct===15 && t.tarifas[0].base===765 && t.tarifas[1].pct===0 && t.tarifas[1].base===480,
+     'el IVA se agrupa por tarifa, de la mayor a la menor: 15 % sobre 765,00 y 0 % sobre 480,00');
+  // La oferta de 1.365,75 no cuadra con el detalle: el momento no se cierra y dice por qué
+  ok(wi.m2Done()===false,'si el detalle no cuadra con el monto, el Momento 2 no se cierra');
+  const fc=wi.faltan(1).find(x=>x.campo==='cuadre');
+  ok(fc && /cuadre con el monto del proveedor/.test(fc.label) && /6,00/.test(fc.label),'y el aviso dice qué falta y por cuánto: '+(fc&&fc.label));
+  ok(wi.documents().find(x=>x.id==='entrega').ready===false,'el acta que imprime la tabla de valores no sale con dos cifras distintas');
+  ok(wi.checklistPendientes().some(x=>x.label==='El monto cuadra con el detalle de ítems'),'y la lista de verificación también lo frena');
+  wi.ST.nav='captura'; wi.ST.step=1; wi.render();
+  let html=wi.document.getElementById('app').innerHTML;
+  ok(/No cuadra con el monto del proveedor/.test(html),'el recuadro de totales lo avisa en el momento, al lado de los números');
+  // Con el monto bien puesto, cuadra
+  wi.D().provs[0].monto='1359.75'; wi.save(); wi.render();
+  ok(wi.m2Done()===true,'con la oferta real (1.359,75) el Momento 2 se cierra',wi.faltan(1).map(x=>x.label).join(' | '));
+  ok(/Cuadra con el monto del proveedor/.test(wi.document.getElementById('app').innerHTML),'y el recuadro lo confirma en verde');
+  ok(wi.documents().find(x=>x.id==='entrega').ready===true,'y el acta ya se puede generar');
+  const iv=wi.checklistEnvio().find(x=>x.label==='IVA aplicado y declarado');
+  ok(iv.ok && /15 % sobre USD 765,00 y del 0 % sobre USD 480,00/.test(iv.detalle),'la lista de verificación declara cada tarifa con su base: '+iv.detalle);
+
+  // Lo que recibe la plantilla
+  const datos=wi.buildTemplateData();
+  ok(datos.ivaMixto===true && datos.ivas.length===2,'{#ivas} trae una fila por tarifa e {ivaMixto} es verdadero');
+  ok(datos.ivas[0].ivaPct==='15' && datos.ivas[0].subtotal==='765,00' && datos.ivas[0].iva==='114,75'
+     && datos.ivas[1].ivaPct==='0' && datos.ivas[1].subtotal==='480,00' && datos.ivas[1].iva==='0,00',
+     'cada fila con su tarifa, su base y su IVA',JSON.stringify(datos.ivas));
+  ok(datos.ivaPct==='15% y 0','{ivaPct} suelto enumera las tarifas, para la plantilla que no use el bloque: '+datos.ivaPct);
+  ok(datos.items.map(x=>x.ivaPct).join(',')==='0,15,15','y cada ítem lleva la suya en {#items}');
+  // El documento de verdad
+  const out=rellena(wi,'7_Orden_de_compra.docx');
+  ok(/IVA \(15%\) sobre USD 765,00\s*114,75/.test(out),'la orden imprime «IVA (15%) sobre USD 765,00 · 114,75»');
+  ok(/IVA \(0%\) sobre USD 480,00\s*0,00/.test(out),'y «IVA (0%) sobre USD 480,00 · 0,00»');
+  ok(/TOTAL\s*1\.359,75/.test(out),'con el total que cuadra con la oferta');
+
+  // Con una sola tarifa, el documento sale exactamente como antes
+  wi.ivaATodos('15');
+  ok(wi.D().items.every(x=>x.iva==='15') && wi.D().ivaPct==='15','«Todos al 15 %» pone la misma tarifa a todos los ítems');
+  const out1=rellena(wi,'7_Orden_de_compra.docx');
+  ok(/IVA \(15%\)\s*186,75/.test(out1) && !/sobre USD/.test(out1),'con una sola tarifa: «IVA (15%) · 186,75», sin «sobre», igual que siempre');
+  ok(wi.buildTemplateData().ivaPct==='15' && wi.buildTemplateData().ivaMixto===false,'y {ivaPct} vuelve a ser «15»');
+  // Un ítem nuevo nace con la última tarifa aplicada a todos
+  wi.ivaATodos('0'); wi.addItem();
+  ok(wi.D().items[3].iva==='0','un ítem nuevo nace con la tarifa que se aplicó a todos');
+
+  // Las ocho plantillas con tabla de valores se rellenan con tarifas mezcladas
+  const wm=viveres(); wm.D().provs[0].monto='1359.75'; wm.save();
+  ['7_Orden_de_compra.docx','8_Orden_de_servicio.docx','9_Acta_entrega_recepcion.docx','10_Informe_satisfaccion.docx',
+   '12_Acta_entrega_area_protegida.docx','16_Orden_de_compra_director.docx','17_Orden_de_servicio.docx','18_Informe_satisfaccion_CD.docx']
+  .forEach(f=>{
+    let o=''; try{ o=rellena(wm,f); }catch(e){ o='ERROR '+e.message; }
+    ok(/IVA \(15%\) sobre USD 765,00/.test(o) && /IVA \(0%\) sobre USD 480,00/.test(o), f+' imprime una fila de IVA por tarifa', o.slice(0,80));
+  });
+
+  // «Otra…»: cualquier porcentaje, validado
+  wm.ST.nav='captura'; wm.ST.step=1; wm.render();
+  wm.prompt=()=>'8';
+  const sel=wm.document.querySelector("select[data-ik='iva'][data-i='2']");
+  sel.value='otra'; wm.onItem(sel);
+  ok(wm.D().items[2].iva==='8','«Otra…» acepta una tarifa que no está en la lista: 8 %');
+  ok([...wm.document.querySelectorAll("select[data-ik='iva'][data-i='0'] option")].some(o=>o.value==='8'),'y desde ahí se ofrece en todos los ítems');
+  wm.prompt=()=>'ciento';
+  const sel2=wm.document.querySelector("select[data-ik='iva'][data-i='1']");
+  sel2.value='otra'; wm.onItem(sel2);
+  ok(wm.D().items[1].iva==='15' && /no es válida/.test(wm.document.getElementById('toast').textContent),'una tarifa que no es número se rechaza y el ítem queda como estaba');
+  // Cambiar la tarifa en el desplegable recalcula en el momento
+  const sel3=wm.document.querySelector("select[data-ik='iva'][data-i='1']");
+  sel3.value='0'; wm.onItem(sel3);
+  ok(wm.itemTotals().iva===round2js(180*0.08) && /IVA \(8 %\) sobre USD 180,00/.test(wm.document.getElementById('a_totales').textContent),
+     'cambiar la tarifa de un ítem recalcula el recuadro sin recargar: '+wm.document.getElementById('a_totales').textContent.replace(/\s+/g,' ').slice(0,120));
+
+  // El umbral de USD 8.000 se mide con el IVA real
+  const wd=viveres();
+  wd.D().items=[{desc:'Raciones de campaña',unidad:'Unidad',cantidad:'500',punit:'14',iva:'0'},{desc:'Fundas',unidad:'Unidad',cantidad:'100',punit:'1',iva:'15'}];
+  wd.save();
+  ok(wd.montoConIva()===7115 && wd.firmaDirector()===false,'7.000 al 0 % y 100 al 15 %: total 7.115,00, la firma la AC (con un 15 % único eran 8.165,00 y pasaba al Director)');
+
+  // Un expediente viejo no cambia ni un centavo
+  const wv=nuevoDom(win=>{
+    win.localStorage.setItem('fap_v3',JSON.stringify({cfg:{areas:[{id:'a1',ap:'PNY',siglas:'PNY'}]},
+      exps:[{id:'e1',nombre:'viejo',generated:{},data:{ivaPct:'12',items:[{desc:'A',unidad:'Unidad',cantidad:'2',punit:'100'}]}}],curId:'e1'}));
+  });
+  ok(wv.D().items[0].iva==='12','un expediente de antes hereda su IVA único en cada ítem (12 %)');
+  ok(wv.itemTotals().total===224,'y su total sigue siendo el mismo: 224,00');
+  // Un ítem cargado sin tarifa (a mano, desde fuera) toma la del expediente
+  const ws=viveres(); ws.D().ivaPct='15'; ws.D().items=[{desc:'X',unidad:'Unidad',cantidad:'1',punit:'100'}];
+  ok(ws.itemTotals().total===115,'un ítem sin tarifa propia lleva la del expediente');
+  // y el subtotal + IVA impresos suman exactamente el total
+  ws.D().items=[{desc:'X',unidad:'Unidad',cantidad:'3',punit:'0.333',iva:'15'},{desc:'Y',unidad:'Unidad',cantidad:'7',punit:'1.115',iva:'5'}];
+  const tr=ws.itemTotals();
+  ok(round2js(tr.sub+tr.iva)===tr.total,'subtotal + IVA = total, al centavo, también con precios de tres decimales');
+}
+function round2js(n){ return Math.round((n+Number.EPSILON)*100)/100; }
+
+seccion('27 · Pegar el detalle desde Excel');
+{
+  const wx=nuevoDom();
+  wx.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  wx.newExp('Pegado');
+  Object.assign(wx.D(),{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Bien'});
+  wx.save();
+  const pega=(texto,modo)=>{ wx.PASTE_OPEN=true; wx.ST.nav='captura'; wx.ST.step=1; wx.render();
+    wx.document.getElementById('pastebox').value=texto; wx.procesarPaste(modo||'reemplazar'); };
+  // La proforma del proveedor, copiada con su fila de títulos y en su orden
+  pega(['Ítem\tCant.\tDescripción\tUnidad\tP. Unitario\tIVA %\tTotal',
+        '1\t10\tArroz 50 kg\tu\t48,00\t0%\t480,00',
+        '2\t150\tGasolina súper\tgal\t3,90\t15%\t585,00',
+        '3\t2\tCaja de clavos\tCaja\t1.150,50\tExento\t2.301,00',
+        '\t\tSUBTOTAL\t\t\t\t3.366,00',
+        '\t\tTOTAL\t\t\t\t3.453,75'].join('\n'));
+  const it=wx.D().items;
+  ok(it.length===3,'se leen los 3 ítems; la fila de títulos y las de totales no son ítems',it.map(x=>x.desc).join(' | '));
+  ok(it[0].desc==='Arroz 50 kg' && it[0].cantidad==='10' && it[0].punit==='48','las columnas se reconocen por su título, en cualquier orden');
+  ok(it[0].unidad==='Unidad' && it[1].unidad==='Galón','«u» y «gal» se vuelven Unidad y Galón');
+  ok(it[2].unidad==='Caja','una unidad que no está en la lista se conserva');
+  ok(wx.document.querySelector("select[data-i='2'][data-ik='unidad']").value==='Caja','y el desplegable la muestra, no se queda en «—»');
+  ok(it[2].punit==='1150.5' && it[1].punit==='3.9','«1.150,50» y «3,90» se leen como en Ecuador');
+  ok(it[0].iva==='0' && it[1].iva==='15' && it[2].iva==='0','la columna IVA trae la tarifa de cada ítem («0%», «15%», «Exento»)');
+  // Una columna «IVA» con el VALOR del impuesto no se toma por tarifa: «12,00»
+  // parecería un 12 %, pero «3,75» delata que la columna es de valores.
+  pega('Descripción\tCantidad\tPrecio\tIVA\nBotas\t2\t40\t12,00\nPoncho\t1\t25\t3,75');
+  ok(wx.D().items.length===2 && wx.D().items[0].punit==='40','«Precio» a secas se lee como precio unitario');
+  ok(wx.D().items.every(x=>x.iva===wx.tarifaNueva()),'una columna IVA con valores y no tarifas se ignora entera: los ítems toman la de siempre',
+     wx.D().items.map(x=>x.iva).join(','));
+  // Sin títulos, el orden de siempre
+  pega('Linterna\tUnidad\t4\t12.5\t15\nPilas AA\tunid\t24\t0,80\t15');
+  ok(wx.D().items.length===2 && wx.D().items[1].desc==='Pilas AA' && wx.D().items[1].punit==='0.8' && wx.D().items[1].cantidad==='24',
+     'sin fila de títulos: Descripción · Unidad · Cantidad · Precio · IVA');
+  // Una primera fila que parece de títulos pero trae cifras es un ítem
+  pega('Servicio de mantenimiento\tUnidad\t1\t500\nRevisión de frenos\tServicio\t2\t80');
+  ok(wx.D().items.length===2 && wx.D().items[0].desc==='Servicio de mantenimiento' && wx.D().items[0].punit==='500',
+     'una primera fila con cifras no se toma por títulos: no se pierde el primer ítem',wx.D().items.map(x=>x.desc).join(' | '));
+  pega('Linterna\tUnidad\t4\t12.5\t15\nPilas AA\tunid\t24\t0,80\t15');
+  // Agregar no borra lo que había
+  pega('3 Machetes\n2 Limas','agregar');
+  ok(wx.D().items.length===4 && wx.D().items[2].desc==='Machetes' && wx.D().items[2].cantidad==='3','«Agregar al final» suma a lo que había');
+  // Reemplazar lo que ya tiene descripción, solo si la AC confirma
+  wx.confirm=()=>false;
+  pega('1 Otra cosa');
+  ok(wx.D().items.length===4,'reemplazar el detalle pide confirmación y, si la AC dice que no, no toca nada');
+  wx.confirm=()=>true;
+  pega('');
+  ok(/vacío/.test(wx.document.getElementById('toast').textContent),'pegar nada avisa, sin alert');
+}
+
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
 process.exit(fallos?1:0);

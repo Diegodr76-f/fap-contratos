@@ -477,6 +477,20 @@ proveedor y su RUC, los documentos obligatorios de la vía y los **cuadres autom
 contra el detalle de ítems, IVA, y que el monto no supere el presupuesto—. Mientras falte un punto
 crítico, el botón de envío está deshabilitado y la lista dice exactamente qué falta.
 
+### IVA por ítem
+
+Una compra puede mezclar tarifas —arroz al 0 %, gasolina al 15 %—, así que en el Momento 2 **cada
+ítem lleva su tarifa**: 15 %, 5 %, 0 % u «Otra…» para cualquier otro porcentaje, y un botón por
+tarifa para ponerla a todos de una vez. El IVA se calcula como en la factura (cada línea al centavo,
+agrupadas por tarifa), y el recuadro de totales dice al momento si el detalle **cuadra con el monto
+ofertado**. Si no cuadra, el momento no se cierra: la orden imprime las dos cifras, el monto en
+letras y el total de la tabla, y no puede salir contradiciéndose.
+
+En las plantillas la fila de IVA es un bloque `{#ivas}…{/ivas}`, una fila por tarifa. Con una sola
+tarifa el documento sale igual que siempre —«IVA (15%)»—; con varias, cada fila dice su base:
+«IVA (15%) sobre USD 765,00» e «IVA (0%) sobre USD 480,00». Los expedientes anteriores heredan en
+cada ítem el IVA único que tenían, así que sus totales no cambian.
+
 ### Almacenamiento
 
 - **El fallo de cuota se ve.** Si el navegador se queda sin espacio, aparece una barra roja fija

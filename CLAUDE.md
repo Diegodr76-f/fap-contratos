@@ -257,6 +257,15 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   Un `catch(e){}` mudo hace que la AC pierda el expediente sin enterarse.
 - Las plantillas nuevas van a `TPL_SLOTS` (en la app) y a `ORDEN` (en
   `scripts/embeber_plantillas.py`).
+- **El IVA es de cada ítem** (`it.iva`), no del expediente: una compra mezcla 15 % y 0 %.
+  `d.ivaPct` ya solo es la tarifa con la que nacen los ítems nuevos. Los totales salen de
+  `itemTotals()` —cada línea al centavo, agrupadas por tarifa, IVA por base— y nadie más
+  multiplica por un porcentaje. En las plantillas, la fila de IVA es `{#ivas}…{/ivas}` (una por
+  tarifa) con `{#ivaMixto} sobre USD {subtotal}{/ivaMixto}` dentro, para que con una sola tarifa
+  el documento salga igual que antes. Una plantilla nueva con tabla de valores, igual.
+- **El detalle tiene que cuadrar con el monto** (`cuadreMonto()`): la orden imprime el monto en
+  letras y el total de la tabla, y si no cuadran el papel firmado se contradice. Por eso es un
+  requisito del momento de los precios y frena los documentos que imprimen la tabla.
 
 ### Probarla
 

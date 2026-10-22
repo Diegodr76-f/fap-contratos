@@ -1667,17 +1667,33 @@
       "id": "pmrkumrwiv218i",
       "grupo": "Montos e IVA",
       "nombre": "iva",
-      "descripcion": "Valor del IVA",
+      "descripcion": "Valor del IVA: la suma de todas las tarifas. Dentro de {#ivas}, el IVA de esa tarifa.",
       "ejemplo": "110,87",
       "tipo": "numero"
+    },
+    {
+      "id": "pmmtgmj6hn2ahx",
+      "grupo": "Montos e IVA",
+      "nombre": "ivaMixto",
+      "descripcion": "Condición {#ivaMixto} verdadera cuando los ítems llevan más de una tarifa de IVA (p. ej. 15 % y 0 %). Sirve para decir sobre qué base va cada tarifa solo cuando hace falta: {#ivaMixto} sobre USD {subtotal}{/ivaMixto}.",
+      "ejemplo": "",
+      "tipo": "texto"
     },
     {
       "id": "pmrkumrwisnide",
       "grupo": "Montos e IVA",
       "nombre": "ivaPct",
-      "descripcion": "Porcentaje de IVA",
+      "descripcion": "Porcentaje de IVA. Cada ítem lleva su tarifa: dentro de {#ivas} y de {#items} es la de esa fila; suelto, si los ítems mezclan tarifas, las enumera para que «IVA ({ivaPct}%)» se lea «IVA (15% y 0%)».",
       "ejemplo": "15",
       "tipo": "numero"
+    },
+    {
+      "id": "pmwsldpopa8idm",
+      "grupo": "Montos e IVA",
+      "nombre": "ivas",
+      "descripcion": "Bloque repetible {#ivas}…{/ivas} con una fila por cada tarifa de IVA que llevan los ítems, de la mayor a la menor. Campos: ivaPct, subtotal, iva. Dentro del bloque, subtotal es la base de esa tarifa e iva el impuesto que le corresponde. Con una sola tarifa da una sola fila: la tabla sale igual que con un IVA único.",
+      "ejemplo": "",
+      "tipo": "repetible"
     },
     {
       "id": "pmtu6qdn9cs3yk",
@@ -1765,7 +1781,7 @@
       "id": "pmrkumrwimok4j",
       "grupo": "Montos e IVA",
       "nombre": "subtotal",
-      "descripcion": "Subtotal de la tabla de ítems",
+      "descripcion": "Subtotal de la tabla de ítems, sin impuestos. Dentro de {#ivas}, la base sobre la que se aplica esa tarifa.",
       "ejemplo": "739,13",
       "tipo": "numero"
     },
@@ -2304,7 +2320,7 @@
       "id": "pmrkumrwinafal",
       "grupo": "Ítems (repetible)",
       "nombre": "items",
-      "descripcion": "Bloque repetible {#items}…{/items} de docxtemplater con campos n, cantidad, unidad, desc, punit, ptotal. Nota: en esta herramienta HTML insértalo como texto de referencia; el bucle lo ejecuta docxtemplater en las plantillas Word.",
+      "descripcion": "Bloque repetible {#items}…{/items} de docxtemplater con campos n, cantidad, unidad, desc, punit, ptotal, ivaPct. Nota: en esta herramienta HTML insértalo como texto de referencia; el bucle lo ejecuta docxtemplater en las plantillas Word.",
       "ejemplo": "",
       "tipo": "repetible"
     },
