@@ -1168,5 +1168,17 @@ seccion('30 · El detalle de ítems se llena como una hoja de cálculo');
   ok(wt.document.activeElement===q(1,'punit'),'Enter baja al precio del ítem siguiente');
 }
 
+seccion('31 · Los datos de ejemplo de versiones anteriores se vacían');
+{
+  const wv=nuevoDom(win=>win.localStorage.setItem('fap_v3',JSON.stringify({cfg:{ac:'Lcda. María Salazar',acCorreo:'msalazar@fias.org.ec',
+    areas:[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',mae:'Tnte. Crnl. Jorge Andrade',maeCargo:'Jefe',ciudad:'Quito',lugar:'Estación El Coca, Orellana'}]},exps:[]})));
+  const c=wv.ST.cfg;
+  ok(c.ac==='' && c.acCorreo==='' && c.areas[0].mae==='' && c.areas[0].ap==='' && c.areas[0].siglas==='','la AC, el correo, el jefe y el área de ejemplo se vacían al abrir');
+  ok(wv.faltanDeDatos().length>0,'y la Hoja de Datos los pide de nuevo');
+  const wr=nuevoDom(win=>win.localStorage.setItem('fap_v3',JSON.stringify({cfg:{ac:'Lcda. Ana Torres',acCorreo:'atorres@fias.org.ec',
+    areas:[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',mae:'Ing. Rosa Tapia',maeCargo:'Jefa',ciudad:'Quito',lugar:'Otavalo'}]},exps:[]})));
+  ok(wr.ST.cfg.ac==='Lcda. Ana Torres' && wr.ST.cfg.areas[0].ap==='Parque Nacional Yasuní','los datos reales no se tocan');
+}
+
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
 process.exit(fallos?1:0);
