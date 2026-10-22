@@ -229,6 +229,7 @@ function load(){
   // La copia que exporta un coordinador trae su Hoja de Datos: sirve de punto
   // de partida, pero quien la abre tiene que confirmar que es la suya.
   if(!hadV3 && window.__SEED__ && __SEED__.cfg){ try{ ST.cfg=Object.assign({},CFG_DEF,__SEED__.cfg,{revisar:true}); save(); }catch(e){} }
+  limpiarEjemplo();
   migrateAreas();
   migrateExps();
   try{ flushPendientes(); }catch(e){}   // reintenta cierres que quedaron sin enviar por falta de conexión
@@ -264,6 +265,19 @@ function migrateExps(){
 }
 // Migración automática: si no hay lista de áreas pero sí existen los campos planos
 // de una sola área (versión anterior), creamos la primera entrada para no perder nada.
+// Los datos de ejemplo que traían las versiones anteriores no son de nadie. Si
+// una AC los tiene guardados, se vacían: la Hoja de Datos se los pide de nuevo.
+function limpiarEjemplo(){
+  var c=ST.cfg, cambio=false;
+  if(c.ac==='Lcda. María Salazar'){ c.ac=''; cambio=true; }
+  if(c.acCorreo==='msalazar@fias.org.ec'){ c.acCorreo=''; cambio=true; }
+  (c.areas||[]).forEach(function(a){
+    if(a.mae==='Tnte. Crnl. Jorge Andrade'){ a.mae=''; cambio=true; }
+    if(a.ap==='Parque Nacional Yasuní' && a.siglas==='PNY' && a.lugar==='Estación El Coca, Orellana'){ a.ap=''; a.siglas=''; a.lugar=''; cambio=true; }
+  });
+  if(c.mae==='Tnte. Crnl. Jorge Andrade'){ c.mae=''; cambio=true; }
+  if(cambio) save();
+}
 function migrateAreas(){
   if(!Array.isArray(ST.cfg.areas) || !ST.cfg.areas.length){
     if(ST.cfg.ap || ST.cfg.siglas){
