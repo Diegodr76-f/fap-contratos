@@ -198,11 +198,30 @@ cosas, así que no pueden contradecirse:
 - el «Falta por llenar: …» de cada documento bloqueado en Documentos,
 - el «faltan N datos» de cada fila de Mis procesos.
 
+Y se ve **mientras se escribe**: `marcaFalta()` y `bordeFalta()` pintan siempre su marca
+(`data-dot`, `data-falta`), visible o no, y `refrescarFaltas()` —desde `recompute()`— las
+apaga y rehace el aviso sin repintar la pantalla ni perder el cursor. Un campo nuevo que
+use esas dos funciones queda cubierto solo.
+
+Un documento que no corresponde a la vía —el acta del Momento 3 de un bien, que se
+cierra en el 4— lleva `noAplica:true`: se muestra como «No aplica», no como
+«Bloqueado», y no cuenta en el panel lateral ni en Mis procesos.
+
 **Al añadir un requisito se añade a `requisitos()`, nunca a un `mXDone()`**, y el
 rótulo tiene que ser el mismo que el del campo en pantalla: si el aviso dice
 «Objeto del contrato» y el formulario dice «Objeto del proceso», la AC busca algo
 que no existe. `requisitosDatos()` hace lo propio con la Hoja de Datos, que sale
 impresa en todo: el nombre de la AC va en cada firma y las siglas arman el código.
+
+## Compra directa: hasta USD 1.000, con IVA
+
+Por encima, la vía es comparación de precios o selección directa por excepción.
+`LIMITE_CD` y `cdExcede()` son la única fuente; se mide lo mayor entre el
+presupuesto, la oferta y el total del detalle (`montoCD()`), con IVA como el
+umbral de 8.000. Es requisito del Momento 1 (presupuesto) y del 2 (oferta),
+bloquea los documentos de la vía y está en `checklistEnvio()`. El cartel
+(`cartelCD()`, en contenedores `.cartel-cd` que `recompute()` refresca) ofrece
+cambiar de vía en un clic con `cambiarVia()`, que conserva lo escrito.
 
 ## La renovación no lleva notificación
 
@@ -250,6 +269,10 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   y el seed embebido de `index.html`. Al cambiar una, corre
   `python3 scripts/embeber_plantillas.py` para reconstruir el seed, y súbelo en el
   mismo commit. `--check` avisa si quedaron desfasados.
+- **Una instalación nueva empieza en blanco.** El seed del repositorio no lleva `cfg`:
+  traía una AC, un jefe y un área de ejemplo que la Hoja de Datos daba por buenos. La
+  copia que exporta un coordinador (`exportBuild`) sí lleva el suyo, y se marca
+  `cfg.revisar` hasta que quien la abre confirme que es la suya. «XXX» cuenta como vacío.
 - **A `localStorage` solo va lo que la AC escribió**: expedientes, historial, cola
   de envío y las plantillas que subió a mano. El seed nunca se copia allí — llenaba
   2 MB de una cuota de 5.
@@ -257,6 +280,24 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   Un `catch(e){}` mudo hace que la AC pierda el expediente sin enterarse.
 - Las plantillas nuevas van a `TPL_SLOTS` (en la app) y a `ORDEN` (en
   `scripts/embeber_plantillas.py`).
+- **El IVA es de cada ítem** (`it.iva`), no del expediente: una compra mezcla 15 % y 0 %.
+  `d.ivaPct` ya solo es la tarifa con la que nacen los ítems nuevos. Los totales salen de
+  `itemTotals()` —cada línea al centavo, agrupadas por tarifa, IVA por base— y nadie más
+  multiplica por un porcentaje. En las plantillas, la fila de IVA es `{#ivas}…{/ivas}` (una por
+  tarifa) con `{#ivaMixto} sobre USD {subtotal}{/ivaMixto}` dentro, para que con una sola tarifa
+  el documento salga igual que antes. Una plantilla nueva con tabla de valores, igual.
+- **El detalle de ítems se llena como una hoja de cálculo** (`itemRows()`, `teclaItem()`):
+  Enter baja al ítem siguiente y en el último crea otro, pegar varias filas en una
+  descripción las reparte (`pegarEnItem()`, que usa el mismo `leerPegado()` del panel), y
+  quitar ofrece «Deshacer». Cantidad y precio son `type='text'` con `inputmode='decimal'`
+  —sin flechitas que los cambian con la rueda— y pasan por `numTecleado()`: un solo
+  separador es el decimal. **Cada** ítem con descripción necesita cantidad y unidad
+  (`itemFalta()`, `primerItemIncompleto()`), y en el documento la cantidad sale con
+  `fmtCantidad()` («1.500», «2,5»). Las columnas están en `.fila-item`, no en línea, para que
+  en el teléfono la media query las vuelva tarjeta.
+- **El detalle tiene que cuadrar con el monto** (`cuadreMonto()`): la orden imprime el monto en
+  letras y el total de la tabla, y si no cuadran el papel firmado se contradice. Por eso es un
+  requisito del momento de los precios y frena los documentos que imprimen la tabla.
 
 ### Probarla
 
