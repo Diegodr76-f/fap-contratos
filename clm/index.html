@@ -938,15 +938,76 @@ function tierCalificacion(s){
   if(s>=60)return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"No se considerará en próximos procesos de contratación."};
   return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
 }
+/* ---- El Registro de Calificaciones compartido ----
+   Una hoja del Excel maestro donde se pega la fila del CSV que descarga el modal
+   de calificar. El robot la publica cada mañana, cifrada, en un archivo aparte; si
+   la hoja no existe, el archivo tampoco (404) y el CLM sigue como antes.
+   Estados: "cargando" · "ok" (hay registro) · "sin" (no existe) · "falla" (no se
+   pudo leer: sin señal, por ejemplo). Mientras no esté "ok" o "sin", las alertas
+   de «sin calificar» se pausan: con la señal floja de un área protegida, pedir
+   calificar algo que ya está en el registro es justo el ruido que se quiso quitar. */
+const REG_URL='../crm/calificaciones_export.json';
+let REG={estado:"cargando",porNro:{},generado:null};
+function registroListo(){return REG.estado==="ok"||REG.estado==="sin";}
+function indexaRegistro(filas){
+  const p={};
+  (Array.isArray(filas)?filas:[]).forEach(r=>{
+    if(!r||!r.nro||r.score==null||!isFinite(Number(r.score)))return;
+    const nro=String(r.nro).trim();
+    (p[nro]||(p[nro]=[])).push({nro,score:Number(r.score),fecha:r.fecha||null,
+      aportes:Array.isArray(r.aportes)&&r.aportes.length===4?r.aportes.map(Number):null,obs:r.obs||""});
+  });
+  Object.keys(p).forEach(k=>p[k].sort(porFechaCalif));
+  return p;
+}
+// La red, sola: se lanza junto con la base y no espera la frase de acceso.
+function pedirRegistro(){
+  const ctl=window.AbortController?new AbortController():null;
+  const reloj=setTimeout(()=>{if(ctl)ctl.abort();},8000);
+  return fetch(REG_URL,{cache:"no-store",signal:ctl?ctl.signal:undefined})
+    .then(async r=>{
+      if(r.status===404)return {estado:"sin"};
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      return {estado:"ok",env:await r.json()};
+    })
+    .catch(()=>({estado:"falla"}))
+    .finally(()=>clearTimeout(reloj));
+}
+// El descifrado, después de la base: así la frase se pide una sola vez.
+async function abrirRegistro(pedido){
+  try{
+    const r=await pedido;
+    if(r.estado!=="ok"){REG={estado:r.estado,porNro:{},generado:null};return;}
+    const data=await fapMaybe(r.env);
+    if(!Array.isArray(data))throw new Error("formato");
+    REG={estado:"ok",porNro:indexaRegistro(data),generado:(r.env&&!Array.isArray(r.env)&&r.env.generado)||null};
+  }catch(e){REG={estado:"falla",porNro:{},generado:null};}
+}
+/* Qué decir de dónde salen las calificaciones, según el estado del registro. */
+function notaRegistro(corta){
+  if(REG.estado==="ok")return corta?"Calificaciones del Registro compartido y de este navegador."
+    :"Las calificaciones salen del Registro de Calificaciones del Excel maestro (se publica cada mañana) y de las que se hicieron en este navegador y aún no pasaron al Registro.";
+  if(REG.estado==="sin")return corta?"Solo cuentan las calificaciones hechas en este navegador."
+    :"Todavía no hay un Registro de Calificaciones compartido: las calificaciones se guardan solo en este navegador.";
+  return corta?"No pude leer el Registro: solo cuentan las de este navegador."
+    :"No pude leer el Registro de Calificaciones ahora (¿sin señal?): se muestran solo las hechas en este navegador y las alertas de «sin calificar» se pausan.";
+}
+
 /* ¿Está calificado el proveedor de este contrato? Es la ÚNICA pregunta que el
    resto del CLM hace: el stepper, el detalle, la alerta, el pool y los CSV pasan
-   por aquí. Hoy la respuesta vive solo en este navegador (ov(c)); cuando exista
-   el Registro de Calificaciones compartido, se añade aquí y nada más cambia. */
+   por aquí. Primero el Registro compartido (la última fila de ese contrato);
+   si no está, lo calificado en este navegador, marcado como «local»: está hecho,
+   pero nadie más lo ve hasta que se pegue en el Registro. */
 function calificacionDe(c){
+  const l=REG.porNro[c.nro];
+  if(l&&l.length){
+    const r=l[l.length-1],t=tierCalificacion(r.score);
+    return {nro:c.nro,score:r.score,sem:t.sem,t,elegible:t.elegible,fecha:r.fecha,aportes:r.aportes,obs:r.obs,fuente:"registro"};
+  }
   const o=ov(c);
   if(!o.evaluado)return null;
   const score=Number(o.score)||0,t=tierCalificacion(score);
-  return {nro:c.nro,score,sem:o.sem||t.sem,t,elegible:t.elegible,fecha:o.fechaCalif||null,aportes:o.aportes||null};
+  return {nro:c.nro,score,sem:o.sem||t.sem,t,elegible:t.elegible,fecha:o.fechaCalif||null,aportes:o.aportes||null,obs:"",fuente:"local"};
 }
 /* Solo se pide calificar lo terminado o cerrado desde esta fecha. Es fija, no
    «el año en curso»: un contrato cerrado en 2026 no deja de deberla el 1 de
@@ -962,38 +1023,42 @@ function pideCalificacion(c){
   const f=fechaTermino(c);
   return !f||f>=CALIFICA_DESDE;
 }
-/* Quién es el mismo proveedor. La base no trae RUC: solo el nombre como se
-   escribió en el Excel. Se unen las diferencias que no cambian a quién se nombra
-   —mayúsculas, tildes, puntos, la forma societaria al final («S.A.», «Cía.
-   Ltda.»)— y NADA más. Dos nombres que siguen distintos son dos proveedores:
-   unir por parecido sería adivinar, y juntar la calificación de uno con los
-   contratos de otro es peor que tenerlos separados. */
+/* Quién es el mismo proveedor, por su nombre. Se unen las diferencias que no
+   cambian a quién se nombra —mayúsculas, tildes, puntos, la forma societaria al
+   final («S.A.», «Cía. Ltda.»)— y NADA más: unir por parecido sería adivinar. */
 function claveProv(nombre){
   const base=plano(nombre).replace(/\./g,"").replace(/[^a-z0-9]+/g," ").trim();
   let s=base,prev;
   do{prev=s;s=s.replace(/(^|\s)(s a s|sas|s a|sa|c a|ca|cia ltda|ltda|cia|e p|ep|scc)$/,"").trim();}while(s&&s!==prev);
   return s||base;
 }
-/* El pool: los proveedores de una lista de contratos. Las calificaciones se
-   toman de TODO el portafolio, no solo de la lista: la ficha y el listado tienen
-   que dar el mismo semáforo, aunque la AC vea solo sus contratos. */
+/* El grupo de un contrato: la clave del nombre de su proveedor. (El RUC no se
+   usa: es información privada y no se publica.) */
+function claveGrupo(){return c=>{const n=String(c.proveedor||"").trim();return n?claveProv(n):null;};}
+/* El pool: los proveedores de una lista de contratos. Las calificaciones, las
+   escrituras del nombre se toman de TODO el portafolio, no solo de la
+   lista: el listado de una AC, el de la Unidad Operativa y la ficha tienen que
+   decir lo mismo. El nombre que se muestra es la escritura que más se repite. */
 function agruparProv(lista){
-  // Del portafolio entero salen también las escrituras del nombre, para que el
-  // proveedor se llame igual en el listado de una AC, en el de la Unidad
-  // Operativa y en su ficha: la escritura que más se repite.
-  const cal={},nom={};
+  const gk=claveGrupo(),cal={},nom={};
   CONTRACTS.forEach(c=>{
-    const n=String(c.proveedor||"").trim();if(!n)return;
-    const k=claveProv(n);
+    const k=gk(c);if(!k)return;
+    const n=String(c.proveedor).trim();
     (nom[k]||(nom[k]={}))[n]=(nom[k][n]||0)+1;
     const q=calificacionDe(c);if(q)(cal[k]||(cal[k]=[])).push(q);
   });
+  const orden=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).map(e=>e[0]);
+  const claves={},usadas={};
+  Object.keys(nom).sort().forEach(k=>{
+    const base=claveProv(orden(nom[k])[0]);let cl=base,i=2;
+    while(usadas[cl])cl=base+"-"+(i++);
+    usadas[cl]=1;claves[k]=cl;
+  });
   const M=new Map();
   lista.forEach(c=>{
-    const n=String(c.proveedor||"").trim();if(!n)return;
-    const k=claveProv(n);
+    const k=gk(c);if(!k)return;
     let p=M.get(k);
-    if(!p){p={clave:k,contratos:[],activos:0,monto:0,areas:{},cats:{},acs:{},porCalificar:0};M.set(k,p);}
+    if(!p){p={clave:claves[k],contratos:[],activos:0,monto:0,areas:{},cats:{},acs:{},porCalificar:0};M.set(k,p);}
     p.contratos.push(c);
     const s=statusLive(c).key;
     if(s==="vigente"||s==="aviso"||s==="vencido")p.activos++;
@@ -1003,11 +1068,10 @@ function agruparProv(lista){
     if(c.ac)p.acs[c.ac]=(p.acs[c.ac]||0)+1;
     if(pideCalificacion(c))p.porCalificar++;
   });
-  const orden=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).map(e=>e[0]);
-  M.forEach(p=>{
-    p.variantes=orden(nom[p.clave]||{});p.nombre=p.variantes[0];
+  M.forEach((p,k)=>{
+    p.variantes=orden(nom[k]||{});p.nombre=p.variantes[0];
     p.areas=orden(p.areas);p.cats=orden(p.cats);p.acs=orden(p.acs);
-    p.califs=(cal[p.clave]||[]).slice().sort(porFechaCalif);
+    p.califs=(cal[k]||[]).slice().sort(porFechaCalif);
     p.ultima=p.califs.length?p.califs[p.califs.length-1]:null;
     p.promedio=p.califs.length?Math.round(p.califs.reduce((a,q)=>a+q.score,0)/p.califs.length*100)/100:null;
   });
@@ -1015,16 +1079,19 @@ function agruparProv(lista){
 }
 function porFechaCalif(a,b){return String(a.fecha||"").localeCompare(String(b.fecha||""))||String(a.nro).localeCompare(String(b.nro));}
 function proveedores(){return [...agruparProv(myContracts()).values()];}
-function fichaProv(clave){return agruparProv(CONTRACTS).get(clave)||null;}
+// Por su clave, o por la clave del nombre de cualquiera de sus escrituras.
+function fichaProv(clave){
+  const todos=[...agruparProv(CONTRACTS).values()];
+  return todos.find(p=>p.clave===clave)||todos.find(p=>p.variantes.some(v=>claveProv(v)===clave))||null;
+}
 /* La última calificación del proveedor de un contrato, venga del contrato que
    venga: es la que pesa para renovarlo o volver a contratarlo. */
 function ultimaCalifProv(c){
-  if(!String(c.proveedor||"").trim())return null;
-  const k=claveProv(c.proveedor);
-  const qs=CONTRACTS.filter(x=>x.proveedor&&claveProv(x.proveedor)===k).map(calificacionDe).filter(Boolean).sort(porFechaCalif);
+  const gk=claveGrupo(),k=gk(c);if(!k)return null;
+  const qs=CONTRACTS.filter(x=>gk(x)===k).map(calificacionDe).filter(Boolean).sort(porFechaCalif);
   return qs.length?qs[qs.length-1]:null;
 }
-function pajarProv(p){return [p.variantes.join(" "),p.areas.join(" "),p.cats.join(" "),p.acs.join(" "),p.contratos.map(c=>c.nro).join(" ")].join(" ");}
+function pajarProv(p){return [p.variantes.join(" "),p.areas.join(" "),p.cats.join(" "),p.acs.join(" "),p.contratos.map(c=>c.nro).join(" ")].filter(Boolean).join(" ");}
 function puntos(n){return Number(n).toFixed(2).replace(".",",");}
 /* El semáforo de una calificación. «corto» deja solo el puntaje (el resultado va
    en el title): es para columnas angostas, donde la frase completa no cabe. */

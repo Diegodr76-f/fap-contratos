@@ -35,7 +35,7 @@ jobs:
       # comprobaciones de estructura y se pierde justo lo que caza el orden de
       # los hijos de <w:tblPr>, que es lo que dejó once plantillas rotas.
       - name: Dependencias de Python
-        run: pip install --quiet lxml==5.3.0
+        run: pip install --quiet lxml==5.3.0 openpyxl requests cryptography
 
       # Cada paso corre aunque el anterior falle: se quiere el cuadro completo de
       # una corrida, no ir arreglando de uno en uno.
@@ -54,6 +54,12 @@ jobs:
       - name: El seed embebido coincide con las plantillas sueltas
         if: ${{ !cancelled() }}
         run: python3 scripts/embeber_plantillas.py --check
+
+      # El robot publica cada mañana lo que leen todas las herramientas: sin las
+      # hojas opcionales tiene que publicar exactamente lo de siempre.
+      - name: El robot del Excel maestro
+        if: ${{ !cancelled() }}
+        run: python3 scripts/probar_robot.py
 
       - uses: actions/setup-node@v4
         if: ${{ !cancelled() }}
