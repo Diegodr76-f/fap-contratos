@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Reconstruye el seed embebido de La Mágica desde generador/plantillas/.
+"""Reconstruye los seeds embebidos: el de La Mágica (desde generador/plantillas/)
+y el del Generador de Instrumentos (desde crm/plantillas/).
+
+El de Instrumentos (`window.__DOCX_SEEDS__` en instrumentos/index.html) lleva el
+informe de adenda y el acta de terminación, las mismas dos plantillas que rellenan
+el CLM y el CRM. Antes se copiaron una vez y quedaron atrás: cuando las de
+crm/plantillas/ pasaron sus cuadros combinados a variables, las de Instrumentos
+siguieron con «Administrador/a contador/a» y «del/la» escritos con barra, y así
+salía el papel que se firma. Ahora se reconstruyen de la misma fuente y el CI
+(`--check`) avisa si se separan.
 
 El seed (`window.__SEED__`, la línea larga de generador/index.html) lleva las
 plantillas Word en base64 para que la herramienta funcione abierta desde el
@@ -53,6 +62,44 @@ ORDEN = [
     '19_Informe_satisfaccion_renovacion.docx',
     '20_Solicitud_cotizacion_renovacion.docx',
 ]
+
+
+# Instrumentos: clave del seed → plantilla de crm/plantillas/
+HTML_INSTR = os.path.join(RAIZ, 'instrumentos', 'index.html')
+PLANTILLAS_CRM = os.path.join(RAIZ, 'crm', 'plantillas')
+MARCA_INSTR = 'window.__DOCX_SEEDS__='
+SEEDS_INSTR = {
+    'informe_adenda': '14_Informe_adenda.docx',
+    'acta_terminacion': '15_Acta_de_terminacion.docx',
+}
+
+
+def embeber_instrumentos(solo_check):
+    """Devuelve 0 si el seed de Instrumentos está (o queda) al día, 1 si no."""
+    with io.open(HTML_INSTR, encoding='utf8') as f:
+        texto = f.read()
+    m = re.search(r'window\.__DOCX_SEEDS__=(\{.*?\});', texto)
+    if not m:
+        raise SystemExit('No encuentro __DOCX_SEEDS__ en ' + HTML_INSTR)
+    viejo = json.loads(m.group(1))
+    nuevo = {}
+    for clave, archivo in SEEDS_INSTR.items():
+        with open(os.path.join(PLANTILLAS_CRM, archivo), 'rb') as f:
+            nuevo[clave] = base64.b64encode(f.read()).decode('ascii')
+    if nuevo == viejo:
+        print('El seed de Instrumentos ya está al día (%d plantillas).' % len(nuevo))
+        return 0
+    cambiadas = sorted(k for k in nuevo if nuevo[k] != viejo.get(k))
+    if solo_check:
+        print('DESACTUALIZADO: el seed de Instrumentos no coincide con crm/plantillas/ (%s). '
+              'Corre: python3 scripts/embeber_plantillas.py' % ', '.join(cambiadas))
+        return 1
+    cuerpo = json.dumps(nuevo, ensure_ascii=False, separators=(',', ':'))
+    texto = texto[:m.start(1)] + cuerpo + texto[m.end(1):]
+    with io.open(HTML_INSTR, 'w', encoding='utf8') as f:
+        f.write(texto)
+    print('Seed de Instrumentos reconstruido: ' + ', '.join('~ ' + k for k in cambiadas))
+    return 0
 
 
 def leer_lineas():
@@ -109,10 +156,11 @@ def main():
     if seed['tpls'] == viejo.get('tpls') and 'cfg' not in viejo:
         print('El seed ya está al día (%d plantillas, v=%s).'
               % (len(seed['tpls']), viejo.get('v')))
-        return 0
+        return embeber_instrumentos(solo_check)
     if solo_check:
         print('DESACTUALIZADO: el seed no coincide con generador/plantillas/. '
               'Corre: python3 scripts/embeber_plantillas.py')
+        embeber_instrumentos(True)
         return 1
 
     nuevas = sorted(set(seed['tpls']) - set(viejo.get('tpls') or {}))
@@ -141,7 +189,7 @@ def main():
     for k in quitadas:
         print('  - ' + k)
     print('  tamaño: %.2f MB' % (len(lineas[i]) / 1024.0 / 1024.0))
-    return 0
+    return embeber_instrumentos(False)
 
 
 if __name__ == '__main__':
