@@ -429,6 +429,37 @@ npm install jsdom
 node scripts/probar_clm.js    # después de tocar el CLM
 ```
 
+## El Generador de Instrumentos — `instrumentos/index.html`
+
+La Unidad Legal mejora sus plantillas en Word, porque ahí está el formato. **El Word manda.**
+La composición indexada —las cláusulas del Word pasadas a HTML y guardadas en el repositorio—
+es una copia que pierde ese formato, y en cuanto se mejoraba el Word se quedaba atrás: había
+que mejorar dos veces, y nadie lo hacía. Por eso el camino va al revés: «Subir la versión
+editada» compara cláusula por cláusula con la anterior (`cambiosDeClausulas()`) y ofrece
+llevar cada mejora a las otras plantillas Word que tenían el mismo texto y a las variantes del
+repositorio (`analizarTraspaso()`, `aplicarTraspaso()`, con «Deshacer»). Y cada Word tiene una
+sola composición (`origenId`): indexarlo otra vez la rehace, no suma otra.
+
+Llevar una cláusula de un Word a otro es reescribir XML ajeno, así que tiene reglas:
+
+- La cláusula se reconoce por su título (`claveClausula()`, la misma del repositorio) y solo
+  se reemplaza un texto **igual al anterior** (`huella`). Otra redacción es otra variante y no
+  se toca. Para saber si cambió se usa `exacto`, que sí ve una coma.
+- Solo el cuerpo: cada plantilla conserva su encabezado «CLÁUSULA DÉCIMA: …».
+- No se copia lo que arrastra piezas del archivo de origen (`motivoNoCopiable()`): imágenes,
+  notas al pie, saltos de sección, controles enlazados a datos. Las listas se traducen a la
+  numeración del destino, los ids de los cuadros combinados se renuevan si chocan, y las
+  extensiones de Word (w14, w15) solo van si el destino declara el mismo espacio de nombres.
+- Si el resultado no es XML bien formado o deja de compilar en docxtemplater, no se guarda.
+
+```bash
+npm install jsdom pizzip@3.2.0 docxtemplater@3.66.4
+node scripts/probar_instrumentos.js    # después de tocar el traspaso o las cláusulas
+```
+
+Lo prueba con el acta de terminación embebida —listas, tablas, comentarios y 14 cuadros
+combinados— y pasa cada Word que sale por `validar_docx.py`.
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:
