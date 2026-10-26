@@ -13592,6 +13592,36 @@ tr:hover td{background:var(--azul-claro)}
 #modal .m-cab button{background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris);line-height:1}
 #modal .m-cuerpo{padding:16px 18px;overflow-y:auto}
 #modal .m-pie{padding:12px 18px;border-top:1px solid var(--borde);display:flex;gap:8px;justify-content:flex-end}
+/* Llevar una mejora del Word a las demás plantillas (traspaso de cláusulas) */
+.tr-ayuda{font-size:12.5px;color:var(--gris);line-height:1.5;margin-bottom:12px}
+.tr-cambio{border:1px solid var(--borde);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.tr-tit{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--azul-osc);margin-bottom:6px}
+.tr-op{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:4px 0;cursor:pointer}
+.tr-op input{margin-top:3px}
+.tr-op.no{color:var(--gris);cursor:default}
+.tr-nota{display:block;font-size:11.5px;color:var(--gris);margin-top:2px}
+.tr-op.no .tr-nota{color:var(--warn)}
+.tr-diff{font-size:12.5px;line-height:1.6;background:var(--fondo);border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.tr-diff del{background:#FDE2E1;color:var(--peligro)}
+.tr-diff ins{background:#DDF4E7;color:var(--ok);text-decoration:none}
+.tr-elip{color:var(--gris)}
+.tr-lista{margin:6px 0 6px 18px;font-size:13px;line-height:1.6}
+.tr-aviso{font-size:12.5px;color:var(--warn);margin-top:10px}
+/* «Texto del documento»: el Word editado aquí, con su letra */
+.ew-ayuda{font-size:12.5px;color:var(--gris);line-height:1.5;margin:-2px 0 10px}
+.ew-tit{font-weight:600;font-size:13px;color:var(--azul-osc);flex:1;min-width:0}
+.ew-pie{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.ew-acc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.ew-acc .nota{margin:0;flex:1;min-width:200px}
+#editor.ed-word{min-height:160px;line-height:1.45;padding:22px 28px}
+#editor.ed-word p,#editor.ed-word li{text-align:start;margin-bottom:8px}
+#editor.ed-word td p{margin-bottom:2px}
+#editor.ed-word .w-ctl{background:#EEF3FF;border-bottom:1px dotted var(--azul)}
+#editor.ed-word .w-tab{display:inline-block;min-width:2.5em}
+#editor.ed-word .w-fijo{background:#F3F4F7;border:1px dashed var(--borde);border-radius:6px;padding:6px 10px;margin:0 0 8px;color:var(--gris);cursor:not-allowed;font-size:.92em}
+#editor.ed-word .w-fijo::before{content:'🔒 '}
+#modal.ancho{max-width:980px}
+.ew-previa{background:#E9ECF2;border-radius:8px;padding:8px;min-height:200px;overflow-x:auto}
 .fj-fila{display:grid;grid-template-columns:1fr 1.4fr 30px;gap:7px;margin-bottom:7px}
 .fj-fila input{padding:7px 9px;border:1px solid var(--borde);border-radius:6px;font-family:inherit;font-size:13px}
 .fj-fila button{background:none;border:none;color:var(--peligro);font-size:16px;cursor:pointer}
@@ -15428,6 +15458,10 @@ function abrirAncestros(cual, carpetaId){
 /* Si hay un bloque abierto en el editor, vuelca su texto al modelo y lo guarda.
    Antes, cambiar de pestaña o de plantilla mientras editabas perdía lo escrito. */
 function asegurarBloqueGuardado(){
+  if(edWord){
+    if(seccionWordCambiada()) guardarSeccionWord();
+    else edWord = null;
+  }
   if(!bloqueEditando) return;
   const p = plActual();
   if(p && p.tipo !== 'docx' && document.getElementById('editor')){
@@ -16384,13 +16418,15 @@ function runsDocxAHtml(pXml){
   let out = '';
   pXml.replace(/<w:r\b[^>]*>([\s\S]*?)<\/w:r>/g, (m, r) => {
     const rpr = (r.match(/<w:rPr>[\s\S]*?<\/w:rPr>/) || [''])[0];
-    let t = ''; r.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g, (mm, tt) => { t += tt; return ''; });
-    if(/<w:tab\b/.test(r)) t += '\t';
+    // El tabulador en su sitio: antes se pegaba al final de la corrida y en una
+    // línea de firmas «\tNombre» salía «Nombre\t».
+    let t = ''; r.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\s*\/>/g, (mm, tt) => { t += tt !== undefined ? tt : '\t'; return ''; });
     if(!t) return '';
     t = esc(desescaparXml(t));
-    if(/<w:b\/>/.test(rpr)) t = '<b>' + t + '</b>';
-    if(/<w:i\/>/.test(rpr)) t = '<i>' + t + '</i>';
-    if(/<w:u\b/.test(rpr)) t = '<u>' + t + '</u>';
+    const f = banderasRpr(rpr);
+    if(f.b) t = '<b>' + t + '</b>';
+    if(f.i) t = '<i>' + t + '</i>';
+    if(f.u) t = '<u>' + t + '</u>';
     out += t; return '';
   });
   // Limpia formato/espacios DENTRO de cada {…} (un tag puede tener la 1.ª letra en
@@ -16435,6 +16471,13 @@ function docxABodyHtml(p){
     bloques.push({ tag, xml: body.slice(m.index, end) });
     if(tag === 'tbl') saltarHasta = end;
   }
+  return bloquesAHtml(bloques);
+}
+/* HTML de una lista de bloques del Word ({ tag:'p'|'tbl', xml }). Aparte de
+   docxABodyHtml() para que el traspaso de cláusulas lo use con un trozo del
+   cuerpo: la huella de una cláusula tiene que salir igual se mire desde donde
+   se mire, o el repositorio y el Word no se reconocerían. */
+function bloquesAHtml(bloques){
   let html = '', listaAbierta = false;
   const cerrarLista = () => { if(listaAbierta){ html += '</ol>'; listaAbierta = false; } };
   bloques.forEach(b => {
@@ -16625,9 +16668,19 @@ function consolidarClausulasDuplicadas(){
 }
 /* Convierte un .docx subido en una composición de bloques con sus cláusulas
    indexadas y vinculadas al repositorio. Crea una plantilla HTML nueva; la
-   .docx original y el generador docxtemplater quedan intactos. */
+   .docx original y el generador docxtemplater quedan intactos.
+   Cada Word tiene UNA composición (origenId): indexarlo otra vez la rehace en
+   vez de sumar otra «(composición)» igual a la de ayer. */
+function composicionDe(p){
+  const nombre = nombreComposicion(p);
+  return plantillas.find(x => x.tipo !== 'docx' && x.origenId === p.id)
+    || plantillas.find(x => x.tipo !== 'docx' && !x.origenId && x.nombre === nombre) || null;
+}
+const nombreComposicion = p => (p.nombre || 'Plantilla').replace(/\s*\((Word|docx)\)\s*$/i,'').trim() + ' (composición)';
 function importarDocxAComposicion(p){
   if(!p || p.tipo !== 'docx') return;
+  const previa = composicionDe(p);
+  if(previa && !confirm(`Este Word ya tiene su composición, «${previa.nombre}».\n\n¿Rehacerla con el texto actual del Word? Se reemplaza su contenido; no se crea otra.`)) return;
   const body = docxABodyHtml(p);
   if(!body || !body.replace(/<[^>]+>/g,'').trim()){ alert('No pude extraer texto del documento. ¿Es un .docx válido?'); return; }
   const marcadoresPerdidos = marcadoresBloqueDescartados;
@@ -16649,25 +16702,29 @@ function importarDocxAComposicion(p){
   // La composición se archiva en una subcarpeta "Indexada" junto a su Word de
   // origen, para que no quede suelta ni mezclada con las plantillas Word en el
   // mismo nivel — se puede mover a mano después si no calza con tu organización.
-  const carpetaIndexada = carpetaPorNombreEnPadre('pl', 'Indexada', p.carpetaId || null);
-  const nueva = {
-    id: uid(),
-    nombre: (p.nombre || 'Plantilla').replace(/\s*\((Word|docx)\)\s*$/i,'').trim() + ' (composición)',
-    carpetaId: carpetaIndexada.id,
-    descripcion: 'Importada del Word e indexada al repositorio de cláusulas.',
-    tipo: 'html', bloques, actualizado: hoy()
-  };
+  let nueva = previa;
+  if(nueva){ nueva.bloques = bloques; nueva.origenId = p.id; nueva.actualizado = hoy(); }
+  else {
+    const carpetaIndexada = carpetaPorNombreEnPadre('pl', 'Indexada', p.carpetaId || null);
+    nueva = {
+      id: uid(), origenId: p.id,
+      nombre: nombreComposicion(p),
+      carpetaId: carpetaIndexada.id,
+      descripcion: 'Importada del Word e indexada al repositorio de cláusulas.',
+      tipo: 'html', bloques, actualizado: hoy()
+    };
+    plantillas.unshift(nueva);
+  }
   nueva.cuerpo = ensamblarCuerpo(nueva);
-  plantillas.unshift(nueva);
   guardar();
   fijarSeleccion(nueva.id); datosForm = {}; condForm = {}; listasForm = {}; bloqueEditando = null; tabActual = 'editar';
   abrirAncestros('pl', nueva.carpetaId);   // que la carpeta «Indexada» quede visible, no colapsada
   renderCats(); renderLista(); renderTabs(); renderContenido();
-  alert(`✓ «${nueva.nombre}» creada como composición editable.\n\n${nCl} cláusulas detectadas:\n`
+  alert(`✓ «${nueva.nombre}» ${previa ? 'rehecha con el texto actual del Word' : 'creada como composición editable'}.\n\n${nCl} cláusulas detectadas:\n`
     + `• ${nuevas} nuevas en el repositorio\n`
     + `• ${variantes} añadidas como variante «${origen}» a cláusulas que ya existían con ese mismo título\n`
     + `• ${vinc} enlazadas a un texto idéntico que ya estaba\n\n`
-    + `Las que entraron como variante no duplican la cláusula: quedan junto a las de los otros contratos, y al generar eliges cuál va. Edita cualquiera aquí y el cambio se propaga a todas las plantillas que la comparten. La plantilla Word original y el generador siguen intactos.`
+    + `Las que entraron como variante no duplican la cláusula: quedan junto a las de los otros contratos, y al generar eliges cuál va. Edita cualquiera aquí y el cambio se propaga a todas las composiciones que la comparten. La plantilla Word original sigue intacta y sigue mandando: cuando la mejores en Word y la subas, te ofrezco llevar la mejora aquí y a las demás plantillas Word.`
     + (marcadoresPerdidos
       ? `\n\n⚠ El Word tenía ${marcadoresPerdidos} marcador(es) de condición o tabla repetible ({#tag}) que la composición HTML no puede reproducir (no tiene ese mecanismo). Se conservó el texto de adentro, pero fijo: siempre visible en vez de opcional, y como una sola fila en vez de repetirse. Revisa esas tablas/secciones en «Editar plantilla» y ajústalas a mano si hace falta.`
       : ''));
@@ -16678,6 +16735,9 @@ function importarDocxAComposicion(p){
    rompen los {tags} (p. ej. {fechaInforme}→{fechaAdj} se leía {fechaInformefechaAdj}). */
 function aceptarRevisionesXml(xml){
   return String(xml)
+    // Primero las marcas vacías (<w:del …/> en la marca de párrafo): con la
+    // regla de abajo, un <w:del …/> se comía todo hasta el próximo </w:del>.
+    .replace(/<w:(del|ins|moveFrom|moveTo)\b[^>]*\/>/g, '')
     .replace(/<w:del\b[^>]*>[\s\S]*?<\/w:del>/g, '')
     .replace(/<w:moveFrom\b[^>]*>[\s\S]*?<\/w:moveFrom>/g, '')
     .replace(/<w:ins\b[^>]*>/g, '').replace(/<\/w:ins>/g, '')
@@ -16692,6 +16752,1479 @@ function docxTieneRevisiones(p){
     return Object.keys(zip.files).filter(n => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))
       .some(n => /<w:(del|ins|moveFrom|moveTo)\b/.test(zip.files[n].asText()));
   }catch(e){ return false; }
+}
+/* ============ El Word manda: llevar una mejora a las demás plantillas ============
+   La composición indexada es una copia en HTML del Word: pierde su formato y,
+   en cuanto el Word se mejora, se queda atrás. Lo natural es seguir mejorando
+   en Word, así que el camino va al revés: al subir la versión editada se
+   compara cláusula por cláusula con la anterior y, por cada una que cambió, se
+   ofrece llevar el texto nuevo a
+   - las otras plantillas Word que tenían el MISMO texto anterior, y
+   - las variantes del repositorio con ese texto (y, con ellas, a las
+     composiciones que las usan).
+   Se copia de Word a Word: los párrafos salen del Word nuevo tal cual, con su
+   formato, y reemplazan el cuerpo de la cláusula en la otra plantilla. El
+   encabezado «CLÁUSULA DÉCIMA: …» de cada una no se toca: conserva su ordinal.
+   Lo que lo hace seguro (ver «Que los .docx se abran» en CLAUDE.md):
+   - Solo se reemplaza un texto igual al anterior. Si la otra plantilla tiene
+     otra redacción, es otra variante y no se toca.
+   - No se copia nada que arrastre piezas de su archivo (imágenes, notas al
+     pie, saltos de sección, controles de contenido): se dice por qué.
+   - Las listas se traducen a la numeración del destino; una lista que el
+     destino no tiene no se inventa.
+   - El resultado tiene que ser XML bien formado y compilar en docxtemplater, o
+     no se guarda nada. */
+const RE_CABECERA_CLAUSULA = /^\s*(CL[ÁA]USULA|Cl[áa]usula)\b/;
+/* Elementos de primer nivel de <w:body> con su posición exacta en el XML, para
+   reemplazar unos sin mover un byte del resto. Cuenta la anidación: una tabla
+   dentro de otra, o un párrafo dentro de un cuadro de texto, no se confunden
+   con bloques sueltos. */
+function bloquesCuerpoXml(xml){
+  const abre = /<w:body\b[^>]*>/.exec(xml); if(!abre) return [];
+  const cierre = xml.lastIndexOf('</w:body>'); if(cierre < 0) return [];
+  const bloques = elementosXml(xml, abre.index + abre[0].length, cierre);
+  bloques.forEach(b => { b.limpio = aceptarRevisionesXml(b.xml); });
+  return bloques;
+}
+const textoBloqueXml = x => desescaparXml(runsDocxAHtml(x).replace(/<[^>]+>/g,''));
+/* Texto corrido de un trozo de HTML, con un espacio entre párrafos. */
+function textoDeHtml(html){
+  // DOMParser y no un <div>: el HTML de una variante lo escribió alguien, y en un
+  // documento inerte nada de lo que traiga llega a ejecutarse ni a pedir algo.
+  const d = new DOMParser().parseFromString(String(html || '').replace(/<\/(p|li|td|h\d)>/gi, '$& '), 'text/html');
+  return (d.body.textContent || '').replace(/\s+/g, ' ').trim();
+}
+/* Las cláusulas de un document.xml: título, clave (la de claveClausula, la
+   misma del repositorio), los bloques del cuerpo con sus posiciones, su HTML y
+   dos medidas del texto: `huella` —sin formato ni puntuación, la del
+   repositorio, para reconocer «la misma cláusula»— y `exacto`, que sí ve una
+   coma, para saber si cambió. El cuerpo va hasta el próximo encabezado; el de
+   la última, hasta el final (firmas incluidas), igual que al indexar. */
+function clausulasXml(xml){
+  const bloques = bloquesCuerpoXml(xml), doc = espaciosDeNombres(xml);
+  const cabeceras = [];
+  bloques.forEach((b, i) => { if(b.tag === 'w:p' && RE_CABECERA_CLAUSULA.test(textoBloqueXml(b.limpio))) cabeceras.push(i); });
+  return cabeceras.map((ic, k) => {
+    let hasta = k + 1 < cabeceras.length ? cabeceras[k + 1] : bloques.length;
+    while(hasta > ic + 1 && bloques[hasta - 1].tag === 'w:sectPr') hasta--;   // el del cuerpo no es de ninguna cláusula
+    const cuerpo = bloques.slice(ic + 1, hasta);
+    const titulo = tituloClausulaLimpio(textoBloqueXml(bloques[ic].limpio));
+    const html = bloquesAHtml(cuerpo.map(b => ({ tag: b.tag.replace(/^w:/,''), xml: b.limpio })));
+    return {
+      titulo, clave: claveClausula(titulo), cuerpo, html, doc,
+      huella: huellaClausula(html), exacto: textoDeHtml(html),
+      ini: cuerpo.length ? cuerpo[0].ini : bloques[ic].fin,
+      fin: cuerpo.length ? cuerpo[cuerpo.length - 1].fin : bloques[ic].fin
+    };
+  });
+}
+/* Los espacios de nombres que declara el documento (prefijo → URI) y los que
+   marca como ignorables (mc:Ignorable). */
+function espaciosDeNombres(xml){
+  const raiz = (/<w:document\b[^>]*>/.exec(xml) || [''])[0];
+  const ns = {};
+  raiz.replace(/\sxmlns:([\w.-]+)="([^"]*)"/g, (m, p, u) => { ns[p] = u; return m; });
+  const ign = new Set(((/\smc:Ignorable="([^"]*)"/.exec(raiz) || [])[1] || '').split(/\s+/).filter(Boolean));
+  return { ns, ign };
+}
+function documentXmlDe(b64){
+  try{ return new PizZip(b64ABytes(b64)).file('word/document.xml').asText(); }catch(e){ return null; }
+}
+/* Solo cuentan las cláusulas cuyo título sale una vez: con dos «GARANTÍAS» en
+   el mismo Word no se sabe cuál es cuál. */
+function clausulasUnicas(lista){
+  const n = {};
+  lista.forEach(c => { if(c.clave) n[c.clave] = (n[c.clave] || 0) + 1; });
+  return lista.filter(c => c.clave && n[c.clave] === 1);
+}
+/* Qué cláusulas cambiaron de texto entre dos versiones del mismo Word. */
+function cambiosDeClausulas(xmlAntes, xmlAhora){
+  const antes = clausulasUnicas(clausulasXml(xmlAntes));
+  return clausulasUnicas(clausulasXml(xmlAhora)).map(ahora => {
+    const previa = antes.find(c => c.clave === ahora.clave);
+    return previa && previa.exacto !== ahora.exacto
+      ? { clave: ahora.clave, titulo: ahora.titulo, antes: previa, ahora } : null;
+  }).filter(Boolean);
+}
+/* Por qué un trozo de Word no se puede llevar a otro archivo; '' si se puede. */
+function motivoNoCopiable(xml){
+  if(/<w:sectPr\b/.test(xml)) return 'tiene un salto de sección';
+  if(/\br:(id|embed|link|pict)=/.test(xml) || /<w:(drawing|pict|object)\b/.test(xml)) return 'tiene imágenes, vínculos u objetos';
+  if(/<w:(footnoteReference|endnoteReference)\b/.test(xml)) return 'tiene notas al pie';
+  if(/<w:dataBinding\b/.test(xml)) return 'tiene controles enlazados a datos';
+  return '';
+}
+/* Números de lista (w:numId) en orden de aparición, sin repetir. El 0 es «sin lista». */
+function numIdsDe(xml){
+  const ids = [];
+  String(xml).replace(/<w:numId w:val="(\d+)"\s*\/>/g, (m, id) => { if(id !== '0' && !ids.includes(id)) ids.push(id); return m; });
+  return ids;
+}
+/* Lleva una cláusula cambiada a `destino`, una cláusula de xmlDestino con el
+   texto anterior. Devuelve { xml } o { error } con la razón en palabras de
+   quien la lee. Primero, sobre el formato de esa plantilla: el cambio de texto
+   se aplica a sus propios párrafos, que conservan su letra, sus listas y sus
+   cuadros combinados (reconstruirBloques). Si eso no se puede —una tabla
+   nueva, un párrafo con imagen que cambió— y el cambio vino de otro Word, se
+   copian sus párrafos tal cual (copiarClausulaXml). */
+function pegarClausulaXml(xmlDestino, destino, cambio, ctx){
+  ctx.modoRepo = true;
+  let error = '';
+  try{
+    return { xml: xmlDestino.slice(0, destino.ini) + reconstruirBloques(destino.cuerpo, unidadesDeHtml(cambio.ahora.html), ctx) + xmlDestino.slice(destino.fin) };
+  }catch(e){ error = e.message; }
+  if(cambio.ahora.cuerpo){
+    const r = copiarClausulaXml(xmlDestino, destino, cambio, ctx);
+    if(!r.error) return r;
+  }
+  return { error };
+}
+/* Copia los párrafos de la cláusula del Word de origen (cambio.ahora) en
+   lugar de `destino`. `ctx` trae lo que el destino tiene: estilos y partes
+   del glosario. */
+function copiarClausulaXml(xmlDestino, destino, cambio, ctx){
+  const viejo = destino.cuerpo.map(b => b.xml).join('');
+  const nuevo = cambio.ahora.cuerpo.map(b => b.limpio).join('');
+  const motivo = motivoNoCopiable(viejo) || motivoNoCopiable(nuevo);
+  if(motivo) return { error: motivo };
+  let limpio = nuevo
+    // Marcas con ids o que apuntan a otras partes del archivo de origen
+    .replace(/<w:(bookmarkStart|bookmarkEnd|commentRangeStart|commentRangeEnd|commentReference|proofErr|permStart|permEnd|moveFromRangeStart|moveFromRangeEnd|moveToRangeStart|moveToRangeEnd)\b[^>]*\/>/g, '')
+    // Ids de párrafo de Word 2010 (w14:paraId): únicos en su archivo y opcionales
+    .replace(/<[^>]+>/g, t => t.replace(/\s[\w.-]+:(paraId|textId)="[^"]*"/g, ''));
+  // Extensiones de Word (w14:ligatures en el formato, w15 en los cuadros
+  // combinados…): van si el destino declara el mismo espacio de nombres, y
+  // como ignorable si en el origen lo era. Si no, Word no sabría leerlas.
+  const prefijos = new Set();
+  limpio.replace(/<[^>]+>/g, t => {
+    t.replace(/"[^"]*"/g, '""').replace(/(?:^<\/?|\s)([A-Za-z][\w.-]*):[\w.-]+/g, (m, p) => { prefijos.add(p); return m; });
+    return t;
+  });
+  const o = cambio.ahora.doc, d = destino.doc;
+  for(const p of prefijos){
+    if(p === 'w' || p === 'xml') continue;
+    if(!d.ns[p] || d.ns[p] !== o.ns[p] || (o.ign.has(p) && !d.ign.has(p))) return { error: 'usa extensiones de Word que esa plantilla no tiene' };
+  }
+  // El n.º de una lista del Word de origen no significa nada en el de destino.
+  // Como el texto anterior era el mismo, sus listas se emparejan en orden de
+  // aparición; una lista que solo existe en la versión nueva no tiene pareja.
+  const deOrigen = numIdsDe(cambio.antes.cuerpo.map(b => b.limpio).join(''));
+  const deDestino = numIdsDe(destino.cuerpo.map(b => b.limpio).join(''));
+  if(deOrigen.length !== deDestino.length) return { error: 'sus listas numeradas no son como las de la versión anterior' };
+  const mapa = {};
+  deOrigen.forEach((id, i) => { mapa[id] = deDestino[i]; });
+  if(numIdsDe(limpio).some(id => !(id in mapa))) return { error: 'la versión nueva trae una lista numerada que esa plantilla no tiene' };
+  limpio = limpio.replace(/<w:numId w:val="(\d+)"/g, (m, id) => id === '0' ? m : `<w:numId w:val="${mapa[id]}"`);
+  // Cada cuadro combinado lleva un id que no puede repetirse en el documento
+  const resto = xmlDestino.slice(0, destino.ini) + xmlDestino.slice(destino.fin);
+  const usados = new Set();
+  resto.replace(/<w:id w:val="(-?\d+)"\s*\/>/g, (m, id) => { usados.add(id); return m; });
+  const idLibre = () => { let id; do{ id = String(Math.floor(Math.random() * 2147483646) - 1073741823); }while(usados.has(id)); usados.add(id); return id; };
+  limpio = limpio.replace(/<w:id w:val="(-?\d+)"\s*\/>/g, (m, id) => {
+    if(usados.has(id)) return `<w:id w:val="${idLibre()}"/>`;
+    usados.add(id); return m;
+  });
+  // Su texto de ayuda vive en el glosario del archivo de origen; si el destino
+  // no tiene esa pieza, el cuadro va sin ella (el contenido es el mismo).
+  limpio = limpio.replace(/<w:placeholder>\s*<w:docPart w:val="([^"]*)"\s*\/>\s*<\/w:placeholder>/g, (m, n) => ctx.docParts.has(n) ? m : '');
+  // Un estilo que el destino no tiene se quita: Word lo pintaría como Normal igual
+  limpio = limpio.replace(/<w:(pStyle|rStyle|tblStyle) w:val="([^"]*)"\s*\/>/g, (m, t, id) => ctx.estilos.has(id) ? m : '');
+  return { xml: xmlDestino.slice(0, destino.ini) + limpio + xmlDestino.slice(destino.fin) };
+}
+/* '' si la plantilla compila en docxtemplater con este document.xml; si no,
+   el error. Sobre una copia, y con las revisiones aceptadas como al generar. */
+function errorAlCompilar(zip, xml){
+  try{
+    const copia = new PizZip(zip.generate({ type:'uint8array' }));
+    copia.file('word/document.xml', xml);
+    Object.keys(copia.files).filter(n => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))
+      .forEach(n => copia.file(n, aceptarRevisionesXml(copia.files[n].asText())));
+    new window.docxtemplater(copia, { paragraphLoop: true, linebreaks: true });
+    return '';
+  }catch(e){ return explicarErrorDocx(e); }
+}
+/* Lleva varias cláusulas cambiadas a una plantilla Word. Todo o nada en cuanto
+   al archivo: si el resultado no es XML bien formado, o deja de compilar algo
+   que compilaba, no se devuelve archivo. */
+function llevarCambiosAWord(t, cambios){
+  const zip = new PizZip(b64ABytes(archivoDocxDe(t)));
+  const original = zip.file('word/document.xml').asText();
+  const ctx = contextoWord(zip, original);
+  let xml = original;
+  const hechos = [], fallos = [];
+  cambios.forEach(c => {
+    const destino = clausulasXml(xml).filter(x => x.clave === c.clave && x.huella === c.antes.huella);
+    if(destino.length !== 1){ fallos.push({ c, motivo: 'ya no tiene esa cláusula con el texto anterior' }); return; }
+    const r = pegarClausulaXml(xml, destino[0], c, ctx);
+    if(r.error) fallos.push({ c, motivo: r.error });
+    else { xml = r.xml; hechos.push(c); }
+  });
+  if(!hechos.length) return { hechos, fallos };
+  const problema = problemaDeWord(zip, original, xml);
+  if(problema) return { hechos: [], fallos: fallos.concat(hechos.map(c => ({ c, motivo: problema }))) };
+  aplicarNumeracion(zip, ctx);
+  zip.file('word/document.xml', xml);
+  return { hechos, fallos, b64: zip.generate({ type:'base64', compression:'DEFLATE' }) };
+}
+/* Pone una versión nueva del .docx de una plantilla y la deja a salvo. */
+function reemplazarDocx(p, b64){
+  p.archivoB64 = b64; delete p.seedKey; delete cacheEstructura[p.id];
+  blobsEnIdb.delete(p.id);   // la versión nueva reemplaza a la anterior en IndexedDB antes de guardar
+  p.actualizado = hoy();
+  return guardarTrasRespaldar(p.id, 'pl_' + p.id, b64);
+}
+/* Por cada cláusula que cambió, dónde más estaba su texto anterior:
+   words (otras plantillas Word, con el motivo si no se puede), variantes del
+   repositorio, y las plantillas que tienen esa cláusula con otra redacción. */
+function analizarTraspaso(p, xmlAntes, xmlAhora){
+  const cambios = cambiosDeClausulas(xmlAntes, xmlAhora);
+  if(cambios.length) buscarDestinos(cambios, p.id, true);
+  return cambios;
+}
+/* Dónde más está el texto anterior de cada cambio. Un cambio que viene del
+   repositorio (porTexto) no trae título que valga: lo reconoce el texto. */
+function buscarDestinos(cambios, excluirId, conRepo){
+  const otros = plantillas.filter(t => t.tipo === 'docx' && t.id !== excluirId).map(t => {
+    let zip = null, xml = null;
+    try{ zip = new PizZip(b64ABytes(archivoDocxDe(t))); xml = zip.file('word/document.xml').asText(); }catch(e){ xml = null; }
+    return { t, zip, xml, cls: xml ? clausulasXml(xml) : [] };
+  });
+  cambios.forEach(c => {
+    c.words = []; c.otras = []; c.variantes = [];
+    otros.forEach(({ t, zip, xml, cls }) => {
+      const mismas = cls.filter(x => c.porTexto ? x.huella === c.antes.huella : x.clave === c.clave);
+      if(!mismas.length || mismas.some(x => x.exacto === c.ahora.exacto)) return;   // no la tiene, o ya está al día
+      const iguales = mismas.filter(x => x.huella === c.antes.huella);
+      if(iguales.length === 1){
+        const r = pegarClausulaXml(xml, iguales[0], c, contextoWord(zip, xml));
+        c.words.push({ t, motivo: r.error || '' });
+      }
+      else if(iguales.length > 1) c.words.push({ t, motivo: 'tiene esa cláusula dos veces' });
+      else c.otras.push(t);
+    });
+    if(conRepo) clausulas.forEach(cl => cl.variantes.forEach(v => {
+      if(huellaClausula(v.cuerpo) === c.antes.huella && textoDeHtml(v.cuerpo) !== c.ahora.exacto) c.variantes.push({ cl, v });
+    }));
+  });
+  return cambios;
+}
+/* Una variante del repositorio que cambió: si su texto anterior está en
+   plantillas Word, se ofrece llevar el cambio, sobre el formato de cada una. */
+function ofrecerVarianteAWords(cl, antes, ahora){
+  if(textoDeHtml(antes) === textoDeHtml(ahora)) return;
+  const huella = huellaClausula(antes);
+  if(huella.replace(/¤/g, '').length < 12) return;   // tan corta que se confundiría con otras
+  const c = { clave: claveClausula(cl.nombre), titulo: cl.nombre, porTexto: true,
+    antes: { huella, exacto: textoDeHtml(antes) },
+    ahora: { html: ahora, huella: huellaClausula(ahora), exacto: textoDeHtml(ahora) } };
+  buscarDestinos([c], null, false);
+  if(c.words.length) abrirTraspaso(null, [c], { desdeRepo: true });
+}
+/* La versión nueva se guarda siempre, pase lo que pase después. Luego se mira
+   qué cláusulas cambiaron y, si alguna tenía el mismo texto en otro sitio, se
+   ofrece llevar la mejora. */
+async function recibirVersionDocx(p, b64, aviso){
+  const antes = documentXmlDe(archivoDocxDe(p));
+  await reemplazarDocx(p, b64);
+  renderContenido();
+  const ahora = documentXmlDe(b64);
+  const cambios = antes && ahora ? analizarTraspaso(p, antes, ahora) : [];
+  const hecho = aviso || '✓ Versión nueva guardada.';
+  if(!cambios.length){ avisar(hecho); return; }
+  if(!cambios.some(c => c.words.length || c.variantes.length)){
+    avisar(`${hecho} ${cambios.length === 1 ? 'Esa cláusula no estaba' : 'Esas cláusulas no estaban'} igual en ninguna otra plantilla ni en el repositorio.`);
+    return;
+  }
+  abrirTraspaso(p, cambios);
+}
+let traspaso = null;        // lo que se está ofreciendo llevar: { origen, cambios }
+let ultimoTraspaso = null;  // lo que había antes del último traspaso, para «Deshacer»
+function composicionesQueUsan(v){
+  return plantillas.filter(x => x.tipo !== 'docx' && (x.bloques || []).some(b => b.refVar === v.id && !b.personalizado)).map(x => x.nombre);
+}
+function abrirTraspaso(p, cambios, op){
+  op = op || {};
+  traspaso = { origen: p, cambios };
+  const opcion = (attrs, motivo, texto, nota) => `<label class="tr-op${motivo ? ' no' : ''}"><input type="checkbox" ${attrs} ${motivo ? 'disabled' : 'checked'}><span>${texto}${motivo ? `<span class="tr-nota">No se puede: ${esc(motivo)}. Ahí cámbiala a mano en Word.</span>` : nota ? `<span class="tr-nota">${nota}</span>` : ''}</span></label>`;
+  const bloques = cambios.map((c, i) => {
+    const words = c.words.map(w => opcion(`data-c="${i}" data-pl="${w.t.id}"`, w.motivo, `📄 ${esc(w.t.nombre)}`)).join('');
+    const vars = c.variantes.map(({ cl, v }) => {
+      const compos = composicionesQueUsan(v);
+      return opcion(`data-c="${i}" data-cl="${cl.id}" data-var="${v.id}"`, '', `📚 Repositorio: ${esc(cl.nombre)} · variante «${esc(v.nombre)}»`,
+        compos.length ? `Con ella se actualiza${compos.length > 1 ? 'n' : ''}: ${compos.map(esc).join(', ')}` : '');
+    }).join('');
+    return `<div class="tr-cambio">
+        <div class="tr-tit"><b>${esc(c.titulo)}</b><button class="btn sec mini" onclick="verDiffTraspaso(${i}, this)">Ver qué cambió</button></div>
+        <div class="tr-diff" id="tr-diff-${i}" hidden></div>
+        ${words}${vars}
+        ${!c.words.length && !c.variantes.length ? '<div class="tr-nota">Ninguna otra plantilla ni el repositorio tenía este texto.</div>' : ''}
+        ${c.otras.length ? `<div class="tr-nota">Con otra redacción de esta cláusula, no se tocan: ${c.otras.map(t => esc(t.nombre)).join(', ')}.</div>` : ''}
+      </div>`;
+  }).join('');
+  abrirModal(`
+    <div class="m-cab"><h3>${op.desdeRepo ? `Cambiaste «${esc(cambios[0].titulo)}» en el repositorio` : `Cambiaste ${cambios.length === 1 ? 'una cláusula' : cambios.length + ' cláusulas'} de este Word`}</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <div class="tr-ayuda">${op.desdeRepo ? 'La variante ya quedó guardada. Estas plantillas Word tienen el <b>texto anterior</b>' : `«${esc(p.nombre)}» ya quedó guardada. Estas cláusulas tenían el <b>mismo texto</b> en otros sitios`}: marca a dónde llevar el cambio. En cada plantilla Word se cambia <b>solo ese texto, con el formato de esa plantilla</b>, y cada una conserva el número de su cláusula.</div>
+      ${bloques}
+    </div>
+    <div class="m-pie">
+      <button class="btn sec" onclick="cerrarModal()">${op.desdeRepo ? 'Solo el repositorio' : 'Solo este Word'}</button>
+      <button class="btn" id="tr-aplicar" onclick="aplicarTraspaso()">Llevar la mejora a lo marcado</button>
+    </div>`);
+}
+function verDiffTraspaso(i, boton){
+  const el = document.getElementById('tr-diff-' + i); if(!el || !traspaso) return;
+  if(!el.innerHTML){ const c = traspaso.cambios[i]; el.innerHTML = diffPalabrasHtml(c.antes.exacto, c.ahora.exacto); }
+  el.hidden = !el.hidden;
+  boton.textContent = el.hidden ? 'Ver qué cambió' : 'Ocultar';
+}
+/* Diferencia palabra por palabra; lo que no cambió se resume con «…». */
+function diffPalabrasHtml(a, b){
+  const A = String(a).split(' ').filter(Boolean), B = String(b).split(' ').filter(Boolean);
+  const n = A.length, m = B.length;
+  if(n * m > 1e6) return `<del>${esc(a)}</del> <ins>${esc(b)}</ins>`;
+  const L = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for(let i = n - 1; i >= 0; i--) for(let j = m - 1; j >= 0; j--)
+    L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const tramos = [];
+  const poner = (t, w) => { const u = tramos[tramos.length - 1]; if(u && u.t === t) u.w.push(w); else tramos.push({ t, w: [w] }); };
+  let i = 0, j = 0;
+  while(i < n && j < m){
+    if(A[i] === B[j]){ poner('=', A[i]); i++; j++; }
+    else if(L[i + 1][j] >= L[i][j + 1]) poner('-', A[i++]);
+    else poner('+', B[j++]);
+  }
+  while(i < n) poner('-', A[i++]);
+  while(j < m) poner('+', B[j++]);
+  const CONTEXTO = 8;
+  return tramos.map((tr, k) => {
+    if(tr.t === '-') return `<del>${esc(tr.w.join(' '))}</del>`;
+    if(tr.t === '+') return `<ins>${esc(tr.w.join(' '))}</ins>`;
+    if(tr.w.length <= CONTEXTO * 2 + 3) return esc(tr.w.join(' '));
+    const antes = k ? esc(tr.w.slice(0, CONTEXTO).join(' ')) : '';
+    const despues = k < tramos.length - 1 ? esc(tr.w.slice(-CONTEXTO).join(' ')) : '';
+    return `${antes} <span class="tr-elip">…</span> ${despues}`.trim();
+  }).join(' ');
+}
+async function aplicarTraspaso(){
+  if(!traspaso) return;
+  const marcados = Array.from(document.querySelectorAll('#modal .tr-op input:checked:not(:disabled)'));
+  if(!marcados.length){ cerrarModal(); traspaso = null; return; }
+  const boton = document.getElementById('tr-aplicar');
+  if(boton){ boton.disabled = true; boton.textContent = 'Llevando…'; }
+  const porWord = {}, aVariantes = [];
+  marcados.forEach(inp => {
+    const c = traspaso.cambios[+inp.dataset.c];
+    if(inp.dataset.pl) (porWord[inp.dataset.pl] = porWord[inp.dataset.pl] || []).push(c);
+    else if(inp.dataset.var) aVariantes.push({ c, clId: inp.dataset.cl, varId: inp.dataset.var });
+  });
+  const previo = { words: [], variantes: [] }, hechos = [], fallos = [];
+  for(const id of Object.keys(porWord)){
+    const t = plantillas.find(x => x.id === id); if(!t) continue;
+    let r;
+    try{ r = llevarCambiosAWord(t, porWord[id]); }
+    catch(e){ r = { hechos: [], fallos: porWord[id].map(c => ({ c, motivo: 'no se pudo leer el Word' })) }; }
+    r.fallos.forEach(f => fallos.push(`${t.nombre} · ${f.c.titulo}: ${f.motivo}`));
+    if(!r.b64) continue;
+    previo.words.push({ id: t.id, archivoB64: t.archivoB64 || null, seedKey: t.seedKey || null, actualizado: t.actualizado });
+    await reemplazarDocx(t, r.b64);
+    r.hechos.forEach(c => hechos.push(`📄 ${t.nombre} · ${c.titulo}`));
+  }
+  const tocadas = new Set();
+  aVariantes.forEach(({ c, clId, varId }) => {
+    const cl = clausulas.find(x => x.id === clId);
+    const v = cl && cl.variantes.find(x => x.id === varId);
+    if(!v) return;
+    previo.variantes.push({ clId, varId, cuerpo: v.cuerpo });
+    v.cuerpo = c.ahora.html; tocadas.add(cl);
+    hechos.push(`📚 Repositorio · ${cl.nombre} («${v.nombre}»)`);
+  });
+  const compos = new Set();
+  tocadas.forEach(cl => propagarClausulaABloques(cl).plantillas.forEach(n => compos.add(n)));
+  guardar(); renderLista(); renderContenido();
+  traspaso = null;
+  ultimoTraspaso = hechos.length ? previo : null;
+  abrirModal(`
+    <div class="m-cab"><h3>${hechos.length ? '✓ Mejora llevada' : 'No se llevó la mejora'}</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      ${hechos.length ? `<p>Quedó al día en:</p><ul class="tr-lista">${hechos.map(h => `<li>${esc(h)}</li>`).join('')}</ul>` : ''}
+      ${compos.size ? `<p class="tr-nota">Y, con el repositorio, las composiciones: ${Array.from(compos).map(esc).join(', ')}.</p>` : ''}
+      ${fallos.length ? `<div class="tr-aviso">No se pudo en:<ul class="tr-lista">${fallos.map(f => `<li>${esc(f)}</li>`).join('')}</ul>Ahí cámbiala a mano en Word; lo demás quedó tal cual.</div>` : ''}
+    </div>
+    <div class="m-pie">
+      ${ultimoTraspaso ? '<button class="btn sec" onclick="deshacerTraspaso()">Deshacer</button>' : ''}
+      <button class="btn" onclick="cerrarModal()">Listo</button>
+    </div>`);
+}
+/* Devuelve las plantillas Word y las variantes a como estaban antes del último
+   traspaso. El Word que se subió se queda: eso lo decidió quien lo subió. */
+async function deshacerTraspaso(){
+  const previo = ultimoTraspaso; if(!previo) return;
+  ultimoTraspaso = null;
+  for(const w of previo.words){
+    const t = plantillas.find(x => x.id === w.id); if(!t) continue;
+    if(w.archivoB64) await reemplazarDocx(t, w.archivoB64);
+    else {   // era la plantilla de fábrica: vuelve a serlo
+      delete t.archivoB64; t.seedKey = w.seedKey; delete cacheEstructura[t.id];
+      blobsEnIdb.delete(t.id); idbDelete('pl_' + t.id);
+    }
+    t.actualizado = w.actualizado;
+  }
+  const tocadas = new Set();
+  previo.variantes.forEach(x => {
+    const r = buscarVariante(x.clId, x.varId);
+    if(r && r.v.id === x.varId){ r.v.cuerpo = x.cuerpo; tocadas.add(r.cl); }
+  });
+  tocadas.forEach(propagarClausulaABloques);
+  guardar(); renderLista(); renderContenido(); cerrarModal();
+  avisar('Deshecho: las otras plantillas y el repositorio volvieron a como estaban.');
+}
+/* ============ Editar el Word aquí, con su formato ============
+   Editar en la composición HTML y generar desde ahí daba otro documento: la
+   composición se regenera desde cero con un formato genérico (Titillium 10 pt
+   para todo, listas y tablas de serie) y el del Word se pierde. Aquí el texto
+   se edita en la herramienta pero se guarda EN EL WORD, cambiando solo lo que
+   cambió:
+   - Cada párrafo se compara palabra por palabra con el original. Lo que sigue
+     igual sale con sus corridas de siempre —letra, tamaño, color, cuadros
+     combinados, marcadores—; lo nuevo toma el formato de lo que reemplaza o de
+     lo que tiene al lado. Negrita, cursiva y subrayado del editor sí se aplican.
+   - Un párrafo nuevo copia el formato del vecino; un punto nuevo de lista
+     sigue la lista de al lado, y una lista nueva estrena numeración en
+     numbering.xml en vez de continuar la de otra cláusula.
+   - Las tablas cambian celda por celda; una fila nueva copia la de al lado.
+   - Lo que aquí no se puede editar (párrafos con imágenes, campos o notas al
+     pie) va con candado y sale tal cual.
+   - Mover, quitar o añadir cláusulas renumera los encabezados («CLÁUSULA
+     SEXTA») con el formato que ya tenían.
+   El mismo motor lleva un cambio a otra plantilla Word sobre SU formato
+   (traspaso) y aplica a los Word una cláusula editada en el repositorio. */
+
+/* Elementos de primer nivel entre dos posiciones de un XML, con su posición
+   exacta: los hijos de un cuerpo, de un párrafo, de una corrida o de una celda. */
+function elementosXml(xml, desde, hasta){
+  const re = /<(\/?)([A-Za-z][\w.-]*:[\w.-]+)\b[^>]*?(\/?)>/g;
+  re.lastIndex = desde;
+  const els = [];
+  let prof = 0, ini = 0, tag = '', m;
+  while((m = re.exec(xml)) !== null && m.index < hasta){
+    if(m[1]){ if(--prof === 0) els.push({ tag, ini, fin: re.lastIndex, xml: xml.slice(ini, re.lastIndex) }); }
+    else if(m[3]){ if(!prof) els.push({ tag: m[2], ini: m.index, fin: re.lastIndex, xml: m[0] }); }
+    else { if(!prof){ ini = m.index; tag = m[2]; } prof++; }
+  }
+  return els;
+}
+const aperturaXml = el => el.slice(0, el.indexOf('>') + 1);
+const esVacioXml = el => /\/>$/.test(aperturaXml(el));
+const interiorXml = el => esVacioXml(el) ? '' : el.slice(el.indexOf('>') + 1, el.lastIndexOf('</'));
+function hijosXml(el){
+  return esVacioXml(el) ? [] : elementosXml(el, el.indexOf('>') + 1, el.lastIndexOf('</'));
+}
+/* El texto de los <w:t> de un trozo de Word, tal cual. */
+const textoWt = xml => (String(xml).match(/<w:t(?:\s[^>]*)?>[^<]*<\/w:t>/g) || []).map(t => desescaparXml(interiorXml(t))).join('');
+/* Igual, pero con un espacio entre párrafo y párrafo (o celda y celda): para mostrarlo. */
+const textoWtLegible = xml => String(xml).split(/<\/w:p>/).map(textoWt).filter(Boolean).join(' ');
+const sinBlancos = s => String(s).replace(/[\s ]+/g, '');
+const sinMarcadores = s => String(s).replace(/\{[#\/^][^{}]*\}/g, '');
+const recorte = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > (n || 60) ? s.slice(0, n || 60) + '…' : s; };
+const sinIdsXml = x => String(x).replace(/\s[\w.-]+:(paraId|textId)="[^"]*"/g, '');
+
+/* Negrita, cursiva y subrayado puestos a mano en una corrida. La misma regla
+   para el HTML que se muestra y para comparar: si no, un párrafo intacto
+   parecería cambiado de formato. */
+function banderasRpr(rpr){
+  rpr = rpr || '';
+  return {
+    b: /<w:b(?:\s+w:val="(?:1|true|on)")?\s*\/>/.test(rpr),
+    i: /<w:i(?:\s+w:val="(?:1|true|on)")?\s*\/>/.test(rpr),
+    u: /<w:u\b(?![^>]*w:val="none")[^>]*\/>/.test(rpr)
+  };
+}
+/* El orden de los hijos de un rPr y de un pPr no es libre (ver CLAUDE.md): un
+   <w:b/> detrás de <w:sz/> deja el documento inválido. */
+const ORDEN_RPR = ['rStyle','rFonts','b','bCs','i','iCs','caps','smallCaps','strike','dstrike','outline','shadow','emboss','imprint','noProof','snapToGrid','vanish','webHidden','color','spacing','w','kern','position','sz','szCs','highlight','u','effect','bdr','shd','fitText','vertAlign','rtl','cs','em','lang','eastAsianLayout','specVanish','oMath'];
+const ORDEN_PPR = ['pStyle','keepNext','keepLines','pageBreakBefore','framePr','widowControl','numPr','suppressLineNumbers','pBdr','shd','tabs','suppressAutoHyphens','kinsoku','wordWrap','overflowPunct','topLinePunct','autoSpaceDE','autoSpaceDN','bidi','adjustRightInd','snapToGrid','spacing','ind','contextualSpacing','mirrorIndents','suppressOverlap','jc','textDirection','textAlignment','textboxTightWrap','outlineLvl','divId','cnfStyle','rPr','sectPr','pPrChange'];
+/* Pone (o quita, con nuevo='') el hijo `nombre` de un pPr/rPr en su sitio. */
+function ponerHijoPr(pr, envoltura, nombre, nuevo, orden){
+  const abre = pr && !esVacioXml(pr) ? aperturaXml(pr) : `<w:${envoltura}>`;
+  const hijos = pr ? hijosXml(pr).filter(h => h.tag !== 'w:' + nombre) : [];
+  if(nuevo){
+    const pos = orden.indexOf(nombre);
+    let i = hijos.findIndex(h => { const k = h.tag.startsWith('w:') ? orden.indexOf(h.tag.slice(2)) : -1; return k === -1 || k > pos; });
+    if(i === -1) i = hijos.length;
+    hijos.splice(i, 0, { xml: nuevo });
+  }
+  return hijos.length ? `${abre}${hijos.map(h => h.xml).join('')}</w:${envoltura}>` : '';
+}
+function rprConBanderas(rpr, f){
+  const g = banderasRpr(rpr);
+  if(g.b !== f.b){ rpr = ponerHijoPr(rpr, 'rPr', 'b', f.b ? '<w:b/>' : '', ORDEN_RPR); if(!f.b) rpr = ponerHijoPr(rpr, 'rPr', 'bCs', '', ORDEN_RPR); }
+  if(g.i !== f.i){ rpr = ponerHijoPr(rpr, 'rPr', 'i', f.i ? '<w:i/>' : '', ORDEN_RPR); if(!f.i) rpr = ponerHijoPr(rpr, 'rPr', 'iCs', '', ORDEN_RPR); }
+  if(g.u !== f.u) rpr = ponerHijoPr(rpr, 'rPr', 'u', f.u ? '<w:u w:val="single"/>' : '', ORDEN_RPR);
+  return rpr;
+}
+
+/* ---- Párrafos como tokens ---- */
+const RE_TOKEN = /\{[^{}\s]*\}|[  \r\n]+|[A-Za-z0-9_À-ɏ]+|[^  \r\nA-Za-z0-9_À-ɏ]/g;
+const esBlanco = t => /^[  \r\n]+$/.test(t);
+const esMarcador = t => /^\{[#\/^][^{}]*\}$/.test(t);
+const textoDeTokens = toks => toks.map(t => t.t).join('');
+const claveDeTokens = (tipo, toks) => tipo + ':' + sinBlancos(sinMarcadores(toks.map(t => t.esp ? ' ' : t.t).join('')));
+function mismoToken(a, b){
+  if(!!a.esp !== !!b.esp) return false;
+  if(a.esp) return a.t === b.t;   // un tabulador no tiene negrita que se vea
+  if(esBlanco(a.t) && esBlanco(b.t)) return true;
+  if(a.t !== b.t) return false;
+  return !b.f || (a.f.b === b.f.b && a.f.i === b.f.i && a.f.u === b.f.u);
+}
+function tokensDeTexto(texto){ return (String(texto).match(new RegExp(RE_TOKEN.source, 'g')) || []).map(t => ({ t, f: null })); }
+const MARCAS_SIN_TEXTO = new Set(['w:bookmarkStart','w:bookmarkEnd','w:commentRangeStart','w:commentRangeEnd','w:proofErr','w:permStart','w:permEnd','w:moveFromRangeStart','w:moveFromRangeEnd','w:moveToRangeStart','w:moveToRangeEnd']);
+/* Un párrafo de Word como tokens (palabras, espacios, signos, {tags}). Cada
+   token guarda las corridas de las que salió, para volver a escribirse igual,
+   y si es parte de un cuadro combinado o de un vínculo (grupo). `bloqueado`
+   dice por qué no se puede editar aquí, si es el caso. */
+function leerParrafo(pXml){
+  const r = {
+    attrs: sinIdsXml(aperturaXml(pXml).replace(/^<w:p\b/, '').replace(/\/?>$/, '')),
+    pPr: '', tokens: [], ceros: [], grupos: [], bloqueado: '', num: null, jc: ''
+  };
+  const trozos = [], marcas = [];
+  const bloquear = m => { r.bloqueado = r.bloqueado || m; };
+  function corrida(rXml, g){
+    let rpr = '';
+    hijosXml(rXml).forEach(h => {
+      switch(h.tag){
+        case 'w:rPr': rpr = h.xml; break;
+        case 'w:t': { const t = desescaparXml(interiorXml(h.xml)); if(t) trozos.push({ t, rpr, g }); break; }
+        case 'w:tab': trozos.push({ t: '\t', rpr, g, esp: true }); break;
+        case 'w:br': case 'w:cr':
+          if(/w:type="(page|column)"/.test(h.xml)) bloquear('tiene un salto de página');
+          else trozos.push({ t: '\n', rpr, g, esp: true });
+          break;
+        case 'w:noBreakHyphen': trozos.push({ t: '‑', rpr, g, esp: true }); break;
+        case 'w:softHyphen': case 'w:lastRenderedPageBreak': case 'w:delText': break;
+        case 'w:commentReference': case 'w:annotationRef':
+          if(g == null) marcas.push({ pos: trozos.length, xml: `<w:r>${rpr}${h.xml}</w:r>` });
+          break;
+        default: bloquear('tiene campos, imágenes o notas al pie');
+      }
+    });
+  }
+  function enGrupo(xml, g){
+    hijosXml(xml).forEach(h => {
+      if(h.tag === 'w:r') corrida(h.xml, g);
+      else if(h.tag === 'w:sdtContent' || h.tag === 'w:hyperlink') enGrupo(h.xml, g);
+      else if(h.tag !== 'w:sdtPr' && h.tag !== 'w:sdtEndPr' && !MARCAS_SIN_TEXTO.has(h.tag)) bloquear('tiene elementos que aquí no se pueden editar');
+    });
+  }
+  hijosXml(pXml).forEach(h => {
+    if(h.tag === 'w:pPr'){ r.pPr = h.xml; if(/<w:sectPr\b/.test(h.xml)) bloquear('lleva un salto de sección'); return; }
+    if(h.tag === 'w:r'){ corrida(h.xml, null); return; }
+    if(MARCAS_SIN_TEXTO.has(h.tag)){ marcas.push({ pos: trozos.length, xml: h.xml }); return; }
+    if(h.tag === 'w:sdt' || h.tag === 'w:hyperlink'){
+      const g = r.grupos.length, antes = trozos.length;
+      r.grupos.push({ xml: h.xml, tipo: h.tag === 'w:sdt' ? 'control' : 'vinculo', n: 0 });
+      enGrupo(h.xml, g);
+      if(trozos.length === antes){ r.grupos.pop(); marcas.push({ pos: trozos.length, xml: h.xml }); }
+      return;
+    }
+    bloquear('tiene elementos que aquí no se pueden editar');
+  });
+  // Tokens: un token puede abarcar varias corridas (Word parte una palabra
+  // donde quiere), pero nunca cruza el borde de un grupo ni un tabulador.
+  const empiezaEn = new Array(trozos.length);
+  let i = 0;
+  while(i < trozos.length){
+    const tz = trozos[i];
+    if(tz.esp){
+      empiezaEn[i] = r.tokens.length;
+      r.tokens.push({ t: tz.t, esp: true, g: tz.g, segs: [{ t: tz.t, rpr: tz.rpr, esp: true }], f: banderasRpr(tz.rpr) });
+      i++; continue;
+    }
+    let j = i, texto = '';
+    const de = [];
+    while(j < trozos.length && !trozos[j].esp && trozos[j].g === tz.g){
+      for(let k = 0; k < trozos[j].t.length; k++) de.push(j);
+      texto += trozos[j].t; j++;
+    }
+    const re = new RegExp(RE_TOKEN.source, 'g'); let m;
+    while((m = re.exec(texto)) !== null){
+      const a = m.index, b = a + m[0].length, segs = [];
+      for(let k = a; k < b; ){
+        const tj = de[k]; let e = k;
+        while(e < b && de[e] === tj) e++;
+        segs.push({ t: texto.slice(k, e), rpr: trozos[tj].rpr });
+        if(empiezaEn[tj] === undefined) empiezaEn[tj] = r.tokens.length;
+        k = e;
+      }
+      r.tokens.push({ t: m[0], g: tz.g, segs, f: banderasRpr(segs[0].rpr) });
+    }
+    i = j;
+  }
+  r.ceros = marcas.map(mc => {
+    let q = mc.pos;
+    while(q < trozos.length && empiezaEn[q] === undefined) q++;
+    return { antes: q < trozos.length ? empiezaEn[q] : r.tokens.length, xml: mc.xml };
+  });
+  r.tokens.forEach(t => { if(t.g != null) r.grupos[t.g].n++; });
+  // La letra dominante: la de más texto. Es la que hereda un párrafo nuevo.
+  const peso = {};
+  r.tokens.forEach(t => t.segs.forEach(s => { if(!s.esp) peso[s.rpr] = (peso[s.rpr] || 0) + s.t.length; }));
+  let mejor = null;
+  Object.keys(peso).forEach(k => { if(mejor === null || peso[k] > peso[mejor]) mejor = k; });
+  if(mejor === null){
+    const marca = /<w:rPr>[\s\S]*?<\/w:rPr>/.exec(r.pPr);
+    mejor = marca ? marca[0].replace(/<w:(ins|del|moveFrom|moveTo)\b[^>]*\/>/g, '') : '';
+  }
+  r.dominante = mejor;
+  r.jc = (/<w:jc w:val="([^"]+)"/.exec(r.pPr) || [])[1] || '';
+  const np = /<w:numPr>[\s\S]*?<\/w:numPr>/.exec(r.pPr);
+  if(np){
+    const numId = (/<w:numId w:val="(\d+)"/.exec(np[0]) || [])[1];
+    if(numId && numId !== '0') r.num = { numId, ilvl: (/<w:ilvl w:val="(\d+)"/.exec(np[0]) || [])[1] || '0' };
+  }
+  return r;
+}
+
+/* Diferencia entre dos listas (LCS), recortando primero lo común de los
+   extremos: casi siempre se cambia poco, y el medio queda chico. */
+function diffListas(A, B, igual){
+  let ini = 0;
+  while(ini < A.length && ini < B.length && igual(A[ini], B[ini])) ini++;
+  let fa = A.length, fb = B.length;
+  while(fa > ini && fb > ini && igual(A[fa - 1], B[fb - 1])){ fa--; fb--; }
+  const ops = [];
+  for(let k = 0; k < ini; k++) ops.push({ op: '=', a: k, b: k });
+  const n = fa - ini, m = fb - ini;
+  if(n * m > 4e6){
+    for(let k = ini; k < fa; k++) ops.push({ op: '-', a: k });
+    for(let k = ini; k < fb; k++) ops.push({ op: '+', b: k });
+  } else {
+    const L = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
+    for(let i = n - 1; i >= 0; i--) for(let j = m - 1; j >= 0; j--)
+      L[i][j] = igual(A[ini + i], B[ini + j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    let i = 0, j = 0;
+    while(i < n && j < m){
+      if(igual(A[ini + i], B[ini + j])){ ops.push({ op: '=', a: ini + i, b: ini + j }); i++; j++; }
+      else if(L[i + 1][j] >= L[i][j + 1]) ops.push({ op: '-', a: ini + i++ });
+      else ops.push({ op: '+', b: ini + j++ });
+    }
+    while(i < n) ops.push({ op: '-', a: ini + i++ });
+    while(j < m) ops.push({ op: '+', b: ini + j++ });
+  }
+  for(let k = 0; k < A.length - fa; k++) ops.push({ op: '=', a: fa + k, b: fb + k });
+  return ops;
+}
+
+/* Vuelve a escribir un párrafo con los tokens nuevos, cambiando solo lo que
+   cambió. op: { pPr, jc, num: { numId, ilvl }, sinNum, protegerMarcas }. Un
+   cuadro combinado sale entero si su texto no se tocó; si se tocó, queda como
+   texto fijo con su letra. */
+function reescribirParrafoXml(v, nuevos, op){
+  op = op || {};
+  const A = v.tokens, ops = diffListas(A, nuevos, mismoToken);
+  const sal = [];
+  let ic = 0, borrado = null;
+  const soltar = hasta => { while(ic < v.ceros.length && v.ceros[ic].antes <= hasta) sal.push({ xml: v.ceros[ic++].xml }); };
+  const rprCerca = k => {
+    if(borrado) return borrado.segs[0].rpr;
+    for(let s = sal.length - 1; s >= 0; s--){
+      if(sal[s].tok) return sal[s].nuevo ? sal[s].rpr : sal[s].tok.segs[sal[s].tok.segs.length - 1].rpr;
+    }
+    for(let q = k + 1; q < ops.length; q++) if(ops[q].op !== '+') return A[ops[q].a].segs[0].rpr;
+    return v.dominante || '';
+  };
+  ops.forEach((o, k) => {
+    if(o.op === '+'){
+      const n = nuevos[o.b], base = rprCerca(k);
+      sal.push({ tok: n, nuevo: true, rpr: n.f ? rprConBanderas(base, n.f) : base });
+      return;
+    }
+    soltar(o.a);
+    const t = A[o.a];
+    if(o.op === '=' || (op.protegerMarcas && esMarcador(t.t))){ sal.push({ tok: t }); borrado = null; return; }
+    borrado = t;
+  });
+  soltar(Infinity);
+  // ¿Qué grupos siguen enteros? Todos sus tokens, sin tocar y seguidos.
+  const pos = v.grupos.map(() => []);
+  sal.forEach((s, k) => { if(s.tok && !s.nuevo && s.tok.g != null && pos[s.tok.g]) pos[s.tok.g].push(k); });
+  const entero = v.grupos.map((gr, g) => pos[g].length === gr.n && pos[g].every((k, i) => !i || k === pos[g][i - 1] + 1));
+  let cont = '', rprAbierta = null, cuerpo = '', texto = '';
+  const vaciarTexto = () => { if(texto){ cuerpo += `<w:t xml:space="preserve">${escXml(texto)}</w:t>`; texto = ''; } };
+  const cerrar = () => { vaciarTexto(); if(rprAbierta !== null){ cont += `<w:r>${rprAbierta}${cuerpo}</w:r>`; rprAbierta = null; cuerpo = ''; } };
+  const poner = (t, rpr, esp) => {
+    if(rprAbierta !== rpr){ cerrar(); rprAbierta = rpr; }
+    if(esp){ vaciarTexto(); cuerpo += t === '\t' ? '<w:tab/>' : t === '\n' ? '<w:br/>' : '<w:noBreakHyphen/>'; }
+    else texto += t;
+  };
+  const hechos = new Set();
+  sal.forEach(s => {
+    if(s.xml){ cerrar(); cont += s.xml; return; }
+    const t = s.tok;
+    if(!s.nuevo && t.g != null && entero[t.g]){
+      if(!hechos.has(t.g)){ hechos.add(t.g); cerrar(); cont += v.grupos[t.g].xml; }
+      return;
+    }
+    if(s.nuevo) poner(t.esp ? t.t : t.t.replace(/ /g, ' '), s.rpr, t.esp);
+    else t.segs.forEach(sg => poner(sg.t, sg.rpr, sg.esp));
+  });
+  cerrar();
+  let pPr = op.pPr != null ? op.pPr : v.pPr;
+  if(op.jc) pPr = ponerHijoPr(pPr, 'pPr', 'jc', `<w:jc w:val="${op.jc}"/>`, ORDEN_PPR);
+  if(op.num) pPr = ponerHijoPr(pPr, 'pPr', 'numPr', `<w:numPr><w:ilvl w:val="${op.num.ilvl}"/><w:numId w:val="${op.num.numId}"/></w:numPr>`, ORDEN_PPR);
+  if(op.sinNum) pPr = ponerHijoPr(pPr, 'pPr', 'numPr', '', ORDEN_PPR);
+  return `<w:p${v.attrs}>${pPr}${cont}</w:p>`;
+}
+
+/* ---- Bloques: párrafos, puntos de lista y tablas ---- */
+/* Las unidades de una lista de bloques del Word. Los párrafos vacíos (y las
+   marcas sin texto) no son unidades: van colgados de la unidad anterior, que
+   es como Word separa los párrafos en estas plantillas, y se repiten con ella. */
+function unidadesDeBloques(bloques){
+  const lead = [], uds = [];
+  const colgar = x => (uds.length ? uds[uds.length - 1].cola : lead).push(x);
+  bloques.forEach(b => {
+    const limpio = b.limpio != null ? b.limpio : b.xml;
+    let u;
+    if(b.tag === 'w:p'){
+      const p = leerParrafo(limpio);
+      const texto = textoDeTokens(p.tokens);
+      // Sin texto (también los que solo llevan tabuladores): es espaciado
+      if(!sinBlancos(texto)){ colgar({ xml: b.xml, vacio: !p.bloqueado, p }); return; }
+      u = { tipo: p.num ? 'li' : 'p', p, bloqueado: p.bloqueado, texto };
+    } else if(b.tag === 'w:tbl'){
+      u = { tipo: 'tbl', texto: textoWtLegible(limpio) };
+    } else {
+      const texto = textoWtLegible(limpio);
+      if(!sinBlancos(texto)){ colgar({ xml: b.xml, vacio: false }); return; }
+      u = { tipo: 'p', bloqueado: 'es un bloque que aquí no se puede editar', texto };
+    }
+    u.b = b; u.limpio = limpio; u.cola = [];
+    u.clave = (u.tipo === 'tbl' ? 'tbl:' : u.tipo === 'li' ? 'li:' : 'p:') + sinBlancos(sinMarcadores(u.texto));
+    uds.push(u);
+  });
+  return { lead, unidades: uds };
+}
+/* Un párrafo vacío copiado de otro: solo su formato, sin ids ni marcas. */
+const vacioComo = c => c.p ? `<w:p${c.p.attrs}>${c.p.pPr}</w:p>` : '';
+
+/* Las unidades de un HTML (el del editor, el de una variante del repositorio). */
+let contadorListasHtml = 0;
+function unidadesDeHtml(html){
+  const raiz = new DOMParser().parseFromString(`<!doctype html><body><div>${html || ''}</div></body>`, 'text/html').body.firstChild;
+  return unidadesDeNodo(raiz);
+}
+const BLOQUES_HTML = /^(P|DIV|H[1-6]|BLOCKQUOTE|SECTION|ARTICLE|PRE|OL|UL|TABLE)$/;
+function unidadesDeNodo(cont){
+  const out = [];
+  let suelto = [];
+  const cerrarSuelto = () => { if(suelto.length){ const u = parrafoDeNodos(suelto, null); if(u) out.push(u); suelto = []; } };
+  Array.from(cont.childNodes).forEach(nd => {
+    if(nd.nodeType === 3){ suelto.push(nd); return; }
+    if(nd.nodeType !== 1) return;
+    const tag = nd.tagName;
+    if(nd.classList.contains('w-fijo')){ cerrarSuelto(); out.push({ tipo: 'fijo', clave: nd.getAttribute('data-clave') || '' }); return; }
+    if(tag === 'OL' || tag === 'UL'){ cerrarSuelto(); listaDeNodo(nd, 0, ++contadorListasHtml, out); return; }
+    if(tag === 'TABLE'){ cerrarSuelto(); out.push(tablaDeNodo(nd)); return; }
+    if(BLOQUES_HTML.test(tag)){
+      cerrarSuelto();
+      if(Array.from(nd.querySelectorAll('*')).some(x => BLOQUES_HTML.test(x.tagName) || x.classList.contains('w-fijo'))) out.push(...unidadesDeNodo(nd));
+      else { const u = parrafoDeNodos([nd], nd); if(u) out.push(u); }
+      return;
+    }
+    suelto.push(nd);
+  });
+  cerrarSuelto();
+  return out;
+}
+function listaDeNodo(el, prof, id, out){
+  const tipo = el.tagName === 'UL' ? 'viñetas' : /alpha|^a$/i.test(el.style.listStyleType || el.getAttribute('type') || '') ? 'letras' : 'numeros';
+  Array.from(el.children).forEach(h => {
+    if(h.tagName === 'OL' || h.tagName === 'UL'){ listaDeNodo(h, prof + 1, id, out); return; }
+    if(h.tagName !== 'LI') return;
+    const propios = Array.from(h.childNodes).filter(c => !(c.nodeType === 1 && (c.tagName === 'OL' || c.tagName === 'UL')));
+    const u = parrafoDeNodos(propios, h);
+    if(u){ u.tipo = 'li'; u.prof = prof; u.lista = id; u.tipoLista = tipo; u.clave = claveDeTokens('li', u.tokens); out.push(u); }
+    Array.from(h.children).filter(c => c.tagName === 'OL' || c.tagName === 'UL').forEach(s => listaDeNodo(s, prof + 1, id, out));
+  });
+}
+const textoNormalHtml = s => String(s).replace(/\{\{\s*/g, '{').replace(/\s*\}\}/g, '}');
+function parrafoDeNodos(nodos, el){
+  const cs = [];
+  const visitar = (nd, f) => {
+    if(nd.nodeType === 3){
+      for(const c of textoNormalHtml(nd.textContent.replace(/[\r\n]+/g, ' '))) cs.push(c === '\t' || c === '‑' ? { c, f, esp: true } : { c, f });
+      return;
+    }
+    if(nd.nodeType !== 1) return;
+    if(nd.tagName === 'BR'){ cs.push({ c: '\n', f, esp: true }); return; }
+    if(nd.classList.contains('w-tab')){ cs.push({ c: '\t', f, esp: true }); return; }
+    const g = { ...f }, st = nd.style, tg = nd.tagName;
+    if(tg === 'B' || tg === 'STRONG') g.b = true;
+    if(tg === 'I' || tg === 'EM') g.i = true;
+    if(tg === 'U' || tg === 'INS') g.u = true;
+    if(st){
+      if(st.fontWeight) g.b = st.fontWeight === 'bold' || st.fontWeight === 'bolder' || parseInt(st.fontWeight) >= 600;
+      if(st.fontStyle) g.i = st.fontStyle === 'italic';
+      const td = st.textDecoration || st.textDecorationLine || '';
+      if(td) g.u = /underline/.test(td);
+    }
+    nd.childNodes.forEach(c => visitar(c, g));
+  };
+  nodos.forEach(nd => visitar(nd, { b: false, i: false, u: false }));
+  const tokens = [];
+  let k = 0;
+  while(k < cs.length){
+    if(cs[k].esp){ tokens.push({ t: cs[k].c, esp: true, f: cs[k].f }); k++; continue; }
+    let j = k, texto = '';
+    const fl = [];
+    while(j < cs.length && !cs[j].esp){ texto += cs[j].c; for(let q = 0; q < cs[j].c.length; q++) fl.push(cs[j].f); j++; }
+    const re = new RegExp(RE_TOKEN.source, 'g'); let m;
+    while((m = re.exec(texto)) !== null) tokens.push({ t: m[0], f: fl[m.index] });
+    k = j;
+  }
+  if(!tokens.some(t => t.esp ? t.t !== '\n' : !esBlanco(t.t))) return null;
+  return { tipo: 'p', tokens, alin: el && el.style ? el.style.textAlign || '' : '', clave: claveDeTokens('p', tokens) };
+}
+function tablaDeNodo(tb){
+  const filas = Array.from(tb.rows || []).map(tr => Array.from(tr.cells).map(td => ({
+    unidades: unidadesDeNodo(td),
+    texto: sinBlancos(sinMarcadores(textoNormalHtml(td.textContent)))
+  })));
+  return { tipo: 'tbl', filas, clave: 'tbl:' + filas.map(f => f.map(c => c.texto).join('')).join('') };
+}
+const jcACss = jc => ({ both: 'justify', distribute: 'justify', center: 'center', right: 'right', end: 'right', left: 'left', start: 'left' })[jc] || '';
+const cssAJc = a => ({ justify: 'both', center: 'center', right: 'right', end: 'right', left: 'left', start: 'left' })[a] || '';
+
+/* Reconstruye una lista de bloques (el cuerpo de una cláusula, lo de dentro
+   de una celda) con las unidades nuevas. Las que no cambiaron salen tal cual,
+   byte por byte; las demás, sobre el formato de la vieja que reemplazan.
+   `vecino` ({ lead, unidades }) da formato cuando no hay bloques viejos. */
+function reconstruirBloques(bloques, nuevas, ctx, vecino){
+  const { lead, unidades: viejas } = unidadesDeBloques(bloques);
+  const clase = u => u.tipo === 'li' ? 'li' : u.tipo === 'tbl' ? 'tbl' : 'p';
+  const ops = diffListas(viejas, nuevas, (a, b) => a.clave === b.clave);
+  const pasos = [];
+  let gv = [], gn = [];
+  const cerrarHueco = () => {
+    const colas = { p: [], li: [], tbl: [] }, borradas = [];
+    gv.forEach(v => (v.bloqueado ? borradas : colas[clase(v)]).push(v));
+    gn.forEach(n => { if(n.tipo !== 'fijo') pasos.push({ v: colas[clase(n)].shift() || null, n }); });
+    borradas.push(...colas.p, ...colas.li, ...colas.tbl);
+    borradas.forEach(v => {
+      if(v.bloqueado && !ctx.permitirBorrarFijos) throw new Error(`un párrafo con imágenes, campos o notas al pie cambió («${recorte(v.texto, 50)}»); ese cámbialo en Word`);
+      pasos.push({ v, borrar: true });
+    });
+    gv = []; gn = [];
+  };
+  ops.forEach(o => {
+    if(o.op === '='){ cerrarHueco(); pasos.push({ v: viejas[o.a], n: nuevas[o.b] }); }
+    else if(o.op === '-') gv.push(viejas[o.a]);
+    else gn.push(nuevas[o.b]);
+  });
+  cerrarHueco();
+  // Cada lista del HTML sigue la numeración de la lista vieja con la que se
+  // emparejó alguno de sus puntos; si ninguno, estrena la suya.
+  const listas = {};
+  pasos.forEach(s => {
+    if(s.n && s.n.tipo === 'li' && s.v && s.v.tipo === 'li' && !s.v.bloqueado && !listas[s.n.lista])
+      listas[s.n.lista] = { numId: s.v.p.num.numId, base: Math.max(0, +s.v.p.num.ilvl - s.n.prof), molde: s.v };
+  });
+  let xml = lead.map(x => x.xml).join('');
+  if(!bloques.length && vecino) xml += vecino.lead.filter(c => c.vacio).map(vacioComo).join('');
+  let previa = null;
+  pasos.forEach(s => {
+    if(s.borrar){ xml += s.v.cola.filter(c => !c.vacio).map(c => c.xml).join(''); return; }
+    const { v, n } = s;
+    if(v){
+      xml += escribirUnidad(v, n, ctx, listas) + v.cola.map(c => c.xml).join('');
+      previa = v;
+      return;
+    }
+    const molde = moldeUnidad(n, previa, viejas, vecino, ctx);
+    xml += escribirNueva(n, molde, ctx, listas) + (molde && molde.cola ? molde.cola.filter(c => c.vacio).map(vacioComo).join('') : '');
+  });
+  return xml;
+}
+/* La unidad vieja más cercana que sirve de molde para una nueva del mismo tipo. */
+function moldeUnidad(n, previa, viejas, vecino, ctx){
+  const cl = n.tipo === 'li' ? 'li' : n.tipo === 'tbl' ? 'tbl' : 'p';
+  const sirve = u => u && !u.bloqueado && (cl === 'tbl' ? u.tipo === 'tbl' : u.tipo === cl);
+  if(sirve(previa)) return previa;
+  const i = previa ? viejas.indexOf(previa) : -1;
+  for(let k = i; k >= 0; k--) if(sirve(viejas[k])) return viejas[k];
+  for(let k = i + 1; k < viejas.length; k++) if(sirve(viejas[k])) return viejas[k];
+  const delVecino = vecino ? vecino.unidades.find(sirve) : null;
+  if(delVecino) return delVecino;
+  if(cl === 'li' && ctx.moldes.p) return ctx.moldes.li || ctx.moldes.p;
+  return ctx.moldes[cl] || ctx.moldes.p || null;
+}
+function listaDe(n, listas, ctx, molde){
+  if(!listas[n.lista]){
+    const m = molde && molde.tipo === 'li' && (!n.tipoLista || ctx.tipoNum(molde.p.num.numId, molde.p.num.ilvl) === n.tipoLista) ? molde
+      : (ctx.moldes.listas[n.tipoLista] || null);
+    listas[n.lista] = { numId: ctx.nuevaNumeracion(m ? m.p.num.numId : null, n.tipoLista), base: m ? +m.p.num.ilvl : 0, molde: m };
+  }
+  return listas[n.lista];
+}
+function escribirUnidad(v, n, ctx, listas){
+  if(v.bloqueado) return v.b.xml;   // emparejada solo si el texto es el mismo
+  if(v.tipo === 'tbl') return v.clave === n.clave ? v.b.xml : reescribirTablaXml(v, n, ctx);
+  const op = { protegerMarcas: ctx.modoRepo };
+  if(n.alin && n.alin !== jcACss(v.p.jc)) op.jc = cssAJc(n.alin);
+  if(n.tipo === 'li'){
+    const L = listaDe(n, listas, ctx, v);
+    const num = { numId: L.numId, ilvl: String(L.base + n.prof) };
+    if(!v.p.num || v.p.num.numId !== num.numId || v.p.num.ilvl !== num.ilvl) op.num = num;
+  }
+  // ¿Igual? Sin contar los espacios de las puntas y, si el texto viene del
+  // repositorio (que no los guarda), los marcadores {#…}{/…} del Word.
+  const comparables = (toks, conMarcas) => {
+    let t = conMarcas ? toks : toks.filter(x => !esMarcador(x.t));
+    let a = 0, b = t.length;
+    while(a < b && !t[a].esp && esBlanco(t[a].t)) a++;
+    while(b > a && !t[b - 1].esp && esBlanco(t[b - 1].t)) b--;
+    return t.slice(a, b);
+  };
+  const A = comparables(v.p.tokens, !ctx.modoRepo), B = comparables(n.tokens, true);
+  const igual = !op.jc && !op.num && A.length === B.length && A.every((t, i) => mismoToken(t, B[i]));
+  return igual ? v.b.xml : reescribirParrafoXml(v.p, n.tokens, op);
+}
+function escribirNueva(n, molde, ctx, listas){
+  if(n.tipo === 'fijo') return '';
+  if(n.tipo === 'tbl') throw new Error('una tabla nueva se agrega en Word');
+  const base = molde && molde.p ? molde.p : null;
+  const v = { attrs: base ? base.attrs : '', pPr: base ? base.pPr : '', tokens: [], ceros: [], grupos: [], dominante: base ? base.dominante : '' };
+  const op = {};
+  if(n.tipo === 'li'){
+    const L = listaDe(n, listas, ctx, molde);
+    if(L.molde && L.molde.p){ v.pPr = L.molde.p.pPr; v.attrs = L.molde.p.attrs; v.dominante = L.molde.p.dominante; }
+    else v.pPr = ponerHijoPr(v.pPr, 'pPr', 'ind', '', ORDEN_PPR);   // la sangría la pone la lista
+    op.num = { numId: L.numId, ilvl: String(L.base + n.prof) };
+  } else if(base && base.num) op.sinNum = true;
+  if(n.alin) op.jc = cssAJc(n.alin);
+  return reescribirParrafoXml(v, n.tokens, op);
+}
+/* Una tabla, fila por fila y celda por celda. Lo que no cambió sale tal cual;
+   una fila nueva copia la estructura (bordes, anchos, sombreado) de la vecina. */
+function reescribirTablaXml(v, n, ctx){
+  const hijos = hijosXml(v.limpio);
+  const filas = hijos.filter(h => h.tag === 'w:tr');
+  if(!filas.length) return v.b.xml;
+  const i0 = hijos.indexOf(filas[0]), i1 = hijos.indexOf(filas[filas.length - 1]);
+  if(hijos.slice(i0, i1 + 1).some(h => h.tag !== 'w:tr') || filas.some(f => hijosXml(f.xml).some(h => !/^w:(trPr|tblPrEx|tc)$/.test(h.tag))))
+    throw new Error('una tabla tiene filas con controles o marcas; esa cámbiala en Word');
+  const textoCelda = tc => sinBlancos(sinMarcadores(textoWt(tc.xml)));
+  const fv = filas.map(tr => { const cs = hijosXml(tr.xml).filter(h => h.tag === 'w:tc'); return { tr, cs, clave: cs.map(textoCelda).join('|') }; });
+  const fn = n.filas.map(cs => ({ cs, clave: cs.map(c => c.texto).join('|') }));
+  const fila = (fv1, f, soloFormato) => {
+    if(fv1.cs.length !== f.cs.length) throw new Error('cambió el número de columnas de una tabla; eso se hace en Word');
+    let k = 0;
+    const abre = soloFormato ? sinIdsXml(aperturaXml(fv1.tr.xml)) : aperturaXml(fv1.tr.xml);
+    return abre + hijosXml(fv1.tr.xml).map(h => {
+      if(h.tag !== 'w:tc') return h.xml;
+      const c = f.cs[k++];
+      if(!soloFormato && textoCelda(h) === c.texto) return h.xml;
+      return celdaXml(h.xml, c.unidades, ctx, soloFormato);
+    }).join('') + '</w:tr>';
+  };
+  const ops = diffListas(fv, fn, (a, b) => a.clave === b.clave);
+  let out = '', previa = null, gv = [], gn = [];
+  const cerrarHueco = () => {
+    gn.forEach((f, k) => {
+      const viejaF = gv[k] || null;
+      out += viejaF ? fila(viejaF, f, false) : fila(previa || fv[fv.length - 1], f, true);
+      if(viejaF) previa = viejaF;
+    });
+    gv = []; gn = [];
+  };
+  ops.forEach(o => {
+    if(o.op === '='){ cerrarHueco(); out += fv[o.a].tr.xml; previa = fv[o.a]; }
+    else if(o.op === '-') gv.push(fv[o.a]);
+    else gn.push(fn[o.b]);
+  });
+  cerrarHueco();
+  return aperturaXml(v.limpio) + hijos.slice(0, i0).map(h => h.xml).join('') + out + hijos.slice(i1 + 1).map(h => h.xml).join('') + '</w:tbl>';
+}
+function celdaXml(tcXml, unidades, ctx, soloFormato){
+  const hs = hijosXml(tcXml);
+  const tcPr = hs.filter(h => h.tag === 'w:tcPr').map(h => h.xml).join('');
+  const bloques = hs.filter(h => h.tag !== 'w:tcPr').map(h => ({ tag: h.tag, xml: h.xml, limpio: h.xml }));
+  let cont = soloFormato
+    ? reconstruirBloques([], unidades, ctx, { lead: [], unidades: unidadesDeBloques(bloques).unidades })
+    : reconstruirBloques(bloques, unidades, ctx);
+  // Toda celda termina en un párrafo, o Word no la abre
+  if(!/(<\/w:p>|<w:p\b[^>]*\/>)$/.test(cont)){
+    const pm = bloques.find(b => b.tag === 'w:p');
+    cont += pm ? `<w:p>${leerParrafo(pm.xml).pPr}</w:p>` : '<w:p/>';
+  }
+  return `${aperturaXml(tcXml)}${tcPr}${cont}</w:tc>`;
+}
+
+/* ---- Encabezados de cláusula ---- */
+const ORD_PAL = '(?:PRIMER[AO]?|SEGUND[AO]|TERCER[AO]?|CUART[AO]|QUINT[AO]|SEXT[AO]|S[ÉE]PTIM[AO]|OCTAV[AO]|NOVEN[AO]|D[ÉE]CIM[AO]|UND[ÉE]CIM[AO]|DUOD[ÉE]CIM[AO]|VIG[ÉE]SIM[AO]|TRIG[ÉE]SIM[AO]|\\d+|[IVXLC]+)';
+const RE_PARTES_CABECERA = new RegExp(`^(\\s*CL[ÁA]USULA\\s+)(${ORD_PAL}(?:\\s+${ORD_PAL})?)(?![A-Za-z0-9\\u00C0-\\u024F])([\\s.:\\-–—]*)([\\s\\S]*)$`, 'i');
+function romano(n){
+  const t = [[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+  let s = ''; t.forEach(([v, r]) => { while(n >= v){ s += r; n -= v; } }); return s;
+}
+/* El ordinal n escrito como el que ya tenía el encabezado: «SEXTA», «Sexta», «6», «VI». */
+function ordinalComo(n, muestra){
+  if(/^\d+$/.test(muestra)) return String(n);
+  if(/^[IVXLC]+$/.test(muestra)) return romano(n);
+  let o = ORDINALES[n - 1] || String(n);
+  if(muestra === muestra.toLowerCase()) o = o.toLowerCase();
+  else if(muestra !== muestra.toUpperCase()) o = o.toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase());
+  return o;
+}
+function textoCabecera(viejo, n, titulo, renumerar){
+  const m = RE_PARTES_CABECERA.exec(viejo);
+  if(!m) return titulo != null ? `CLÁUSULA ${ORDINALES[n - 1] || n}: ${titulo}` : viejo;
+  return m[1] + (renumerar ? ordinalComo(n, m[2]) : m[2]) + (m[3] || ': ') + (titulo != null ? titulo : m[4]);
+}
+
+/* ---- El documento entero ---- */
+/* El cuerpo de un Word por secciones: lo de antes de la primera cláusula
+   (encabezado, comparecientes) y cada cláusula con su encabezado. */
+function seccionesWord(xml){
+  const bloques = bloquesCuerpoXml(xml);
+  const sectPr = bloques.length && bloques[bloques.length - 1].tag === 'w:sectPr' ? bloques.pop() : null;
+  const cabs = [];
+  bloques.forEach((b, i) => { if(b.tag === 'w:p' && RE_CABECERA_CLAUSULA.test(textoBloqueXml(b.limpio))) cabs.push(i); });
+  const secciones = [{ tipo: 'texto', cab: null, titulo: '', cuerpo: bloques.slice(0, cabs.length ? cabs[0] : bloques.length) }];
+  cabs.forEach((ic, k) => {
+    const pc = leerParrafo(bloques[ic].limpio), texto = textoDeTokens(pc.tokens);
+    const m = RE_PARTES_CABECERA.exec(texto);
+    secciones.push({ tipo: 'clausula', cab: bloques[ic], pc, textoCab: texto,
+      titulo: (m ? m[4] : tituloClausulaLimpio(texto)).trim(),
+      cuerpo: bloques.slice(ic + 1, k + 1 < cabs.length ? cabs[k + 1] : bloques.length) });
+  });
+  return { secciones, sectPr };
+}
+/* Lo que hace falta saber del Word de destino: su numeración (para estrenar
+   listas) y los párrafos de muestra de los que copia formato lo nuevo. */
+function contextoWord(zip, xml){
+  const parte = zip && zip.file('word/numbering.xml');
+  const numXml = parte ? parte.asText() : '';
+  let max = 0;
+  numXml.replace(/<w:num\b[^>]*w:numId="(\d+)"/g, (m, id) => { max = Math.max(max, +id); return m; });
+  const ctx = { numXml, numsNuevos: [], defsGenericas: false, siguiente: max + 1, modoRepo: false, permitirBorrarFijos: false, renumerar: false,
+    estilos: new Set(), docParts: new Set() };
+  const st = zip && zip.file('word/styles.xml'), gl = zip && zip.file('word/glossary/document.xml');
+  if(st) st.asText().replace(/w:styleId="([^"]+)"/g, (m, id) => { ctx.estilos.add(id); return m; });
+  if(gl) gl.asText().replace(/<w:name w:val="([^"]+)"/g, (m, n) => { ctx.docParts.add(n); return m; });
+  ctx.abstractDe = numId => (new RegExp(`<w:num\\b[^>]*w:numId="${numId}"[^>]*>[\\s\\S]*?<w:abstractNumId w:val="(\\d+)"`).exec(numXml) || [])[1] || null;
+  ctx.tipoNum = (numId, ilvl) => {
+    const abs = ctx.abstractDe(numId); if(abs == null) return '';
+    const a = new RegExp(`<w:abstractNum\\b[^>]*w:abstractNumId="${abs}"[^>]*>([\\s\\S]*?)</w:abstractNum>`).exec(numXml); if(!a) return '';
+    const l = new RegExp(`<w:lvl\\b[^>]*w:ilvl="${ilvl || 0}"[^>]*>([\\s\\S]*?)</w:lvl>`).exec(a[1]);
+    const fmt = l && (/<w:numFmt w:val="([^"]+)"/.exec(l[1]) || [])[1];
+    return fmt === 'bullet' ? 'viñetas' : /Letter/.test(fmt || '') ? 'letras' : fmt ? 'numeros' : '';
+  };
+  // Una lista nueva no continúa la de otra cláusula: estrena un <w:num> que
+  // reinicia en 1, sobre la misma definición (sangrías, viñetas) de su molde.
+  ctx.nuevaNumeracion = (numIdMolde, tipo) => {
+    let abs = numIdMolde ? ctx.abstractDe(numIdMolde) : null;
+    if(abs == null){ ctx.defsGenericas = true; abs = tipo === 'viñetas' ? '9001' : tipo === 'letras' ? '9003' : '9002'; }
+    const id = String(ctx.siguiente++);
+    ctx.numsNuevos.push(`<w:num w:numId="${id}"><w:abstractNumId w:val="${abs}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`);
+    return id;
+  };
+  // Muestras: primero las de las cláusulas, que el encabezado suele ir centrado
+  ctx.moldes = { p: null, li: null, tbl: null, listas: {} };
+  if(xml){
+    const { secciones } = seccionesWord(xml);
+    secciones.slice(1).concat(secciones.slice(0, 1)).forEach(s => unidadesDeBloques(s.cuerpo).unidades.forEach(u => {
+      if(u.bloqueado) return;
+      if(u.tipo === 'p' && !ctx.moldes.p) ctx.moldes.p = u;
+      if(u.tipo === 'li'){
+        if(!ctx.moldes.li) ctx.moldes.li = u;
+        const t = ctx.tipoNum(u.p.num.numId, u.p.num.ilvl);
+        if(t && !ctx.moldes.listas[t]) ctx.moldes.listas[t] = u;
+      }
+    }));
+  }
+  return ctx;
+}
+/* Escribe en numbering.xml las listas que se estrenaron. */
+function aplicarNumeracion(zip, ctx){
+  if(!ctx.numsNuevos.length) return;
+  let nx = ctx.numXml;
+  if(!nx){
+    nx = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering ${W_NS}></w:numbering>`;
+    const ct = zip.file('[Content_Types].xml').asText();
+    if(!/numbering\.xml/.test(ct)) zip.file('[Content_Types].xml', ct.replace('</Types>', '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>'));
+    const rels = zip.file('word/_rels/document.xml.rels').asText();
+    if(!/numbering\.xml/.test(rels)) zip.file('word/_rels/document.xml.rels', rels.replace('</Relationships>', '<Relationship Id="rIdNumEditor" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>'));
+  }
+  const antesDe = re => { const m = re.exec(nx); return m ? m.index : nx.lastIndexOf('</w:numbering>'); };
+  // Las definiciones van antes de las instancias: abstractNum*, num*
+  if(ctx.defsGenericas && !/<w:abstractNum\b[^>]*w:abstractNumId="9002"/.test(nx)){
+    const i = antesDe(/<w:num[\s>]|<w:numIdMacAtCleanup\b/);
+    nx = nx.slice(0, i) + defsNumeracion() + nx.slice(i);
+  }
+  const i = antesDe(/<w:numIdMacAtCleanup\b/);
+  nx = nx.slice(0, i) + ctx.numsNuevos.join('') + nx.slice(i);
+  zip.file('word/numbering.xml', nx);
+  ctx.numXml = nx; ctx.numsNuevos = []; ctx.defsGenericas = false;
+}
+/* Arma el cuerpo nuevo según un plan: lo que va, en orden. Cada paso es
+   { s: n.º de sección del Word (null si es nueva), html: su texto nuevo (null
+   = tal cual), titulo (null = el de siempre) }; el primero es el encabezado. */
+function componerWordXml(xml, plan, ctx){
+  const { secciones, sectPr } = seccionesWord(xml);
+  const abre = /<w:body\b[^>]*>/.exec(xml), cierre = xml.lastIndexOf('</w:body>');
+  const unir = bs => bs.map(b => b.xml).join('');
+  const vecinaDe = k => {
+    for(let q = k - 1; q >= 0; q--){ const s = plan[q].s != null ? secciones[plan[q].s] : null; if(s && s.tipo === 'clausula') return s; }
+    for(let q = k + 1; q < plan.length; q++){ const s = plan[q].s != null ? secciones[plan[q].s] : null; if(s && s.tipo === 'clausula') return s; }
+    return null;
+  };
+  let n = 0, cuerpo = '';
+  plan.forEach((paso, k) => {
+    const sec = paso.s != null ? secciones[paso.s] : null;
+    if(sec && sec.tipo === 'texto'){
+      cuerpo += paso.html == null ? unir(sec.cuerpo) : reconstruirBloques(sec.cuerpo, unidadesDeHtml(paso.html), ctx);
+      return;
+    }
+    n++;
+    const vecina = sec || vecinaDe(k);
+    if(!vecina) throw new Error('el Word no tiene ninguna cláusula de la que copiar el encabezado');
+    const pc = vecina.pc, viejo = vecina.textoCab;
+    let titulo = paso.titulo != null ? String(paso.titulo).trim() : null;
+    if(!sec && titulo && vecina.titulo === vecina.titulo.toUpperCase()) titulo = titulo.toUpperCase();
+    const nuevo = textoCabecera(viejo, n, titulo, ctx.renumerar || !sec);
+    if(sec && nuevo === viejo) cuerpo += sec.cab.xml;
+    else {
+      if(pc.bloqueado) throw new Error(`el encabezado «${recorte(viejo, 50)}» ${pc.bloqueado}; cámbialo en Word`);
+      // Una cláusula nueva copia el encabezado de la vecina, sin sus marcas ni controles
+      cuerpo += reescribirParrafoXml(sec ? pc : { ...pc, ceros: [], grupos: [] }, tokensDeTexto(nuevo), {});
+    }
+    if(sec) cuerpo += paso.html == null ? unir(sec.cuerpo) : reconstruirBloques(sec.cuerpo, unidadesDeHtml(paso.html), ctx);
+    else cuerpo += reconstruirBloques([], unidadesDeHtml(paso.html || ''), ctx, unidadesDeBloques(vecina.cuerpo));
+  });
+  return xml.slice(0, abre.index + abre[0].length) + cuerpo + (sectPr ? sectPr.xml : '') + xml.slice(cierre);
+}
+/* '' si el document.xml nuevo se puede guardar: XML bien formado y, si la
+   plantilla compilaba, que siga compilando. Si no, qué falla. */
+function problemaDeWord(zip, original, xml){
+  try{
+    const d = new DOMParser().parseFromString(xml, 'application/xml');
+    if(d.getElementsByTagName('parsererror').length) return 'el Word resultante no sería válido';
+  }catch(e){ return 'el Word resultante no sería válido'; }
+  if(!errorAlCompilar(zip, original)){
+    const e = errorAlCompilar(zip, xml);
+    if(e) return 'sus {tags} dejarían de funcionar: ' + e;
+  }
+  return '';
+}
+
+/* ---- Lo que ve el editor ---- */
+function htmlDeTokens(p){
+  let h = '', i = 0;
+  const T = p.tokens;
+  while(i < T.length){
+    const t = T[i];
+    if(t.esp){ h += t.t === '\t' ? '<span class="w-tab" contenteditable="false">\t</span>' : t.t === '\n' ? '<br>' : '‑'; i++; continue; }
+    let j = i, txt = '';
+    while(j < T.length && !T[j].esp && T[j].g === t.g && T[j].f.b === t.f.b && T[j].f.i === t.f.i && T[j].f.u === t.f.u){ txt += T[j].t; j++; }
+    let s = esc(txt);
+    if(t.f.u) s = `<u>${s}</u>`;
+    if(t.f.i) s = `<i>${s}</i>`;
+    if(t.f.b) s = `<b>${s}</b>`;
+    if(t.g != null) s = `<span class="w-ctl" title="${p.grupos[t.g].tipo === 'control' ? 'Cuadro combinado del Word. Si cambias este texto, queda fijo.' : 'Vínculo del Word'}">${s}</span>`;
+    h += s; i = j;
+  }
+  return h;
+}
+function htmlDeLista(grupo, ctx){
+  const base = Math.min(...grupo.map(u => +u.p.num.ilvl));
+  let h = '', nivel = -1;
+  const cierres = [];
+  grupo.forEach(u => {
+    const lv = +u.p.num.ilvl - base;
+    while(nivel < lv){
+      nivel++;
+      const t = ctx.tipoNum(u.p.num.numId, base + nivel);
+      h += t === 'viñetas' ? '<ul>' : `<ol${t === 'letras' ? ' style="list-style-type:lower-alpha"' : ''}>`;
+      cierres.push(t === 'viñetas' ? '</ul>' : '</ol>');
+    }
+    while(nivel > lv){ h += cierres.pop(); nivel--; }
+    const a = jcACss(u.p.jc);
+    h += `<li${a ? ` style="text-align:${a}"` : ''}>${htmlDeTokens(u.p)}</li>`;
+  });
+  while(cierres.length) h += cierres.pop();
+  return h;
+}
+function htmlDeTabla(tbl, ctx){
+  return '<table><tbody>' + hijosXml(tbl).filter(h => h.tag === 'w:tr').map(tr => '<tr>' + hijosXml(tr.xml).filter(h => h.tag === 'w:tc').map(tc => {
+    const tcPr = hijosXml(tc.xml).find(h => h.tag === 'w:tcPr');
+    const span = tcPr ? +((/<w:gridSpan w:val="(\d+)"/.exec(tcPr.xml) || [])[1] || 1) : 1;
+    const bloques = hijosXml(tc.xml).filter(h => h.tag !== 'w:tcPr').map(h => ({ tag: h.tag, xml: h.xml, limpio: h.xml }));
+    return `<td${span > 1 ? ` colspan="${span}"` : ''}>${htmlEditableDeBloques(bloques, ctx) || '<br>'}</td>`;
+  }).join('') + '</tr>').join('') + '</tbody></table>';
+}
+/* El HTML con el que se edita un trozo del Word: lo que se puede editar, como
+   texto; lo que no, con candado (y su clave, para reconocerlo al guardar). */
+function htmlEditableDeBloques(bloques, ctx){
+  const { unidades } = unidadesDeBloques(bloques);
+  let h = '', i = 0;
+  while(i < unidades.length){
+    const u = unidades[i];
+    if(u.bloqueado){
+      h += `<div class="w-fijo" contenteditable="false" data-clave="${esc(u.clave)}" title="${esc('Esto se edita en Word: ' + u.bloqueado)}">${esc(recorte(u.texto, 300))}</div>`;
+      i++; continue;
+    }
+    if(u.tipo === 'li'){
+      let j = i;
+      while(j < unidades.length && unidades[j].tipo === 'li' && !unidades[j].bloqueado && unidades[j].p.num.numId === u.p.num.numId) j++;
+      h += htmlDeLista(unidades.slice(i, j), ctx); i = j; continue;
+    }
+    if(u.tipo === 'tbl'){ h += htmlDeTabla(u.limpio, ctx); i++; continue; }
+    const a = jcACss(u.p.jc);
+    h += `<p${a ? ` style="text-align:${a}"` : ''}>${htmlDeTokens(u.p)}</p>`;
+    i++;
+  }
+  return h;
+}
+/* La letra y el tamaño del trozo, para que el editor se parezca al Word. */
+function letraDeWord(zip, bloques){
+  const u = unidadesDeBloques(bloques).unidades.find(x => x.p && !x.bloqueado && x.p.dominante);
+  const estilos = zip.file('word/styles.xml') ? zip.file('word/styles.xml').asText() : '';
+  const defecto = (/<w:rPrDefault>[\s\S]*?<\/w:rPrDefault>/.exec(estilos) || [''])[0];
+  const normal = (/<w:style\b[^>]*w:styleId="Normal"[^>]*>[\s\S]*?<\/w:style>/.exec(estilos) || [''])[0];
+  const tema = zip.file('word/theme/theme1.xml') ? zip.file('word/theme/theme1.xml').asText() : '';
+  const fuente = rpr => {
+    const f = /<w:rFonts\b[^>]*?w:ascii="([^"]+)"/.exec(rpr);
+    if(f) return f[1];
+    const t = /<w:rFonts\b[^>]*?w:asciiTheme="(minor|major)/.exec(rpr);
+    if(t){ const m = new RegExp(`<a:${t[1]}Font>\\s*<a:latin typeface="([^"]+)"`).exec(tema); if(m) return m[1]; }
+    return '';
+  };
+  const tam = rpr => (/<w:sz w:val="(\d+)"/.exec(rpr) || [])[1];
+  const rprs = [u ? u.p.dominante : '', normal, defecto];
+  const f = rprs.map(fuente).find(Boolean) || 'Calibri';
+  const s = rprs.map(tam).find(Boolean) || '22';
+  return `font-family:'${f.replace(/'/g, '')}',Calibri,Arial,sans-serif;font-size:${(+s / 2)}pt`;
+}
+/* ---- «Texto del documento»: el editor en la plantilla Word ---- */
+let edWord = null;          // { pId, k, html, html0, titulo0, letra }: la sección abierta
+const versionesWord = {};   // id de plantilla → versiones anteriores del .docx, para «Deshacer»
+const cacheSecciones = {};  // id → el Word leído por secciones (leerlo en cada dibujo sería lento)
+function seccionesDe(p){
+  const b64 = archivoDocxDe(p); if(!b64) return null;
+  const c = cacheSecciones[p.id];
+  if(c && c.b64 === b64) return c;
+  const zip = new PizZip(b64ABytes(b64)), xml = zip.file('word/document.xml').asText();
+  const d = { b64, zip, xml, ...seccionesWord(xml) };
+  d.secciones.forEach(s => { s.resumen = unidadesDeBloques(s.cuerpo).unidades.map(u => u.texto).join(' '); });
+  cacheSecciones[p.id] = d;
+  return d;
+}
+function toolbarWord(target){
+  const b = (cmd, rot, tit) => `<button onclick="fmtEn('${target}','${cmd}')" title="${tit}">${rot}</button>`;
+  return `<div class="toolbar">
+    ${b('undo','↶','Deshacer')}${b('redo','↷','Rehacer')}<div class="sep"></div>
+    ${b('bold','<b>N</b>','Negrita')}${b('italic','<i>C</i>','Cursiva')}${b('underline','<u>S</u>','Subrayado')}<div class="sep"></div>
+    ${b('justifyLeft','⮜','Alinear a la izquierda')}${b('justifyCenter','↔','Centrar')}${b('justifyFull','☰','Justificar')}<div class="sep"></div>
+    ${b('insertUnorderedList','• Lista','Lista con viñetas')}${b('insertOrderedList','1. Lista','Lista numerada')}
+    <button onclick="sangria('${target}',false)" title="Subir de nivel en la lista">⇤</button><button onclick="sangria('${target}',true)" title="Bajar de nivel en la lista">⇥</button>
+    <div class="sep"></div><button onclick="mayusculas('${target}')" title="Convertir la selección a mayúsculas">AA</button>
+    ${b('removeFormat','✘ Formato','Quitar negrita, cursiva y subrayado de la selección')}
+    <div class="sep"></div><button onclick="abrirModalVariables('${target}')" style="color:var(--azul);font-weight:700" title="Insertar una variable">{ Variable }</button>
+  </div>`;
+}
+function htmlTextoWord(p){
+  let d = null;
+  try{ d = seccionesDe(p); }catch(e){ d = null; }
+  if(!d) return '';
+  const abierta = edWord && edWord.pId === p.id ? edWord.k : -1;
+  const nCl = d.secciones.length - 1;
+  let n = 0;
+  const tarjetas = d.secciones.map((s, k) => {
+    const esCl = s.tipo === 'clausula';
+    const insignia = esCl ? `<span class="eb-num cl">${ORDINALES[n++] || n + '.ª'}<small>CLÁUSULA</small></span>` : '<span class="eb-num tx">Inicio<small>TEXTO</small></span>';
+    const titulo = esCl ? s.titulo : (nCl ? 'Antes de la primera cláusula' : 'Todo el documento');
+    if(k === abierta){
+      return `<div class="eb abierto">
+        <div class="eb-cab">${insignia}${esCl ? `<input class="eb-tit" id="ew-titulo" value="${esc(s.titulo)}" placeholder="Nombre de la cláusula">` : `<span class="ew-tit">${esc(titulo)}</span>`}</div>
+        ${toolbarWord('editor')}
+        <div id="editor" class="ed-word" contenteditable="true" style="${edWord.letra}">${edWord.html}</div>
+        <div class="ew-acc">
+          <button class="btn" onclick="guardarSeccionWord()">💾 Guardar en el Word</button>
+          <button class="btn sec" onclick="verPreviaWord()">👁 Ver cómo queda</button>
+          <button class="btn sec" onclick="cancelarSeccionWord()">Cancelar</button>
+          <span class="nota">Se guarda con el formato de este Word: solo cambia lo que tocas. Lo que lleva 🔒 se edita en Word.</span>
+        </div>
+      </div>`;
+    }
+    return `<div class="eb">
+      <div class="eb-cab">
+        ${esCl ? `<span class="eb-mov"><button class="ic" title="Subir" onclick="moverSeccionWord(${k},-1)" ${k <= 1 ? 'disabled' : ''}>▲</button><button class="ic" title="Bajar" onclick="moverSeccionWord(${k},1)" ${k >= nCl ? 'disabled' : ''}>▼</button></span>` : ''}
+        ${insignia}<span class="ew-tit">${esc(titulo)}</span>
+        <button class="btn sec mini" onclick="abrirSeccionWord(${k})">✎ Editar</button>
+        ${esCl ? `<button class="btn peligro mini" onclick="quitarSeccionWord(${k})" title="Quitar esta cláusula del Word">✕</button>` : ''}
+      </div>
+      <div class="eb-prev" title="Doble clic para editar" ondblclick="abrirSeccionWord(${k})">${esc(recorte(s.resumen, 220)) || '‹vacío›'}</div>
+    </div>`;
+  }).join('');
+  const deshacer = (versionesWord[p.id] || []).length;
+  return `<div class="card ew">
+    <h3>✎ Texto del documento</h3>
+    <p class="ew-ayuda">Edita aquí cualquier parte: se guarda <b>en este Word, con su formato</b>, y solo cambia lo que tocas. Si la misma cláusula está igual en otras plantillas Word o en el repositorio, te ofrezco llevar el cambio.</p>
+    <div class="eb-lista">${tarjetas}</div>
+    <div class="eb-add ew-pie">
+      ${nCl ? `<button class="btn mini" onclick="agregarClausulaWordRepo()" title="Añadir una cláusula del repositorio, con el formato de este Word">🔗 Cláusula del repositorio</button>
+      <button class="btn sec mini" onclick="agregarClausulaWordNueva()">＋ Cláusula nueva</button>` : ''}
+      <button class="btn sec mini" onclick="verPreviaWord()">👁 Ver el Word</button>
+      ${deshacer ? `<button class="btn sec mini" onclick="deshacerWord()" title="Vuelve el Word a como estaba antes del último cambio hecho aquí">↶ Deshacer el último cambio</button>` : ''}
+    </div>
+  </div>`;
+}
+function seccionWordCambiada(){
+  if(!edWord) return false;
+  const ed = document.getElementById('editor'), ti = document.getElementById('ew-titulo');
+  return !!ed && (ed.innerHTML !== edWord.html0 || (!!ti && ti.value.trim() !== edWord.titulo0));
+}
+function abrirSeccionWord(k){
+  const p = plActual(); if(!p) return;
+  if(edWord && edWord.pId === p.id && edWord.k !== k && seccionWordCambiada()
+    && !confirm('La sección abierta tiene cambios sin guardar. ¿Descartarlos y abrir esta?')) return;
+  const d = seccionesDe(p), s = d && d.secciones[k]; if(!s) return;
+  const ctx = contextoWord(d.zip, d.xml);
+  edWord = { pId: p.id, k, html: htmlEditableDeBloques(s.cuerpo, ctx) || '<p><br></p>', titulo0: s.titulo, letra: letraDeWord(d.zip, s.cuerpo) };
+  renderContenido();
+  const ed = document.getElementById('editor');
+  if(ed){
+    edWord.html0 = ed.innerHTML;   // como lo dejó el navegador: para saber si cambió
+    ed.focus({ preventScroll: true });
+    if(ed.scrollIntoView) ed.scrollIntoView({ block: 'nearest' });
+  }
+}
+function cancelarSeccionWord(){
+  if(seccionWordCambiada() && !confirm('¿Descartar los cambios de esta sección?')) return;
+  edWord = null; renderContenido();
+}
+/* El plan del Word con la sección abierta tal como está en el editor; null si no cambió. */
+function planConEdicion(d){
+  if(!edWord || !seccionWordCambiada()) return null;
+  const ed = document.getElementById('editor'), ti = document.getElementById('ew-titulo');
+  const plan = d.secciones.map((s, i) => ({ s: i }));
+  if(ed.innerHTML !== edWord.html0) plan[edWord.k].html = ed.innerHTML;
+  const t = ti ? ti.value.trim() : '';
+  if(ti && t && t !== edWord.titulo0) plan[edWord.k].titulo = t;
+  return plan;
+}
+async function guardarSeccionWord(){
+  const p = plActual(); if(!p || !edWord) return false;
+  const d = seccionesDe(p), plan = planConEdicion(d);
+  if(!plan){ edWord = null; renderContenido(); return true; }
+  const s = d.secciones[edWord.k];
+  const nombre = s.tipo === 'clausula' ? `«${plan[edWord.k].titulo || s.titulo}»` : 'El texto';
+  return aplicarPlanWord(p, plan, { aviso: `✓ ${nombre} guardado en el Word, con su formato.` });
+}
+/* Aplica un plan al Word de la plantilla y lo guarda como versión nueva. Si el
+   resultado no abriría o dejaría de compilar, no se guarda nada. */
+function componerWordB64(p, plan, op){
+  const zip = new PizZip(b64ABytes(archivoDocxDe(p))), xml = zip.file('word/document.xml').asText();
+  const ctx = contextoWord(zip, xml);
+  ctx.permitirBorrarFijos = true;
+  ctx.renumerar = !!(op && op.renumerar);
+  const nuevo = componerWordXml(xml, plan, ctx);
+  const problema = problemaDeWord(zip, xml, nuevo);
+  if(problema) throw new Error(problema);
+  aplicarNumeracion(zip, ctx);
+  zip.file('word/document.xml', nuevo);
+  return zip.generate({ type: 'base64', compression: 'DEFLATE' });
+}
+async function aplicarPlanWord(p, plan, op){
+  op = op || {};
+  let b64;
+  try{ b64 = componerWordB64(p, plan, op); }
+  catch(e){ alert(`No se guardó: ${e.message}.\n\nEl Word quedó como estaba.`); return false; }
+  const pila = versionesWord[p.id] = versionesWord[p.id] || [];
+  pila.push(archivoDocxDe(p));
+  if(pila.length > 20) pila.shift();
+  edWord = null;
+  await recibirVersionDocx(p, b64, op.aviso);
+  return true;
+}
+const planIdentidad = d => d.secciones.map((s, i) => ({ s: i }));
+function soltarEdicionWord(){
+  if(seccionWordCambiada() && !confirm('La sección abierta tiene cambios sin guardar. ¿Descartarlos?')) return false;
+  edWord = null; return true;
+}
+function moverSeccionWord(k, dir){
+  const p = plActual(); if(!p || !soltarEdicionWord()) return;
+  const d = seccionesDe(p), j = k + dir;
+  if(j < 1 || j >= d.secciones.length) return;
+  const plan = planIdentidad(d);
+  [plan[k], plan[j]] = [plan[j], plan[k]];
+  aplicarPlanWord(p, plan, { renumerar: true, aviso: '✓ Cláusula movida. Los encabezados se renumeraron.' });
+}
+function quitarSeccionWord(k){
+  const p = plActual(); if(!p || !soltarEdicionWord()) return;
+  const d = seccionesDe(p), s = d.secciones[k];
+  if(!s || !confirm(`¿Quitar la cláusula «${s.titulo}» de este Word?\n\nLas demás se renumeran. Puedes deshacerlo.`)) return;
+  const plan = planIdentidad(d).filter((x, i) => i !== k);
+  aplicarPlanWord(p, plan, { renumerar: true, aviso: `✓ Cláusula «${s.titulo}» quitada. Los encabezados se renumeraron.` });
+}
+/* Una cláusula nueva entra antes de la última: tras la última suelen venir las firmas. */
+async function insertarSeccionWord(titulo, html){
+  const p = plActual(); if(!p) return;
+  const d = seccionesDe(p), nCl = d.secciones.length - 1;
+  const pos = nCl >= 2 ? nCl : nCl + 1;
+  const plan = planIdentidad(d);
+  plan.splice(pos, 0, { s: null, titulo, html });
+  if(await aplicarPlanWord(p, plan, { renumerar: true, aviso: `✓ Cláusula «${titulo}» añadida al Word, con su formato. Muévela con ▲▼.` })) abrirSeccionWord(pos);
+}
+async function agregarClausulaWordNueva(){
+  if(!soltarEdicionWord()) return;
+  const r = await pedirDatos({
+    titulo: 'Cláusula nueva en el Word', ok: 'Añadir',
+    ayuda: 'Entra antes de la última cláusula, con el formato de las demás y numerada en su sitio. Después escribes su texto y la mueves con ▲▼.',
+    campos: [{ nombre: 'titulo', etiqueta: 'Nombre de la cláusula', ejemplo: 'GARANTÍAS' }],
+    validar: v => v.titulo ? '' : 'Ponle un nombre a la cláusula.'
+  });
+  if(r) insertarSeccionWord(r.titulo, '<p>Redacta aquí el texto de la cláusula.</p>');
+}
+function agregarClausulaWordRepo(){
+  if(!soltarEdicionWord()) return;
+  modoClausula = { tipo: 'wordNueva' };
+  abrirPickerClausula();
+}
+async function deshacerWord(){
+  const p = plActual(), pila = p && versionesWord[p.id];
+  if(!pila || !pila.length) return;
+  edWord = null;
+  await reemplazarDocx(p, pila.pop());
+  renderContenido();
+  avisar('↶ El Word volvió a como estaba antes del último cambio.');
+}
+/* El Word pintado como Word (docx-preview), con la sección abierta tal como
+   está en el editor aunque no se haya guardado. */
+async function verPreviaWord(){
+  const p = plActual(); if(!p) return;
+  const d = seccionesDe(p);
+  let b64 = archivoDocxDe(p), titulo = 'Así está el Word';
+  const plan = planConEdicion(d);
+  const buscar = edWord ? (d.secciones[edWord.k].titulo || '') : '';
+  if(plan){
+    try{ b64 = componerWordB64(p, plan, {}); titulo = 'Así quedaría el Word (aún sin guardar)'; }
+    catch(e){ alert(`No se puede mostrar: ${e.message}.`); return; }
+  }
+  abrirModal(`<div class="m-cab"><h3>${titulo}</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo"><div id="ew-previa" class="ew-previa">Preparando la vista…</div></div>`);
+  document.getElementById('modal').classList.add('ancho');
+  const el = document.getElementById('ew-previa');
+  if(!(window.docx && window.docx.renderAsync)){ el.textContent = 'La vista previa no está disponible; el Word se guarda igual.'; return; }
+  try{
+    el.innerHTML = '';
+    await window.docx.renderAsync(new Blob([b64ABytes(b64)]), el, null, { inWrapper: true, ignoreLastRenderedPageBreak: true, breakPages: true, experimental: true });
+    const destino = buscar && Array.from(el.querySelectorAll('p')).find(x => (x.textContent || '').includes(buscar));
+    if(destino && destino.scrollIntoView) destino.scrollIntoView({ block: 'start' });
+  }catch(e){ el.textContent = 'No se pudo dibujar la vista previa: ' + e.message; }
 }
 /* Texto plano del .docx (cuerpo + encabezados + pies), uniendo los runs para
    ver los tags completos aunque Word los parta. Acepta las revisiones primero. */
@@ -16963,11 +18496,7 @@ function subirVersionDocx(ev){
     const b64 = String(reader.result).split(',')[1];
     try{ new PizZip(b64ABytes(b64)); }
     catch(e){ alert('El archivo no parece un .docx válido.'); ev.target.value=''; return; }
-    p.archivoB64 = b64; delete p.seedKey; delete cacheEstructura[p.id];
-    // La versión nueva reemplaza a la anterior en IndexedDB antes de guardar.
-    blobsEnIdb.delete(p.id);
-    p.actualizado = hoy();
-    guardarTrasRespaldar(p.id, 'pl_' + p.id, b64).then(renderContenido);
+    recibirVersionDocx(p, b64);
   };
   reader.readAsDataURL(file);
   ev.target.value = '';
@@ -17635,6 +19164,7 @@ function abrirModal(html){
   // Si el modal ya estaba abierto, es un re-dibujo (p. ej. tras guardar un
   // grupo): se conserva el scroll de su cuerpo para no saltar al inicio.
   const yaAbierto = fondo.classList.contains('abierto');
+  m.classList.remove('ancho');
   const cuerpoPrev = yaAbierto ? m.querySelector('.m-cuerpo') : null;
   const top = cuerpoPrev ? cuerpoPrev.scrollTop : 0;
   m.innerHTML = html;
@@ -17929,6 +19459,10 @@ function renderEditar(c, p){
       <div class="campo"><label>Carpeta</label><div class="carpeta-actual">📁 ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
       <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
+    ${(() => {
+      const w = p.origenId && plantillas.find(x => x.id === p.origenId && x.tipo === 'docx');
+      return w ? `<div class="aviso-tags" style="background:var(--azul-claro);border-left-color:var(--azul);color:var(--texto);margin-bottom:12px"><b>Esta composición viene de «${esc(w.nombre)}».</b> Lo que generes desde aquí sale con el formato institucional, no con el del Word. Para editar el texto y que salga <b>con el formato del Word</b>, edítalo en el propio Word, en «Texto del documento». <button class="btn mini" style="margin-left:6px" onclick="seleccionar('${w.id}');cambiarTab('editar')">Abrir «${esc(w.nombre)}»</button></div>` : '';
+    })()}
     <div class="eb-barra">
       <span class="eb-hint">La plantilla es una lista de bloques. Arrastra el orden con ▲▼, edita cada uno con ✎. Las cláusulas se numeran solas (PRIMERA, SEGUNDA…) según su orden.</span>
       <div class="eb-add">
@@ -18033,6 +19567,12 @@ function vincularBloque(id){
 function elegirClausula(clId, varId){
   const m = modoClausula || { tipo:'insertar' };
   if(m.tipo === 'insertar'){ insertarClausulaEnDoc(clId, varId); return; }
+  if(m.tipo === 'wordNueva'){
+    modoClausula = null; cerrarModal();
+    const r = buscarVariante(clId, varId);
+    if(r) insertarSeccionWord(r.cl.nombre, r.v.cuerpo);
+    return;
+  }
   const p = plActual();
   let idNuevo = null;
   if(p && m.tipo === 'bloqueNuevo'){
@@ -18569,7 +20109,8 @@ function abrirModalClausulas(target){
   abrirPickerClausula();
 }
 function abrirPickerClausula(){
-  const titulo = modoClausula && modoClausula.tipo === 'bloqueNuevo' ? '🔗 Añadir cláusula del repositorio como bloque'
+  const titulo = modoClausula && modoClausula.tipo === 'wordNueva' ? '🔗 Añadir al Word una cláusula del repositorio'
+    : modoClausula && modoClausula.tipo === 'bloqueNuevo' ? '🔗 Añadir cláusula del repositorio como bloque'
     : modoClausula && modoClausula.tipo === 'bloqueVincular' ? '🔗 Vincular el bloque a una cláusula'
     : '📋 Insertar cláusula del repositorio';
   abrirModal(`
@@ -18869,6 +20410,7 @@ async function nuevaVariante(clId){
 }
 function guardarVariante(){
   const act = varianteActual(); if(!act) return;
+  const antes = act.v.cuerpo;
   act.v.nombre = document.getElementById('rep-var-nombre').value.trim() || act.v.nombre;
   act.v.cuerpo = document.getElementById('rep-editor').innerHTML;
   guardar();
@@ -18885,6 +20427,8 @@ function guardarVariante(){
   }
   // Cláusulas insertadas a mano (copias .cl-vinc del modo anterior) — con diálogo.
   sincronizarClausulaEnPlantillas(act.cl, act.v);
+  // Y las plantillas Word que tienen el texto anterior, cada una con su formato
+  ofrecerVarianteAWords(act.cl, antes, act.v.cuerpo);
 }
 function duplicarVariante(){
   const act = varianteActual(); if(!act) return;
@@ -18915,8 +20459,8 @@ function guardarPlantilla(){
   p.nombre = document.getElementById('ed-nombre').value.trim() || 'Sin título';
   p.descripcion = document.getElementById('ed-desc').value.trim();
   if(p.tipo === 'docx'){
-    const ed = document.getElementById('editor');
-    if(ed) p.cuerpo = ed.innerHTML;
+    // Con una sección del Word abierta, «Guardar» la guarda en el Word
+    if(edWord && edWord.pId === p.id){ if(seccionWordCambiada()) guardarSeccionWord(); else edWord = null; }
   } else {
     commitBloqueAbierto(p);   // vuelca el bloque abierto y reensambla p.cuerpo con numeración
   }
@@ -18937,6 +20481,7 @@ function renderEditarDocx(c, p){
       <div class="campo"><label>Carpeta</label><div class="carpeta-actual">📁 ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
       <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
+    ${htmlTextoWord(p)}
     ${revisiones ? `<div class="aviso-tags" style="background:var(--azul-claro);border-left-color:var(--azul);color:var(--texto)"><b>ℹ Esta plantilla tiene «Control de cambios» activo en Word.</b><p style="margin:6px 0 0">La herramienta usa el <b>texto final</b> (acepta las revisiones automáticamente), así los tags se leen y se rellenan bien. <b>Recomendación:</b> en Word ve a <i>Revisar → Aceptar todos los cambios</i> y <i>Revisar → Control de cambios (desactivar)</i>, y vuelve a subir la plantilla, para evitar confusiones.</p></div>` : ''}
     ${problemas.length ? avisoTagsHTML(problemas) : ''}
     <div class="card">
@@ -18948,12 +20493,13 @@ function renderEditarDocx(c, p){
         <input type="file" id="docx-upd" accept=".docx" style="display:none" onchange="subirVersionDocx(event)">
       </div>
       <div class="nota" style="margin-top:8px">Flujo: descarga → edita en Word (agrega o mueve {tags} donde quieras) → sube la versión nueva. Los datos capturados no se pierden.</div>
+      <div class="nota" style="margin-top:6px"><b>Mejora una cláusula una sola vez.</b> Al subir la versión nueva (o al guardar en «Texto del documento»), te muestro qué cláusulas cambiaste y te ofrezco llevar el cambio a las demás plantillas Word que tenían el mismo texto y al repositorio de cláusulas.</div>
     </div>
     <div class="card" style="margin-top:12px;border:1px solid var(--verde-mark, #9BC53D)">
-      <h3>🔗 Convertir en composición editable (indexar cláusulas)</h3>
-      <p style="font-size:13px;line-height:1.6;margin-bottom:10px">Extrae el texto de este Word, lo parte en <b>cláusulas</b> y las <b>conecta al repositorio</b>. Si otra plantilla comparte una cláusula, quedan enlazadas: <b>editas la cláusula una vez y se actualiza en todas</b>. Se crea una plantilla nueva (composición); esta plantilla Word y el generador no se tocan.</p>
-      <button class="btn" onclick="importarDocxAComposicion(plActual())">🔗 Importar como composición e indexar cláusulas</button>
-      <div class="nota" style="margin-top:8px">Al generar, la composición usa el formato institucional (Titillium, papel membretado). Las cláusulas que edites cambian a ese formato; el texto y la estructura se conservan.</div>
+      <h3>🔗 Indexar sus cláusulas en el repositorio</h3>
+      <p style="font-size:13px;line-height:1.6;margin-bottom:10px">Extrae el texto de este Word, lo parte en <b>cláusulas</b> y las guarda en el <b>repositorio</b>, para insertarlas en otros documentos. También crea una <b>composición</b>: una copia editable aquí mismo. Esta plantilla Word no se toca, y sigue siendo la que manda: cuando la mejores en Word y la subas, el repositorio y la composición se ponen al día.</p>
+      <button class="btn" onclick="importarDocxAComposicion(plActual())">🔗 Indexar cláusulas${composicionDe(p) ? ' de nuevo' : ''}</button>
+      <div class="nota" style="margin-top:8px">La composición se genera con el formato institucional (Titillium, papel membretado), no con el de este Word. Para cambiar el texto y conservar el formato, usa «Texto del documento», arriba.</div>
     </div>
     <div class="card" style="margin-top:12px">
       <h3>Tags detectados en el Word</h3>

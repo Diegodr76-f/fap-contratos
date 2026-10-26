@@ -72,6 +72,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: node scripts/probar_clm.js
 
+      - name: Instrumentos edita y lleva cláusulas de un Word a otro sin romperlo
+        if: ${{ !cancelled() }}
+        run: node scripts/probar_instrumentos.js
+
       # La skill lleva su propia copia del catálogo y del script, porque fuera de
       # este repositorio no hay ninguno de los dos. Dos copias en el mismo árbol
       # se desincronizan solas; esto lo hace imposible. Un enlace simbólico no
