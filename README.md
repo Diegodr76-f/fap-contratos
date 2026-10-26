@@ -719,10 +719,11 @@ nada.
   que las demás herramientas no tienen: un **repositorio de cláusulas** con variantes vinculadas,
   **grupos de concordancia** como dato (una elección gobierna varias palabras a la vez) y la
   marca de **campo obligatorio**, que impide descargar un documento al que le falta un dato
-  esencial. Toma los datos del registro de contratos y genera en lote. Las plantillas se mejoran
-  en Word: al subir la versión editada, la herramienta muestra qué cláusulas cambiaron y ofrece
-  llevar la mejora, con su formato, a las demás plantillas Word que tenían el mismo texto y al
-  repositorio de cláusulas.
+  esencial. Toma los datos del registro de contratos y genera en lote. El texto de una plantilla
+  Word se edita en la propia herramienta («Texto del documento»), cláusula por cláusula, y se
+  guarda en el Word con su formato: solo cambia lo que se toca. Al guardar —o al subir una
+  versión editada en Word, o al cambiar una cláusula del repositorio— ofrece llevar el cambio a
+  las demás plantillas Word que tenían el mismo texto, cada una con su formato.
 
 ## URL pública
 

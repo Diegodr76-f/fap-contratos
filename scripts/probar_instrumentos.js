@@ -1,10 +1,11 @@
 /*
  * Comprobaciones del Generador de Instrumentos (instrumentos/index.html).
  *
- * Cubren el traspaso de cláusulas: al subir la versión mejorada de una
- * plantilla Word, la herramienta detecta qué cláusulas cambiaron y ofrece
- * llevar la mejora a las demás plantillas Word que tenían el mismo texto y al
- * repositorio de cláusulas. Es la parte que reescribe el XML de un Word ajeno,
+ * Cubren las dos piezas que reescriben el XML de un Word: «Texto del
+ * documento», que edita una plantilla Word en la propia herramienta y guarda
+ * solo lo que cambió con el formato del Word, y el traspaso de cláusulas, que
+ * lleva un cambio —hecho aquí, en Word o en el repositorio— a las demás
+ * plantillas Word que tenían el mismo texto. Como es la parte que reescribe XML,
  * así que se prueba con una plantilla de verdad —el acta de terminación del
  * CRM, que trae listas numeradas, tablas, comentarios y control de cambios— y
  * lo que sale se pasa por scripts/validar_docx.py, que es lo que dice si Word
@@ -177,6 +178,8 @@ function validarConPython(b64, nombre){
 
   seccion('7. Llevar la mejora');
   const antesC = pC.archivoB64, antesD = pD.archivoB64, xmlBAntes = xmlDe(pB.archivoB64);
+  const idsDe = b64 => xmlDe(b64).match(/<w:id w:val="-?\d+"\/>/g) || [];
+  const idsAntes = new Map([[pB, idsDe(pB.archivoB64)], [fabrica, idsDe(SEED)], [pE, idsDe(E5)], [pF, idsDe(F)]]);
   await w.aplicarTraspaso();
   ok(/Mejora llevada/.test(modal.textContent), 'confirma lo que hizo', modal.textContent.slice(0, 200));
   const nuevasA = w.clausulasXml(xmlDe(A1));
@@ -190,8 +193,11 @@ function validarConPython(b64, nombre){
       doc.render({ contratoNro: 'FIAS-FAP-2026-001' });
     }catch(e){ error = e.message; }
     ok(!error, `${p.nombre}: se sigue rellenando`, error);
-    const ids = (xmlDe(b64).match(/<w:id w:val="-?\d+"\/>/g) || []);
-    ok(ids.length > 10 && new Set(ids).size === ids.length, `${p.nombre}: ningún cuadro combinado repite id`, `${ids.length} ids, ${new Set(ids).size} distintos`);
+    // El cambio se aplica sobre los párrafos de cada plantilla: sus cuadros
+    // combinados siguen siendo los suyos, con sus ids (también los de F, que
+    // ya traía uno repetido y no es cosa de este cambio arreglarlo).
+    const ids = idsDe(b64);
+    ok(ids.length > 10 && ids.join() === idsAntes.get(p).join(), `${p.nombre}: sus cuadros combinados siguen siendo los suyos`, `${ids.length} ids`);
     const v = validarConPython(b64, p.nombre.replace(/\W+/g, '_'));
     if(v.saltada) console.log('  · (sin python3: no se pasó por validar_docx.py)');
     else ok(v.ok, `${p.nombre}: validar_docx.py dice que Word lo abre`, v.salida.trim().split('\n').slice(-4).join(' | '));
@@ -212,7 +218,10 @@ function validarConPython(b64, nombre){
   const ultima = cambiadas[cambiadas.length - 1];
   ok(xmlB.slice(ahoraCl[ultima].fin) === xmlBAntes.slice(antesCl[ultima].fin), 'todo lo posterior a la última, también');
   ok(w.clausulasXml(xmlB).every((c, i) => c.titulo === antesCl[i].titulo), 'cada plantilla conserva sus encabezados de cláusula');
-  ok(!/w14:paraId/.test(xmlB.slice(ahoraCl[5].ini, ahoraCl[5].fin)), 'lo pegado no trae ids del otro archivo');
+  // Solo cambia el párrafo tocado: en la SÉPTIMA cambió un punto de cuatro
+  const septimaAntes = antesCl[6].cuerpo.map(b => b.xml), septimaAhora = ahoraCl[6].cuerpo.map(b => b.xml);
+  ok(septimaAhora.length === septimaAntes.length && septimaAhora.filter(x => septimaAntes.includes(x)).length === septimaAntes.length - 1,
+    'en la cláusula cambiada, los párrafos que no se tocaron quedan byte por byte', `${septimaAhora.filter(x => septimaAntes.includes(x)).length}/${septimaAntes.length}`);
   // Las listas de E apuntan a SU numeración, no a la del Word de origen
   const septimaE = w.clausulasXml(xmlDe(pE.archivoB64))[6];
   const idsE = w.numIdsDe(septimaE.cuerpo.map(b => b.xml).join(''));
@@ -232,12 +241,19 @@ function validarConPython(b64, nombre){
   ok(xmlDe(pAct.archivoB64) === xmlDe(A1), 'el Word que se subió se queda con su versión nueva');
 
   seccion('9. Lo que no se puede, no se hace');
-  // Una versión que añade una lista nueva a la cláusula: el destino no tiene con qué numerarla
+  // Una versión que añade una lista a una cláusula que no tenía: en el destino
+  // estrena su propia numeración, en vez de continuar la de otra cláusula
   const conLista = conXml(SEED, x => reemplazarUna(x, '>Con la suscripción del presente instrumento,', '>Con la suscripción del presente instrumento,</w:t></w:r></w:p><w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="77"/></w:numPr></w:pPr><w:r><w:t>Un punto nuevo.</w:t></w:r></w:p><w:p><w:r><w:t>'));
   const cLista = w.cambiosDeClausulas(xmlActa, xmlDe(conLista)).find(c => c.titulo === 'EXTINCIÓN DE OBLIGACIONES');
-  const destB = w.clausulasXml(xmlDe(pB.archivoB64))[5];
-  const rLista = w.pegarClausulaXml(xmlDe(pB.archivoB64), destB, cLista);
-  ok(rLista.error && /lista numerada/.test(rLista.error), 'una lista que el destino no tiene se rechaza con su razón', rLista.error);
+  const zB = new PizZip(Buffer.from(pB.archivoB64, 'base64')), xB = zB.file('word/document.xml').asText();
+  const ctxB = w.contextoWord(zB, xB);
+  const rLista = w.pegarClausulaXml(xB, w.clausulasXml(xB)[5], cLista, ctxB);
+  ok(rLista.xml && ctxB.numsNuevos.length === 1 && /w:startOverride w:val="1"/.test(ctxB.numsNuevos[0]), 'una lista nueva en el destino estrena su numeración, que empieza en 1', rLista.error);
+  // Un párrafo con imagen que cambió no se puede reescribir: lo dice, y no toca nada
+  const cImagen = w.cambiosDeClausulas(xmlActa, xmlDe(A1)).find(c => c.titulo === 'EXTINCIÓN DE OBLIGACIONES');
+  const zD = new PizZip(Buffer.from(D, 'base64')), xD = zD.file('word/document.xml').asText();
+  const rImagen = w.pegarClausulaXml(xD, w.clausulasXml(xD)[5], cImagen, w.contextoWord(zD, xD));
+  ok(rImagen.error && /imágenes/.test(rImagen.error), 'un párrafo con imagen que cambió se rechaza con su razón', rImagen.error);
   // Una versión cuyo texto rompería los {tags} del destino
   const roto = conXml(SEED, x => reemplazarUna(x, '>Con la suscripción del presente instrumento,', '>Con la suscripción {del presente instrumento,'));
   const cRoto = w.cambiosDeClausulas(xmlActa, xmlDe(roto)).find(c => c.titulo === 'EXTINCIÓN DE OBLIGACIONES');
@@ -249,6 +265,147 @@ function validarConPython(b64, nombre){
   await w.recibirVersionDocx(pB, pB.archivoB64);
   ok(!w.document.getElementById('modal-fondo').classList.contains('abierto'), 'no abre el aviso');
   ok(/Versión nueva guardada/.test((w.document.getElementById('toast') || {}).textContent || ''), 'avisa que se guardó');
+
+
+  seccion('11. Abrir una sección en el editor y guardarla sin tocar deja el Word igual');
+  // Todas las plantillas del repositorio: si el ida y vuelta cambiara algo, cada
+  // «Guardar» reescribiría párrafos que nadie tocó.
+  const todas = { 'acta (instrumentos)': SEED, 'adenda (instrumentos)': w.__DOCX_SEEDS__.informe_adenda };
+  for(const dir of ['generador/plantillas', 'crm/plantillas'])
+    fs.readdirSync(path.join(RAIZ, dir)).filter(f => f.endsWith('.docx')).forEach(f => { todas[dir + '/' + f] = fs.readFileSync(path.join(RAIZ, dir, f)).toString('base64'); });
+  const malas = [];
+  for(const [nombre, b64] of Object.entries(todas)){
+    const zip = new PizZip(Buffer.from(b64, 'base64')), xml = zip.file('word/document.xml').asText();
+    const ctx = w.contextoWord(zip, xml);
+    const plan = w.seccionesWord(xml).secciones.map((s, i) => {
+      const div = w.document.createElement('div');
+      div.innerHTML = w.htmlEditableDeBloques(s.cuerpo, ctx);   // como lo deja el navegador
+      return { s: i, html: div.innerHTML };
+    });
+    try{
+      const cuerpo = x => w.bloquesCuerpoXml(x).map(b => b.xml).join('');
+      if(cuerpo(w.componerWordXml(xml, plan, ctx)) !== cuerpo(xml)) malas.push(nombre);
+    }catch(e){ malas.push(nombre + ' (' + e.message + ')'); }
+  }
+  ok(!malas.length, `las ${Object.keys(todas).length} plantillas Word del repositorio salen byte por byte iguales`, malas.join(', '));
+
+  seccion('12. «Texto del documento»: editar una cláusula aquí');
+  w.cerrarModal();
+  const pG = w.__nuevaDocx('Contrato G (Word)', SEED);
+  const pH = w.__nuevaDocx('Contrato H (Word)', SEED);
+  w.seleccionar(pG.id); w.cambiarTab('editar');
+  const tarjetas = w.document.querySelectorAll('.ew .eb');
+  ok(tarjetas.length === 10, 'la plantilla Word muestra su texto por secciones: el inicio y sus 9 cláusulas', tarjetas.length);
+  w.abrirSeccionWord(6);
+  let ed = w.document.getElementById('editor');
+  ok(ed && ed.classList.contains('ed-word') && /Titillium/.test(ed.getAttribute('style')), 'abre la SEXTA en el editor con la letra de ese Word', ed && ed.getAttribute('style'));
+  ok(ed && !/\{\{/.test(ed.innerHTML) && /\{contratoNro\}/.test(ed.innerHTML), 'los {tags} se ven como en el Word');
+  const seccionesG = b64 => w.seccionesWord(xmlDe(b64)).secciones.map(s => (s.cab ? s.cab.xml : '') + s.cuerpo.map(b => b.xml).join(''));
+  const antesG = seccionesG(pG.archivoB64);
+  ed.innerHTML = ed.innerHTML.replace('Con la suscripción del presente instrumento', 'Con la firma del presente instrumento');
+  await w.guardarSeccionWord();
+  const ahoraG = seccionesG(pG.archivoB64);
+  ok(/Con la firma del presente instrumento/.test(ahoraG[6]) && !/Con la suscripción del presente/.test(ahoraG[6]), 'el cambio queda en el Word');
+  ok(ahoraG.every((x, i) => i === 6 || x === antesG[i]), 'las demás secciones quedan byte por byte');
+  const vG = validarConPython(pG.archivoB64, 'editor_G');
+  if(!vG.saltada) ok(vG.ok, 'validar_docx.py dice que Word lo abre', vG.salida.trim().split('\n').slice(-3).join(' | '));
+  ok(!w.document.getElementById('editor'), 'al guardar se cierra el editor');
+  ok(/Cambiaste una cláusula/.test(modal.textContent) && caja(pH, 0) && !caja(pH, 0).disabled, 'y ofrece llevar el cambio a las otras plantillas Word con el mismo texto');
+  modal.querySelectorAll('.tr-op input').forEach(i => { if(i.dataset.pl !== pH.id) i.checked = false; });
+  await w.aplicarTraspaso();
+  ok(/Con la firma del presente instrumento/.test(seccionesG(pH.archivoB64)[6]), 'la otra plantilla recibe el cambio');
+  w.cerrarModal();
+  w.abrirSeccionWord(6);
+  ed = w.document.getElementById('editor');
+  ed.innerHTML = ed.innerHTML.replace('cabal cumplimiento', '<b>cabal cumplimiento</b>');
+  await w.guardarSeccionWord();
+  const runCabal = (seccionesG(pG.archivoB64)[6].match(/<w:r>(?:(?!<\/w:r>).)*>cabal<(?:(?!<\/w:r>).)*<\/w:r>/) || [''])[0];
+  ok(/<w:rFonts[^>]*\/><w:b\/><w:sz /.test(runCabal), 'la negrita del editor llega al Word, en el orden que exige el esquema', runCabal);
+  w.cerrarModal();
+  await w.deshacerWord();
+  await w.deshacerWord();
+  ok(xmlDe(pG.archivoB64) === xmlDe(SEED), '«Deshacer» devuelve el Word a como estaba, paso a paso');
+
+  seccion('13. Mover, quitar y añadir cláusulas');
+  const titulos = b64 => w.seccionesWord(xmlDe(b64)).secciones.slice(1).map(s => s.textoCab);
+  w.moverSeccionWord(6, 1);
+  await espera(50);
+  let t = titulos(pG.archivoB64);
+  ok(t[5] === 'CLÁUSULA SEXTA: DOCUMENTOS HABILITANTES' && t[6] === 'CLÁUSULA SÉPTIMA: EXTINCIÓN DE OBLIGACIONES', 'al mover, los encabezados se renumeran', t.slice(5, 7).join(' | '));
+  w.cerrarModal();
+  w.quitarSeccionWord(3);
+  await espera(50);
+  t = titulos(pG.archivoB64);
+  ok(t.length === 8 && t[2] === 'CLÁUSULA TERCERA: VERIFICACIÓN DE PLAZO Y CAUSAL DE CIERRE', 'al quitar una, las siguientes suben de número', t.slice(2, 3).join());
+  w.cerrarModal();
+  await w.insertarSeccionWord('Garantías', '<p>El contratista entrega la garantía por {montoTotal}.</p><ol><li>Garantía técnica.</li><li>Garantía de buen uso del anticipo.</li></ol>');
+  await espera(50);
+  t = titulos(pG.archivoB64);
+  ok(t.length === 9 && t[7] === 'CLÁUSULA OCTAVA: GARANTÍAS' && t[8] === 'CLÁUSULA NOVENA: ACEPTACIÓN Y RATIFICACIÓN', 'una cláusula nueva entra antes de la última, numerada y en mayúsculas como las demás', t.slice(7).join(' | '));
+  const secsG = w.seccionesWord(xmlDe(pG.archivoB64)).secciones;
+  const pprCab = s => w.leerParrafo(s.cab.limpio).pPr;
+  ok(pprCab(secsG[8]) === pprCab(secsG[7]) && w.leerParrafo(secsG[8].cab.limpio).dominante === w.leerParrafo(secsG[7].cab.limpio).dominante, 'su encabezado tiene el formato de los demás');
+  const numGar = (secsG[8].cuerpo.map(b => b.xml).join('').match(/<w:numId w:val="(\d+)"\/>/g) || []);
+  const numAntes = new Set((xmlDe(SEED).match(/<w:numId w:val="\d+"\/>/g) || []));
+  ok(numGar.length === 2 && !numAntes.has(numGar[0]), 'su lista estrena numeración en vez de seguir la de otra cláusula', numGar.join(' '));
+  ok(E('edWord') && E('edWord').k === 8 && w.document.getElementById('editor'), 'y se abre para escribir su texto');
+  const vG2 = validarConPython(pG.archivoB64, 'editor_G_estructura');
+  if(!vG2.saltada) ok(vG2.ok, 'validar_docx.py dice que Word lo abre', vG2.salida.trim().split('\n').slice(-3).join(' | '));
+  w.cancelarSeccionWord();
+  w.cerrarModal();
+
+  seccion('14. Listas y tablas');
+  const editar = (k, cambiar) => {
+    const zip = new PizZip(Buffer.from(SEED, 'base64')), xml = zip.file('word/document.xml').asText();
+    const ctx = w.contextoWord(zip, xml);
+    ctx.permitirBorrarFijos = true;
+    const secs = w.seccionesWord(xml).secciones;
+    const div = w.document.createElement('div');
+    div.innerHTML = w.htmlEditableDeBloques(secs[k].cuerpo, ctx);
+    cambiar(div);
+    const plan = secs.map((s, i) => ({ s: i }));
+    plan[k].html = div.innerHTML;
+    const nuevo = w.componerWordXml(xml, plan, ctx);
+    const problema = w.problemaDeWord(zip, xml, nuevo);
+    w.aplicarNumeracion(zip, ctx);
+    zip.file('word/document.xml', nuevo);
+    return { xml: nuevo, secs: w.seccionesWord(nuevo).secciones, problema, b64: zip.generate({ type: 'base64' }) };
+  };
+  let r = editar(7, d => { const li = w.document.createElement('li'); li.textContent = 'Acta de entrega-recepción del {fechaRecepcion};'; d.querySelector('ol,ul').appendChild(li); });
+  const nums7 = r.secs[7].cuerpo.map(b => b.xml).join('').match(/<w:numId w:val="\d+"\/>/g) || [];
+  ok(!r.problema && nums7.length === 5 && new Set(nums7).size === 1, 'un punto nuevo de lista sigue la lista de al lado', nums7.join(' '));
+  r = editar(4, d => { Array.from(d.querySelectorAll('td')).find(td => /Fecha de inicio de ejecución/.test(td.textContent)).querySelector('p').textContent = 'Fecha de inicio de la ejecución'; });
+  const tabla = r.secs[4].cuerpo.find(b => b.tag === 'w:tbl').xml, tablaAntes = w.seccionesWord(xmlActa).secciones[4].cuerpo.find(b => b.tag === 'w:tbl').xml;
+  const celdas = x => w.hijosXml(x).filter(h => h.tag === 'w:tr').flatMap(tr => w.hijosXml(tr.xml).filter(h => h.tag === 'w:tc').map(h => h.xml));
+  ok(!r.problema && /Fecha de inicio de la ejecución/.test(tabla) && celdas(tabla).filter((c, i) => c !== celdas(tablaAntes)[i]).length === 1, 'en una tabla cambia solo la celda tocada');
+  r = editar(4, d => { const tr = d.querySelector('tr:last-child'), nt = tr.cloneNode(true); nt.cells[0].innerHTML = '<p>Fecha de la adenda</p>'; nt.cells[1].innerHTML = '<p>{fechaAdenda}</p>'; tr.after(nt); });
+  const filas = x => w.hijosXml(x).filter(h => h.tag === 'w:tr');
+  const tabla2 = r.secs[4].cuerpo.find(b => b.tag === 'w:tbl').xml;
+  const tcPrDe = tr => w.hijosXml(tr.xml).filter(h => h.tag === 'w:tc').map(tc => (w.hijosXml(tc.xml).find(h => h.tag === 'w:tcPr') || {}).xml).join('');
+  ok(!r.problema && filas(tabla2).length === filas(tablaAntes).length + 1 && tcPrDe(filas(tabla2).slice(-1)[0]) === tcPrDe(filas(tablaAntes).slice(-1)[0]), 'una fila nueva copia la estructura de la de al lado');
+  const vT = validarConPython(r.b64, 'editor_tabla');
+  if(!vT.saltada) ok(vT.ok, 'validar_docx.py dice que Word lo abre', vT.salida.trim().split('\n').slice(-3).join(' | '));
+  r = editar(1, d => { const p = d.querySelector('li'); p.innerHTML = p.innerHTML.replace('Fondo de Inversión', 'Fondo de Inversión Ambiental'); });
+  ok(!r.problema && (r.xml.match(/<w:sdt>/g) || []).length === (xmlActa.match(/<w:sdt>/g) || []).length, 'los cuadros combinados del párrafo editado siguen ahí');
+
+  seccion('15. Una cláusula editada en el repositorio llega a los Word, con el formato de cada uno');
+  const vRepo = E('clausulas').flatMap(cl => cl.variantes.map(v => ({ cl, v }))).find(({ v }) => w.huellaClausula(v.cuerpo) === cls[5].huella);
+  ok(!!vRepo, 'la variante de la SEXTA está en el repositorio');
+  w.cambiarTab('repositorio');
+  w.seleccionarVariante(vRepo.cl.id, vRepo.v.id);
+  const repEd = w.document.getElementById('rep-editor');
+  repEd.innerHTML = repEd.innerHTML.replace('Con la suscripción del presente instrumento', 'Con la firma de este instrumento');
+  const antesE = xmlDe(pE.archivoB64), antesCrepo = pC.archivoB64;
+  w.guardarVariante();
+  ok(/Cambiaste «EXTINCIÓN DE OBLIGACIONES» en el repositorio/.test(modal.textContent) && caja(pE, 0) && !caja(pE, 0).disabled, 'al guardar la variante, ofrece las plantillas Word que tienen el texto anterior');
+  ok(!caja(pC, 0), 'no la que tiene otra redacción');
+  await w.aplicarTraspaso();
+  const sextaE = w.seccionesWord(xmlDe(pE.archivoB64)).secciones[6];
+  ok(/Con la firma de este instrumento/.test(sextaE.cuerpo.map(b => b.xml).join('')), 'la plantilla recibe el cambio');
+  const fueraDeSexta = x => { const ss = w.seccionesWord(x).secciones; return ss.filter((s, i) => i !== 6).map(s => (s.cab ? s.cab.xml : '') + s.cuerpo.map(b => b.xml).join('')).join(''); };
+  ok(fueraDeSexta(xmlDe(pE.archivoB64)) === fueraDeSexta(antesE), 'y nada fuera de esa cláusula se mueve, ni su numeración propia');
+  ok(pC.archivoB64 === antesCrepo, 'la de otra redacción queda intacta');
+  w.cerrarModal();
 
   ok(!errores.length, 'ningún error de JavaScript en todo el recorrido', errores.join(' | '));
   console.log(`\n${pruebas - fallos}/${pruebas} comprobaciones bien.`);

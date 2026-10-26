@@ -431,34 +431,63 @@ node scripts/probar_clm.js    # después de tocar el CLM
 
 ## El Generador de Instrumentos — `instrumentos/index.html`
 
-La Unidad Legal mejora sus plantillas en Word, porque ahí está el formato. **El Word manda.**
-La composición indexada —las cláusulas del Word pasadas a HTML y guardadas en el repositorio—
-es una copia que pierde ese formato, y en cuanto se mejoraba el Word se quedaba atrás: había
-que mejorar dos veces, y nadie lo hacía. Por eso el camino va al revés: «Subir la versión
-editada» compara cláusula por cláusula con la anterior (`cambiosDeClausulas()`) y ofrece
-llevar cada mejora a las otras plantillas Word que tenían el mismo texto y a las variantes del
-repositorio (`analizarTraspaso()`, `aplicarTraspaso()`, con «Deshacer»). Y cada Word tiene una
-sola composición (`origenId`): indexarlo otra vez la rehace, no suma otra.
+**El Word manda.** Lo que la Unidad Legal genera es su plantilla Word, con su formato. La
+composición indexada —las cláusulas pasadas a HTML— se genera con un formato genérico
+(Titillium 10 pt para todo), así que editar ahí daba un documento peor, y mejorar en Word la
+dejaba atrás: había que mejorar dos veces. Por eso ahora todo cambio de texto termina **en el
+Word**, venga de donde venga:
 
-Llevar una cláusula de un Word a otro es reescribir XML ajeno, así que tiene reglas:
+- **«Texto del documento»** (pestaña Editar de una plantilla Word): el Word por secciones
+  —lo de antes de la primera cláusula y cada cláusula—, cada una editable aquí con la letra
+  del Word. Al guardar se reescribe solo lo que cambió (`componerWordXml()`); mover, quitar o
+  añadir cláusulas renumera los encabezados. Tiene «Deshacer» (`versionesWord`, en memoria).
+- **«Subir la versión editada»**: compara cláusula por cláusula con la anterior
+  (`cambiosDeClausulas()`).
+- **Una variante del repositorio que se guarda** (`ofrecerVarianteAWords()`).
 
-- La cláusula se reconoce por su título (`claveClausula()`, la misma del repositorio) y solo
-  se reemplaza un texto **igual al anterior** (`huella`). Otra redacción es otra variante y no
-  se toca. Para saber si cambió se usa `exacto`, que sí ve una coma.
-- Solo el cuerpo: cada plantilla conserva su encabezado «CLÁUSULA DÉCIMA: …».
-- No se copia lo que arrastra piezas del archivo de origen (`motivoNoCopiable()`): imágenes,
-  notas al pie, saltos de sección, controles enlazados a datos. Las listas se traducen a la
-  numeración del destino, los ids de los cuadros combinados se renuevan si chocan, y las
-  extensiones de Word (w14, w15) solo van si el destino declara el mismo espacio de nombres.
-- Si el resultado no es XML bien formado o deja de compilar en docxtemplater, no se guarda.
+En los tres casos se ofrece llevar el cambio a las otras plantillas Word que tenían el mismo
+texto y a las variantes del repositorio (`buscarDestinos()`, `aplicarTraspaso()`, con
+«Deshacer»). Y cada Word tiene una sola composición (`origenId`): indexarlo otra vez la rehace.
+
+### El motor: cambiar solo lo que cambió
+
+`reconstruirBloques()` recibe los bloques originales y el HTML nuevo, y empareja unidad por
+unidad (párrafo, punto de lista, tabla). Lo que no cambió sale **byte por byte**; un párrafo
+que cambió se compara palabra por palabra (`reescribirParrafoXml()`): las palabras que siguen
+igual conservan sus corridas —letra, tamaño, color, cuadros combinados—, y las nuevas toman
+el formato de la que reemplazan o de la vecina. Reglas que lo sostienen:
+
+- **Abrir y guardar sin tocar deja el Word idéntico.** `probar_instrumentos.js` (sección 11)
+  lo comprueba con las 22 plantillas Word del repositorio. Si cambias cómo se lee o se pinta
+  un párrafo, esa es la prueba que se rompe primero.
+- Negrita, cursiva y subrayado se leen con una sola regla (`banderasRpr()`), la misma para el
+  HTML del editor, el del repositorio y la comparación; si no, un párrafo intacto parecería
+  cambiado de formato. Y en un rPr/pPr el orden de los hijos es el del esquema (`ORDEN_RPR`,
+  `ORDEN_PPR`): `ponerHijoPr()` pone cada uno en su sitio.
+- Lo que aquí no se puede editar (párrafos con imágenes, campos, notas al pie, saltos de
+  sección) va con 🔒 y sale tal cual. Llevado a otra plantilla, si cambió, se rechaza con su
+  razón en vez de reescribirse.
+- Un párrafo nuevo copia el formato del vecino, con sus párrafos vacíos de separación; un
+  punto nuevo sigue la lista de al lado; una lista nueva estrena un `<w:num>` que reinicia en 1
+  (`nuevaNumeracion()`) en vez de continuar la de otra cláusula.
+- Las tablas cambian celda por celda; una fila nueva copia la de al lado. Cambiar columnas o
+  añadir una tabla nueva se hace en Word.
+- Al llevar un cambio a otra plantilla manda **su** formato: se aplica el texto nuevo sobre
+  sus párrafos (`pegarClausulaXml()`). Solo si eso no se puede y el cambio vino de otro Word se
+  copian los párrafos de origen (`copiarClausulaXml()`), traduciendo listas e ids.
+- La cláusula se reconoce por su título (`claveClausula()`) y solo se toca un texto **igual al
+  anterior** (`huella`); otra redacción es otra variante. Para saber si cambió se usa `exacto`,
+  que sí ve una coma.
+- Si el resultado no es XML bien formado o deja de compilar en docxtemplater, no se guarda
+  nada (`problemaDeWord()`).
 
 ```bash
 npm install jsdom pizzip@3.2.0 docxtemplater@3.66.4
-node scripts/probar_instrumentos.js    # después de tocar el traspaso o las cláusulas
+node scripts/probar_instrumentos.js    # después de tocar el editor, el traspaso o las cláusulas
 ```
 
 Lo prueba con el acta de terminación embebida —listas, tablas, comentarios y 14 cuadros
-combinados— y pasa cada Word que sale por `validar_docx.py`.
+combinados— y pasa por `validar_docx.py` cada Word que sale.
 
 ## Datos de contratos
 
