@@ -70,6 +70,18 @@ function reemplazarUna(xml, de, a){
   if(xml.split(de).length !== 2) throw new Error('El texto de prueba no aparece una sola vez: ' + de);
   return xml.replace(de, a);
 }
+/* El acta de fábrica ya no trae cuadros combinados (sus géneros salen de variables),
+   pero las plantillas que sube la Unidad Legal sí los traen: se le ponen dos, uno en
+   la OCTAVA y otro en la NOVENA, con ids de Word, para probar que se conservan. */
+function conCuadros(b64){
+  const cuadro = (x, texto, id) => {
+    const i = x.indexOf(texto); if(i < 0) throw new Error('No aparece: ' + texto);
+    const ini = Math.max(x.lastIndexOf('<w:r>', i), x.lastIndexOf('<w:r ', i));
+    const fin = x.indexOf('</w:r>', i) + 6;
+    return x.slice(0, ini) + `<w:sdt><w:sdtPr><w:id w:val="${id}"/><w:comboBox><w:listItem w:displayText="a" w:value="a"/></w:comboBox></w:sdtPr><w:sdtContent>` + x.slice(ini, fin) + '</w:sdtContent></w:sdt>' + x.slice(fin);
+  };
+  return conXml(b64, x => cuadro(cuadro(x, 'Con base en los antecedentes expuestos', 111111111), 'Los comparecientes, libre y voluntariamente', 222222222));
+}
 function validarConPython(b64, nombre){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'instr-'));
   const f = path.join(dir, nombre + '.docx');
@@ -87,8 +99,10 @@ function validarConPython(b64, nombre){
 
   seccion('1. La app arranca');
   ok(!errores.length, 'sin errores de JavaScript al cargar', errores.join(' | '));
-  const SEED = w.__DOCX_SEEDS__ && w.__DOCX_SEEDS__.acta_terminacion;
-  ok(!!SEED, 'trae la plantilla Word del acta de terminación embebida');
+  const SEED_APP = w.__DOCX_SEEDS__ && w.__DOCX_SEEDS__.acta_terminacion;
+  ok(!!SEED_APP, 'trae la plantilla Word del acta de terminación embebida');
+  ok(!/<w:sdt>/.test(xmlDe(SEED_APP)), 'y sin cuadros combinados: sus géneros salen de variables, no de un control que imprime «Administrador/a»');
+  const SEED = SEED_APP && conCuadros(SEED_APP);
   if(!SEED){ console.log('\nSin la plantilla de prueba no se puede seguir.'); process.exit(1); }
   const fabrica = E('plantillas').find(p => p.seedKey === 'acta_terminacion');
   ok(!!fabrica, 'la plantilla de fábrica del acta está en la lista');
@@ -132,8 +146,7 @@ function validarConPython(b64, nombre){
 
   // F: un cuadro combinado de la NOVENA con el mismo id que el de la OCTAVA.
   // Al pegar la OCTAVA nueva su id chocaría con el de la NOVENA: hay que darle otro.
-  const idOctava = (xmlDe(A1).match(/DECLARACIÓN DE CONFORMIDAD[\s\S]*?<w:id w:val="(-?\d+)"\/>/) || [])[1];
-  const F = conXml(SEED, x => reemplazarUna(x, '<w:id w:val="-1880614466"/>', `<w:id w:val="${idOctava}"/>`));
+  const F = conXml(SEED, x => reemplazarUna(x, '<w:id w:val="222222222"/>', '<w:id w:val="111111111"/>'));
 
   E(`window.__nuevaDocx = (nombre, b64) => { const p = { id: uid(), nombre, carpetaId: null, descripcion: '', actualizado: hoy(), tipo: 'docx', archivoB64: b64 }; plantillas.unshift(p); return p; }`);
   const pAct = w.__nuevaDocx('Acta A (Word)', SEED);
@@ -179,7 +192,7 @@ function validarConPython(b64, nombre){
   seccion('7. Llevar la mejora');
   const antesC = pC.archivoB64, antesD = pD.archivoB64, xmlBAntes = xmlDe(pB.archivoB64);
   const idsDe = b64 => xmlDe(b64).match(/<w:id w:val="-?\d+"\/>/g) || [];
-  const idsAntes = new Map([[pB, idsDe(pB.archivoB64)], [fabrica, idsDe(SEED)], [pE, idsDe(E5)], [pF, idsDe(F)]]);
+  const idsAntes = new Map([[pB, idsDe(pB.archivoB64)], [fabrica, idsDe(SEED_APP)], [pE, idsDe(E5)], [pF, idsDe(F)]]);
   await w.aplicarTraspaso();
   ok(/Mejora llevada/.test(modal.textContent), 'confirma lo que hizo', modal.textContent.slice(0, 200));
   const nuevasA = w.clausulasXml(xmlDe(A1));
@@ -197,7 +210,7 @@ function validarConPython(b64, nombre){
     // combinados siguen siendo los suyos, con sus ids (también los de F, que
     // ya traía uno repetido y no es cosa de este cambio arreglarlo).
     const ids = idsDe(b64);
-    ok(ids.length > 10 && ids.join() === idsAntes.get(p).join(), `${p.nombre}: sus cuadros combinados siguen siendo los suyos`, `${ids.length} ids`);
+    ok(ids.join() === idsAntes.get(p).join(), `${p.nombre}: sus cuadros combinados siguen siendo los suyos`, `${ids.length} ids`);
     const v = validarConPython(b64, p.nombre.replace(/\W+/g, '_'));
     if(v.saltada) console.log('  · (sin python3: no se pasó por validar_docx.py)');
     else ok(v.ok, `${p.nombre}: validar_docx.py dice que Word lo abre`, v.salida.trim().split('\n').slice(-4).join(' | '));
@@ -406,6 +419,88 @@ function validarConPython(b64, nombre){
   ok(fueraDeSexta(xmlDe(pE.archivoB64)) === fueraDeSexta(antesE), 'y nada fuera de esa cláusula se mueve, ni su numeración propia');
   ok(pC.archivoB64 === antesCrepo, 'la de otra redacción queda intacta');
   w.cerrarModal();
+
+
+  {
+  seccion('16. Las plantillas de fábrica salen sin barras de género');
+  // Instalación nueva: las del recorrido de arriba ya tocaron las plantillas de fábrica.
+  const app2 = abrir();
+  for(let i = 0; i < 50 && !app2.w.eval('plantillas').length; i++) await espera(100);
+  await espera(300);
+  const w = app2.w, E = s => w.eval(s);
+  // Un papel que se firma no puede decir «Administrador/a» ni «del/la»: el Word de
+  // fábrica pide el género de cada firmante y lo escribe completo.
+  const textoGenerado = (p) => {
+    const datos = w.datosDocx(p, E('datosForm'));
+    const zip = new PizZip(Buffer.from(w.archivoDocxDe(p), 'base64'));
+    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, nullGetter: () => '⟦FALTA⟧' });   // las líneas de firma también son guiones: se marca lo que falta aparte
+    doc.render(datos);
+    return doc.getZip().file('word/document.xml').asText().replace(/<\/w:p>/g, '\n').replace(/<[^>]+>/g, '');
+  };
+  const actaFab = E('plantillas').find(p => p.seedKey === 'acta_terminacion');
+  for(const clave of ['acta_terminacion', 'informe_adenda']){
+    const f = E('plantillas').find(p => p.seedKey === clave);
+    w.seleccionar(f.id);
+    const escalares = w.estructuraDocx(f).escalares;
+    const gob = new Set(Array.from(E('tagsGobernados()')));
+    ok(escalares.every(t => gob.has(t) || E('buscarVar')(t)), `${f.nombre}: todo tag tiene un origen (grupo de concordancia o variable)`, escalares.filter(t => !gob.has(t) && !E('buscarVar')(t)).join(','));
+    E('concordancias').forEach(g => w.aplicarConcordanciaUI(g.nombre, 1));   // femenino / persona natural femenina
+    escalares.filter(t => !gob.has(t)).forEach(t => { E('datosForm')[t] = /fecha/i.test(t) ? '2026-03-05' : /monto|total/i.test(t) ? '1150' : 'Dato ' + t; });
+    const txt = textoGenerado(f).replace(/\by\/o\b/g, 'y o');   // «y/o» es redacción, no género
+    ok(!/[a-záéíóú]\/[ao]\b|\bdel\/la\b|\bel\/la\b|\bal\/la\b|undefined|⟦FALTA⟧/i.test(txt), `${f.nombre}: sin barras de género, sin «undefined» y sin huecos`, (txt.match(/.{20}([a-záéíóú]\/[ao]\b|\bdel\/la\b|\bel\/la\b|undefined|⟦FALTA⟧).{20}/i) || [''])[0]);
+    ok(/la administradora|de la administradora|Administradora Contadora|de la CONTRATISTA|del? /.test(txt), `${f.nombre}: y usa el género elegido`);
+  }
+  w.seleccionar(E('plantillas').find(p => p.seedKey === 'acta_terminacion').id);
+  E('concordancias').forEach(g => w.aplicarConcordanciaUI(g.nombre, 0));
+  ok(/Administrador Contador/.test(textoGenerado(E('plantillas').find(p => p.seedKey === 'acta_terminacion'))), 'al cambiar la elección, el texto cambia con ella');
+
+    // El lote: cada documento puede traer su propio género / tipo de persona
+    w.cambiarTab('lote');
+    E('concordancias').forEach(g => w.aplicarConcordanciaUI(g.nombre, 0));
+    w.document.getElementById('lt-pegar').value = ['contratoNro\tproveedor\tcontratista\tadministradorAP', 'FIAS-1\tServitec S.A.\tempresa\tfemenino', 'FIAS-2\tJosé Lecaro\tPersona natural — masculino\tM', 'FIAS-3\tAna Ruiz\t\t'].join('\n');
+    w.procesarPegado();
+    const filasLote = E('loteFilas');
+    ok(filasLote.length === 3 && filasLote[0]._conc.contratista === 2 && filasLote[0]._conc.administradorAP === 1 && filasLote[1]._conc.contratista === 0 && filasLote[1]._conc.administradorAP === 0 && !filasLote[2]._conc,
+      'al pegar desde Excel, las columnas «contratista» y «administradorAP» fijan el género de cada documento', JSON.stringify(filasLote.map(f => f._conc)));
+    const varsActa = w.varsDe(actaFab);
+    const base0 = E('conConcordancias')({ ...filasLote[0] }, varsActa), base1 = E('conConcordancias')({ ...filasLote[1] }, varsActa), base2 = E('conConcordancias')({ ...filasLote[2] }, varsActa);
+    ok(base0.ProveedorTitulo === 'Proveedora' && base0.ElLaContratista === 'La CONTRATISTA' && base0.administradorAP === 'administradora', 'una empresa sale como «la CONTRATISTA» y una administradora, en su documento', JSON.stringify([base0.ProveedorTitulo, base0.ElLaContratista, base0.administradorAP]));
+    ok(base1.ProveedorTitulo === 'Proveedor' && base1.ElLaContratista === 'El CONTRATISTA' && base1.administradorAP === 'administrador', 'y una persona natural masculina, en el suyo');
+    ok(base2.ProveedorTitulo === 'Proveedor', 'sin columna, vale la elección de la pestaña Generar');
+    ok(!('_conc' in base0), 'y la elección por fila no se cuela en los datos del documento');
+    const celdas = w.document.querySelectorAll('.lote-tabla select.lt-conc');
+    ok(celdas.length === 3 * 5 && celdas[0].value === '2', 'cada fila muestra sus selectores de género, con lo pegado ya elegido', celdas.length);
+
+  }
+
+  {
+    seccion('17. Importar una biblioteca: cancelar no borra nada');
+    // Antes era un confirm(): «Cancelar» REEMPLAZABA toda la biblioteca.
+    const app3 = abrir();
+    for(let i = 0; i < 50 && !app3.w.eval('plantillas').length; i++) await espera(100);
+    await espera(300);
+    const w = app3.w, E = s => w.eval(s);
+    let descargas = 0;
+    w.URL.createObjectURL = () => 'blob:x'; w.URL.revokeObjectURL = () => {};
+    w.HTMLAnchorElement.prototype.click = function(){ if(this.download) descargas++; };
+    const archivo = datos => new w.File([JSON.stringify(datos)], 'biblioteca.json', { type: 'application/json' });
+    const biblioteca = { tipo: 'biblioteca_fap', version: 6, plantillas: [{ id: 'z1', nombre: 'Plantilla del archivo', tipo: 'html', cuerpo: '<p>x</p>', actualizado: '2026-01-01' }], clausulas: [], contrapartes: [{ id: 'c1', nombre: 'Del archivo' }] };
+    const importar = async (datos) => { w.importarBiblioteca({ target: { files: [archivo(datos)], value: 'x' } }); await espera(250); };
+    const antes = E('plantillas.length');
+    await importar(biblioteca);
+    const modal3 = w.document.getElementById('modal');
+    ok(w.document.getElementById('modal-fondo').classList.contains('abierto') && /Fusionar/.test(modal3.textContent) && /Reemplazar todo/.test(modal3.textContent) && /Cancelar/.test(modal3.textContent), 'pregunta con tres opciones: Fusionar, Reemplazar todo y Cancelar');
+    ok(E('plantillas.length') === antes, 'y mientras no elijas, no toca nada');
+    w.cancelarImportacion();
+    ok(E('plantillas.length') === antes && E('contrapartes.length') === 0 && descargas === 0, 'Cancelar deja la biblioteca como estaba');
+    await importar(biblioteca);
+    w.ejecutarImportacion(true);
+    ok(E('plantillas.length') === antes + 1 && E('contrapartes.length') === 1 && descargas === 0, 'Fusionar suma lo nuevo y conserva lo que había');
+    await importar(biblioteca);
+    w.ejecutarImportacion(false);
+    ok(E('plantillas.length') === 1 && E('plantillas')[0].nombre === 'Plantilla del archivo', 'Reemplazar todo deja solo lo del archivo');
+    ok(descargas === 1, 'y antes baja una copia de lo que había');
+  }
 
   ok(!errores.length, 'ningún error de JavaScript en todo el recorrido', errores.join(' | '));
   console.log(`\n${pruebas - fallos}/${pruebas} comprobaciones bien.`);

@@ -489,6 +489,33 @@ node scripts/probar_instrumentos.js    # después de tocar el editor, el traspas
 Lo prueba con el acta de terminación embebida —listas, tablas, comentarios y 14 cuadros
 combinados— y pasa por `validar_docx.py` cada Word que sale.
 
+### Lo que dejó la auditoría de usuario (octubre 2026)
+
+Se recorrió la herramienta en Chromium, como una AC: escritorio, celular, un lote, importar y
+exportar. Lo que salió, y la regla que queda:
+
+- **Las dos plantillas Word de fábrica son las del CRM, no una copia.** El seed de Instrumentos
+  (`window.__DOCX_SEEDS__`) se había copiado una vez y quedó atrás: cuando `crm/plantillas/`
+  pasó sus cuadros combinados a variables, aquí siguieron saliendo «Administrador/a contador/a» y
+  «del/la» con barra, en un papel que se firma. Ahora `embeber_plantillas.py` las reconstruye de
+  `crm/plantillas/` y `--check` (en el CI) avisa si se separan. Y como una plantilla nueva trae tags
+  que la instalación no conoce, `asegurarOrigenSemillas()` completa al arrancar los grupos de
+  concordancia (solo AÑADE, nunca pisa) y las variables que falten.
+- **En el lote, el género se elige por documento.** Un lote mezcla personas naturales y
+  empresas: cada fila trae sus selectores (`fila._conc`) y, al pegar desde Excel, una columna con el
+  nombre del grupo («contratista», «administradorAP») y «femenino» / «masculino» / «empresa».
+  Una columna que se llama como un grupo es la elección del grupo, **no** el texto del tag del mismo
+  nombre: pegar «femenino» en `administradorAP` imprimía «femenino» en el acta.
+- **Nada destructivo se decide con «Cancelar».** Importar una biblioteca preguntaba con un
+  `confirm()` donde «Cancelar» REEMPLAZABA todo: ahora es un cuadro con Fusionar / Reemplazar todo /
+  Cancelar, y reemplazar baja antes una copia de lo actual.
+- **En pantalla estrecha la lista de plantillas es un cajón**, cerrado al inicio y que se cierra
+  al elegir plantilla; antes se quedaba al lado y el formulario quedaba en 160 px. Todo lo que
+  llame a `window.matchMedia` va protegido: en jsdom y en Safari antiguo no existe, y un error
+  ahí en el arranque deja la aplicación en blanco.
+- Los rótulos de los campos salen de `etiqueta()` («Cédula del/la AC», no «Cedula ac»): los
+  más comunes en `ETIQUETAS`, el resto partiendo el nombre y corrigiendo siglas y tildes.
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:
