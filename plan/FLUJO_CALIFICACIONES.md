@@ -114,25 +114,41 @@ del Excel maestro; tabla: **Calificaciones**. Cada columna con su campo:
 | Observaciones | `observaciones` |
 | Id calificación | `idCalificacion` |
 
-**Paso 3 · Enviar un correo electrónico (V2)** (Office 365 Outlook), a `acCorreo`.
-Asunto sugerido: `Calificación registrada: contratoNro · proveedor`. En el cuerpo, el puntaje,
-el resultado y las observaciones, y una línea que diga: «Si no fuiste tú, o hay un error,
-avisa a la Unidad Operativa».
+**Paso 3 · Respuesta** (Solicitud): código de estado **200**. **Va justo después de agregar la
+fila, antes de los correos.** Una «Respuesta» no detiene el flujo: lo que va después sigue
+corriendo. Así el CLM sabe que la fila quedó en la tabla y no la reenvía si un correo falla
+(una dirección mal escrita, un buzón lleno). Si la «Respuesta» estuviera al final, un correo
+fallido haría que el CLM reintentara y la tabla tendría la misma calificación dos veces.
 
-**Paso 4 · Condición:** si `elegible` es igual a `No`, **Enviar un correo electrónico (V2)** al
-correo de la Unidad Operativa, con los mismos datos.
+**Paso 4 · Condición:** `elegible` es igual a `No`. Solo una fila, sin filas vacías (una fila
+sin valores puede dar error al guardar o comparar mal).
 
-**Paso 5 · Respuesta** (Solicitud): código de estado **200**. Va al final para que el CLM sepa
-que la fila de verdad quedó en la tabla: si algo falla antes, el CLM no la da por enviada y la
-reintenta.
+**Paso 5 · Los correos (Enviar un correo electrónico V2, Office 365 Outlook):**
+
+- **Sí es elegible (rama False):** un correo a `acCorreo`. Asunto sugerido:
+  `Calificación registrada: contratoNro · proveedor`. En el cuerpo, el puntaje, el resultado y las
+  observaciones, y una línea: «Si no fuiste tú, o hay un error, avisa a la Unidad Operativa».
+- **No es elegible (rama True):** el mismo correo a `acCorreo`, **y además** a la Unidad
+  Operativa (en «Para», con la AC, o con un segundo correo). La AC tiene que recibir su
+  confirmación en los dos casos: es la alarma si alguien calificó en su nombre. Conviene que el
+  asunto de esta rama diga **«Proveedor NO elegible»**.
 
 Guarda el flujo y copia la **URL HTTP POST** que aparece en el paso 1.
 
 ## 3. La URL en el CLM
 
-La URL va en `clm/index.html`, en `FLOW_CALIF_URL` (junto a `FLOW_DOCS_URL`). Mientras esté
-vacía, las calificaciones confirmadas quedan guardadas en el navegador de cada AC como
-«pendientes de envío», y salen solas en cuanto se ponga la URL.
+La URL va en `clm/index.html`, en `FLOW_CALIF_URL` (junto a `FLOW_DOCS_URL`); ya está puesta.
+Si algún día se recrea el flujo, la URL cambia y hay que actualizarla ahí. Si el flujo está
+apagado o la URL no responde, las calificaciones confirmadas quedan guardadas en el navegador
+de cada AC como «pendientes de envío» y salen solas cuando vuelva a funcionar.
+
+**La primera vez que cada AC abra el CLM después de esto**, se enviarán las calificaciones que
+ya tenía hechas en su navegador (solo las de sus contratos), cada una con su correo de
+confirmación. Es lo esperado: es como llegan al Registro las calificaciones anteriores.
+
+**La primera prueba real:** califica un contrato de prueba y mira que (1) aparezca la fila en la
+tabla, (2) llegue el correo a la AC, (3) el CLM diga «confirmada y enviada». Si el CLM dice que
+no se pudo enviar aunque el flujo corrió, es el permiso del navegador (CORS) hacia el flujo.
 
 ## Lo que hay que saber
 

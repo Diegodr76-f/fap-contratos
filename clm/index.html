@@ -2165,7 +2165,7 @@ const CSV_CALIF_ENC=["Nro. Contrato","Nombre Proveedor","Área Protegida","Categ
    fila a la tabla «Registro de Calificaciones» del Excel maestro y avisa por
    correo (plan/FLUJO_CALIFICACIONES.md). Si no hay señal queda pendiente en este
    navegador y se reintenta cada vez que se abre el CLM: no se pierde. */
-var FLOW_CALIF_URL = '';   // la URL del flujo; vacía hasta que la Unidad lo cree
+var FLOW_CALIF_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/26/workflows/73fbb2f6558b4ae7986ff3c47fe92906/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=KQlUxhFYqW0ACb4KseA60bkEkB1s1-FqKsMLX48h0AU';   // el flujo que agrega la fila al Registro (como FLOW_DOCS_URL, lleva su firma)
 function puedeCalificar(c){return !!(SES&&SES.rol==="ac"&&c.ac&&c.ac===SES.user);}
 function quienCalifica(c){return `La califica ${c.ac?c.ac+", ":""}la AC del contrato, desde su entrada.`;}
 // Lo que viaja al flujo: una fila del Registro. Los nombres de las columnas de la
@@ -2208,7 +2208,9 @@ function sinEnviar(c){
 async function reintentarEnvios(){
   if(!FLOW_CALIF_URL||reintentarEnvios.corriendo)return 0;
   reintentarEnvios.corriendo=true;let n=0;
-  try{for(const c of CONTRACTS.filter(sinEnviar))if(await enviarCalificacion(c))n++;}
+  // Solo lo de la AC que está dentro: en un navegador compartido, o en el de la
+  // Unidad, lo calificado por otra persona no sale con el nombre y el correo de esta.
+  try{for(const c of CONTRACTS.filter(c=>puedeCalificar(c)&&sinEnviar(c)))if(await enviarCalificacion(c))n++;}
   finally{reintentarEnvios.corriendo=false;}
   if(n){toast(`${n} calificación${n===1?"":"es"} enviada${n===1?"":"s"} al Registro`);
     const a=document.activeElement;

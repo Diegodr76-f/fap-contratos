@@ -80,6 +80,9 @@ function nuevoDom(lista,ses,op){
           return Promise.resolve(op.registro?{ok:true,status:200,json:()=>Promise.resolve(JSON.parse(JSON.stringify(op.registro)))}
                                             :{ok:false,status:404,json:()=>Promise.reject(new Error('404'))});
         }
+        // El flujo de calificaciones: sin red, salvo que una prueba lo sustituya. Así
+        // nada de lo que se hace con el modal sale de verdad.
+        if(/powerplatform/.test(String(u)))return Promise.reject(new Error('sin red'));
         return Promise.resolve({ok:true,json:()=>Promise.resolve(JSON.parse(datos))});
       };
       win.scrollTo=()=>{}; win.alert=()=>{};
@@ -851,7 +854,7 @@ seccion('23 · El Registro de Calificaciones compartido');
   w.eval("Object.assign(ov(CONTRACTS[2]),{evaluado:true,score:'80.50',sem:'Satisfactorio',fechaCalif:'2026-10-25',aportes:[32,24.5,4,20]})");
   al=w.alertList();
   const pend=al.find(a=>/sin enviar al Registro — FIAS-FAP-2026-003/.test(a.t));
-  ok(pend && /no está configurado/.test(pend.d) && !al.some(a=>/sin calificar — FIAS-FAP-2026-003/.test(a.t)),
+  ok(pend && /no se pudo enviar/.test(pend.d) && !al.some(a=>/sin calificar — FIAS-FAP-2026-003/.test(a.t)),
      'calificado aquí y sin enviar: no pide calificar, avisa que falta enviarlo',pend&&pend.d);
   w.go('detalle',2);
   ok(/Todavía no se envió al Registro/.test(texto(w)),'y el detalle lo dice');
@@ -979,6 +982,14 @@ seccion('24 · Califica la AC, confirma, y la calificación llega sola al Regist
   const sin=JSON.parse(JSON.stringify(w.payloadCalif(c3)));
   ok(!('calidad' in sin) && !('cumplimiento' in sin) && sin.puntaje===Number(w.eval('ov(CONTRACTS[2]).score')),
      'una calificación sin desglose no manda los aportes como null: los omite');
+  // Una AC no manda las calificaciones de otra, aunque estén en este navegador.
+  w.eval("Object.assign(ov(CONTRACTS[3]),{evaluado:true,score:'70.00',sem:'Aceptable – Observado'})");
+  const antes=posts.length; await w.reintentarEnvios();
+  ok(posts.length===antes,'una AC solo manda las calificaciones de sus contratos, no las de otra que haya en el navegador');
+  // La URL del flujo de calificaciones está puesta y no es la del envío de documentos.
+  const fu=(HTML.match(/var FLOW_CALIF_URL = '([^']*)'/)||[])[1]||'',fd=(HTML.match(/var FLOW_DOCS_URL = '([^']*)'/)||[])[1]||'';
+  ok(/^https:\/\/[^/]+\.powerplatform\.com:443\/powerautomate\/.+\/triggers\/manual\/paths\/invoke\?.*sig=/.test(fu) && fu!==fd,
+     'FLOW_CALIF_URL es la URL firmada de un flujo, y no la del flujo de documentos');
   // Algo ya en el Registro no se reenvía aunque en este navegador conste como pendiente.
   w.eval("REG.porNro['FIAS-FAP-2026-002']=[{nro:'FIAS-FAP-2026-002',score:70,fecha:'2026-10-01'}];Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'90.00'})");
   await w.reintentarEnvios();
