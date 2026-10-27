@@ -44,6 +44,10 @@ if "download=1" not in URL:
 
 r = requests.get(URL, timeout=120, allow_redirects=True)
 r.raise_for_status()
+# La hora a la que se LEYÓ el Excel, no la que termina el robot: el CLM la compara
+# con la hora en que una AC envió una calificación para saber si el Registro ya
+# podía traerla (ver «calificacionRetirada» en clm/index.html).
+LEIDO = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 if not r.content.startswith(b"PK"):
     sys.exit("ERROR: lo descargado no es un Excel. Revisa que el link de OneDrive "
              "sea 'Cualquier persona con el vínculo puede ver' y que apunte al archivo .xlsx.")
@@ -289,7 +293,7 @@ with open("crm/contratos_export.json", "w", encoding="utf-8") as f:
 # esperan una lista de contratos) y el archivo solo existe cuando existe la hoja.
 if calificaciones is not None:
     sobre_c = cifrar(json.dumps(calificaciones, ensure_ascii=False).encode("utf-8"), DATA_KEY)
-    sobre_c["generado"] = sobre["generado"]
+    sobre_c["generado"] = LEIDO
     with open("crm/calificaciones_export.json", "w", encoding="utf-8") as f:
         json.dump(sobre_c, f, ensure_ascii=False)
 

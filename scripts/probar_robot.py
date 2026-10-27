@@ -182,8 +182,12 @@ try:
        "sin aportes no se inventan: llega solo el puntaje")
     with open(os.path.join(tmp, "trabajo", "crm", "calificaciones_export.json"), encoding="utf-8") as f:
         sobre_reg = json.load(f)
+    with open(os.path.join(tmp, "trabajo", "crm", "contratos_export.json"), encoding="utf-8") as f:
+        sobre_con = json.load(f)
     ok(__import__("re").fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", sobre_reg.get("generado", "")) is not None,
-       "el archivo del Registro lleva la hora en que se publicó (fuera del cifrado): con ella el CLM sabe si una calificación fue retirada")
+       "el archivo del Registro lleva la hora en que el robot LEYÓ el Excel (fuera del cifrado): con ella el CLM sabe si una calificación fue retirada")
+    ok(sobre_reg["generado"] <= sobre_con["generado"],
+       "y esa hora no es posterior a la de los contratos, que es la del final de la corrida")
     ok("2 fila(s)" in salida and "3 fila(s) publicadas" in salida, "el robot dice cuántas descartó y cuántas publicó", salida.strip().splitlines()[-2:])
 
     salida, _, reg = correr(libro(registro=[]), tmp)
