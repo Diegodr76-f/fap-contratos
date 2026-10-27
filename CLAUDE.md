@@ -381,8 +381,8 @@ sostienen hoy (sección 22 de `probar_clm.js`):
   al confirmar `enviarCalificacion()` manda la fila al flujo; si falla queda `envio.estado
   ="pendiente"`, la AC ve «Reintentar» y `reintentarEnvios()` la manda al arrancar y al volver
   la señal, siempre con el mismo `idCalificacion`. Lo que ya está en el Registro no se
-  reenvía. Una calificación **enviada** que el Registro, publicado después (`REG.generado`
-  más `MARGEN_REGISTRO_MS`), ya no trae se da por **retirada**: `liberarCalificacionesRetiradas()`
+  reenvía. Una calificación **enviada** que el Registro, leído después (`REG.generado` es la hora
+  a la que el robot LEYÓ el Excel, más `MARGEN_REGISTRO_MS`, 2 min), ya no trae se da por **retirada**: `liberarCalificacionesRetiradas()`
   la borra de ese navegador y la AC puede calificar de nuevo (así se repite una prueba o se
   corrige un error: la Unidad borra la fila de la tabla). Con el Registro ilegible no se toca
   nada. La entrada no tiene contraseña por persona: por eso el flujo le escribe a la AC.

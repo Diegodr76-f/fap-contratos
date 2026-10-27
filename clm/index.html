@@ -2208,10 +2208,12 @@ function sinEnviar(c){
 /* Una calificación que se envió y que el Registro, publicado DESPUÉS, ya no trae,
    fue retirada: la Unidad la borró de la tabla porque era un error o una prueba. Sin
    esto el navegador seguía recordándola como hecha y la AC no podía volver a
-   calificar. «Después» quiere decir con margen (el robot publica una vez al día y el
-   flujo tarda unos segundos): una calificación recién enviada, que el robot todavía
-   no leyó, no es una retirada. Si el Registro no se pudo leer, no se toca nada. */
-const MARGEN_REGISTRO_MS=15*60*1000;
+   calificar. «Después» quiere decir con margen: REG.generado es la hora en que el
+   robot LEYÓ el Excel, y la fila tarda unos segundos en estar en él (el flujo la
+   agrega y OneDrive la guarda). Con 2 minutos sobra, y no se hace esperar a quien
+   repite una prueba. Una calificación recién enviada, que el robot todavía no leyó,
+   no es una retirada. Si el Registro no se pudo leer, no se toca nada. */
+const MARGEN_REGISTRO_MS=2*60*1000;
 function calificacionRetirada(c){
   const o=CLM.overlay[c.nro];
   if(!o||!o.evaluado||!o.envio||o.envio.estado!=="enviada"||!o.envio.enISO)return false;

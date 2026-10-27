@@ -1005,6 +1005,7 @@ seccion('25 · Si la calificación ya no está en el Registro, la AC puede calif
   const ana={rol:'ac',user:'Ana Pérez'};
   const w=await listo(nuevoDom(l,ana,{registro:[{nro:'FIAS-FAP-2026-005',score:80,fecha:'2026-10-01'}]}));
   const hace=h=>new Date(Date.now()-h*3600000).toISOString();
+  const haceMin=m=>new Date(Date.now()-m*60000).toISOString();
   const poner=(enISO,estado)=>w.eval(`Object.keys(CLM.overlay).forEach(k=>delete CLM.overlay[k]);
     Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'90.00',sem:'Confiable (Preferente)',fechaCalif:'2026-10-26',aportes:[36,27,4.5,22.5],
       envio:{estado:${JSON.stringify(estado||'enviada')},id:'x',en:'2026-10-26',enISO:${JSON.stringify(enISO)}}})`);
@@ -1024,8 +1025,10 @@ seccion('25 · Si la calificación ya no está en el Registro, la AC puede calif
   w.document.querySelector('.overlay').remove();
 
   // Lo que NO es una retirada.
-  poner(hace(1)); w.eval(`REG.generado=${JSON.stringify(hace(0.9))}`);
-  ok(!w.calificacionRetirada(C1()),'enviada hace 1 h y el Registro lo publicó a los pocos minutos: el robot todavía no la leyó, no es una retirada');
+  poner(haceMin(10)); w.eval(`REG.generado=${JSON.stringify(haceMin(9.5))}`);
+  ok(!w.calificacionRetirada(C1()),'el robot leyó el Excel medio minuto después de enviarla: aún no podía traerla, no es una retirada');
+  poner(haceMin(10)); w.eval(`REG.generado=${JSON.stringify(haceMin(5))}`);
+  ok(w.calificacionRetirada(C1()),'si lo leyó 5 minutos después y no la trae, sí: quien repite una prueba no espera al día siguiente');
   poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(40))}`);
   ok(!w.calificacionRetirada(C1()),'enviada DESPUÉS de la última publicación del Registro: aún no tenía por qué estar');
   poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(2))};REG.porNro['FIAS-FAP-2026-002']=[{nro:'FIAS-FAP-2026-002',score:90,fecha:'2026-10-26'}]`);
