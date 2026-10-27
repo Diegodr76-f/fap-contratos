@@ -362,11 +362,21 @@ Unidad Operativa le llegaba una por contrato del portafolio entero. Tres reglas 
 sostienen hoy (sección 22 de `probar_clm.js`):
 
 - **`calificacionDe(c)` es la única fuente de «¿está calificado?».** Stepper, detalle,
-  alerta, pool, avisos y CSV pasan por ahí; nada lee `ov(c).evaluado` directo. Hoy mira
-  solo el navegador; cuando exista el Registro de Calificaciones compartido (una hoja
-  del Excel maestro que lea el robot, a un archivo cifrado **aparte**, para que
-  `contratos_export.json` no cambie), se añade ahí y nada más se toca. Los cortes
-  90/80/70/60 viven en `tierCalificacion()`, una sola tabla para el modal y el pool.
+  alerta, pool, avisos y CSV pasan por ahí; nada lee `ov(c).evaluado` directo. Mira
+  primero el **Registro de Calificaciones** compartido —la hoja del Excel maestro donde se
+  pega el CSV, que el robot publica en `crm/calificaciones_export.json`, cifrado y **aparte**
+  para que `contratos_export.json` no cambie— y después lo calificado en este navegador
+  (`fuente:"local"`). El encabezado de esa hoja es `CSV_CALIF_ENC` y el robot lo busca por
+  nombre: cambiar un rótulo en un lado obliga a cambiarlo en el otro (sección 23). Los
+  cortes 90/80/70/60 viven en `tierCalificacion()`, una sola tabla para el modal y el pool.
+- **El registro no frena ni engaña.** Se pide en paralelo con la base y la primera
+  pantalla lo espera como mucho 1,5 s (`REG.estado`: cargando/ok/sin/falla). Si no se pudo
+  leer, las alertas de calificar se **pausan** (`registroListo()`): pedir otra vez lo que ya
+  está en el registro es justo el ruido que se quiso quitar. Del registro se publica solo
+  n.º de contrato, fecha, puntajes y observación.
+- **El RUC no se publica ni se usa.** La hoja «Proveedores» del Excel lo trae y es
+  información privada (el de una persona natural es su cédula), así que el robot no la lee;
+  tampoco se valida ningún RUC: no se puede verificar desde aquí.
 - **Solo se pide calificar desde `CALIFICA_DESDE` (2026-01-01)**, una fecha fija y no
   «el año en curso». `pideCalificacion()` decide; la AC recibe una alerta por contrato
   suyo y la Unidad Operativa **una agregada**, como la de carpetas.

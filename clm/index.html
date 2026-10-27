@@ -1101,6 +1101,9 @@ function abrirProv(clave){ST.prov=clave;go("proveedor");}
 /* ================= ALERTAS (motor de reglas) ================= */
 function alertList(){
   const out=[];
+  // Sin el registro a mano (no se pudo leer, o todavía no llega), las alertas de
+  // calificar se pausan: pedir otra vez lo que ya está en el registro es ruido.
+  const regOk=registroListo();
   myContracts().forEach((c,idx)=>{
     const i=CONTRACTS.indexOf(c);
     const o=ov(c),s=statusLive(c),d=diasRestantes(c);
@@ -1110,9 +1113,16 @@ function alertList(){
     if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
     // Quien califica es la AC del contrato: a ella, una alerta por contrato. A la
     // Unidad Operativa, que ve el portafolio entero, una sola agregada (abajo).
-    if(SES.rol!=="uo"&&pideCalificacion(c))out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
+    if(regOk&&SES.rol!=="uo"&&pideCalificacion(c))out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
+    // Calificado aquí y no pegado en el Registro: está hecho, pero solo lo ve este
+    // navegador. Sin este aviso la calificación se quedaba varada en una
+    // computadora, y la Unidad Operativa la seguía viendo como pendiente.
+    if(REG.estado==="ok"&&SES.rol!=="uo"){
+      const q=calificacionDe(c);
+      if(q&&q.fuente==="local")out.push({sev:2,icon:"📋",col:"var(--navy)",bg:"var(--tint)",t:`Calificación sin pasar al Registro — ${c.nro}`,d:`${c.proveedor||"—"} · ${puntos(q.score)}/100 · pega la fila del CSV en la hoja «Registro de Calificaciones» para que la vean todos`,i,act:"Abrir",fn:"open"});
+    }
   });
-  if(SES&&SES.rol==="uo"){
+  if(regOk&&SES&&SES.rol==="uo"){
     const pend=myContracts().filter(pideCalificacion).length;
     if(pend)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`${pend} contrato${pend===1?"":"s"} de ${CALIFICA_DESDE.slice(0,4)} con el proveedor sin calificar`,d:"Terminados o cerrados desde el "+fdate(CALIFICA_DESDE)+" · los califica la AC de cada contrato",i:null,act:"Ver",fn:"pcal"});
   }
@@ -1484,7 +1494,7 @@ function vProveedores(){
   const cuenta=l=>l.length===todos.length?`${todos.length} proveedor${todos.length===1?"":"es"}`:`Mostrando <b style="color:var(--ink)">${l.length}</b> de ${todos.length}`;
   const pinta=()=>{const l=provLista(todos);$("#provbody").innerHTML=ST.viewMode==="cards"?provCardsHTML(l):provTablaHTML(l);$("#provcount").innerHTML=cuenta(l);bindProv();};
   $("#view").innerHTML=`<div class="up">
-    <p class="psub" style="margin-bottom:12px">Cada proveedor con sus contratos, montos y calificaciones. Se agrupan por el nombre del Excel: mayúsculas, tildes o «S.A.» no los separan, pero dos nombres distintos sí. <b>Por ahora las calificaciones se guardan en este navegador</b>: las hechas en otra computadora no aparecen aquí.</p>
+    <p class="psub" style="margin-bottom:12px">Cada proveedor con sus contratos, montos y calificaciones. Se agrupan por el nombre del Excel: mayúsculas, tildes o «S.A.» no los separan, pero dos nombres distintos sí. ${esc(notaRegistro())}</p>
     <div class="toolbar">
       <div class="search">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -1579,11 +1589,11 @@ function vProveedor(){
       <div class="fp-cal">
         <div class="panel">
           <p class="ptitle">Calificaciones</p>
-          <p class="psub">FO-AD-ABC-017 · registradas en este navegador.</p>
+          <p class="psub">FO-AD-ABC-017 · ${esc(notaRegistro(true))}</p>
           ${p.califs.length?`
             ${indic?`<div style="margin-bottom:14px">${indic.map(x=>`<div class="histcal"><span style="flex:0 0 150px">${esc(x.n)} <span style="color:var(--muted)">(${x.w}%)</span></span><div class="bar"><div style="width:${x.pct}%;background:${col(x.pct)}"></div></div><b style="flex:0 0 44px;text-align:right">${x.pct}%</b></div>`).join("")}</div>`:""}
             <div class="secdiv">Historia</div>
-            ${p.califs.slice().reverse().map(q=>`<div class="histcal hist"><div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--navy)">${esc(q.nro)}</div><div style="font-size:11.5px;color:var(--muted)">${q.fecha?fdate(q.fecha):"sin fecha"}</div></div>${semChip(q,true)}</div>`).join("")}
+            ${p.califs.slice().reverse().map(q=>`<div class="histcal hist"><div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--navy)">${esc(q.nro)}</div><div style="font-size:11.5px;color:var(--muted)">${q.fecha?fdate(q.fecha):"sin fecha"}${(q.fuente==="local"&&REG.estado==="ok")?" · solo en este navegador":""}</div></div>${semChip(q,true)}</div>`).join("")}
             ${p.ultima&&(!p.ultima.elegible||p.ultima.t.observado)?`<div class="provaviso ${p.ultima.elegible?"a":"r"}" style="margin-top:12px">${esc(p.ultima.t.cons)}</div>`:""}`
           :`<div class="empty" style="padding:22px 10px">Sin calificaciones registradas.${p.porCalificar?"<br>Califícalo desde sus contratos terminados.":""}</div>`}
         </div>
@@ -1720,7 +1730,7 @@ function vDetalle(){
               <span><span class="at">Añadir nota</span><span class="ad">Observación interna en la bitácora del contrato</span></span>
             </button>
           </div>
-          ${cal?`<div class="note" style="margin-top:12px">Calificación: <b>${puntos(cal.score)}/100</b> · ${esc(cal.sem)}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. ${pideCalificacion(c)?"Queda pendiente la <b>calificación del proveedor</b>.":`Terminó antes del ${fdate(CALIFICA_DESDE)}: su calificación no se exige, aunque puedes registrarla.`}${(o.terminado&&!c.cerrado)?`<div style="margin-top:8px"><button class="linkbtn" id="a-reabrir">¿Lo terminaste por error? Reabrir el contrato</button></div>`:""}</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
+          ${cal?`<div class="note" style="margin-top:12px">Calificación: <b>${puntos(cal.score)}/100</b> · ${esc(cal.sem)}${cal.fuente==="registro"?" · en el Registro":""}${(cal.fuente==="local"&&REG.estado==="ok")?`<div style="margin-top:8px">Está solo en este navegador: falta pegarla en la hoja «Registro de Calificaciones». <button class="linkbtn" id="a-csv">Descargar otra vez el CSV</button></div>`:""}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. ${pideCalificacion(c)?"Queda pendiente la <b>calificación del proveedor</b>.":`Terminó antes del ${fdate(CALIFICA_DESDE)}: su calificación no se exige, aunque puedes registrarla.`}${(o.terminado&&!c.cerrado)?`<div style="margin-top:8px"><button class="linkbtn" id="a-reabrir">¿Lo terminaste por error? Reabrir el contrato</button></div>`:""}</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
         </div>
       </div>
     </div>
@@ -1731,6 +1741,7 @@ function vDetalle(){
   };
   if(!done){$("#a-mod").onclick=()=>modalModificar(c);$("#a-ter").onclick=()=>modalTerminar(c);}
   if(done&&!cal)$("#a-cal").onclick=()=>modalCalificar(c);
+  const csvB=$("#a-csv");if(csvB)csvB.onclick=()=>{descargarCsvCalif(c,cal);toast("CSV descargado: pega la fila en el Registro");};
   const ap=$("#a-prov");if(ap)ap.onclick=()=>abrirProv(claveProv(c.proveedor));
   const avp=$("#aviso-prov");if(avp)avp.onclick=()=>abrirProv(claveProv(c.proveedor));
   if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
@@ -1762,7 +1773,7 @@ function avisoProvHTML(c){
   const r=!q.elegible;
   return `<div class="provaviso ${r?"r":"a"}">${r?"⛔":"⚠️"} <b>${r?"Proveedor no elegible":"Proveedor observado"}</b>: ${puntos(q.score)}/100 · ${esc(q.sem)}${q.fecha?` (${fdate(q.fecha)})`:""} en el contrato ${esc(q.nro)}. ${esc(q.t.cons)}
     <button class="linkbtn" id="aviso-prov" style="margin-left:4px">Ver su ficha</button>
-    <small>Calificaciones registradas en este navegador.</small></div>`;
+    <small>${esc(notaRegistro(true))}</small></div>`;
 }
 const VOLVER_A={panel:"al panel",pipeline:"a las etapas",contratos:"al repositorio",proveedores:"a los proveedores",proveedor:"a la ficha del proveedor",solicitudes:"a las solicitudes",alertas:"a las alertas",
   reportes:"a los reportes",mapa:"al mapa",actividad:"a la bitácora",calificacion:"al calificador",magica:"a La Mágica",crmx:"al CRM clásico"};
@@ -2132,6 +2143,22 @@ function modalTerminar(c){
   });
 }
 
+/* La fila de la calificación, en el CSV que se pega en la hoja «Registro de
+   Calificaciones» del Excel maestro. El encabezado es el de esa hoja, y el robot
+   lo lee por nombre: cambiar un rótulo aquí obliga a cambiarlo allá.
+   q: {score, t (de tierCalificacion), aportes (los cuatro, o null), fecha}. */
+const CSV_CALIF_ENC=["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones"];
+function csvCalif(c,q){
+  const dec=n=>Number(n).toFixed(2).replace(".",",");
+  const ap=(q.aportes&&q.aportes.length===4)?q.aportes.map(dec):["","","",""];
+  return "\uFEFF"+[CSV_CALIF_ENC.join(";"),
+    [c.nro,c.proveedor||"",c.area||"",c.cat||"",c.ac||"",q.fecha||todayISO(),...ap,dec(q.score),q.t.sem,q.t.elegible?"Sí":"No",""].join(";")].join("\r\n");
+}
+function descargarCsvCalif(c,q){
+  const blob=new Blob([csvCalif(c,q)],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`Calificacion_${cleanNro(c.nro)}.csv`;a.click();URL.revokeObjectURL(a.href);
+}
+
 /* --- Calificar proveedor (FO-AD-ABC-017) --- */
 function modalCalificar(c){
   const GRUPOS=[
@@ -2194,15 +2221,7 @@ function modalCalificar(c){
     const O=ov(c);O.evaluado=true;O.score=o._score.toFixed(2);O.sem=o._t.sem;
     // La fecha ordena la historia del proveedor; los aportes dan su promedio por indicador.
     O.fechaCalif=todayISO();O.aportes=o._aportes.map(a=>Math.round(a.aporte*100)/100);saveCLM();
-    const BOM="\uFEFF",ap=o._aportes;
-    const csv=BOM+[
-      ["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones"].join(";"),
-      [c.nro,c.proveedor||"",c.area||"",c.cat||"",c.ac||"",todayISO(),
-       ...ap.map(a=>String(a.aporte.toFixed(2)).replace(".",",")),
-       String(o._score.toFixed(2)).replace(".",","),o._t.sem,o._t.elegible?"Sí":"No",""].join(";")
-    ].join("\r\n");
-    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`Calificacion_${cleanNro(c.nro)}.csv`;a.click();URL.revokeObjectURL(a.href);
+    descargarCsvCalif(c,{score:o._score,t:o._t,aportes:o._aportes.map(a=>a.aporte),fecha:todayISO()});
     logAdd("⭐",`Proveedor calificado: ${o._score.toFixed(2)}/100 · ${o._t.sem}`,c.nro);
     o._sucio=false;
     o.querySelector(".modal").innerHTML=`
@@ -2210,7 +2229,7 @@ function modalCalificar(c){
       <p class="sub">${esc(c.proveedor||"—")} · ${o._score.toFixed(2)}/100 · ${esc(o._t.sem)}</p>
       <div class="steps"><h3>Próximos pasos</h3><ol>
         <li>Se descargó el <b>CSV</b> con la fila de calificación.</li>
-        <li>Pégala en <b>"Registro de Calificaciones"</b> (banco acumulativo) y en la <b>Base de proveedores FAP</b>.</li>
+        <li>Pega esa fila en la hoja <b>«Registro de Calificaciones»</b> del Excel maestro. El robot la publica cada mañana y desde entonces la ven todas las computadoras.</li>
         ${!o._t.elegible?"<li><b>Proveedor no elegible</b> — repórtalo también a la Unidad Operativa.</li>":""}
       </ol></div>
       <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
@@ -2807,6 +2826,7 @@ function vFrame(src,notice){
 /* ================= ARRANQUE ================= */
 loadCLM();
 async function boot(){
+  const pedido=pedirRegistro();   // en paralelo con la base: no la espera ni la frena
   try{
     // Con señal mala el fetch puede quedarse colgado minutos sin fallar. A los 20 s
     // se abandona y se entra con la copia embebida, diciéndolo en la píldora.
@@ -2837,9 +2857,20 @@ async function boot(){
   }
   if(!CONTRACTS.length)dataSource={label:"Sin datos disponibles",live:false};
   canonAreas(CONTRACTS);   // unifica las variantes de escritura del área protegida
+  // El registro de calificaciones se espera un momento, no más: con señal floja la
+  // primera pantalla no puede quedarse esperando un archivo secundario. Si llega
+  // tarde, se repinta —salvo que la AC ya esté escribiendo o tenga algo abierto—.
+  const reg=abrirRegistro(pedido);
+  await Promise.race([reg,new Promise(r=>setTimeout(r,1500))]);
+  const tarde=REG.estado==="cargando";
   const h=leerHash();
   if(h){ST.view=h.view;if(h.cur!=null)ST.cur=h.cur;else if(h.view==="detalle")ST.view="contratos";if(h.prov!=null)ST.prov=h.prov;}
   render();
+  if(tarde)reg.then(()=>{
+    const a=document.activeElement;
+    if(!SES||document.querySelector(".overlay")||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||["magica","crmx","calificacion"].includes(ST.view))return;
+    render();
+  });
 }
 boot();
 </script>

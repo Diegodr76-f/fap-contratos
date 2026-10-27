@@ -143,11 +143,19 @@ propio enlace (`#/proveedor/servitec`), y el buscador de arriba también encuent
   70 (no elegible), el detalle de sus contratos vivos lo dice en rojo y «Renovar en La Mágica» pide
   confirmación antes de abrir la renovación; entre 70 y 79,99 («Aceptable – Observado») el aviso es
   ámbar. No se bloquea: la decisión es de la AC, pero no pasa sin que la vea.
-- **Por ahora las calificaciones viven en el navegador donde se hicieron**, igual que antes: el
-  pool, los avisos y las alertas solo ven lo calificado en esa computadora, y el CSV se sigue
-  pegando a mano. El paso siguiente es un **Registro de Calificaciones** compartido —una hoja del
-  Excel maestro que lea el robot—, para que una calificación hecha en una computadora apague la
-  alerta en todas. El CLM ya está preparado: todo pasa por una sola función, `calificacionDe()`.
+- **Las calificaciones se comparten por el Excel maestro.** Al calificar, el CLM descarga un CSV
+  con una fila; esa fila se pega en la hoja **«Registro de Calificaciones»** del Excel maestro, cuyo
+  encabezado es el mismo del CSV (Nro. Contrato · Nombre Proveedor · Área Protegida · Categoría ·
+  Administrador/a AC · Fecha Evaluación · Calidad (40%) · Plazo (30%) · Atención (5%) · Cump.
+  Contractual (25%) · PUNTAJE TOTAL · RESULTADO · Elegible Futuros Proc. · Observaciones). El robot
+  la publica cada mañana, cifrada y aparte (`crm/calificaciones_export.json`), con solo el número de
+  contrato, la fecha, los puntajes y la observación —nada del proveedor—, y desde entonces la
+  alerta de ese contrato se apaga en todas las computadoras.
+  - Lo calificado en un navegador y todavía no pegado cuenta allí como calificado, y a esa AC el
+    CLM le recuerda pasarlo al Registro (con un botón para volver a bajar el CSV).
+  - Si la hoja no existe, todo funciona como antes. Si el Registro no se pudo leer (sin señal),
+    las alertas de calificar se pausan en vez de pedir lo que quizá ya se hizo, y el pool lo dice.
+  - La hoja «Proveedores» del Excel **no** se lee: lleva el RUC, que es información privada.
 
 ### Del CLM a La Mágica sin volver a teclear
 

@@ -71,7 +71,17 @@ function nuevoDom(lista,ses,op){
     beforeParse(win){
       if(sesion) win.sessionStorage.setItem('fap_clm_ses',JSON.stringify(sesion));
       Object.keys(op.ls||{}).forEach(k=>win.localStorage.setItem(k,op.ls[k]));
-      win.fetch=()=>Promise.resolve({ok:true,json:()=>Promise.resolve(JSON.parse(datos))});
+      // El registro de calificaciones: op.registro (una lista) si se da; si no, 404,
+      // que es lo que hay mientras el Excel no tenga la hoja. op.registro==='falla'
+      // simula la red caída.
+      win.fetch=u=>{
+        if(/calificaciones_export/.test(String(u))){
+          if(op.registro==='falla')return Promise.reject(new Error('sin red'));
+          return Promise.resolve(op.registro?{ok:true,status:200,json:()=>Promise.resolve(JSON.parse(JSON.stringify(op.registro)))}
+                                            :{ok:false,status:404,json:()=>Promise.reject(new Error('404'))});
+        }
+        return Promise.resolve({ok:true,json:()=>Promise.resolve(JSON.parse(datos))});
+      };
       win.scrollTo=()=>{}; win.alert=()=>{};
       win._confirmas=0; win._responde=op.confirma===undefined?true:op.confirma;
       win.confirm=()=>{ win._confirmas++; return win._responde; };
@@ -83,7 +93,7 @@ function listo(w){
   return new Promise((res,rej)=>{
     let n=0;
     (function esperar(){
-      let hay=0; try{ hay=w.eval('CONTRACTS.length'); }catch(e){}
+      let hay=0; try{ hay=w.eval('CONTRACTS.length') && w.eval('REG.estado')!=='cargando'; }catch(e){}
       if(hay) return res(w);
       if(++n>80) return rej(new Error('el CLM no cargó la base'));
       setTimeout(esperar,10);
@@ -799,6 +809,83 @@ seccion('22 · El pool de proveedores');
   w22.eval("ST.provQ='';ST.provFiltro='noeleg'"); w22.go('proveedores');
   ok(/Ningún proveedor con ese filtro/.test(texto(w22)) && w22.document.getElementById('limpiarProv'),
      'un filtro vacío dice por qué y ofrece salir');
+}
+
+// ---------------------------------------------------------------- 23
+seccion('23 · El Registro de Calificaciones compartido');
+{
+  // La calificación vivía solo en el navegador donde se hizo: en otra computadora
+  // el contrato seguía «sin calificar» y la alerta no se apagaba nunca. Ahora el
+  // robot publica la hoja «Registro de Calificaciones» del Excel maestro y el CLM
+  // la mira primero.
+  const port=()=>{
+    const l=contratos();
+    Object.assign(l[1],{cerrado:true,fcierre:'2026-03-10'});                        // calificado en el Registro
+    Object.assign(l[2],{cerrado:true,fcierre:'2026-04-10'});                        // calificado solo aquí
+    Object.assign(l[3],{cerrado:true,fcierre:'2026-05-01'});                        // pendiente
+    return l;
+  };
+  const registro=[
+    {nro:'FIAS-FAP-2026-002',score:88,fecha:'2026-06-01',aportes:[36,26,4,22]},
+    {nro:'FIAS-FAP-2026-002',score:62,fecha:'2026-10-20',aportes:[25,20,2,15],obs:'Retrasos'},   // la más nueva manda
+    {nro:'',score:50},{nro:'FIAS-FAP-2026-005'},                                    // filas rotas: se ignoran
+  ];
+  const ana={rol:'ac',user:'Ana Pérez'};
+  let w=await listo(nuevoDom(port(),ana,{registro}));
+  const C=i=>w.eval(`CONTRACTS[${i}]`);
+  ok(w.eval('REG.estado')==='ok','el CLM lee el registro al arrancar');
+  let q=w.calificacionDe(C(1));
+  ok(q && q.fuente==='registro' && q.score===62 && q.fecha==='2026-10-20' && q.obs==='Retrasos',
+     'un contrato del registro está calificado, con la fila más nueva',JSON.stringify(q));
+  ok(!w.calificacionDe(C(4)),'una fila sin puntaje no califica a nadie');
+  let al=w.alertList().map(a=>a.t);
+  ok(!al.some(t=>/sin calificar — FIAS-FAP-2026-002/.test(t)) && al.some(t=>/sin calificar — FIAS-FAP-2026-004/.test(t)),
+     'su alerta se apaga en ESTE navegador, que nunca lo calificó; la del pendiente sigue',al.join(' | '));
+  w.go('detalle',1);
+  ok(/en el Registro/.test(texto(w)) && w.document.getElementById('a-cal').disabled,'el detalle lo dice y no deja calificar de nuevo');
+  w.go('detalle',0);
+  ok(/Proveedor no elegible/.test(texto(w)),'y la nota del registro (62) avisa en los contratos vivos del proveedor');
+  w.eval("Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'95.00',sem:'Confiable (Preferente)'})");
+  ok(w.calificacionDe(C(1)).fuente==='registro' && w.calificacionDe(C(1)).score===62,'si también hay una local, manda el registro');
+
+  // Calificado aquí y no pegado: se dice, y se puede volver a bajar el CSV.
+  w.eval("Object.assign(ov(CONTRACTS[2]),{evaluado:true,score:'80.50',sem:'Satisfactorio',fechaCalif:'2026-10-25',aportes:[32,24.5,4,20]})");
+  al=w.alertList();
+  const pend=al.find(a=>/sin pasar al Registro — FIAS-FAP-2026-003/.test(a.t));
+  ok(pend && !al.some(a=>/sin calificar — FIAS-FAP-2026-003/.test(a.t)),'calificado solo aquí: no pide calificar, pide pasarlo al Registro');
+  w.go('detalle',2);
+  ok(/falta pegarla/.test(texto(w)) && w.document.getElementById('a-csv'),'el detalle ofrece descargar otra vez el CSV');
+  const csv=w.csvCalif(C(2),w.calificacionDe(C(2))).replace(/^﻿/,'').split('\r\n');
+  ok(csv[0].split(';')[0]==='Nro. Contrato' && csv[0].split(';').includes('PUNTAJE TOTAL'),
+     'el CSV trae el encabezado que el robot busca («Nro. Contrato», «PUNTAJE TOTAL»)');
+  const ROBOT=fs.readFileSync(path.join(RAIZ,'scripts','actualizar_datos.py'),'utf8');
+  ok(/encabezado\(ws, "nro", "puntaje"\)/.test(ROBOT),'y el robot de verdad busca esas dos columnas');
+  ok(csv[1]==='FIAS-FAP-2026-003;Servitec;RPF Chimborazo;Mantenimiento;Ana Pérez;2026-10-25;32,00;24,50;4,00;20,00;80,50;Satisfactorio;Sí;',
+     'y la fila lleva la fecha y los cuatro aportes de la calificación',csv[1]);
+
+  // La Unidad Operativa: su alerta agregada cuenta con el registro.
+  let u=await listo(nuevoDom(port(),undefined,{registro}));
+  const ag=u.alertList().find(a=>a.fn==='pcal');
+  ok(ag && /^2 contratos/.test(ag.t),'la alerta agregada de la Unidad no cuenta lo que ya está en el registro',ag&&ag.t);
+
+  // Sin la hoja todavía (404): todo como antes.
+  w=await listo(nuevoDom(port(),ana));
+  ok(w.eval('REG.estado')==='sin','sin la hoja en el Excel, el archivo no existe y el CLM lo sabe');
+  w.eval("Object.assign(ov(CONTRACTS[2]),{evaluado:true,score:'80.50',sem:'Satisfactorio'})");
+  ok(!w.alertList().some(a=>/sin pasar al Registro/.test(a.t)),'y no pide pegar en un Registro que no existe');
+  w.go('proveedores');
+  ok(/Todavía no hay un Registro/.test(texto(w)),'el pool dice de dónde salen las calificaciones');
+
+  // Red caída: las alertas de calificar se pausan en vez de pedir lo ya hecho.
+  w=await listo(nuevoDom(port(),ana,{registro:'falla'}));
+  ok(w.eval('REG.estado')==='falla' && !w.alertList().some(a=>/sin calificar/.test(a.t)),
+     'si el registro no se pudo leer, la AC no recibe alertas de calificar');
+  u=await listo(nuevoDom(port(),undefined,{registro:'falla'}));
+  ok(!u.alertList().some(a=>a.fn==='pcal'),'ni la Unidad la suya');
+  u.go('proveedores');
+  ok(/No pude leer el Registro/.test(texto(u)),'y el pool lo dice');
+  ok(/const reg=abrirRegistro\(pedido\);\s*await Promise\.race\(\[reg,new Promise\(r=>setTimeout\(r,1500\)\)\]\)/.test(HTML),
+     'la primera pantalla espera al registro como mucho un segundo y medio');
 }
 
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
