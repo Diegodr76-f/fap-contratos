@@ -363,10 +363,11 @@ sostienen hoy (sección 22 de `probar_clm.js`):
 
 - **`calificacionDe(c)` es la única fuente de «¿está calificado?».** Stepper, detalle,
   alerta, pool, avisos y CSV pasan por ahí; nada lee `ov(c).evaluado` directo. Mira
-  primero el **Registro de Calificaciones** compartido —la hoja del Excel maestro donde se
-  pega el CSV, que el robot publica en `crm/calificaciones_export.json`, cifrado y **aparte**
+  primero el **Registro de Calificaciones** compartido —la tabla del Excel maestro donde el
+  flujo de Power Automate (`FLOW_CALIF_URL`) agrega cada calificación confirmada, y que el
+  robot publica en `crm/calificaciones_export.json`, cifrado y **aparte**
   para que `contratos_export.json` no cambie— y después lo calificado en este navegador
-  (`fuente:"local"`). El encabezado de esa hoja es `CSV_CALIF_ENC` y el robot lo busca por
+  (`fuente:"local"`). Las columnas de esa tabla son `CSV_CALIF_ENC` y el robot las busca por
   nombre: cambiar un rótulo en un lado obliga a cambiarlo en el otro (sección 23). Los
   cortes 90/80/70/60 viven en `tierCalificacion()`, una sola tabla para el modal y el pool.
 - **El registro no frena ni engaña.** Se pide en paralelo con la base y la primera
@@ -374,6 +375,14 @@ sostienen hoy (sección 22 de `probar_clm.js`):
   leer, las alertas de calificar se **pausan** (`registroListo()`): pedir otra vez lo que ya
   está en el registro es justo el ruido que se quiso quitar. Del registro se publica solo
   n.º de contrato, fecha, puntajes y observación.
+- **Califica solo la AC del contrato, y confirma.** `puedeCalificar(c)` (rol AC y
+  `c.ac===SES.user`) es la única fuente: el botón, la ficha, las alertas y el propio
+  `modalCalificar()` pasan por ahí. El modal tiene dos pasos —«Revisar» y «Confirmar»— y
+  al confirmar `enviarCalificacion()` manda la fila al flujo; si falla queda `envio.estado
+  ="pendiente"`, la AC ve «Reintentar» y `reintentarEnvios()` la manda al arrancar y al volver
+  la señal, siempre con el mismo `idCalificacion`. Lo que ya está en el Registro no se
+  reenvía. La entrada no tiene contraseña por persona: por eso el flujo le escribe a la AC.
+  Guía de la tabla y el flujo: `plan/FLUJO_CALIFICACIONES.md` (sección 24 de las pruebas).
 - **El RUC no se publica ni se usa.** La hoja «Proveedores» del Excel lo trae y es
   información privada (el de una persona natural es su cédula), así que el robot no la lee;
   tampoco se valida ningún RUC: no se puede verificar desde aquí.

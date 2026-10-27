@@ -143,16 +143,18 @@ propio enlace (`#/proveedor/servitec`), y el buscador de arriba también encuent
   70 (no elegible), el detalle de sus contratos vivos lo dice en rojo y «Renovar en La Mágica» pide
   confirmación antes de abrir la renovación; entre 70 y 79,99 («Aceptable – Observado») el aviso es
   ámbar. No se bloquea: la decisión es de la AC, pero no pasa sin que la vea.
-- **Las calificaciones se comparten por el Excel maestro.** Al calificar, el CLM descarga un CSV
-  con una fila; esa fila se pega en la hoja **«Registro de Calificaciones»** del Excel maestro, cuyo
-  encabezado es el mismo del CSV (Nro. Contrato · Nombre Proveedor · Área Protegida · Categoría ·
-  Administrador/a AC · Fecha Evaluación · Calidad (40%) · Plazo (30%) · Atención (5%) · Cump.
-  Contractual (25%) · PUNTAJE TOTAL · RESULTADO · Elegible Futuros Proc. · Observaciones). El robot
-  la publica cada mañana, cifrada y aparte (`crm/calificaciones_export.json`), con solo el número de
-  contrato, la fecha, los puntajes y la observación —nada del proveedor—, y desde entonces la
-  alerta de ese contrato se apaga en todas las computadoras.
-  - Lo calificado en un navegador y todavía no pegado cuenta allí como calificado, y a esa AC el
-    CLM le recuerda pasarlo al Registro (con un botón para volver a bajar el CSV).
+- **Califica la AC del contrato, confirma, y la calificación llega sola al Excel.** Solo la AC
+  del contrato, desde su entrada, ve «Calificar»; la Unidad Operativa y las áreas ven la
+  calificación pero no la ponen. La AC revisa el resumen y pulsa **«Confirmar calificación»**: desde
+  ahí no se cambia en el CLM (si hubo un error, la Unidad la corrige en el Excel). Al confirmar, un
+  flujo de Power Automate agrega la fila a la tabla **«Registro de Calificaciones»** del Excel
+  maestro, le manda un correo de confirmación a la AC y, si el proveedor no es elegible, avisa a la
+  Unidad. El robot la publica cada mañana, cifrada y aparte (`crm/calificaciones_export.json`), con
+  solo el número de contrato, la fecha, los puntajes y la observación, y desde entonces la alerta
+  de ese contrato se apaga en todas las computadoras. Cómo se configura la tabla y el flujo, paso
+  a paso: **[`plan/FLUJO_CALIFICACIONES.md`](plan/FLUJO_CALIFICACIONES.md)**.
+  - Sin señal no se pierde: queda «pendiente de envío» en ese navegador, la AC ve una alerta con
+    «Reintentar» y el CLM la reintenta solo cada vez que se abre.
   - Si la hoja no existe, todo funciona como antes. Si el Registro no se pudo leer (sin señal),
     las alertas de calificar se pausan en vez de pedir lo que quizá ya se hizo, y el pool lo dice.
   - La hoja «Proveedores» del Excel **no** se lee: lleva el RUC, que es información privada.

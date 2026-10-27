@@ -714,13 +714,12 @@ seccion('22 · El pool de proveedores');
      'el de 2025 dice por qué no se exige, y deja calificarlo igual');
 
   // Calificar desde el propio modal: 0 en todo da 0/100, «No recomendado».
-  w22.URL.createObjectURL=()=>'blob:x'; w22.URL.revokeObjectURL=()=>{};
-  w22.HTMLAnchorElement.prototype.click=function(){};
   w22.go('detalle',1);
   w22.document.getElementById('a-cal').onclick();
   let m=w22.document.querySelector('.overlay');
   m.querySelectorAll('.scorebtn[data-v="0"]').forEach(b=>b.onclick());
-  m.querySelector('#gen').onclick();
+  m.querySelector('#rev').onclick();
+  m.querySelector('#conf').onclick(); await pausa(30);
   w22.document.querySelector('#okpasos').onclick();
   const q=w22.calificacionDe(w22.eval('CONTRACTS[1]'));
   ok(q && q.score===0 && !q.elegible && q.fecha===w22.todayISO() && q.aportes.length===4,
@@ -848,20 +847,18 @@ seccion('23 · El Registro de Calificaciones compartido');
   w.eval("Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'95.00',sem:'Confiable (Preferente)'})");
   ok(w.calificacionDe(C(1)).fuente==='registro' && w.calificacionDe(C(1)).score===62,'si también hay una local, manda el registro');
 
-  // Calificado aquí y no pegado: se dice, y se puede volver a bajar el CSV.
+  // Calificado aquí y todavía no enviado (el flujo aún sin configurar): se dice.
   w.eval("Object.assign(ov(CONTRACTS[2]),{evaluado:true,score:'80.50',sem:'Satisfactorio',fechaCalif:'2026-10-25',aportes:[32,24.5,4,20]})");
   al=w.alertList();
-  const pend=al.find(a=>/sin pasar al Registro — FIAS-FAP-2026-003/.test(a.t));
-  ok(pend && !al.some(a=>/sin calificar — FIAS-FAP-2026-003/.test(a.t)),'calificado solo aquí: no pide calificar, pide pasarlo al Registro');
+  const pend=al.find(a=>/sin enviar al Registro — FIAS-FAP-2026-003/.test(a.t));
+  ok(pend && /no está configurado/.test(pend.d) && !al.some(a=>/sin calificar — FIAS-FAP-2026-003/.test(a.t)),
+     'calificado aquí y sin enviar: no pide calificar, avisa que falta enviarlo',pend&&pend.d);
   w.go('detalle',2);
-  ok(/falta pegarla/.test(texto(w)) && w.document.getElementById('a-csv'),'el detalle ofrece descargar otra vez el CSV');
-  const csv=w.csvCalif(C(2),w.calificacionDe(C(2))).replace(/^﻿/,'').split('\r\n');
-  ok(csv[0].split(';')[0]==='Nro. Contrato' && csv[0].split(';').includes('PUNTAJE TOTAL'),
-     'el CSV trae el encabezado que el robot busca («Nro. Contrato», «PUNTAJE TOTAL»)');
+  ok(/Todavía no se envió al Registro/.test(texto(w)),'y el detalle lo dice');
+  const enc=w.eval('CSV_CALIF_ENC');
+  ok(enc[0]==='Nro. Contrato' && enc.includes('PUNTAJE TOTAL'),'las columnas de la tabla traen las que el robot busca («Nro. Contrato», «PUNTAJE TOTAL»)');
   const ROBOT=fs.readFileSync(path.join(RAIZ,'scripts','actualizar_datos.py'),'utf8');
   ok(/encabezado\(ws, "nro", "puntaje"\)/.test(ROBOT),'y el robot de verdad busca esas dos columnas');
-  ok(csv[1]==='FIAS-FAP-2026-003;Servitec;RPF Chimborazo;Mantenimiento;Ana Pérez;2026-10-25;32,00;24,50;4,00;20,00;80,50;Satisfactorio;Sí;',
-     'y la fila lleva la fecha y los cuatro aportes de la calificación',csv[1]);
 
   // La Unidad Operativa: su alerta agregada cuenta con el registro.
   let u=await listo(nuevoDom(port(),undefined,{registro}));
@@ -872,7 +869,6 @@ seccion('23 · El Registro de Calificaciones compartido');
   w=await listo(nuevoDom(port(),ana));
   ok(w.eval('REG.estado')==='sin','sin la hoja en el Excel, el archivo no existe y el CLM lo sabe');
   w.eval("Object.assign(ov(CONTRACTS[2]),{evaluado:true,score:'80.50',sem:'Satisfactorio'})");
-  ok(!w.alertList().some(a=>/sin pasar al Registro/.test(a.t)),'y no pide pegar en un Registro que no existe');
   w.go('proveedores');
   ok(/Todavía no hay un Registro/.test(texto(w)),'el pool dice de dónde salen las calificaciones');
 
@@ -886,6 +882,90 @@ seccion('23 · El Registro de Calificaciones compartido');
   ok(/No pude leer el Registro/.test(texto(u)),'y el pool lo dice');
   ok(/const reg=abrirRegistro\(pedido\);\s*await Promise\.race\(\[reg,new Promise\(r=>setTimeout\(r,1500\)\)\]\)/.test(HTML),
      'la primera pantalla espera al registro como mucho un segundo y medio');
+}
+
+// ---------------------------------------------------------------- 24
+seccion('24 · Califica la AC, confirma, y la calificación llega sola al Registro');
+{
+  // Pegar a mano cada calificación en el Excel no era un proceso: se olvidaba.
+  // Ahora la AC del contrato confirma y el CLM la manda a un flujo de Power
+  // Automate que agrega la fila al Registro; sin señal, queda pendiente y se
+  // reintenta. Y solo la AC del contrato califica.
+  const port=()=>{const l=contratos();
+    Object.assign(l[1],{cerrado:true,fcierre:'2026-03-10'});
+    Object.assign(l[3],{cerrado:true,fcierre:'2026-05-01',ac:'María Guamán',correo:'maria@fias.org.ec'});
+    return l;};
+  // La Unidad Operativa ve, pero no califica.
+  let u=await listo(nuevoDom(port()));
+  u.go('detalle',1);
+  ok(u.document.getElementById('a-cal').disabled && /La califica Ana Pérez/.test(texto(u)),'la Unidad Operativa no puede calificar: el botón dice quién lo hace');
+  u.modalCalificar(u.eval('CONTRACTS[1]'));
+  ok(!u.document.querySelector('.overlay'),'ni abriendo el formulario por otro camino');
+  ok(!u.alertList().some(a=>a.fn==='cal'),'y no recibe alertas para calificar uno por uno');
+  // Una AC no califica el contrato de otra.
+  let w=await listo(nuevoDom(port(),{rol:'ac',user:'Ana Pérez'}));
+  w.go('detalle',3);
+  ok(w.document.getElementById('a-cal').disabled && /La califica María Guamán/.test(texto(w)),'una AC no califica el contrato de otra');
+  w.abrirProv('servitec');
+  ok(w.document.querySelectorAll('#view [data-cal]').length===1,'en la ficha, «Calificar» solo en el contrato propio');
+
+  // Dos pasos: revisar y confirmar.
+  const posts=[];let red='ok';
+  w.fetch=(u2,o2)=>{ if(/flujo/.test(String(u2))){ posts.push(JSON.parse(o2.body));
+      return red==='ok'?Promise.resolve({ok:true,status:200}):Promise.reject(new Error('sin red')); }
+    return Promise.resolve({ok:false,status:404}); };
+  w.eval("FLOW_CALIF_URL='https://flujo.test/calificaciones'");
+  w.go('detalle',1);
+  w.document.getElementById('a-cal').onclick();
+  let m=w.document.querySelector('.overlay');
+  m.querySelectorAll('.scorebtn[data-g="0"][data-v="2"]').forEach(b=>b.onclick());
+  m.querySelector('#rev').onclick();
+  ok(m.querySelector('#paso1').style.display==='none' && /Confirma la calificación/.test(m.textContent) && /Ya no se puede cambiar/.test(m.textContent),
+     '«Revisar» muestra el resumen y avisa que confirmada no se cambia');
+  ok(!w.eval('ov(CONTRACTS[1]).evaluado') && !posts.length,'revisar todavía no registra ni envía nada');
+  m.querySelector('#volver').onclick();
+  ok(m.querySelector('#paso1').style.display==='','«Corregir» vuelve a los criterios sin perder lo marcado');
+  m.querySelector('#rev').onclick();
+  m.querySelector('#cObs').value='Entregó tarde dos veces';
+  const conf=m.querySelector('#conf');
+  conf.onclick(); conf.onclick(); await pausa(40);
+  ok(posts.length===1,'confirmar envía UNA vez, aunque se pulse dos',posts.length);
+  const p=posts[0]||{};
+  ok(p.contratoNro==='FIAS-FAP-2026-002' && p.ac==='Ana Pérez' && p.acCorreo==='ana@fias.org.ec' && p.observaciones==='Entregó tarde dos veces'
+     && p.puntaje===Number(w.eval('ov(CONTRACTS[1]).score')) && p.calidad!=null && p.fechaEvaluacion===w.todayISO() && p.idCalificacion,
+     'el flujo recibe la fila completa: contrato, AC, su correo, puntajes y observación',JSON.stringify(p));
+  ok(w.eval('ov(CONTRACTS[1]).envio.estado')==='enviada' && /confirmada y enviada/.test(w.document.querySelector('.overlay').textContent),
+     'queda como enviada y la pantalla final lo dice');
+  w.document.querySelector('#okpasos').onclick();
+  ok(!w.alertList().some(a=>/FIAS-FAP-2026-002/.test(a.t)),'y no queda ninguna alerta de ese contrato');
+
+  // Sin señal: no se pierde, se avisa y se reintenta.
+  const l=port();Object.assign(l[2],{cerrado:true,fcierre:'2026-04-01'});
+  w=await listo(nuevoDom(l,{rol:'ac',user:'Ana Pérez'}));
+  posts.length=0;red='no';
+  w.fetch=(u2,o2)=>{ if(/flujo/.test(String(u2))){ posts.push(JSON.parse(o2.body));
+      return red==='ok'?Promise.resolve({ok:true,status:200}):Promise.reject(new Error('sin red')); }
+    return Promise.resolve({ok:false,status:404}); };
+  w.eval("FLOW_CALIF_URL='https://flujo.test/calificaciones'");
+  w.go('detalle',2);
+  w.document.getElementById('a-cal').onclick();
+  m=w.document.querySelector('.overlay');
+  m.querySelector('#rev').onclick(); m.querySelector('#conf').onclick(); await pausa(40);
+  ok(w.eval('ov(CONTRACTS[2]).evaluado') && w.eval('ov(CONTRACTS[2]).envio.estado')==='pendiente' && /no se pudo enviar/.test(m.textContent),
+     'sin señal la calificación queda guardada como pendiente, y se dice');
+  const al=w.alertList().find(a=>/sin enviar al Registro — FIAS-FAP-2026-003/.test(a.t));
+  ok(al && al.fn==='reenv' && al.act==='Reintentar','la AC tiene una alerta con «Reintentar»');
+  const id1=posts[0].idCalificacion;
+  red='ok';
+  const n=await w.reintentarEnvios();
+  ok(n===1 && posts.length===2 && posts[1].idCalificacion===id1,'al volver la señal se envía sola, con el mismo identificador',JSON.stringify([n,posts.length]));
+  ok(!w.alertList().some(a=>/sin enviar/.test(a.t)),'y la alerta se apaga');
+  await w.reintentarEnvios();
+  ok(posts.length===2,'lo ya enviado no se vuelve a mandar');
+  // Algo ya en el Registro no se reenvía aunque en este navegador conste como pendiente.
+  w.eval("REG.porNro['FIAS-FAP-2026-002']=[{nro:'FIAS-FAP-2026-002',score:70,fecha:'2026-10-01'}];Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'90.00'})");
+  await w.reintentarEnvios();
+  ok(posts.length===2,'ni lo que ya está en el Registro');
 }
 
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));

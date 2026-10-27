@@ -135,8 +135,9 @@ def texto(v):
     return str(v).strip() or None
 
 # ---------------------------------------------------------------------------
-# «Registro de Calificaciones»: hoja OPCIONAL del Excel maestro donde se pega la
-# fila del CSV que descarga el CLM al calificar a un proveedor. Es lo que permite
+# «Registro de Calificaciones»: hoja OPCIONAL del Excel maestro donde un flujo de
+# Power Automate agrega la fila de cada calificación que una AC confirma en el CLM
+# (plan/FLUJO_CALIFICACIONES.md). Es lo que permite
 # que una calificación hecha en una computadora apague la alerta en todas.
 # Como con las columnas de arriba: si no está (o no se entiende) se avisa y se
 # publica exactamente lo mismo que antes.
@@ -171,7 +172,7 @@ def limpio(v):
 
 def num_es(v):
     """Número de una celda que puede venir como texto con coma decimal, que es
-    como queda una fila pegada desde el CSV (separado por «;») del CLM."""
+    como queda una fila que alguien escribió o corrigió a mano en la tabla."""
     if isinstance(v, bool):
         return None
     if isinstance(v, (int, float)):
@@ -185,8 +186,8 @@ def num_es(v):
 
 def leer_calificaciones(wb):
     """Las filas de «Registro de Calificaciones», o None si la hoja no existe
-    (que no es lo mismo que existir vacía: el CLM solo avisa «pega la fila en el
-    Registro» cuando el Registro existe)."""
+    (que no es lo mismo que existir vacía: sin hoja no se publica el archivo y el
+    CLM sabe que todavía no hay Registro)."""
     hoja = next((n for n in wb.sheetnames if n.strip().lower() == "registro de calificaciones"), None)
     if hoja is None:
         return None
