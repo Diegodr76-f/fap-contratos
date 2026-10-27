@@ -23,9 +23,16 @@ Esto se configura **una sola vez**. Son tres cosas: la tabla, el flujo y la URL 
    ve una alerta con «Reintentar» y el CLM la reintenta solo cada vez que se abre.
 6. A la mañana siguiente el robot publica el Registro y la calificación cuenta en todas las
    computadoras.
-7. **Si hubo un error**, la AC avisa a la Unidad Operativa, que corrige o borra la fila en la
-   tabla. Al día siguiente el CLM muestra lo corregido. Si un contrato tiene varias filas, vale
-   la de fecha más reciente.
+7. **Si hubo un error, o era una prueba**, la AC avisa a la Unidad Operativa, que corrige o
+   **borra la fila** en la tabla. Cuando el robot publica, el CLM muestra lo corregido; y si la
+   fila se borró, el contrato **vuelve a quedar por calificar**: en el navegador de la AC se
+   libera la calificación que ya no está en el Registro y reaparecen «Calificar proveedor» y su
+   alerta. (Solo si el Registro se publicó después de enviarla: una calificación de hoy, que el
+   robot todavía no leyó, no se da por retirada.) Si un contrato tiene varias filas, vale la de
+   fecha más reciente.
+
+   Para no esperar a la mañana siguiente: en GitHub, **Actions → «Actualizar datos del CRM» →
+   Run workflow**. En uno o dos minutos el Registro queda publicado; recarga el CLM (Ctrl+Shift+R).
 
 ## 1. La tabla en el Excel maestro
 

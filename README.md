@@ -153,6 +153,9 @@ propio enlace (`#/proveedor/servitec`), y el buscador de arriba también encuent
   solo el número de contrato, la fecha, los puntajes y la observación, y desde entonces la alerta
   de ese contrato se apaga en todas las computadoras. Cómo se configura la tabla y el flujo, paso
   a paso: **[`plan/FLUJO_CALIFICACIONES.md`](plan/FLUJO_CALIFICACIONES.md)**.
+  - Si hay que repetir una calificación (un error, o una prueba), la Unidad **borra su fila** en la
+    tabla del Excel; cuando el robot publica, el contrato vuelve a quedar por calificar y la AC
+    puede calificarlo de nuevo.
   - Sin señal no se pierde: queda «pendiente de envío» en ese navegador, la AC ve una alerta con
     «Reintentar» y el CLM la reintenta solo cada vez que se abre.
   - Si la hoja no existe, todo funciona como antes. Si el Registro no se pudo leer (sin señal),

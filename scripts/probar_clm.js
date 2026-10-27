@@ -996,6 +996,58 @@ seccion('24 · Califica la AC, confirma, y la calificación llega sola al Regist
   ok(posts.length===2,'ni lo que ya está en el Registro');
 }
 
+// ---------------------------------------------------------------- 25
+seccion('25 · Si la calificación ya no está en el Registro, la AC puede calificar de nuevo');
+{
+  // Para repetir una prueba, o corregir un error: la Unidad borra la fila de la tabla
+  // del Excel y, cuando el robot publica, el contrato vuelve a quedar por calificar.
+  const l=contratos();Object.assign(l[1],{cerrado:true,fcierre:'2026-03-10'});
+  const ana={rol:'ac',user:'Ana Pérez'};
+  const w=await listo(nuevoDom(l,ana,{registro:[{nro:'FIAS-FAP-2026-005',score:80,fecha:'2026-10-01'}]}));
+  const hace=h=>new Date(Date.now()-h*3600000).toISOString();
+  const poner=(enISO,estado)=>w.eval(`Object.keys(CLM.overlay).forEach(k=>delete CLM.overlay[k]);
+    Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'90.00',sem:'Confiable (Preferente)',fechaCalif:'2026-10-26',aportes:[36,27,4.5,22.5],
+      envio:{estado:${JSON.stringify(estado||'enviada')},id:'x',en:'2026-10-26',enISO:${JSON.stringify(enISO)}}})`);
+  const C1=()=>w.eval('CONTRACTS[1]');
+
+  // El Registro se publicó DESPUÉS de enviarla y no la trae: se retiró.
+  poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(2))}`);
+  ok(w.calificacionRetirada(C1()),'enviada hace 30 h y el Registro de hace 2 h no la trae: está retirada');
+  ok(w.liberarCalificacionesRetiradas()===1 && !w.calificacionDe(C1()) && !w.eval('ov(CONTRACTS[1]).envio'),
+     'se libera: ya no consta como calificada en este navegador');
+  ok(/se puede calificar de nuevo/.test(w.eval('CLM.log[0].txt')),'y queda en la bitácora');
+  w.go('detalle',1);
+  ok(!w.document.getElementById('a-cal').disabled,'«Calificar proveedor» vuelve a estar habilitado para la AC');
+  ok(w.alertList().some(a=>/sin calificar — FIAS-FAP-2026-002/.test(a.t)),'y vuelve su alerta de calificar');
+  w.document.getElementById('a-cal').onclick();
+  ok(!!w.document.querySelector('.overlay #paso1'),'y se puede abrir el formulario');
+  w.document.querySelector('.overlay').remove();
+
+  // Lo que NO es una retirada.
+  poner(hace(1)); w.eval(`REG.generado=${JSON.stringify(hace(0.9))}`);
+  ok(!w.calificacionRetirada(C1()),'enviada hace 1 h y el Registro lo publicó a los pocos minutos: el robot todavía no la leyó, no es una retirada');
+  poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(40))}`);
+  ok(!w.calificacionRetirada(C1()),'enviada DESPUÉS de la última publicación del Registro: aún no tenía por qué estar');
+  poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(2))};REG.porNro['FIAS-FAP-2026-002']=[{nro:'FIAS-FAP-2026-002',score:90,fecha:'2026-10-26'}]`);
+  ok(!w.calificacionRetirada(C1()),'si el Registro la trae, sigue calificada');
+  w.eval("delete REG.porNro['FIAS-FAP-2026-002']");
+  poner(hace(30),'pendiente'); w.eval(`REG.generado=${JSON.stringify(hace(2))}`);
+  ok(!w.calificacionRetirada(C1()),'una que nunca se envió no es una retirada: sigue pendiente');
+  poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(2))};REG.estado='falla'`);
+  ok(!w.calificacionRetirada(C1()),'si el Registro no se pudo leer, no se toca nada');
+  w.eval("REG.estado='sin'");
+  ok(!w.calificacionRetirada(C1()),'ni mientras la hoja no exista');
+
+  // Al arrancar, con un Registro vacío (borraron la única fila de prueba).
+  const w2=await listo(nuevoDom(l,ana,{registro:[],
+    ls:{fap_clm_v1:JSON.stringify({overlay:{'FIAS-FAP-2026-002':{terminado:true,evaluado:true,score:'90.00',sem:'Confiable (Preferente)',
+      envio:{estado:'enviada',id:'x',en:'2026-10-01',enISO:'2026-10-01T10:00:00Z'}}},solicitudes:[],log:[]})}}));
+  // El simulador no pone «generado» (es del sobre cifrado del robot): se fija como lo haría el robot.
+  w2.eval("REG.generado='2026-10-27T11:30:00Z'");
+  ok(w2.liberarCalificacionesRetiradas()===1 && !w2.calificacionDe(w2.eval('CONTRACTS[1]')),
+     'con un Registro vacío publicado después, la calificación de prueba se libera');
+}
+
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
 process.exit(fallos?1:0);
 

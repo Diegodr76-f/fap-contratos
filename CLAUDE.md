@@ -381,7 +381,11 @@ sostienen hoy (sección 22 de `probar_clm.js`):
   al confirmar `enviarCalificacion()` manda la fila al flujo; si falla queda `envio.estado
   ="pendiente"`, la AC ve «Reintentar» y `reintentarEnvios()` la manda al arrancar y al volver
   la señal, siempre con el mismo `idCalificacion`. Lo que ya está en el Registro no se
-  reenvía. La entrada no tiene contraseña por persona: por eso el flujo le escribe a la AC.
+  reenvía. Una calificación **enviada** que el Registro, publicado después (`REG.generado`
+  más `MARGEN_REGISTRO_MS`), ya no trae se da por **retirada**: `liberarCalificacionesRetiradas()`
+  la borra de ese navegador y la AC puede calificar de nuevo (así se repite una prueba o se
+  corrige un error: la Unidad borra la fila de la tabla). Con el Registro ilegible no se toca
+  nada. La entrada no tiene contraseña por persona: por eso el flujo le escribe a la AC.
   Guía de la tabla y el flujo: `plan/FLUJO_CALIFICACIONES.md` (sección 24 de las pruebas).
 - **El RUC no se publica ni se usa.** La hoja «Proveedores» del Excel lo trae y es
   información privada (el de una persona natural es su cédula), así que el robot no la lee;

@@ -180,6 +180,10 @@ try:
        "una fila pegada como texto con coma decimal se lee igual", reg[1])
     ok(reg[2] == {"nro": "FIAS-FAP-2026-005", "score": 70.0, "fecha": "2026-10-23"},
        "sin aportes no se inventan: llega solo el puntaje")
+    with open(os.path.join(tmp, "trabajo", "crm", "calificaciones_export.json"), encoding="utf-8") as f:
+        sobre_reg = json.load(f)
+    ok(__import__("re").fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", sobre_reg.get("generado", "")) is not None,
+       "el archivo del Registro lleva la hora en que se publicó (fuera del cifrado): con ella el CLM sabe si una calificación fue retirada")
     ok("2 fila(s)" in salida and "3 fila(s) publicadas" in salida, "el robot dice cuántas descartó y cuántas publicó", salida.strip().splitlines()[-2:])
 
     salida, _, reg = correr(libro(registro=[]), tmp)

@@ -981,6 +981,7 @@ async function abrirRegistro(pedido){
     const data=await fapMaybe(r.env);
     if(!Array.isArray(data))throw new Error("formato");
     REG={estado:"ok",porNro:indexaRegistro(data),generado:(r.env&&!Array.isArray(r.env)&&r.env.generado)||null};
+    liberarCalificacionesRetiradas();
   }catch(e){REG={estado:"falla",porNro:{},generado:null};}
 }
 /* Qué decir de dónde salen las calificaciones, según el estado del registro. */
@@ -2195,7 +2196,7 @@ async function enviarCalificacion(c){
   try{
     const r=await fetch(FLOW_CALIF_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});
     if(!r.ok)throw new Error("HTTP "+r.status);
-    o.envio.estado="enviada";o.envio.en=todayISO();delete o.envio.error;saveCLM();
+    o.envio.estado="enviada";o.envio.en=todayISO();o.envio.enISO=new Date().toISOString();delete o.envio.error;saveCLM();
     logAdd("📨",`Calificación enviada al Registro: ${puntos(p.puntaje)}/100`,c.nro);
     return true;
   }catch(e){o.envio.error=String((e&&e.message)||e);saveCLM();return false;}
@@ -2203,6 +2204,31 @@ async function enviarCalificacion(c){
 function sinEnviar(c){
   const o=CLM.overlay[c.nro];
   return !!(o&&o.evaluado&&!(o.envio&&o.envio.estado==="enviada")&&!(REG.porNro[c.nro]&&REG.porNro[c.nro].length));
+}
+/* Una calificación que se envió y que el Registro, publicado DESPUÉS, ya no trae,
+   fue retirada: la Unidad la borró de la tabla porque era un error o una prueba. Sin
+   esto el navegador seguía recordándola como hecha y la AC no podía volver a
+   calificar. «Después» quiere decir con margen (el robot publica una vez al día y el
+   flujo tarda unos segundos): una calificación recién enviada, que el robot todavía
+   no leyó, no es una retirada. Si el Registro no se pudo leer, no se toca nada. */
+const MARGEN_REGISTRO_MS=15*60*1000;
+function calificacionRetirada(c){
+  const o=CLM.overlay[c.nro];
+  if(!o||!o.evaluado||!o.envio||o.envio.estado!=="enviada"||!o.envio.enISO)return false;
+  if(REG.estado!=="ok"||!REG.generado)return false;
+  if(REG.porNro[c.nro]&&REG.porNro[c.nro].length)return false;
+  return new Date(REG.generado).getTime()>new Date(o.envio.enISO).getTime()+MARGEN_REGISTRO_MS;
+}
+function liberarCalificacionesRetiradas(){
+  let n=0;
+  CONTRACTS.forEach(c=>{
+    if(!calificacionRetirada(c))return;
+    const o=CLM.overlay[c.nro];
+    ["evaluado","score","sem","fechaCalif","aportes","obsCalif","calificadoPor","envio"].forEach(k=>{delete o[k];});
+    logAdd("↩️","La calificación ya no está en el Registro: se puede calificar de nuevo",c.nro);n++;
+  });
+  if(n)saveCLM();
+  return n;
 }
 // Al abrir el CLM y al volver la señal: manda lo que quedó pendiente en este navegador.
 async function reintentarEnvios(){
