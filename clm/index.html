@@ -938,15 +938,77 @@ function tierCalificacion(s){
   if(s>=60)return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"No se considerará en próximos procesos de contratación."};
   return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
 }
+/* ---- El Registro de Calificaciones compartido ----
+   Una hoja del Excel maestro donde se pega la fila del CSV que descarga el modal
+   de calificar. El robot la publica cada mañana, cifrada, en un archivo aparte; si
+   la hoja no existe, el archivo tampoco (404) y el CLM sigue como antes.
+   Estados: "cargando" · "ok" (hay registro) · "sin" (no existe) · "falla" (no se
+   pudo leer: sin señal, por ejemplo). Mientras no esté "ok" o "sin", las alertas
+   de «sin calificar» se pausan: con la señal floja de un área protegida, pedir
+   calificar algo que ya está en el registro es justo el ruido que se quiso quitar. */
+const REG_URL='../crm/calificaciones_export.json';
+let REG={estado:"cargando",porNro:{},generado:null};
+function registroListo(){return REG.estado==="ok"||REG.estado==="sin";}
+function indexaRegistro(filas){
+  const p={};
+  (Array.isArray(filas)?filas:[]).forEach(r=>{
+    if(!r||!r.nro||r.score==null||!isFinite(Number(r.score)))return;
+    const nro=String(r.nro).trim();
+    (p[nro]||(p[nro]=[])).push({nro,score:Number(r.score),fecha:r.fecha||null,
+      aportes:Array.isArray(r.aportes)&&r.aportes.length===4?r.aportes.map(Number):null,obs:r.obs||""});
+  });
+  Object.keys(p).forEach(k=>p[k].sort(porFechaCalif));
+  return p;
+}
+// La red, sola: se lanza junto con la base y no espera la frase de acceso.
+function pedirRegistro(){
+  const ctl=window.AbortController?new AbortController():null;
+  const reloj=setTimeout(()=>{if(ctl)ctl.abort();},8000);
+  return fetch(REG_URL,{cache:"no-store",signal:ctl?ctl.signal:undefined})
+    .then(async r=>{
+      if(r.status===404)return {estado:"sin"};
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      return {estado:"ok",env:await r.json()};
+    })
+    .catch(()=>({estado:"falla"}))
+    .finally(()=>clearTimeout(reloj));
+}
+// El descifrado, después de la base: así la frase se pide una sola vez.
+async function abrirRegistro(pedido){
+  try{
+    const r=await pedido;
+    if(r.estado!=="ok"){REG={estado:r.estado,porNro:{},generado:null};return;}
+    const data=await fapMaybe(r.env);
+    if(!Array.isArray(data))throw new Error("formato");
+    REG={estado:"ok",porNro:indexaRegistro(data),generado:(r.env&&!Array.isArray(r.env)&&r.env.generado)||null};
+    liberarCalificacionesRetiradas();
+  }catch(e){REG={estado:"falla",porNro:{},generado:null};}
+}
+/* Qué decir de dónde salen las calificaciones, según el estado del registro. */
+function notaRegistro(corta){
+  if(REG.estado==="ok")return corta?"Calificaciones del Registro compartido y de este navegador."
+    :"Las calificaciones salen del Registro de Calificaciones del Excel maestro (se publica cada mañana) y de las que se hicieron en este navegador y aún no pasaron al Registro.";
+  if(REG.estado==="sin")return corta?"Solo cuentan las calificaciones hechas en este navegador."
+    :"Todavía no hay un Registro de Calificaciones compartido: las calificaciones se guardan solo en este navegador.";
+  return corta?"No pude leer el Registro: solo cuentan las de este navegador."
+    :"No pude leer el Registro de Calificaciones ahora (¿sin señal?): se muestran solo las hechas en este navegador y las alertas de «sin calificar» se pausan.";
+}
+
 /* ¿Está calificado el proveedor de este contrato? Es la ÚNICA pregunta que el
    resto del CLM hace: el stepper, el detalle, la alerta, el pool y los CSV pasan
-   por aquí. Hoy la respuesta vive solo en este navegador (ov(c)); cuando exista
-   el Registro de Calificaciones compartido, se añade aquí y nada más cambia. */
+   por aquí. Primero el Registro compartido (la última fila de ese contrato);
+   si no está, lo calificado en este navegador, marcado como «local»: está hecho,
+   pero nadie más lo ve hasta que se pegue en el Registro. */
 function calificacionDe(c){
+  const l=REG.porNro[c.nro];
+  if(l&&l.length){
+    const r=l[l.length-1],t=tierCalificacion(r.score);
+    return {nro:c.nro,score:r.score,sem:t.sem,t,elegible:t.elegible,fecha:r.fecha,aportes:r.aportes,obs:r.obs,fuente:"registro"};
+  }
   const o=ov(c);
   if(!o.evaluado)return null;
   const score=Number(o.score)||0,t=tierCalificacion(score);
-  return {nro:c.nro,score,sem:o.sem||t.sem,t,elegible:t.elegible,fecha:o.fechaCalif||null,aportes:o.aportes||null};
+  return {nro:c.nro,score,sem:o.sem||t.sem,t,elegible:t.elegible,fecha:o.fechaCalif||null,aportes:o.aportes||null,obs:"",fuente:"local"};
 }
 /* Solo se pide calificar lo terminado o cerrado desde esta fecha. Es fija, no
    «el año en curso»: un contrato cerrado en 2026 no deja de deberla el 1 de
@@ -962,38 +1024,42 @@ function pideCalificacion(c){
   const f=fechaTermino(c);
   return !f||f>=CALIFICA_DESDE;
 }
-/* Quién es el mismo proveedor. La base no trae RUC: solo el nombre como se
-   escribió en el Excel. Se unen las diferencias que no cambian a quién se nombra
-   —mayúsculas, tildes, puntos, la forma societaria al final («S.A.», «Cía.
-   Ltda.»)— y NADA más. Dos nombres que siguen distintos son dos proveedores:
-   unir por parecido sería adivinar, y juntar la calificación de uno con los
-   contratos de otro es peor que tenerlos separados. */
+/* Quién es el mismo proveedor, por su nombre. Se unen las diferencias que no
+   cambian a quién se nombra —mayúsculas, tildes, puntos, la forma societaria al
+   final («S.A.», «Cía. Ltda.»)— y NADA más: unir por parecido sería adivinar. */
 function claveProv(nombre){
   const base=plano(nombre).replace(/\./g,"").replace(/[^a-z0-9]+/g," ").trim();
   let s=base,prev;
   do{prev=s;s=s.replace(/(^|\s)(s a s|sas|s a|sa|c a|ca|cia ltda|ltda|cia|e p|ep|scc)$/,"").trim();}while(s&&s!==prev);
   return s||base;
 }
-/* El pool: los proveedores de una lista de contratos. Las calificaciones se
-   toman de TODO el portafolio, no solo de la lista: la ficha y el listado tienen
-   que dar el mismo semáforo, aunque la AC vea solo sus contratos. */
+/* El grupo de un contrato: la clave del nombre de su proveedor. (El RUC no se
+   usa: es información privada y no se publica.) */
+function claveGrupo(){return c=>{const n=String(c.proveedor||"").trim();return n?claveProv(n):null;};}
+/* El pool: los proveedores de una lista de contratos. Las calificaciones, las
+   escrituras del nombre se toman de TODO el portafolio, no solo de la
+   lista: el listado de una AC, el de la Unidad Operativa y la ficha tienen que
+   decir lo mismo. El nombre que se muestra es la escritura que más se repite. */
 function agruparProv(lista){
-  // Del portafolio entero salen también las escrituras del nombre, para que el
-  // proveedor se llame igual en el listado de una AC, en el de la Unidad
-  // Operativa y en su ficha: la escritura que más se repite.
-  const cal={},nom={};
+  const gk=claveGrupo(),cal={},nom={};
   CONTRACTS.forEach(c=>{
-    const n=String(c.proveedor||"").trim();if(!n)return;
-    const k=claveProv(n);
+    const k=gk(c);if(!k)return;
+    const n=String(c.proveedor).trim();
     (nom[k]||(nom[k]={}))[n]=(nom[k][n]||0)+1;
     const q=calificacionDe(c);if(q)(cal[k]||(cal[k]=[])).push(q);
   });
+  const orden=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).map(e=>e[0]);
+  const claves={},usadas={};
+  Object.keys(nom).sort().forEach(k=>{
+    const base=claveProv(orden(nom[k])[0]);let cl=base,i=2;
+    while(usadas[cl])cl=base+"-"+(i++);
+    usadas[cl]=1;claves[k]=cl;
+  });
   const M=new Map();
   lista.forEach(c=>{
-    const n=String(c.proveedor||"").trim();if(!n)return;
-    const k=claveProv(n);
+    const k=gk(c);if(!k)return;
     let p=M.get(k);
-    if(!p){p={clave:k,contratos:[],activos:0,monto:0,areas:{},cats:{},acs:{},porCalificar:0};M.set(k,p);}
+    if(!p){p={clave:claves[k],contratos:[],activos:0,monto:0,areas:{},cats:{},acs:{},porCalificar:0};M.set(k,p);}
     p.contratos.push(c);
     const s=statusLive(c).key;
     if(s==="vigente"||s==="aviso"||s==="vencido")p.activos++;
@@ -1003,11 +1069,10 @@ function agruparProv(lista){
     if(c.ac)p.acs[c.ac]=(p.acs[c.ac]||0)+1;
     if(pideCalificacion(c))p.porCalificar++;
   });
-  const orden=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).map(e=>e[0]);
-  M.forEach(p=>{
-    p.variantes=orden(nom[p.clave]||{});p.nombre=p.variantes[0];
+  M.forEach((p,k)=>{
+    p.variantes=orden(nom[k]||{});p.nombre=p.variantes[0];
     p.areas=orden(p.areas);p.cats=orden(p.cats);p.acs=orden(p.acs);
-    p.califs=(cal[p.clave]||[]).slice().sort(porFechaCalif);
+    p.califs=(cal[k]||[]).slice().sort(porFechaCalif);
     p.ultima=p.califs.length?p.califs[p.califs.length-1]:null;
     p.promedio=p.califs.length?Math.round(p.califs.reduce((a,q)=>a+q.score,0)/p.califs.length*100)/100:null;
   });
@@ -1015,16 +1080,19 @@ function agruparProv(lista){
 }
 function porFechaCalif(a,b){return String(a.fecha||"").localeCompare(String(b.fecha||""))||String(a.nro).localeCompare(String(b.nro));}
 function proveedores(){return [...agruparProv(myContracts()).values()];}
-function fichaProv(clave){return agruparProv(CONTRACTS).get(clave)||null;}
+// Por su clave, o por la clave del nombre de cualquiera de sus escrituras.
+function fichaProv(clave){
+  const todos=[...agruparProv(CONTRACTS).values()];
+  return todos.find(p=>p.clave===clave)||todos.find(p=>p.variantes.some(v=>claveProv(v)===clave))||null;
+}
 /* La última calificación del proveedor de un contrato, venga del contrato que
    venga: es la que pesa para renovarlo o volver a contratarlo. */
 function ultimaCalifProv(c){
-  if(!String(c.proveedor||"").trim())return null;
-  const k=claveProv(c.proveedor);
-  const qs=CONTRACTS.filter(x=>x.proveedor&&claveProv(x.proveedor)===k).map(calificacionDe).filter(Boolean).sort(porFechaCalif);
+  const gk=claveGrupo(),k=gk(c);if(!k)return null;
+  const qs=CONTRACTS.filter(x=>gk(x)===k).map(calificacionDe).filter(Boolean).sort(porFechaCalif);
   return qs.length?qs[qs.length-1]:null;
 }
-function pajarProv(p){return [p.variantes.join(" "),p.areas.join(" "),p.cats.join(" "),p.acs.join(" "),p.contratos.map(c=>c.nro).join(" ")].join(" ");}
+function pajarProv(p){return [p.variantes.join(" "),p.areas.join(" "),p.cats.join(" "),p.acs.join(" "),p.contratos.map(c=>c.nro).join(" ")].filter(Boolean).join(" ");}
 function puntos(n){return Number(n).toFixed(2).replace(".",",");}
 /* El semáforo de una calificación. «corto» deja solo el puntaje (el resultado va
    en el title): es para columnas angostas, donde la frase completa no cabe. */
@@ -1034,6 +1102,9 @@ function abrirProv(clave){ST.prov=clave;go("proveedor");}
 /* ================= ALERTAS (motor de reglas) ================= */
 function alertList(){
   const out=[];
+  // Sin el registro a mano (no se pudo leer, o todavía no llega), las alertas de
+  // calificar se pausan: pedir otra vez lo que ya está en el registro es ruido.
+  const regOk=registroListo();
   myContracts().forEach((c,idx)=>{
     const i=CONTRACTS.indexOf(c);
     const o=ov(c),s=statusLive(c),d=diasRestantes(c);
@@ -1043,9 +1114,12 @@ function alertList(){
     if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
     // Quien califica es la AC del contrato: a ella, una alerta por contrato. A la
     // Unidad Operativa, que ve el portafolio entero, una sola agregada (abajo).
-    if(SES.rol!=="uo"&&pideCalificacion(c))out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
+    if(regOk&&puedeCalificar(c)&&pideCalificacion(c))out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
+    // Confirmada aquí y todavía no enviada al Registro (sin señal, o el flujo aún
+    // sin configurar): está hecha, pero nadie más la ve. Se dice, con «Reintentar».
+    if(SES.rol==="ac"&&sinEnviar(c))out.push({sev:1,icon:"📨",col:"var(--navy)",bg:"var(--tint)",t:`Calificación sin enviar al Registro — ${c.nro}`,d:`${c.proveedor||"—"} · ${FLOW_CALIF_URL?"no se pudo enviar (¿sin señal?); se reintenta sola al abrir el CLM":"el envío automático todavía no está configurado"}`,i,act:FLOW_CALIF_URL?"Reintentar":"Abrir",fn:FLOW_CALIF_URL?"reenv":"open"});
   });
-  if(SES&&SES.rol==="uo"){
+  if(regOk&&SES&&SES.rol==="uo"){
     const pend=myContracts().filter(pideCalificacion).length;
     if(pend)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`${pend} contrato${pend===1?"":"s"} de ${CALIFICA_DESDE.slice(0,4)} con el proveedor sin calificar`,d:"Terminados o cerrados desde el "+fdate(CALIFICA_DESDE)+" · los califica la AC de cada contrato",i:null,act:"Ver",fn:"pcal"});
   }
@@ -1146,6 +1220,11 @@ function bindAlertRows(){
     if(fn==="sol"){go("solicitudes");return;}
     if(fn==="carp"){ST.sinCarpeta=true;ST.filter="all";go("contratos");return;}
     if(fn==="pcal"){ST.provFiltro="pend";ST.provQ="";go("proveedores");return;}
+    if(fn==="reenv"){const c=CONTRACTS[+b.dataset.i];mientras(b,"Enviando…",async()=>{
+      const ok=await enviarCalificacion(c);
+      toast(ok?"Calificación enviada al Registro":"No se pudo enviar: revisa la señal e inténtalo otra vez");
+      if(ok){render();return true;}
+    });return;}
     const i=+b.dataset.i;const c=CONTRACTS[i];
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
     else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
@@ -1417,7 +1496,7 @@ function vProveedores(){
   const cuenta=l=>l.length===todos.length?`${todos.length} proveedor${todos.length===1?"":"es"}`:`Mostrando <b style="color:var(--ink)">${l.length}</b> de ${todos.length}`;
   const pinta=()=>{const l=provLista(todos);$("#provbody").innerHTML=ST.viewMode==="cards"?provCardsHTML(l):provTablaHTML(l);$("#provcount").innerHTML=cuenta(l);bindProv();};
   $("#view").innerHTML=`<div class="up">
-    <p class="psub" style="margin-bottom:12px">Cada proveedor con sus contratos, montos y calificaciones. Se agrupan por el nombre del Excel: mayúsculas, tildes o «S.A.» no los separan, pero dos nombres distintos sí. <b>Por ahora las calificaciones se guardan en este navegador</b>: las hechas en otra computadora no aparecen aquí.</p>
+    <p class="psub" style="margin-bottom:12px">Cada proveedor con sus contratos, montos y calificaciones. Se agrupan por el nombre del Excel: mayúsculas, tildes o «S.A.» no los separan, pero dos nombres distintos sí. ${esc(notaRegistro())}</p>
     <div class="toolbar">
       <div class="search">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -1505,18 +1584,18 @@ function vProveedor(){
                 <td class="td-obj"><div class="td-nro" style="margin-bottom:2px">${esc(c.nro)}</div>${esc(c.detalle)}
                   <div class="fp-sub">${esc(c.area||"")}${mios.has(c)?"":` · de ${esc(c.ac||"otra AC")}`}</div>
                   <div class="fp-sub" style="color:var(--ink)"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(s.label)} · ${money(montoDe(c))}</div></td>
-                <td>${q?semChip(q,true,true):!pideCalificacion(c)?`<span style="color:var(--muted2)">—</span>`:mios.has(c)?`<button class="btn sm" data-cal="${i}">Calificar</button>`:`<span class="pendn" title="La califica la AC del contrato">pendiente</span>`}</td>
+                <td>${q?semChip(q,true,true):!pideCalificacion(c)?`<span style="color:var(--muted2)">—</span>`:puedeCalificar(c)?`<button class="btn sm" data-cal="${i}">Calificar</button>`:`<span class="pendn" title="La califica la AC del contrato">pendiente</span>`}</td>
               </tr>`;}).join("")}</tbody></table></div>
         </div>
       </div>
       <div class="fp-cal">
         <div class="panel">
           <p class="ptitle">Calificaciones</p>
-          <p class="psub">FO-AD-ABC-017 · registradas en este navegador.</p>
+          <p class="psub">FO-AD-ABC-017 · ${esc(notaRegistro(true))}</p>
           ${p.califs.length?`
             ${indic?`<div style="margin-bottom:14px">${indic.map(x=>`<div class="histcal"><span style="flex:0 0 150px">${esc(x.n)} <span style="color:var(--muted)">(${x.w}%)</span></span><div class="bar"><div style="width:${x.pct}%;background:${col(x.pct)}"></div></div><b style="flex:0 0 44px;text-align:right">${x.pct}%</b></div>`).join("")}</div>`:""}
             <div class="secdiv">Historia</div>
-            ${p.califs.slice().reverse().map(q=>`<div class="histcal hist"><div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--navy)">${esc(q.nro)}</div><div style="font-size:11.5px;color:var(--muted)">${q.fecha?fdate(q.fecha):"sin fecha"}</div></div>${semChip(q,true)}</div>`).join("")}
+            ${p.califs.slice().reverse().map(q=>`<div class="histcal hist"><div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--navy)">${esc(q.nro)}</div><div style="font-size:11.5px;color:var(--muted)">${q.fecha?fdate(q.fecha):"sin fecha"}${(q.fuente==="local"&&REG.estado==="ok")?" · solo en este navegador":""}</div></div>${semChip(q,true)}</div>`).join("")}
             ${p.ultima&&(!p.ultima.elegible||p.ultima.t.observado)?`<div class="provaviso ${p.ultima.elegible?"a":"r"}" style="margin-top:12px">${esc(p.ultima.t.cons)}</div>`:""}`
           :`<div class="empty" style="padding:22px 10px">Sin calificaciones registradas.${p.porCalificar?"<br>Califícalo desde sus contratos terminados.":""}</div>`}
         </div>
@@ -1640,9 +1719,9 @@ function vDetalle(){
               <span><span class="at">Terminar contrato</span><span class="ad">Acta de terminación FAP-2026-12 · escoger causal</span></span>
             </button>
             ${urgeRenov?"":renovBtn}
-            <button class="actbtn" id="a-cal" ${(!done||cal)?"disabled":""}>
+            <button class="actbtn" id="a-cal" ${(!done||cal||!puedeCalificar(c))?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7Z"/></svg></span>
-              <span><span class="at">Calificar proveedor</span><span class="ad">${done?(cal?"Calificación registrada ✓":"FO-AD-ABC-017 · 13 criterios"):"Disponible al terminar"}</span></span>
+              <span><span class="at">Calificar proveedor</span><span class="ad">${done?(cal?"Calificación registrada ✓":puedeCalificar(c)?"FO-AD-ABC-017 · 13 criterios":esc(quienCalifica(c))):"Disponible al terminar"}</span></span>
             </button>
             <button class="actbtn" id="a-env" ${!o.pendienteEnvio?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg></span>
@@ -1653,7 +1732,9 @@ function vDetalle(){
               <span><span class="at">Añadir nota</span><span class="ad">Observación interna en la bitácora del contrato</span></span>
             </button>
           </div>
-          ${cal?`<div class="note" style="margin-top:12px">Calificación: <b>${puntos(cal.score)}/100</b> · ${esc(cal.sem)}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. ${pideCalificacion(c)?"Queda pendiente la <b>calificación del proveedor</b>.":`Terminó antes del ${fdate(CALIFICA_DESDE)}: su calificación no se exige, aunque puedes registrarla.`}${(o.terminado&&!c.cerrado)?`<div style="margin-top:8px"><button class="linkbtn" id="a-reabrir">¿Lo terminaste por error? Reabrir el contrato</button></div>`:""}</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
+          ${cal?`<div class="note" style="margin-top:12px">Calificación: <b>${puntos(cal.score)}/100</b> · ${esc(cal.sem)}${cal.fuente==="registro"?" · en el Registro":""}${cal.fuente==="local"?(sinEnviar(c)
+  ?`<div style="margin-top:8px">Todavía no se envió al Registro ${FLOW_CALIF_URL?"(¿sin señal?). Se reintenta sola al abrir el CLM.":"(falta configurar el envío automático)."}${FLOW_CALIF_URL?` <button class="linkbtn" id="a-reenv">Enviar ahora</button>`:""}</div>`
+  :(ov(c).envio&&ov(c).envio.estado==="enviada")?`<div style="margin-top:8px">Enviada al Registro el ${fdate(ov(c).envio.en)}: desde la mañana siguiente la ven todas las computadoras.</div>`:""):""}</div>`:done?`<div class="note" style="margin-top:12px">Contrato ${c.cerrado?"cerrado según el Excel maestro":"terminado"}. ${pideCalificacion(c)?"Queda pendiente la <b>calificación del proveedor</b>.":`Terminó antes del ${fdate(CALIFICA_DESDE)}: su calificación no se exige, aunque puedes registrarla.`}${(o.terminado&&!c.cerrado)?`<div style="margin-top:8px"><button class="linkbtn" id="a-reabrir">¿Lo terminaste por error? Reabrir el contrato</button></div>`:""}</div>`:`<div class="note" style="margin-top:12px">Las modificaciones <b>no alteran el objeto</b> del contrato. Límite acumulado de aumentos: <b>50%</b> del monto original.</div>`}
         </div>
       </div>
     </div>
@@ -1663,7 +1744,12 @@ function vDetalle(){
     go(a);if(y)window.scrollTo(0,y);   // y a la misma altura de la lista
   };
   if(!done){$("#a-mod").onclick=()=>modalModificar(c);$("#a-ter").onclick=()=>modalTerminar(c);}
-  if(done&&!cal)$("#a-cal").onclick=()=>modalCalificar(c);
+  if(done&&!cal&&puedeCalificar(c))$("#a-cal").onclick=()=>modalCalificar(c);
+  const env=$("#a-reenv");if(env)env.onclick=()=>mientras(env,"Enviando…",async()=>{
+    const ok=await enviarCalificacion(c);
+    toast(ok?"Calificación enviada al Registro":"No se pudo enviar: revisa la señal e inténtalo otra vez");
+    if(ok){render();return true;}
+  });
   const ap=$("#a-prov");if(ap)ap.onclick=()=>abrirProv(claveProv(c.proveedor));
   const avp=$("#aviso-prov");if(avp)avp.onclick=()=>abrirProv(claveProv(c.proveedor));
   if(o.pendienteEnvio)$("#a-env").onclick=()=>modalEnvioUO(c,o.pendienteEnvio);
@@ -1695,7 +1781,7 @@ function avisoProvHTML(c){
   const r=!q.elegible;
   return `<div class="provaviso ${r?"r":"a"}">${r?"⛔":"⚠️"} <b>${r?"Proveedor no elegible":"Proveedor observado"}</b>: ${puntos(q.score)}/100 · ${esc(q.sem)}${q.fecha?` (${fdate(q.fecha)})`:""} en el contrato ${esc(q.nro)}. ${esc(q.t.cons)}
     <button class="linkbtn" id="aviso-prov" style="margin-left:4px">Ver su ficha</button>
-    <small>Calificaciones registradas en este navegador.</small></div>`;
+    <small>${esc(notaRegistro(true))}</small></div>`;
 }
 const VOLVER_A={panel:"al panel",pipeline:"a las etapas",contratos:"al repositorio",proveedores:"a los proveedores",proveedor:"a la ficha del proveedor",solicitudes:"a las solicitudes",alertas:"a las alertas",
   reportes:"a los reportes",mapa:"al mapa",actividad:"a la bitácora",calificacion:"al calificador",magica:"a La Mágica",crmx:"al CRM clásico"};
@@ -2065,8 +2151,105 @@ function modalTerminar(c){
   });
 }
 
+/* Las columnas de la tabla «Registro de Calificaciones» del Excel maestro, en
+   orden. El flujo de Power Automate escribe cada campo de payloadCalif() en la
+   suya y el robot las lee por nombre («Nro. Contrato», «PUNTAJE TOTAL»…): cambiar
+   un rótulo aquí obliga a cambiarlo en la tabla y en el robot. */
+const CSV_CALIF_ENC=["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones","Id calificación"];
+
+/* ---- Quién califica y cómo llega al Registro ----
+   Califica solo la AC del contrato, desde su entrada. La Unidad Operativa y las
+   áreas ven la calificación pero no la ponen. (La entrada del CLM no tiene
+   contraseña por persona: esto es una regla de la pantalla, no una seguridad. Por
+   eso el flujo le manda un correo a la AC con lo que se confirmó en su nombre.)
+   Al confirmar, la calificación va sola a un flujo de Power Automate que agrega la
+   fila a la tabla «Registro de Calificaciones» del Excel maestro y avisa por
+   correo (plan/FLUJO_CALIFICACIONES.md). Si no hay señal queda pendiente en este
+   navegador y se reintenta cada vez que se abre el CLM: no se pierde. */
+var FLOW_CALIF_URL = 'https://default5e23e4af237d4d97bf6edca8080157.87.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/26/workflows/73fbb2f6558b4ae7986ff3c47fe92906/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=KQlUxhFYqW0ACb4KseA60bkEkB1s1-FqKsMLX48h0AU';   // el flujo que agrega la fila al Registro (como FLOW_DOCS_URL, lleva su firma)
+function puedeCalificar(c){return !!(SES&&SES.rol==="ac"&&c.ac&&c.ac===SES.user);}
+function quienCalifica(c){return `La califica ${c.ac?c.ac+", ":""}la AC del contrato, desde su entrada.`;}
+// Lo que viaja al flujo: una fila del Registro. Los nombres de las columnas de la
+// tabla están en CSV_CALIF_ENC; el flujo pone cada campo en la suya. Un aporte que
+// no se conoce (una calificación hecha antes de que se guardaran) NO viaja, en vez de
+// ir como null: el esquema del flujo declara «number», porque Power Automate no
+// genera contenido dinámico para un tipo como ["number","null"].
+function payloadCalif(c){
+  const o=ov(c),score=Number(o.score)||0,t=tierCalificacion(score);
+  const ap=(Array.isArray(o.aportes)&&o.aportes.length===4)?o.aportes:[null,null,null,null];
+  if(!o.envio)o.envio={estado:"pendiente"};
+  if(!o.envio.id)o.envio.id=c.nro+"|"+(o.fechaCalif||todayISO())+"|"+Date.now().toString(36);
+  return {origen:"CLM",idCalificacion:o.envio.id,contratoNro:c.nro,proveedor:c.proveedor||"",area:c.area||"",
+    categoria:c.cat||"",ac:o.calificadoPor||c.ac||"",acCorreo:c.correo||"",fechaEvaluacion:o.fechaCalif||todayISO(),
+    calidad:ap[0]==null?undefined:ap[0],plazo:ap[1]==null?undefined:ap[1],
+    atencion:ap[2]==null?undefined:ap[2],cumplimiento:ap[3]==null?undefined:ap[3],puntaje:Math.round(score*100)/100,
+    resultado:t.sem,elegible:t.elegible?"Sí":"No",observaciones:o.obsCalif||"",enviadoEn:new Date().toISOString()};
+}
+// true si quedó en el Registro. El id viaja siempre igual: si el flujo recibe dos
+// veces la misma calificación (un reintento después de un corte), es la misma fila.
+async function enviarCalificacion(c){
+  const o=CLM.overlay[c.nro];
+  if(!o||!o.evaluado)return false;
+  if(o.envio&&o.envio.estado==="enviada")return true;
+  if(!FLOW_CALIF_URL)return false;
+  const p=payloadCalif(c);saveCLM();
+  try{
+    const r=await fetch(FLOW_CALIF_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    o.envio.estado="enviada";o.envio.en=todayISO();o.envio.enISO=new Date().toISOString();delete o.envio.error;saveCLM();
+    logAdd("📨",`Calificación enviada al Registro: ${puntos(p.puntaje)}/100`,c.nro);
+    return true;
+  }catch(e){o.envio.error=String((e&&e.message)||e);saveCLM();return false;}
+}
+function sinEnviar(c){
+  const o=CLM.overlay[c.nro];
+  return !!(o&&o.evaluado&&!(o.envio&&o.envio.estado==="enviada")&&!(REG.porNro[c.nro]&&REG.porNro[c.nro].length));
+}
+/* Una calificación que se envió y que el Registro, publicado DESPUÉS, ya no trae,
+   fue retirada: la Unidad la borró de la tabla porque era un error o una prueba. Sin
+   esto el navegador seguía recordándola como hecha y la AC no podía volver a
+   calificar. «Después» quiere decir con margen (el robot publica una vez al día y el
+   flujo tarda unos segundos): una calificación recién enviada, que el robot todavía
+   no leyó, no es una retirada. Si el Registro no se pudo leer, no se toca nada. */
+const MARGEN_REGISTRO_MS=15*60*1000;
+function calificacionRetirada(c){
+  const o=CLM.overlay[c.nro];
+  if(!o||!o.evaluado||!o.envio||o.envio.estado!=="enviada"||!o.envio.enISO)return false;
+  if(REG.estado!=="ok"||!REG.generado)return false;
+  if(REG.porNro[c.nro]&&REG.porNro[c.nro].length)return false;
+  return new Date(REG.generado).getTime()>new Date(o.envio.enISO).getTime()+MARGEN_REGISTRO_MS;
+}
+function liberarCalificacionesRetiradas(){
+  let n=0;
+  CONTRACTS.forEach(c=>{
+    if(!calificacionRetirada(c))return;
+    const o=CLM.overlay[c.nro];
+    ["evaluado","score","sem","fechaCalif","aportes","obsCalif","calificadoPor","envio"].forEach(k=>{delete o[k];});
+    logAdd("↩️","La calificación ya no está en el Registro: se puede calificar de nuevo",c.nro);n++;
+  });
+  if(n)saveCLM();
+  return n;
+}
+// Al abrir el CLM y al volver la señal: manda lo que quedó pendiente en este navegador.
+async function reintentarEnvios(){
+  if(!FLOW_CALIF_URL||reintentarEnvios.corriendo)return 0;
+  reintentarEnvios.corriendo=true;let n=0;
+  // Solo lo de la AC que está dentro: en un navegador compartido, o en el de la
+  // Unidad, lo calificado por otra persona no sale con el nombre y el correo de esta.
+  try{for(const c of CONTRACTS.filter(c=>puedeCalificar(c)&&sinEnviar(c)))if(await enviarCalificacion(c))n++;}
+  finally{reintentarEnvios.corriendo=false;}
+  if(n){toast(`${n} calificación${n===1?"":"es"} enviada${n===1?"":"s"} al Registro`);
+    const a=document.activeElement;
+    if(SES&&!document.querySelector(".overlay")&&!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))&&!["magica","crmx","calificacion"].includes(ST.view))render();}
+  return n;
+}
+window.addEventListener("online",()=>{reintentarEnvios();});
+
 /* --- Calificar proveedor (FO-AD-ABC-017) --- */
 function modalCalificar(c){
+  // Solo la AC del contrato, desde su entrada: los botones ya lo respetan, y esto
+  // cubre cualquier otro camino (un enlace de alerta, una pestaña vieja).
+  if(!puedeCalificar(c)){toast(quienCalifica(c));return;}
   const GRUPOS=[
     {nombre:"Calidad del producto / servicio",w:0.40,items:[
       "Conformidad con las especificaciones técnicas del contrato o solicitud de cotización",
@@ -2087,7 +2270,7 @@ function modalCalificar(c){
       "Cumplimiento de obligaciones formales asociadas al contrato (tributos, IESS, permisos, etc.)"]}
   ];
   const vals=GRUPOS.map(g=>g.items.map(()=>3));
-  const o=openModal(`
+  const o=openModal(`<div id="paso1">
     <h2>Calificación del proveedor</h2>
     <p class="sub">${esc(c.proveedor||"—")} · ${esc(c.nro)} · FO-AD-ABC-017 · escala 0–3</p>
     <div class="note" style="margin:6px 0 4px">0 = no cumple · 1 = cumple parcialmente · 2 = cumple · 3 = cumple plenamente</div>
@@ -2100,7 +2283,8 @@ function modalCalificar(c){
     </div>`).join("")}
     <div class="scorebox"><div><div class="lab">Calificación final</div><div class="big" id="score" style="color:var(--navy)">—</div></div><div id="semwrap"></div></div>
     <div id="conseq" style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:11px"></div>
-    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="gen">Registrar y exportar</button></div>`);
+    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="rev">Revisar calificación</button></div></div>
+    <div id="paso2" style="display:none"></div>`);
   const tier=tierCalificacion;
   function calc(){
     let total=0;
@@ -2123,32 +2307,50 @@ function modalCalificar(c){
   });
   calc();
   $("#cancel",o).onclick=()=>closeModal(o);
-  $("#gen",o).onclick=()=>{
-    const O=ov(c);O.evaluado=true;O.score=o._score.toFixed(2);O.sem=o._t.sem;
-    // La fecha ordena la historia del proveedor; los aportes dan su promedio por indicador.
-    O.fechaCalif=todayISO();O.aportes=o._aportes.map(a=>Math.round(a.aporte*100)/100);saveCLM();
-    const BOM="\uFEFF",ap=o._aportes;
-    const csv=BOM+[
-      ["Nro. Contrato","Nombre Proveedor","Área Protegida","Categoría","Administrador/a AC","Fecha Evaluación","Calidad (40%)","Plazo (30%)","Atención (5%)","Cump. Contractual (25%)","PUNTAJE TOTAL","RESULTADO","Elegible Futuros Proc.","Observaciones"].join(";"),
-      [c.nro,c.proveedor||"",c.area||"",c.cat||"",c.ac||"",todayISO(),
-       ...ap.map(a=>String(a.aporte.toFixed(2)).replace(".",",")),
-       String(o._score.toFixed(2)).replace(".",","),o._t.sem,o._t.elegible?"Sí":"No",""].join(";")
-    ].join("\r\n");
-    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`Calificacion_${cleanNro(c.nro)}.csv`;a.click();URL.revokeObjectURL(a.href);
-    logAdd("⭐",`Proveedor calificado: ${o._score.toFixed(2)}/100 · ${o._t.sem}`,c.nro);
-    o._sucio=false;
-    o.querySelector(".modal").innerHTML=`
-      <h2>✅ Calificación registrada</h2>
-      <p class="sub">${esc(c.proveedor||"—")} · ${o._score.toFixed(2)}/100 · ${esc(o._t.sem)}</p>
-      <div class="steps"><h3>Próximos pasos</h3><ol>
-        <li>Se descargó el <b>CSV</b> con la fila de calificación.</li>
-        <li>Pégala en <b>"Registro de Calificaciones"</b> (banco acumulativo) y en la <b>Base de proveedores FAP</b>.</li>
-        ${!o._t.elegible?"<li><b>Proveedor no elegible</b> — repórtalo también a la Unidad Operativa.</li>":""}
-      </ol></div>
-      <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
-    $("#okpasos",o).onclick=()=>{closeModal(o);render();};
-    toast(`Proveedor calificado · ${o._score.toFixed(2)}/100`);
+  // Paso 2: lo que se va a confirmar, a la vista, antes de que salga. Confirmada,
+  // no se cambia desde el CLM: si hay un error la corrige la Unidad Operativa en el
+  // Registro del Excel maestro.
+  $("#rev",o).onclick=()=>{
+    const t=o._t;
+    $("#paso1",o).style.display="none";
+    const p2=$("#paso2",o);p2.style.display="";
+    p2.innerHTML=`
+      <h2>Confirma la calificación</h2>
+      <p class="sub">${esc(c.proveedor||"—")} · ${esc(c.nro)} · ${esc(c.area||"")}</p>
+      <div class="scorebox"><div><div class="lab">Calificación final</div><div class="big" style="color:var(--navy)">${puntos(o._score)}</div></div><span class="semaforo" style="background:${t.bg};color:${t.fg}">${esc(t.sem)}</span></div>
+      <div style="margin-top:12px">${o._aportes.map(a=>`<div class="histcal"><span style="flex:1">${esc(a.nombre)}</span><b>${puntos(a.aporte)}</b></div>`).join("")}</div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:10px"><b>Consecuencia:</b> ${esc(t.cons)}</div>
+      <div class="frow" style="margin-top:12px"><label for="cObs">Observaciones (opcional)</label><textarea id="cObs" placeholder="Lo que conviene que sepa quien contrate después a este proveedor…"></textarea></div>
+      <div class="note" style="margin-top:4px">Al confirmar, la calificación se envía sola al <b>Registro de Calificaciones</b> del Excel maestro y te llega un correo de confirmación. <b>Ya no se puede cambiar desde el CLM</b>: si te equivocaste, avisa a la Unidad Operativa.</div>
+      <div class="modal-foot"><button class="btn line" id="volver">← Corregir</button><button class="btn" id="conf">Confirmar calificación</button></div>`;
+    $("#volver",o).onclick=()=>{p2.style.display="none";$("#paso1",o).style.display="";};
+    const conf=$("#conf",o);
+    conf.onclick=()=>mientras(conf,"Enviando…",async()=>{
+      const O=ov(c);
+      if(O.evaluado)return true;   // un segundo clic, o una segunda pestaña: ya está
+      O.evaluado=true;O.score=o._score.toFixed(2);O.sem=t.sem;O.fechaCalif=todayISO();
+      O.aportes=o._aportes.map(a=>Math.round(a.aporte*100)/100);
+      O.obsCalif=String($("#cObs",o).value||"").trim();O.calificadoPor=SES.user;
+      O.envio={estado:"pendiente",id:c.nro+"|"+new Date().toISOString()};
+      saveCLM();
+      logAdd("⭐",`Proveedor calificado: ${puntos(o._score)}/100 · ${t.sem}`,c.nro);
+      const enviada=await enviarCalificacion(c);
+      o._sucio=false;
+      o.querySelector(".modal").innerHTML=`
+        <h2>${enviada?"✅ Calificación confirmada y enviada":"✅ Calificación confirmada"}</h2>
+        <p class="sub">${esc(c.proveedor||"—")} · ${puntos(o._score)}/100 · ${esc(t.sem)}</p>
+        <div class="steps"><h3>${enviada?"Listo":"Falta enviarla"}</h3><ol>
+          ${enviada?`<li>Quedó en el <b>Registro de Calificaciones</b> y te llegará un correo de confirmación.</li>
+          <li>Desde mañana la ven todas las computadoras y su alerta se apaga.</li>`
+          :`<li>Quedó guardada en este navegador, pero ${FLOW_CALIF_URL?"no se pudo enviar (¿sin señal?)":"el envío automático todavía no está configurado"}.</li>
+          <li>${FLOW_CALIF_URL?"Se reintenta sola cada vez que abras el CLM; también puedes pulsar «Enviar ahora» en el contrato.":"Se enviará sola en cuanto la Unidad Operativa lo configure."}</li>`}
+          ${!t.elegible?"<li><b>Proveedor no elegible</b>: la Unidad Operativa recibe también el aviso.</li>":""}
+        </ol></div>
+        <div class="modal-foot"><button class="btn" id="okpasos">Entendido</button></div>`;
+      $("#okpasos",o).onclick=()=>{closeModal(o);render();};
+      toast(enviada?"Calificación enviada al Registro":"Calificación guardada; falta enviarla");
+      return true;
+    });
   };
 }
 
@@ -2740,6 +2942,7 @@ function vFrame(src,notice){
 /* ================= ARRANQUE ================= */
 loadCLM();
 async function boot(){
+  const pedido=pedirRegistro();   // en paralelo con la base: no la espera ni la frena
   try{
     // Con señal mala el fetch puede quedarse colgado minutos sin fallar. A los 20 s
     // se abandona y se entra con la copia embebida, diciéndolo en la píldora.
@@ -2770,9 +2973,21 @@ async function boot(){
   }
   if(!CONTRACTS.length)dataSource={label:"Sin datos disponibles",live:false};
   canonAreas(CONTRACTS);   // unifica las variantes de escritura del área protegida
+  // El registro de calificaciones se espera un momento, no más: con señal floja la
+  // primera pantalla no puede quedarse esperando un archivo secundario. Si llega
+  // tarde, se repinta —salvo que la AC ya esté escribiendo o tenga algo abierto—.
+  const reg=abrirRegistro(pedido);
+  await Promise.race([reg,new Promise(r=>setTimeout(r,1500))]);
+  const tarde=REG.estado==="cargando";
   const h=leerHash();
   if(h){ST.view=h.view;if(h.cur!=null)ST.cur=h.cur;else if(h.view==="detalle")ST.view="contratos";if(h.prov!=null)ST.prov=h.prov;}
   render();
+  reg.then(()=>reintentarEnvios());   // lo que quedó sin enviar en este navegador
+  if(tarde)reg.then(()=>{
+    const a=document.activeElement;
+    if(!SES||document.querySelector(".overlay")||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||["magica","crmx","calificacion"].includes(ST.view))return;
+    render();
+  });
 }
 boot();
 </script>

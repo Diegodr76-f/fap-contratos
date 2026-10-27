@@ -71,7 +71,20 @@ function nuevoDom(lista,ses,op){
     beforeParse(win){
       if(sesion) win.sessionStorage.setItem('fap_clm_ses',JSON.stringify(sesion));
       Object.keys(op.ls||{}).forEach(k=>win.localStorage.setItem(k,op.ls[k]));
-      win.fetch=()=>Promise.resolve({ok:true,json:()=>Promise.resolve(JSON.parse(datos))});
+      // El registro de calificaciones: op.registro (una lista) si se da; si no, 404,
+      // que es lo que hay mientras el Excel no tenga la hoja. op.registro==='falla'
+      // simula la red caída.
+      win.fetch=u=>{
+        if(/calificaciones_export/.test(String(u))){
+          if(op.registro==='falla')return Promise.reject(new Error('sin red'));
+          return Promise.resolve(op.registro?{ok:true,status:200,json:()=>Promise.resolve(JSON.parse(JSON.stringify(op.registro)))}
+                                            :{ok:false,status:404,json:()=>Promise.reject(new Error('404'))});
+        }
+        // El flujo de calificaciones: sin red, salvo que una prueba lo sustituya. Así
+        // nada de lo que se hace con el modal sale de verdad.
+        if(/powerplatform/.test(String(u)))return Promise.reject(new Error('sin red'));
+        return Promise.resolve({ok:true,json:()=>Promise.resolve(JSON.parse(datos))});
+      };
       win.scrollTo=()=>{}; win.alert=()=>{};
       win._confirmas=0; win._responde=op.confirma===undefined?true:op.confirma;
       win.confirm=()=>{ win._confirmas++; return win._responde; };
@@ -83,7 +96,7 @@ function listo(w){
   return new Promise((res,rej)=>{
     let n=0;
     (function esperar(){
-      let hay=0; try{ hay=w.eval('CONTRACTS.length'); }catch(e){}
+      let hay=0; try{ hay=w.eval('CONTRACTS.length') && w.eval('REG.estado')!=='cargando'; }catch(e){}
       if(hay) return res(w);
       if(++n>80) return rej(new Error('el CLM no cargó la base'));
       setTimeout(esperar,10);
@@ -704,13 +717,12 @@ seccion('22 · El pool de proveedores');
      'el de 2025 dice por qué no se exige, y deja calificarlo igual');
 
   // Calificar desde el propio modal: 0 en todo da 0/100, «No recomendado».
-  w22.URL.createObjectURL=()=>'blob:x'; w22.URL.revokeObjectURL=()=>{};
-  w22.HTMLAnchorElement.prototype.click=function(){};
   w22.go('detalle',1);
   w22.document.getElementById('a-cal').onclick();
   let m=w22.document.querySelector('.overlay');
   m.querySelectorAll('.scorebtn[data-v="0"]').forEach(b=>b.onclick());
-  m.querySelector('#gen').onclick();
+  m.querySelector('#rev').onclick();
+  m.querySelector('#conf').onclick(); await pausa(30);
   w22.document.querySelector('#okpasos').onclick();
   const q=w22.calificacionDe(w22.eval('CONTRACTS[1]'));
   ok(q && q.score===0 && !q.elegible && q.fecha===w22.todayISO() && q.aportes.length===4,
@@ -799,6 +811,241 @@ seccion('22 · El pool de proveedores');
   w22.eval("ST.provQ='';ST.provFiltro='noeleg'"); w22.go('proveedores');
   ok(/Ningún proveedor con ese filtro/.test(texto(w22)) && w22.document.getElementById('limpiarProv'),
      'un filtro vacío dice por qué y ofrece salir');
+}
+
+// ---------------------------------------------------------------- 23
+seccion('23 · El Registro de Calificaciones compartido');
+{
+  // La calificación vivía solo en el navegador donde se hizo: en otra computadora
+  // el contrato seguía «sin calificar» y la alerta no se apagaba nunca. Ahora el
+  // robot publica la hoja «Registro de Calificaciones» del Excel maestro y el CLM
+  // la mira primero.
+  const port=()=>{
+    const l=contratos();
+    Object.assign(l[1],{cerrado:true,fcierre:'2026-03-10'});                        // calificado en el Registro
+    Object.assign(l[2],{cerrado:true,fcierre:'2026-04-10'});                        // calificado solo aquí
+    Object.assign(l[3],{cerrado:true,fcierre:'2026-05-01'});                        // pendiente
+    return l;
+  };
+  const registro=[
+    {nro:'FIAS-FAP-2026-002',score:88,fecha:'2026-06-01',aportes:[36,26,4,22]},
+    {nro:'FIAS-FAP-2026-002',score:62,fecha:'2026-10-20',aportes:[25,20,2,15],obs:'Retrasos'},   // la más nueva manda
+    {nro:'',score:50},{nro:'FIAS-FAP-2026-005'},                                    // filas rotas: se ignoran
+  ];
+  const ana={rol:'ac',user:'Ana Pérez'};
+  let w=await listo(nuevoDom(port(),ana,{registro}));
+  const C=i=>w.eval(`CONTRACTS[${i}]`);
+  ok(w.eval('REG.estado')==='ok','el CLM lee el registro al arrancar');
+  let q=w.calificacionDe(C(1));
+  ok(q && q.fuente==='registro' && q.score===62 && q.fecha==='2026-10-20' && q.obs==='Retrasos',
+     'un contrato del registro está calificado, con la fila más nueva',JSON.stringify(q));
+  ok(!w.calificacionDe(C(4)),'una fila sin puntaje no califica a nadie');
+  let al=w.alertList().map(a=>a.t);
+  ok(!al.some(t=>/sin calificar — FIAS-FAP-2026-002/.test(t)) && al.some(t=>/sin calificar — FIAS-FAP-2026-004/.test(t)),
+     'su alerta se apaga en ESTE navegador, que nunca lo calificó; la del pendiente sigue',al.join(' | '));
+  w.go('detalle',1);
+  ok(/en el Registro/.test(texto(w)) && w.document.getElementById('a-cal').disabled,'el detalle lo dice y no deja calificar de nuevo');
+  w.go('detalle',0);
+  ok(/Proveedor no elegible/.test(texto(w)),'y la nota del registro (62) avisa en los contratos vivos del proveedor');
+  w.eval("Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'95.00',sem:'Confiable (Preferente)'})");
+  ok(w.calificacionDe(C(1)).fuente==='registro' && w.calificacionDe(C(1)).score===62,'si también hay una local, manda el registro');
+
+  // Calificado aquí y todavía no enviado (el flujo aún sin configurar): se dice.
+  w.eval("Object.assign(ov(CONTRACTS[2]),{evaluado:true,score:'80.50',sem:'Satisfactorio',fechaCalif:'2026-10-25',aportes:[32,24.5,4,20]})");
+  al=w.alertList();
+  const pend=al.find(a=>/sin enviar al Registro — FIAS-FAP-2026-003/.test(a.t));
+  ok(pend && /no se pudo enviar/.test(pend.d) && !al.some(a=>/sin calificar — FIAS-FAP-2026-003/.test(a.t)),
+     'calificado aquí y sin enviar: no pide calificar, avisa que falta enviarlo',pend&&pend.d);
+  w.go('detalle',2);
+  ok(/Todavía no se envió al Registro/.test(texto(w)),'y el detalle lo dice');
+  const enc=w.eval('CSV_CALIF_ENC');
+  ok(enc[0]==='Nro. Contrato' && enc.includes('PUNTAJE TOTAL'),'las columnas de la tabla traen las que el robot busca («Nro. Contrato», «PUNTAJE TOTAL»)');
+  const ROBOT=fs.readFileSync(path.join(RAIZ,'scripts','actualizar_datos.py'),'utf8');
+  ok(/encabezado\(ws, "nro", "puntaje"\)/.test(ROBOT),'y el robot de verdad busca esas dos columnas');
+
+  // La Unidad Operativa: su alerta agregada cuenta con el registro.
+  let u=await listo(nuevoDom(port(),undefined,{registro}));
+  const ag=u.alertList().find(a=>a.fn==='pcal');
+  ok(ag && /^2 contratos/.test(ag.t),'la alerta agregada de la Unidad no cuenta lo que ya está en el registro',ag&&ag.t);
+
+  // Sin la hoja todavía (404): todo como antes.
+  w=await listo(nuevoDom(port(),ana));
+  ok(w.eval('REG.estado')==='sin','sin la hoja en el Excel, el archivo no existe y el CLM lo sabe');
+  w.eval("Object.assign(ov(CONTRACTS[2]),{evaluado:true,score:'80.50',sem:'Satisfactorio'})");
+  w.go('proveedores');
+  ok(/Todavía no hay un Registro/.test(texto(w)),'el pool dice de dónde salen las calificaciones');
+
+  // Red caída: las alertas de calificar se pausan en vez de pedir lo ya hecho.
+  w=await listo(nuevoDom(port(),ana,{registro:'falla'}));
+  ok(w.eval('REG.estado')==='falla' && !w.alertList().some(a=>/sin calificar/.test(a.t)),
+     'si el registro no se pudo leer, la AC no recibe alertas de calificar');
+  u=await listo(nuevoDom(port(),undefined,{registro:'falla'}));
+  ok(!u.alertList().some(a=>a.fn==='pcal'),'ni la Unidad la suya');
+  u.go('proveedores');
+  ok(/No pude leer el Registro/.test(texto(u)),'y el pool lo dice');
+  ok(/const reg=abrirRegistro\(pedido\);\s*await Promise\.race\(\[reg,new Promise\(r=>setTimeout\(r,1500\)\)\]\)/.test(HTML),
+     'la primera pantalla espera al registro como mucho un segundo y medio');
+}
+
+// ---------------------------------------------------------------- 24
+seccion('24 · Califica la AC, confirma, y la calificación llega sola al Registro');
+{
+  // Pegar a mano cada calificación en el Excel no era un proceso: se olvidaba.
+  // Ahora la AC del contrato confirma y el CLM la manda a un flujo de Power
+  // Automate que agrega la fila al Registro; sin señal, queda pendiente y se
+  // reintenta. Y solo la AC del contrato califica.
+  const port=()=>{const l=contratos();
+    Object.assign(l[1],{cerrado:true,fcierre:'2026-03-10'});
+    Object.assign(l[3],{cerrado:true,fcierre:'2026-05-01',ac:'María Guamán',correo:'maria@fias.org.ec'});
+    return l;};
+  // La Unidad Operativa ve, pero no califica.
+  let u=await listo(nuevoDom(port()));
+  u.go('detalle',1);
+  ok(u.document.getElementById('a-cal').disabled && /La califica Ana Pérez/.test(texto(u)),'la Unidad Operativa no puede calificar: el botón dice quién lo hace');
+  u.modalCalificar(u.eval('CONTRACTS[1]'));
+  ok(!u.document.querySelector('.overlay'),'ni abriendo el formulario por otro camino');
+  ok(!u.alertList().some(a=>a.fn==='cal'),'y no recibe alertas para calificar uno por uno');
+  // Una AC no califica el contrato de otra.
+  let w=await listo(nuevoDom(port(),{rol:'ac',user:'Ana Pérez'}));
+  w.go('detalle',3);
+  ok(w.document.getElementById('a-cal').disabled && /La califica María Guamán/.test(texto(w)),'una AC no califica el contrato de otra');
+  w.abrirProv('servitec');
+  ok(w.document.querySelectorAll('#view [data-cal]').length===1,'en la ficha, «Calificar» solo en el contrato propio');
+
+  // Dos pasos: revisar y confirmar.
+  const posts=[];let red='ok';
+  w.fetch=(u2,o2)=>{ if(/flujo/.test(String(u2))){ posts.push(JSON.parse(o2.body));
+      return red==='ok'?Promise.resolve({ok:true,status:200}):Promise.reject(new Error('sin red')); }
+    return Promise.resolve({ok:false,status:404}); };
+  w.eval("FLOW_CALIF_URL='https://flujo.test/calificaciones'");
+  w.go('detalle',1);
+  w.document.getElementById('a-cal').onclick();
+  let m=w.document.querySelector('.overlay');
+  m.querySelectorAll('.scorebtn[data-g="0"][data-v="2"]').forEach(b=>b.onclick());
+  m.querySelector('#rev').onclick();
+  ok(m.querySelector('#paso1').style.display==='none' && /Confirma la calificación/.test(m.textContent) && /Ya no se puede cambiar/.test(m.textContent),
+     '«Revisar» muestra el resumen y avisa que confirmada no se cambia');
+  ok(!w.eval('ov(CONTRACTS[1]).evaluado') && !posts.length,'revisar todavía no registra ni envía nada');
+  m.querySelector('#volver').onclick();
+  ok(m.querySelector('#paso1').style.display==='','«Corregir» vuelve a los criterios sin perder lo marcado');
+  m.querySelector('#rev').onclick();
+  m.querySelector('#cObs').value='Entregó tarde dos veces';
+  const conf=m.querySelector('#conf');
+  conf.onclick(); conf.onclick(); await pausa(40);
+  ok(posts.length===1,'confirmar envía UNA vez, aunque se pulse dos',posts.length);
+  const p=posts[0]||{};
+  ok(p.contratoNro==='FIAS-FAP-2026-002' && p.ac==='Ana Pérez' && p.acCorreo==='ana@fias.org.ec' && p.observaciones==='Entregó tarde dos veces'
+     && p.puntaje===Number(w.eval('ov(CONTRACTS[1]).score')) && p.calidad!=null && p.fechaEvaluacion===w.todayISO() && p.idCalificacion,
+     'el flujo recibe la fila completa: contrato, AC, su correo, puntajes y observación',JSON.stringify(p));
+  ok(w.eval('ov(CONTRACTS[1]).envio.estado')==='enviada' && /confirmada y enviada/.test(w.document.querySelector('.overlay').textContent),
+     'queda como enviada y la pantalla final lo dice');
+  w.document.querySelector('#okpasos').onclick();
+  ok(!w.alertList().some(a=>/FIAS-FAP-2026-002/.test(a.t)),'y no queda ninguna alerta de ese contrato');
+
+  // Sin señal: no se pierde, se avisa y se reintenta.
+  const l=port();Object.assign(l[2],{cerrado:true,fcierre:'2026-04-01'});
+  w=await listo(nuevoDom(l,{rol:'ac',user:'Ana Pérez'}));
+  posts.length=0;red='no';
+  w.fetch=(u2,o2)=>{ if(/flujo/.test(String(u2))){ posts.push(JSON.parse(o2.body));
+      return red==='ok'?Promise.resolve({ok:true,status:200}):Promise.reject(new Error('sin red')); }
+    return Promise.resolve({ok:false,status:404}); };
+  w.eval("FLOW_CALIF_URL='https://flujo.test/calificaciones'");
+  w.go('detalle',2);
+  w.document.getElementById('a-cal').onclick();
+  m=w.document.querySelector('.overlay');
+  m.querySelector('#rev').onclick(); m.querySelector('#conf').onclick(); await pausa(40);
+  ok(w.eval('ov(CONTRACTS[2]).evaluado') && w.eval('ov(CONTRACTS[2]).envio.estado')==='pendiente' && /no se pudo enviar/.test(m.textContent),
+     'sin señal la calificación queda guardada como pendiente, y se dice');
+  const al=w.alertList().find(a=>/sin enviar al Registro — FIAS-FAP-2026-003/.test(a.t));
+  ok(al && al.fn==='reenv' && al.act==='Reintentar','la AC tiene una alerta con «Reintentar»');
+  const id1=posts[0].idCalificacion;
+  red='ok';
+  const n=await w.reintentarEnvios();
+  ok(n===1 && posts.length===2 && posts[1].idCalificacion===id1,'al volver la señal se envía sola, con el mismo identificador',JSON.stringify([n,posts.length]));
+  ok(!w.alertList().some(a=>/sin enviar/.test(a.t)),'y la alerta se apaga');
+  await w.reintentarEnvios();
+  ok(posts.length===2,'lo ya enviado no se vuelve a mandar');
+  // El esquema de la guía es el que se pega en Power Automate, y Power Automate solo
+  // genera contenido dinámico para tipos simples: con ["number","null"] los campos
+  // calidad, plazo, atención y cumplimiento NO aparecían en «Agregar una fila».
+  const guia=fs.readFileSync(path.join(RAIZ,'plan','FLUJO_CALIFICACIONES.md'),'utf8');
+  const esq=JSON.parse((guia.match(/```json\n([\s\S]*?)\n```/)||[])[1]||'null');
+  ok(esq && Object.values(esq.properties).every(v=>typeof v.type==='string'),
+     'el esquema de la guía solo usa tipos simples: Power Automate no entiende ["number","null"]',
+     esq&&Object.entries(esq.properties).filter(([k,v])=>typeof v.type!=='string').map(e=>e[0]).join(','));
+  const c3=w.eval('CONTRACTS[2]');
+  const env=w.payloadCalif(c3);
+  ok(Object.keys(JSON.parse(JSON.stringify(env))).every(k=>k in esq.properties),
+     'y trae un campo por cada cosa que el CLM envía',Object.keys(env).filter(k=>!(k in esq.properties)).join(','));
+  ok(esq.required.every(k=>env[k]!=null),'y lo obligatorio siempre viaja');
+  w.eval("ov(CONTRACTS[2]).aportes=null");
+  const sin=JSON.parse(JSON.stringify(w.payloadCalif(c3)));
+  ok(!('calidad' in sin) && !('cumplimiento' in sin) && sin.puntaje===Number(w.eval('ov(CONTRACTS[2]).score')),
+     'una calificación sin desglose no manda los aportes como null: los omite');
+  // Una AC no manda las calificaciones de otra, aunque estén en este navegador.
+  w.eval("Object.assign(ov(CONTRACTS[3]),{evaluado:true,score:'70.00',sem:'Aceptable – Observado'})");
+  const antes=posts.length; await w.reintentarEnvios();
+  ok(posts.length===antes,'una AC solo manda las calificaciones de sus contratos, no las de otra que haya en el navegador');
+  // La URL del flujo de calificaciones está puesta y no es la del envío de documentos.
+  const fu=(HTML.match(/var FLOW_CALIF_URL = '([^']*)'/)||[])[1]||'',fd=(HTML.match(/var FLOW_DOCS_URL = '([^']*)'/)||[])[1]||'';
+  ok(/^https:\/\/[^/]+\.powerplatform\.com:443\/powerautomate\/.+\/triggers\/manual\/paths\/invoke\?.*sig=/.test(fu) && fu!==fd,
+     'FLOW_CALIF_URL es la URL firmada de un flujo, y no la del flujo de documentos');
+  // Algo ya en el Registro no se reenvía aunque en este navegador conste como pendiente.
+  w.eval("REG.porNro['FIAS-FAP-2026-002']=[{nro:'FIAS-FAP-2026-002',score:70,fecha:'2026-10-01'}];Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'90.00'})");
+  await w.reintentarEnvios();
+  ok(posts.length===2,'ni lo que ya está en el Registro');
+}
+
+// ---------------------------------------------------------------- 25
+seccion('25 · Si la calificación ya no está en el Registro, la AC puede calificar de nuevo');
+{
+  // Para repetir una prueba, o corregir un error: la Unidad borra la fila de la tabla
+  // del Excel y, cuando el robot publica, el contrato vuelve a quedar por calificar.
+  const l=contratos();Object.assign(l[1],{cerrado:true,fcierre:'2026-03-10'});
+  const ana={rol:'ac',user:'Ana Pérez'};
+  const w=await listo(nuevoDom(l,ana,{registro:[{nro:'FIAS-FAP-2026-005',score:80,fecha:'2026-10-01'}]}));
+  const hace=h=>new Date(Date.now()-h*3600000).toISOString();
+  const poner=(enISO,estado)=>w.eval(`Object.keys(CLM.overlay).forEach(k=>delete CLM.overlay[k]);
+    Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'90.00',sem:'Confiable (Preferente)',fechaCalif:'2026-10-26',aportes:[36,27,4.5,22.5],
+      envio:{estado:${JSON.stringify(estado||'enviada')},id:'x',en:'2026-10-26',enISO:${JSON.stringify(enISO)}}})`);
+  const C1=()=>w.eval('CONTRACTS[1]');
+
+  // El Registro se publicó DESPUÉS de enviarla y no la trae: se retiró.
+  poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(2))}`);
+  ok(w.calificacionRetirada(C1()),'enviada hace 30 h y el Registro de hace 2 h no la trae: está retirada');
+  ok(w.liberarCalificacionesRetiradas()===1 && !w.calificacionDe(C1()) && !w.eval('ov(CONTRACTS[1]).envio'),
+     'se libera: ya no consta como calificada en este navegador');
+  ok(/se puede calificar de nuevo/.test(w.eval('CLM.log[0].txt')),'y queda en la bitácora');
+  w.go('detalle',1);
+  ok(!w.document.getElementById('a-cal').disabled,'«Calificar proveedor» vuelve a estar habilitado para la AC');
+  ok(w.alertList().some(a=>/sin calificar — FIAS-FAP-2026-002/.test(a.t)),'y vuelve su alerta de calificar');
+  w.document.getElementById('a-cal').onclick();
+  ok(!!w.document.querySelector('.overlay #paso1'),'y se puede abrir el formulario');
+  w.document.querySelector('.overlay').remove();
+
+  // Lo que NO es una retirada.
+  poner(hace(1)); w.eval(`REG.generado=${JSON.stringify(hace(0.9))}`);
+  ok(!w.calificacionRetirada(C1()),'enviada hace 1 h y el Registro lo publicó a los pocos minutos: el robot todavía no la leyó, no es una retirada');
+  poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(40))}`);
+  ok(!w.calificacionRetirada(C1()),'enviada DESPUÉS de la última publicación del Registro: aún no tenía por qué estar');
+  poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(2))};REG.porNro['FIAS-FAP-2026-002']=[{nro:'FIAS-FAP-2026-002',score:90,fecha:'2026-10-26'}]`);
+  ok(!w.calificacionRetirada(C1()),'si el Registro la trae, sigue calificada');
+  w.eval("delete REG.porNro['FIAS-FAP-2026-002']");
+  poner(hace(30),'pendiente'); w.eval(`REG.generado=${JSON.stringify(hace(2))}`);
+  ok(!w.calificacionRetirada(C1()),'una que nunca se envió no es una retirada: sigue pendiente');
+  poner(hace(30)); w.eval(`REG.generado=${JSON.stringify(hace(2))};REG.estado='falla'`);
+  ok(!w.calificacionRetirada(C1()),'si el Registro no se pudo leer, no se toca nada');
+  w.eval("REG.estado='sin'");
+  ok(!w.calificacionRetirada(C1()),'ni mientras la hoja no exista');
+
+  // Al arrancar, con un Registro vacío (borraron la única fila de prueba).
+  const w2=await listo(nuevoDom(l,ana,{registro:[],
+    ls:{fap_clm_v1:JSON.stringify({overlay:{'FIAS-FAP-2026-002':{terminado:true,evaluado:true,score:'90.00',sem:'Confiable (Preferente)',
+      envio:{estado:'enviada',id:'x',en:'2026-10-01',enISO:'2026-10-01T10:00:00Z'}}},solicitudes:[],log:[]})}}));
+  // El simulador no pone «generado» (es del sobre cifrado del robot): se fija como lo haría el robot.
+  w2.eval("REG.generado='2026-10-27T11:30:00Z'");
+  ok(w2.liberarCalificacionesRetiradas()===1 && !w2.calificacionDe(w2.eval('CONTRACTS[1]')),
+     'con un Registro vacío publicado después, la calificación de prueba se libera');
 }
 
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));

@@ -3,6 +3,9 @@
 Robot de actualización del CRM de Contratos FAP.
 Descarga el Excel maestro desde OneDrive (link secreto EXCEL_URL),
 lee la hoja "2026" + la hoja "Export" y regenera crm/contratos_export.json.
+
+Y, si existe, la hoja "Registro de Calificaciones" -> crm/calificaciones_export.json
+(cifrado). Es opcional: sin ella se publica exactamente lo de siempre.
 """
 import os, re, json, base64, datetime, sys
 import requests, openpyxl
@@ -131,6 +134,103 @@ def texto(v):
         v = int(v)
     return str(v).strip() or None
 
+# ---------------------------------------------------------------------------
+# «Registro de Calificaciones»: hoja OPCIONAL del Excel maestro donde un flujo de
+# Power Automate agrega la fila de cada calificación que una AC confirma en el CLM
+# (plan/FLUJO_CALIFICACIONES.md). Es lo que permite
+# que una calificación hecha en una computadora apague la alerta en todas.
+# Como con las columnas de arriba: si no está (o no se entiende) se avisa y se
+# publica exactamente lo mismo que antes.
+#
+# De esa hoja se publica solo lo necesario —n.º de contrato, fecha, puntajes y la
+# observación—: ni el nombre del proveedor ni ningún dato suyo. Y el registro del
+# robot (público, como el repositorio) dice solo cuántas filas, nunca cuáles.
+# ---------------------------------------------------------------------------
+def encabezado(ws, *palabras, filas=8):
+    """La fila de encabezado de una hoja que lleva un título o una nota arriba:
+    la primera, entre las primeras `filas`, que tenga una celda por palabra."""
+    for i, row in enumerate(ws.iter_rows(min_row=1, max_row=filas, values_only=True), 1):
+        celdas = [str(c or "").strip().lower() for c in row]
+        if all(any(c == p or c.startswith(p) for c in celdas) for p in palabras):
+            return i, celdas
+    return None, None
+
+def columna(celdas, *alias):
+    for a in alias:
+        for j, h in enumerate(celdas):
+            if h == a or h.startswith(a):
+                return j
+    return None
+
+def celda(row, j):
+    return row[j] if j is not None and j < len(row) else None
+
+def limpio(v):
+    """Texto de una celda, sin espacios de más; None si está vacía."""
+    t = re.sub(r"\s+", " ", str(v)).strip() if v is not None else ""
+    return t or None
+
+def num_es(v):
+    """Número de una celda que puede venir como texto con coma decimal, que es
+    como queda una fila que alguien escribió o corrigió a mano en la tabla."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    t = re.sub(r"[\s%]", "", str(v or ""))
+    if not t:
+        return None
+    if "," in t:
+        t = t.replace(".", "").replace(",", ".")
+    return num(t)
+
+def leer_calificaciones(wb):
+    """Las filas de «Registro de Calificaciones», o None si la hoja no existe
+    (que no es lo mismo que existir vacía: sin hoja no se publica el archivo y el
+    CLM sabe que todavía no hay Registro)."""
+    hoja = next((n for n in wb.sheetnames if n.strip().lower() == "registro de calificaciones"), None)
+    if hoja is None:
+        return None
+    ws = wb[hoja]
+    i, h = encabezado(ws, "nro", "puntaje")
+    if i is None:
+        print("AVISO: la hoja «Registro de Calificaciones» no tiene las columnas «Nro. Contrato» "
+              "y «PUNTAJE TOTAL» en sus primeras filas: no se publica ninguna calificación.")
+        return None
+    cn = columna(h, "nro. contrato", "nro contrato", "n.º contrato", "nro")
+    cf = columna(h, "fecha evaluación", "fecha evaluacion", "fecha")
+    ct = columna(h, "puntaje")
+    # Los cuatro aportes del indicador (ya ponderados: «Calidad (40%)» va de 0 a 40)
+    ci = [columna(h, "calidad"), columna(h, "plazo"), columna(h, "atención", "atencion"),
+          columna(h, "cump", "contractual")]
+    co = columna(h, "observ")
+    filas, malas = [], 0
+    for row in ws.iter_rows(min_row=i + 1, values_only=True):
+        nro = limpio(celda(row, cn))
+        if not nro or "FIAS" not in nro.upper():
+            continue
+        score = num_es(celda(row, ct))
+        if score is None or not 0 <= score <= 100:
+            malas += 1
+            continue
+        d = {"nro": nro, "score": round(score, 2)}
+        f = iso(celda(row, cf))
+        if f:
+            d["fecha"] = f
+        ap = [num_es(celda(row, j)) for j in ci]
+        if all(a is not None for a in ap):
+            d["aportes"] = [round(a, 2) for a in ap]
+        obs = limpio(celda(row, co))
+        if obs:
+            d["obs"] = obs
+        filas.append(d)
+    if malas:
+        print(f"AVISO: {malas} fila(s) de «Registro de Calificaciones» sin un puntaje entre 0 y 100: "
+              "no se publican.")
+    return filas
+
+calificaciones = leer_calificaciones(wb)
+
 out = []
 for row in ws.iter_rows(min_row=3, values_only=True):
     correo, nro = row[C["correo"]], row[C["nro"]]
@@ -143,7 +243,7 @@ for row in ws.iter_rows(min_row=3, values_only=True):
     plazo = row[C["plazo"]]
     if isinstance(plazo, (datetime.date, datetime.datetime)):
         plazo = iso(plazo)
-    out.append(dict(
+    d = dict(
         nro=nro,
         detalle=row[C["detalle"]] or "",
         area=row[C["area"]] or "",
@@ -168,7 +268,8 @@ for row in ws.iter_rows(min_row=3, values_only=True):
         saldo=num2(val(row, "saldo")),
         carpeta=texto(val(row, "carpeta")),
         codigoProceso=texto(val(row, "codigoProceso")),
-    ))
+    )
+    out.append(d)
 
 if len(out) < 10:
     sys.exit(f"ERROR: solo se leyeron {len(out)} contratos; algo cambió en el Excel. "
@@ -183,6 +284,15 @@ sobre["generado"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m
 with open("crm/contratos_export.json", "w", encoding="utf-8") as f:
     json.dump(sobre, f, ensure_ascii=False)
 
+# El registro va en su propio archivo, cifrado igual: así contratos_export.json no
+# cambia de forma (lo leen el CRM, el CLM, Instrumentos y las renovaciones, que
+# esperan una lista de contratos) y el archivo solo existe cuando existe la hoja.
+if calificaciones is not None:
+    sobre_c = cifrar(json.dumps(calificaciones, ensure_ascii=False).encode("utf-8"), DATA_KEY)
+    sobre_c["generado"] = sobre["generado"]
+    with open("crm/calificaciones_export.json", "w", encoding="utf-8") as f:
+        json.dump(sobre_c, f, ensure_ascii=False)
+
 faltan = [k for k in ("fcierre", "liquidado", "saldo") if C.get(k) is None]
 if faltan:
     print("AVISO: no encontré en la hoja 2026 las columnas de liquidación:", ", ".join(faltan))
@@ -193,3 +303,6 @@ print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['cerrado'])} cerrados, "
       f"{sum(1 for c in out if c['liquidado'] is not None)} con liquidación, "
       f"{sum(1 for c in out if c['carpeta'])} con carpeta interna.")
+
+if calificaciones is not None:
+    print(f"    Registro de Calificaciones: {len(calificaciones)} fila(s) publicadas.")
