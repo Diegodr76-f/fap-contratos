@@ -68,10 +68,10 @@ solicitud» pega esto:
     "ac":              { "type": "string" },
     "acCorreo":        { "type": "string" },
     "fechaEvaluacion": { "type": "string" },
-    "calidad":         { "type": ["number", "null"] },
-    "plazo":           { "type": ["number", "null"] },
-    "atencion":        { "type": ["number", "null"] },
-    "cumplimiento":    { "type": ["number", "null"] },
+    "calidad":         { "type": "number" },
+    "plazo":           { "type": "number" },
+    "atencion":        { "type": "number" },
+    "cumplimiento":    { "type": "number" },
     "puntaje":         { "type": "number" },
     "resultado":       { "type": "string" },
     "elegible":        { "type": "string" },
@@ -81,6 +81,17 @@ solicitud» pega esto:
   "required": ["idCalificacion", "contratoNro", "puntaje"]
 }
 ```
+
+Los cuatro puntajes por indicador (`calidad`, `plazo`, `atencion`, `cumplimiento`) no son
+obligatorios: una calificación hecha antes de que el CLM los guardara llega sin ellos, y esas
+celdas quedan vacías.
+
+> **Si en el paso 2 no te aparecen los campos** (por ejemplo `calidad`, `plazo`, `atencion` o
+> `cumplimiento`): el esquema del paso 1 tiene algún tipo de la forma `["number","null"]`, que
+> Power Automate no entiende. Debe decir `"type": "number"`. Corrígelo, guarda y vuelve a abrir
+> el paso 2. Mientras tanto puedes escribir el campo con una expresión: en la pestaña
+> **Expresión** del campo, `triggerBody()?['calidad']`, `triggerBody()?['plazo']`,
+> `triggerBody()?['atencion']` y `triggerBody()?['cumplimiento']`.
 
 **Paso 2 · Agregar una fila a una tabla** (Excel Online (Business)). Ubicación y archivo: los
 del Excel maestro; tabla: **Calificaciones**. Cada columna con su campo:

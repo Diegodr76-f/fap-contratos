@@ -2169,7 +2169,10 @@ var FLOW_CALIF_URL = '';   // la URL del flujo; vacía hasta que la Unidad lo cr
 function puedeCalificar(c){return !!(SES&&SES.rol==="ac"&&c.ac&&c.ac===SES.user);}
 function quienCalifica(c){return `La califica ${c.ac?c.ac+", ":""}la AC del contrato, desde su entrada.`;}
 // Lo que viaja al flujo: una fila del Registro. Los nombres de las columnas de la
-// tabla están en CSV_CALIF_ENC; el flujo pone cada campo en la suya.
+// tabla están en CSV_CALIF_ENC; el flujo pone cada campo en la suya. Un aporte que
+// no se conoce (una calificación hecha antes de que se guardaran) NO viaja, en vez de
+// ir como null: el esquema del flujo declara «number», porque Power Automate no
+// genera contenido dinámico para un tipo como ["number","null"].
 function payloadCalif(c){
   const o=ov(c),score=Number(o.score)||0,t=tierCalificacion(score);
   const ap=(Array.isArray(o.aportes)&&o.aportes.length===4)?o.aportes:[null,null,null,null];
@@ -2177,7 +2180,8 @@ function payloadCalif(c){
   if(!o.envio.id)o.envio.id=c.nro+"|"+(o.fechaCalif||todayISO())+"|"+Date.now().toString(36);
   return {origen:"CLM",idCalificacion:o.envio.id,contratoNro:c.nro,proveedor:c.proveedor||"",area:c.area||"",
     categoria:c.cat||"",ac:o.calificadoPor||c.ac||"",acCorreo:c.correo||"",fechaEvaluacion:o.fechaCalif||todayISO(),
-    calidad:ap[0],plazo:ap[1],atencion:ap[2],cumplimiento:ap[3],puntaje:Math.round(score*100)/100,
+    calidad:ap[0]==null?undefined:ap[0],plazo:ap[1]==null?undefined:ap[1],
+    atencion:ap[2]==null?undefined:ap[2],cumplimiento:ap[3]==null?undefined:ap[3],puntaje:Math.round(score*100)/100,
     resultado:t.sem,elegible:t.elegible?"Sí":"No",observaciones:o.obsCalif||"",enviadoEn:new Date().toISOString()};
 }
 // true si quedó en el Registro. El id viaja siempre igual: si el flujo recibe dos

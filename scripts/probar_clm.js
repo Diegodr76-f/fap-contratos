@@ -962,6 +962,23 @@ seccion('24 · Califica la AC, confirma, y la calificación llega sola al Regist
   ok(!w.alertList().some(a=>/sin enviar/.test(a.t)),'y la alerta se apaga');
   await w.reintentarEnvios();
   ok(posts.length===2,'lo ya enviado no se vuelve a mandar');
+  // El esquema de la guía es el que se pega en Power Automate, y Power Automate solo
+  // genera contenido dinámico para tipos simples: con ["number","null"] los campos
+  // calidad, plazo, atención y cumplimiento NO aparecían en «Agregar una fila».
+  const guia=fs.readFileSync(path.join(RAIZ,'plan','FLUJO_CALIFICACIONES.md'),'utf8');
+  const esq=JSON.parse((guia.match(/```json\n([\s\S]*?)\n```/)||[])[1]||'null');
+  ok(esq && Object.values(esq.properties).every(v=>typeof v.type==='string'),
+     'el esquema de la guía solo usa tipos simples: Power Automate no entiende ["number","null"]',
+     esq&&Object.entries(esq.properties).filter(([k,v])=>typeof v.type!=='string').map(e=>e[0]).join(','));
+  const c3=w.eval('CONTRACTS[2]');
+  const env=w.payloadCalif(c3);
+  ok(Object.keys(JSON.parse(JSON.stringify(env))).every(k=>k in esq.properties),
+     'y trae un campo por cada cosa que el CLM envía',Object.keys(env).filter(k=>!(k in esq.properties)).join(','));
+  ok(esq.required.every(k=>env[k]!=null),'y lo obligatorio siempre viaja');
+  w.eval("ov(CONTRACTS[2]).aportes=null");
+  const sin=JSON.parse(JSON.stringify(w.payloadCalif(c3)));
+  ok(!('calidad' in sin) && !('cumplimiento' in sin) && sin.puntaje===Number(w.eval('ov(CONTRACTS[2]).score')),
+     'una calificación sin desglose no manda los aportes como null: los omite');
   // Algo ya en el Registro no se reenvía aunque en este navegador conste como pendiente.
   w.eval("REG.porNro['FIAS-FAP-2026-002']=[{nro:'FIAS-FAP-2026-002',score:70,fecha:'2026-10-01'}];Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'90.00'})");
   await w.reintentarEnvios();
