@@ -1103,6 +1103,16 @@ seccion('30 · El detalle de ítems se llena como una hoja de cálculo');
   const escribe=(el,v)=>{ el.value=v; wt.onItem(el); };
   ok(!wt.document.getElementById('itemcount') && !/Número de ítems/.test(wt.document.getElementById('app').innerHTML),
      'ya no está «Número de ítems / Aplicar», que borraba filas sin avisar al bajar el número');
+  // Crear muchas filas de golpe, que solo agrega
+  const caja=wt.document.getElementById('itemmas');
+  ok(!!caja && caja.value==='5','hay «+ Agregar ítems» con un número para crear varias filas de golpe');
+  wt.addItems('100');
+  ok(wt.D().items.length===101 && wt.document.activeElement===q(1,'desc'),'agregar 100 crea 100 filas y deja el cursor en la primera nueva');
+  wt.addItems('500');
+  ok(wt.D().items.length===300,'el tope es de 300 ítems en total');
+  wt.addItems('abc'); wt.addItems('0');
+  ok(wt.D().items.length===300,'un número que no sirve no hace nada');
+  wt.D().items.length=1; wt.save(); wt.render();
   // Escribir y Enter: el siguiente ítem aparece con el cursor puesto
   escribe(q(0,'desc'),'Buzos volatilizados varios');
   ok(wt.D().items[0].unidad==='Unidad','la unidad se propone al escribir la descripción');
@@ -1166,6 +1176,18 @@ seccion('30 · El detalle de ítems se llena como una hoja de cálculo');
   ok(wt.D().items[0].punit==='12.5' && wt.document.getElementById('a_ptot0').textContent==='750,00','el precio acepta coma y el total de la fila se calcula al momento');
   tecla(q(0,'punit'),'Enter');
   ok(wt.document.activeElement===q(1,'punit'),'Enter baja al precio del ítem siguiente');
+}
+
+seccion('31 · Los datos de ejemplo de versiones anteriores se vacían');
+{
+  const wv=nuevoDom(win=>win.localStorage.setItem('fap_v3',JSON.stringify({cfg:{ac:'Lcda. María Salazar',acCorreo:'msalazar@fias.org.ec',
+    areas:[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',mae:'Tnte. Crnl. Jorge Andrade',maeCargo:'Jefe',ciudad:'Quito',lugar:'Estación El Coca, Orellana'}]},exps:[]})));
+  const c=wv.ST.cfg;
+  ok(c.ac==='' && c.acCorreo==='' && c.areas[0].mae==='' && c.areas[0].ap==='' && c.areas[0].siglas==='','la AC, el correo, el jefe y el área de ejemplo se vacían al abrir');
+  ok(wv.faltanDeDatos().length>0,'y la Hoja de Datos los pide de nuevo');
+  const wr=nuevoDom(win=>win.localStorage.setItem('fap_v3',JSON.stringify({cfg:{ac:'Lcda. Ana Torres',acCorreo:'atorres@fias.org.ec',
+    areas:[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',mae:'Ing. Rosa Tapia',maeCargo:'Jefa',ciudad:'Quito',lugar:'Otavalo'}]},exps:[]})));
+  ok(wr.ST.cfg.ac==='Lcda. Ana Torres' && wr.ST.cfg.areas[0].ap==='Parque Nacional Yasuní','los datos reales no se tocan');
 }
 
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
