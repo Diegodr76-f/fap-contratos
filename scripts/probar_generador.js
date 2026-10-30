@@ -1103,6 +1103,16 @@ seccion('30 · El detalle de ítems se llena como una hoja de cálculo');
   const escribe=(el,v)=>{ el.value=v; wt.onItem(el); };
   ok(!wt.document.getElementById('itemcount') && !/Número de ítems/.test(wt.document.getElementById('app').innerHTML),
      'ya no está «Número de ítems / Aplicar», que borraba filas sin avisar al bajar el número');
+  // Crear muchas filas de golpe, que solo agrega
+  const caja=wt.document.getElementById('itemmas');
+  ok(!!caja && caja.value==='5','hay «+ Agregar ítems» con un número para crear varias filas de golpe');
+  wt.addItems('100');
+  ok(wt.D().items.length===101 && wt.document.activeElement===q(1,'desc'),'agregar 100 crea 100 filas y deja el cursor en la primera nueva');
+  wt.addItems('500');
+  ok(wt.D().items.length===300,'el tope es de 300 ítems en total');
+  wt.addItems('abc'); wt.addItems('0');
+  ok(wt.D().items.length===300,'un número que no sirve no hace nada');
+  wt.D().items.length=1; wt.save(); wt.render();
   // Escribir y Enter: el siguiente ítem aparece con el cursor puesto
   escribe(q(0,'desc'),'Buzos volatilizados varios');
   ok(wt.D().items[0].unidad==='Unidad','la unidad se propone al escribir la descripción');
