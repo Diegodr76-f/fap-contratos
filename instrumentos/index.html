@@ -20164,7 +20164,9 @@ function eliminarVariableEd(){
   varSelId = null; guardar(); renderContenido();
 }
 function exportarVariables(){
-  descargarJSON({ tipo:'variables_fap', version:1, exportado:new Date().toISOString(), variables: variablesRepo }, `variables-fap-${hoy()}.json`);
+  // Las variables de concordancia («{dellaAP}», «{AdminContador}»…) sin sus grupos
+  // son campos sueltos: el género habría que configurarlo de nuevo. Van juntas.
+  descargarJSON({ tipo:'variables_fap', version:2, exportado:new Date().toISOString(), variables: variablesRepo, concordancias }, `variables-fap-${hoy()}.json`);
 }
 
 /* ============ Renumeración automática de cláusulas ============ */
@@ -20697,7 +20699,8 @@ function importarBiblioteca(ev){
       } else if(data.tipo === 'variables_fap' && Array.isArray(data.variables)){
         let n = 0;
         data.variables.forEach(v => { if(!buscarVar(v.nombre)){ v.id = uid(); variablesRepo.push(v); n++; } });
-        alert(`Variables importadas: ${n} nuevas (las que ya existían se conservaron).`);
+        const g = fusionarConcordancias(data.concordancias);
+        alert(`Variables importadas: ${n} nuevas (las que ya existían se conservaron).` + (g ? `\nGrupos de concordancia (género y demás) listos para usar: ${g} nuevos.` : ''));
       } else if(data.tipo === 'biblioteca_fap' && Array.isArray(data.plantillas)){
         // Antes era un confirm(): «Aceptar» fusionaba y «Cancelar» REEMPLAZABA toda la
         // biblioteca. Quien tocaba Cancelar para arrepentirse perdía lo que tenía.
@@ -20752,6 +20755,15 @@ function finalizarImportacion(){
   abiertasCl = new Set(carpetasClausulas.filter(f => !f.padreId).map(f => f.id));
   guardar(); renderCats(); renderLista(); renderContenido();
 }
+/* Suma los grupos de concordancia que no existan (por nombre) y registra sus tags
+   como variables. Devuelve cuántos añadió. Nunca pisa un grupo ya configurado. */
+function fusionarConcordancias(lista){
+  if(!Array.isArray(lista)) return 0;
+  const cnom = new Set(concordancias.map(g => g.nombre));
+  let n = 0;
+  lista.forEach(g => { if(g && g.nombre && !cnom.has(g.nombre)){ g.id = uid(); concordancias.push(g); registrarTagsConcordancia(g); cnom.add(g.nombre); n++; } });
+  return n;
+}
 function importarBibliotecaDatos(data, modo){
   if(modo){
     const nombres = new Set(plantillas.map(p => p.nombre));
@@ -20775,10 +20787,7 @@ function importarBibliotecaDatos(data, modo){
     }
     if(data.fijos) fijos = { ...data.fijos, ...fijos };
     if(data.membrete && !membrete.imagen && !membrete.texto) membrete = data.membrete;
-    if(Array.isArray(data.concordancias)){
-      const cnom = new Set(concordancias.map(g => g.nombre));
-      data.concordancias.forEach(g => { if(!cnom.has(g.nombre)){ g.id = uid(); concordancias.push(g); registrarTagsConcordancia(g); } });
-    }
+    fusionarConcordancias(data.concordancias);
   } else {
     // Reemplazo total: los .docx de la biblioteca vieja quedarían
     // huérfanos en IndexedDB si no se limpian antes de perder sus ids.

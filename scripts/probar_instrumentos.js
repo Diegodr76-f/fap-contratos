@@ -502,6 +502,31 @@ function validarConPython(b64, nombre){
     ok(descargas === 1, 'y antes baja una copia de lo que había');
   }
 
+  {
+    seccion('18. Exportar e importar variables: el género viaja con ellas');
+    // Las variables de concordancia sin sus grupos quedaban como campos sueltos
+    // y la AC tenía que configurar el género otra vez.
+    const app4 = abrir();
+    for(let i = 0; i < 50 && !app4.w.eval('plantillas.length'); i++) await espera(100);
+    await espera(300);
+    const w = app4.w, E = s => w.eval(s);
+    let json = null;
+    w.URL.createObjectURL = (b) => { json = b; return 'blob:x'; }; w.URL.revokeObjectURL = () => {};
+    w.HTMLAnchorElement.prototype.click = function(){};
+    const nGrupos = E('concordancias.length');
+    w.exportarVariables();
+    const texto = await new Promise(r => { const fr = new w.FileReader(); fr.onload = () => r(fr.result); fr.readAsText(json); });
+    const datos = JSON.parse(texto);
+    ok(nGrupos > 0 && Array.isArray(datos.concordancias) && datos.concordancias.length === nGrupos, 'el archivo de variables lleva los grupos de concordancia', nGrupos + ' / ' + (datos.concordancias||[]).length);
+    // instalación nueva: sin grupos ni variables
+    w.eval('concordancias = []; variablesRepo = [];');
+    w.alert = () => {};
+    w.importarBiblioteca({ target: { files: [new w.File([texto], 'v.json', { type: 'application/json' })], value: 'x' } });
+    await espera(250);
+    ok(E('concordancias.length') === nGrupos, 'al importar, los grupos quedan listos para usar', E('concordancias.length'));
+    ok(E('concordanciasHuerfanas().length') === 0, 'y ninguna variable de concordancia queda huérfana (sin selector)');
+  }
+
   ok(!errores.length, 'ningún error de JavaScript en todo el recorrido', errores.join(' | '));
   console.log(`\n${pruebas - fallos}/${pruebas} comprobaciones bien.`);
   process.exit(fallos ? 1 : 0);
