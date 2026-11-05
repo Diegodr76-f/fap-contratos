@@ -850,12 +850,12 @@ seccion('23 · El Registro de Calificaciones compartido');
   w.eval("Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'95.00',sem:'Confiable (Preferente)'})");
   ok(w.calificacionDe(C(1)).fuente==='registro' && w.calificacionDe(C(1)).score===62,'si también hay una local, manda el registro');
 
-  // Calificado aquí y todavía no enviado (el flujo aún sin configurar): se dice.
-  w.eval("Object.assign(ov(CONTRACTS[2]),{evaluado:true,score:'80.50',sem:'Satisfactorio',fechaCalif:'2026-10-25',aportes:[32,24.5,4,20]})");
+  // Confirmado aquí y todavía no enviado (sin señal): no pide calificar, avisa que falta enviarlo.
+  w.eval("Object.assign(ov(CONTRACTS[2]),{evaluado:true,score:'80.50',sem:'Satisfactorio',fechaCalif:'2026-10-25',aportes:[32,24.5,4,20],envio:{estado:'pendiente',id:'x|1'}})");
   al=w.alertList();
   const pend=al.find(a=>/sin enviar al Registro — FIAS-FAP-2026-003/.test(a.t));
   ok(pend && /no se pudo enviar/.test(pend.d) && !al.some(a=>/sin calificar — FIAS-FAP-2026-003/.test(a.t)),
-     'calificado aquí y sin enviar: no pide calificar, avisa que falta enviarlo',pend&&pend.d);
+     'confirmado aquí y sin enviar: no pide calificar, avisa que falta enviarlo',pend&&pend.d);
   w.go('detalle',2);
   ok(/Todavía no se envió al Registro/.test(texto(w)),'y el detalle lo dice');
   const enc=w.eval('CSV_CALIF_ENC');
@@ -983,7 +983,7 @@ seccion('24 · Califica la AC, confirma, y la calificación llega sola al Regist
   ok(!('calidad' in sin) && !('cumplimiento' in sin) && sin.puntaje===Number(w.eval('ov(CONTRACTS[2]).score')),
      'una calificación sin desglose no manda los aportes como null: los omite');
   // Una AC no manda las calificaciones de otra, aunque estén en este navegador.
-  w.eval("Object.assign(ov(CONTRACTS[3]),{evaluado:true,score:'70.00',sem:'Aceptable – Observado'})");
+  w.eval("Object.assign(ov(CONTRACTS[3]),{evaluado:true,score:'70.00',sem:'Aceptable – Observado',envio:{estado:'pendiente',id:'y|1'}})");
   const antes=posts.length; await w.reintentarEnvios();
   ok(posts.length===antes,'una AC solo manda las calificaciones de sus contratos, no las de otra que haya en el navegador');
   // La URL del flujo de calificaciones está puesta y no es la del envío de documentos.
@@ -1049,6 +1049,74 @@ seccion('25 · Si la calificación ya no está en el Registro, la AC puede calif
   w2.eval("REG.generado='2026-10-27T11:30:00Z'");
   ok(w2.liberarCalificacionesRetiradas()===1 && !w2.calificacionDe(w2.eval('CONTRACTS[1]')),
      'con un Registro vacío publicado después, la calificación de prueba se libera');
+}
+
+// ---------------------------------------------------------------- 26
+seccion('26 · Lo calificado con el formulario de antes no se envía solo');
+{
+  // El id «FIAS-FAP-2026-035|2026-10-22|mw3tcs3s» de un envío real delató el problema:
+  // una calificación hecha el 22 de octubre con el formulario de antes de «Confirmar»
+  // se mandó al flujo el 5 de noviembre, con el nombre y el correo de la AC del contrato,
+  // porque alguien abrió el CLM eligiendo su nombre. La entrada no pide contraseña.
+  const l=contratos();
+  Object.assign(l[1],{cerrado:true,fcierre:'2026-03-10'});
+  Object.assign(l[2],{cerrado:true,fcierre:'2026-04-10'});
+  const ana={rol:'ac',user:'Ana Pérez'};
+  const vieja=()=>`Object.keys(CLM.overlay).forEach(k=>delete CLM.overlay[k]);
+    Object.assign(ov(CONTRACTS[1]),{evaluado:true,score:'100.00',sem:'Confiable (Preferente)',fechaCalif:'2026-10-22',aportes:[40,30,5,25]})`;
+  const w=await listo(nuevoDom(l,ana));
+  const posts=[];
+  w.fetch=(u,o)=>{ if(/flujo/.test(String(u))){ posts.push(JSON.parse(o.body)); return Promise.resolve({ok:true,status:200}); } return Promise.resolve({ok:false,status:404}); };
+  w.eval("FLOW_CALIF_URL='https://flujo.test/calificaciones'");
+  w.eval(vieja());
+  const C1=()=>w.eval('CONTRACTS[1]');
+
+  ok(w.anteriorSinConfirmar(C1()) && !w.sinEnviar(C1()),'una calificación sin «Confirmar» es «anterior sin confirmar», no «pendiente de envío»');
+  ok(await w.reintentarEnvios()===0 && posts.length===0,'abrir el CLM, o volver la señal, NO la envía');
+  ok(await w.enviarCalificacion(C1())===false && posts.length===0,'ni aunque alguien llame al envío directamente: nada sale sin «Confirmar»');
+  const al=w.alertList().find(a=>/anterior sin confirmar — FIAS-FAP-2026-002/.test(a.t));
+  ok(al && al.fn==='ant' && /nunca enviada/.test(al.d),'la AC recibe un aviso para revisarla',al&&al.d);
+  w.go('detalle',1);
+  ok(/nunca confirmada ni enviada/.test(texto(w)) && w.document.getElementById('a-ant') && /anterior sin confirmar/.test(w.document.getElementById('a-cal').textContent),
+     'y el contrato lo dice, con el botón «Revisar y confirmar»');
+  // Otra persona (Unidad, o una AC que no es la del contrato) no puede confirmarla.
+  const u=await listo(nuevoDom(l)); u.eval(vieja());
+  u.modalCalifAnterior(u.eval('CONTRACTS[1]'));
+  ok(!u.document.querySelector('.overlay'),'la Unidad Operativa no puede confirmar la calificación de una AC');
+  ok(!u.alertList().some(a=>a.fn==='ant'),'y no recibe el aviso');
+
+  // Descartar: el contrato queda libre para calificarlo de nuevo.
+  w.document.getElementById('a-ant').onclick();
+  let m=w.document.querySelector('.overlay');
+  ok(/Calificación anterior sin confirmar/.test(m.textContent) && /100,00/.test(m.textContent) && /22 oct 2026/.test(m.textContent),
+     'el formulario muestra la calificación y de cuándo es');
+  w._responde=false; m.querySelector('#desc').onclick();
+  ok(w.anteriorSinConfirmar(C1()),'descartar pide confirmación: con «Cancelar» no se borra nada');
+  w._responde=true; m.querySelector('#desc').onclick();
+  ok(!w.calificacionDe(C1()) && !w.eval('ov(CONTRACTS[1]).evaluado') && /descartada/.test(w.eval('CLM.log[0].txt')),
+     'descartarla libera el contrato y queda en la bitácora');
+  w.go('detalle',1);
+  ok(!w.document.getElementById('a-cal').disabled,'«Calificar proveedor» vuelve a estar habilitado');
+
+  // Confirmar: se envía a nombre de quien la confirma, y el envío dice quién fue.
+  w.eval(vieja()); w.go('detalle',1);
+  w.document.getElementById('a-ant').onclick();
+  m=w.document.querySelector('.overlay');
+  m.querySelector('#conf').onclick(); await pausa(40);
+  ok(posts.length===1,'confirmar la envía, una vez');
+  const p=posts[0]||{};
+  ok(p.via==='anterior' && p.enviadoPor==='Ana Pérez' && p.rolEnvio==='ac' && p.ac==='Ana Pérez' && p.fechaEvaluacion==='2026-10-22' && p.puntaje===100,
+     'el envío dice que viene de una calificación anterior, quién la envió y su rol, y conserva la fecha original',JSON.stringify(p));
+  ok(/^FIAS-FAP-2026-002\|\d{4}-\d\d-\d\dT/.test(p.idCalificacion||''),'y su id lleva la hora del envío, no un sufijo al azar');
+  ok(w.eval('ov(CONTRACTS[1]).envio.estado')==='enviada','queda enviada');
+
+  // Lo confirmado de la manera normal dice quién y por qué camino.
+  w.eval("Object.keys(CLM.overlay).forEach(k=>delete CLM.overlay[k])");
+  posts.length=0; w.go('detalle',2);
+  w.document.getElementById('a-cal').onclick();
+  m=w.document.querySelector('.overlay'); m.querySelector('#rev').onclick(); m.querySelector('#conf').onclick(); await pausa(40);
+  ok(posts.length===1 && posts[0].via==='nueva' && posts[0].enviadoPor==='Ana Pérez' && posts[0].rolEnvio==='ac',
+     'una calificación nueva viaja con via «nueva», quién la envió y su rol');
 }
 
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));

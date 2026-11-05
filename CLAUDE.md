@@ -380,7 +380,12 @@ sostienen hoy (sección 22 de `probar_clm.js`):
   `modalCalificar()` pasan por ahí. El modal tiene dos pasos —«Revisar» y «Confirmar»— y
   al confirmar `enviarCalificacion()` manda la fila al flujo; si falla queda `envio.estado
   ="pendiente"`, la AC ve «Reintentar» y `reintentarEnvios()` la manda al arrancar y al volver
-  la señal, siempre con el mismo `idCalificacion`. Lo que ya está en el Registro no se
+  la señal, siempre con el mismo `idCalificacion`. **Nada sale sin «Confirmar»**:
+  `enviarCalificacion()` exige `envio` (lo fija ese paso), y lo que quedó del formulario de antes
+  (`anteriorSinConfirmar()`: evaluado y sin `envio`) **no se envía solo** —se mandaba al abrir
+  el CLM con el nombre de la AC del contrato, y quien lo abre no tiene por qué ser ella—: la AC
+  lo revisa y lo confirma o lo descarta (`modalCalifAnterior()`, sección 26). Cada envío lleva
+  `enviadoPor`, `rolEnvio` y `via`. Lo que ya está en el Registro no se
   reenvía. Una calificación **enviada** que el Registro, leído después (`REG.generado` es la hora
   a la que el robot LEYÓ el Excel, más `MARGEN_REGISTRO_MS`, 2 min), ya no trae se da por **retirada**: `liberarCalificacionesRetiradas()`
   la borra de ese navegador y la AC puede calificar de nuevo (así se repite una prueba o se

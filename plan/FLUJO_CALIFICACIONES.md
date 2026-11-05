@@ -67,6 +67,9 @@ solicitud» pega esto:
   "type": "object",
   "properties": {
     "origen":          { "type": "string" },
+    "via":             { "type": "string" },
+    "enviadoPor":      { "type": "string" },
+    "rolEnvio":        { "type": "string" },
     "idCalificacion":  { "type": "string" },
     "contratoNro":     { "type": "string" },
     "proveedor":       { "type": "string" },
@@ -157,6 +160,28 @@ confirmación. Es lo esperado: es como llegan al Registro las calificaciones ant
 tabla, (2) llegue el correo a la AC, (3) el CLM diga «confirmada y enviada». Si el CLM dice que
 no se pudo enviar aunque el flujo corrió, es el permiso del navegador (CORS) hacia el flujo.
 
+## Saber quién envió una calificación
+
+Cada envío trae, además de la fila, tres datos de auditoría (los tres están en el esquema del
+paso 1):
+
+| Campo | Qué dice |
+|---|---|
+| `enviadoPor` | El nombre con el que se **entró al CLM** cuando se envió. Para una calificación hecha por la AC del contrato, es ella. |
+| `rolEnvio` | El rol con el que se entró (`ac`, `area`, `uo`). Hoy solo `ac` puede enviar. |
+| `via` | `nueva` (confirmada con «Confirmar calificación») o `anterior` (una calificación que se hizo con el formulario viejo y la AC confirmó después). |
+
+Para verlos en el Excel, agrega tres columnas **al final** de la tabla —**Enviado por**, **Rol** y
+**Camino**— y asigna en el paso 2 `enviadoPor`, `rolEnvio` y `via`. El robot lee la tabla por
+nombre de columna: las que no conoce las ignora. También conviene que el correo a la AC diga
+«Enviada por `enviadoPor`».
+
+**Ojo con lo que NO se puede saber:** la entrada del CLM no pide contraseña, así que
+`enviadoPor` es el nombre que **se eligió** al entrar, no una persona verificada. Para saber desde
+dónde se envió, el historial de ejecuciones del flujo (Power Automate → el flujo → Historial de
+ejecuciones → la corrida → *Entradas sin procesar*) guarda la **IP** (`X-Forwarded-For`) y el
+**navegador** (`User-Agent`) de cada envío: compáralos con los de la computadora de la AC.
+
 ## Lo que hay que saber
 
 - **La entrada del CLM no tiene contraseña por persona**: cualquiera puede elegir el nombre de
@@ -166,5 +191,9 @@ no se pudo enviar aunque el flujo corrió, es el permiso del navegador (CORS) ha
   Quien la tenga podría mandar una fila falsa; el correo a la AC es también la alarma para eso.
 - Una calificación reenviada después de un corte lleva el mismo `idCalificacion`: si llegara a
   quedar dos veces en la tabla, son la misma fila repetida y el CLM toma la más reciente.
+- **Nada sale sin «Confirmar».** Lo que se calificó con el formulario de antes de «Confirmar» y
+  quedó en un navegador **no se envía solo**: a la AC del contrato le aparece un aviso para
+  revisarlo y confirmarlo, o descartarlo (y calificar de nuevo). Antes se mandaba al abrir el CLM
+  con el nombre y el correo de la AC, y quien abría el CLM no tenía por qué ser ella.
 - Del Registro, el robot publica solo n.º de contrato, fecha, puntajes y observación, cifrados.
   El RUC no está en la tabla y no se publica.
