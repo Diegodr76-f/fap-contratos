@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Reconstruye los seeds embebidos: el de La Mágica (desde generador/plantillas/)
-y el del Generador de Instrumentos (desde crm/plantillas/).
+y el del Generador de Instrumentos (desde crm/plantillas/ e instrumentos/plantillas/).
 
 El de Instrumentos (`window.__DOCX_SEEDS__` en instrumentos/index.html) lleva el
 informe de adenda y el acta de terminación, las mismas dos plantillas que rellenan
@@ -68,9 +68,12 @@ ORDEN = [
 HTML_INSTR = os.path.join(RAIZ, 'instrumentos', 'index.html')
 PLANTILLAS_CRM = os.path.join(RAIZ, 'crm', 'plantillas')
 MARCA_INSTR = 'window.__DOCX_SEEDS__='
+PLANTILLAS_INSTR = os.path.join(RAIZ, 'instrumentos', 'plantillas')
 SEEDS_INSTR = {
     'informe_adenda': '14_Informe_adenda.docx',
     'acta_terminacion': '15_Acta_de_terminacion.docx',
+    # Propia de Instrumentos: no la rellena el CLM ni el CRM, vive en instrumentos/plantillas/
+    'acta_entrega_uniformes': ('instrumentos', '21_Acta_entrega_uniformes.docx'),
 }
 
 
@@ -84,7 +87,10 @@ def embeber_instrumentos(solo_check):
     viejo = json.loads(m.group(1))
     nuevo = {}
     for clave, archivo in SEEDS_INSTR.items():
-        with open(os.path.join(PLANTILLAS_CRM, archivo), 'rb') as f:
+        carpeta = PLANTILLAS_CRM
+        if isinstance(archivo, tuple):
+            carpeta, archivo = PLANTILLAS_INSTR, archivo[1]
+        with open(os.path.join(carpeta, archivo), 'rb') as f:
             nuevo[clave] = base64.b64encode(f.read()).decode('ascii')
     if nuevo == viejo:
         print('El seed de Instrumentos ya está al día (%d plantillas).' % len(nuevo))

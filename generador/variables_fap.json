@@ -2308,6 +2308,30 @@
       "tipo": "texto"
     },
     {
+      "id": "pmp3nocqu55set",
+      "grupo": "Área y firmantes",
+      "nombre": "custodio",
+      "descripcion": "Nombre de quien tiene la custodia administrativa de los bienes y los entrega (acta de entrega de uniformes y calzado).",
+      "ejemplo": "Catalina Tapia",
+      "tipo": "texto"
+    },
+    {
+      "id": "pm4g2n7tukjzh9",
+      "grupo": "Área y firmantes",
+      "nombre": "custodioCargo",
+      "descripcion": "Cargo de quien tiene la custodia administrativa.",
+      "ejemplo": "Asistente Técnica Administrativa",
+      "tipo": "texto"
+    },
+    {
+      "id": "pmf3vs9kwdlh5d",
+      "grupo": "Área y firmantes",
+      "nombre": "cedulaCustodio",
+      "descripcion": "Cédula de quien tiene la custodia administrativa.",
+      "ejemplo": "1712345678",
+      "tipo": "texto"
+    },
+    {
       "id": "pms4vhf7u2hs9q",
       "grupo": "Ítems (repetible)",
       "nombre": "item",
@@ -2320,7 +2344,7 @@
       "id": "pmrkumrwinafal",
       "grupo": "Ítems (repetible)",
       "nombre": "items",
-      "descripcion": "Bloque repetible {#items}…{/items} de docxtemplater con campos n, cantidad, unidad, desc, punit, ptotal, ivaPct. Nota: en esta herramienta HTML insértalo como texto de referencia; el bucle lo ejecuta docxtemplater en las plantillas Word.",
+      "descripcion": "Bloque repetible {#items}…{/items} de docxtemplater con campos n, cantidad, unidad, desc, punit, ptotal, ivaPct, observacion (esta última solo en el acta de entrega de uniformes y calzado). Nota: en esta herramienta HTML insértalo como texto de referencia; el bucle lo ejecuta docxtemplater en las plantillas Word.",
       "ejemplo": "",
       "tipo": "repetible"
     },
