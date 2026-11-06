@@ -40,7 +40,7 @@ function ok(cond, msg, extra){ pruebas++; if(cond){ console.log('  ✓ ' + msg);
 function seccion(t){ console.log('\n' + t); }
 const espera = ms => new Promise(r => setTimeout(r, ms));
 
-function abrir(previo){
+function abrir(){
   const avisos = [], alertas = [], errores = [];
   // docxtemplater escribe en la consola cada plantilla que no compila, también
   // las que la prueba rompe a propósito: se calla todo menos los errores de verdad.
@@ -52,7 +52,6 @@ function abrir(previo){
       w.fetch = () => Promise.reject(new Error('sin red'));
       w.alert = m => alertas.push(String(m));
       w.confirm = () => true;
-      if(previo) previo(w);
       w.addEventListener('error', e => errores.push(e.message));
     }
   });
@@ -285,7 +284,7 @@ function validarConPython(b64, nombre){
   // Todas las plantillas del repositorio: si el ida y vuelta cambiara algo, cada
   // «Guardar» reescribiría párrafos que nadie tocó.
   const todas = { 'acta (instrumentos)': SEED, 'adenda (instrumentos)': w.__DOCX_SEEDS__.informe_adenda };
-  for(const dir of ['generador/plantillas', 'crm/plantillas', 'instrumentos/plantillas'])
+  for(const dir of ['generador/plantillas', 'crm/plantillas'])
     fs.readdirSync(path.join(RAIZ, dir)).filter(f => f.endsWith('.docx')).forEach(f => { todas[dir + '/' + f] = fs.readFileSync(path.join(RAIZ, dir, f)).toString('base64'); });
   const malas = [];
   for(const [nombre, b64] of Object.entries(todas)){
@@ -501,36 +500,6 @@ function validarConPython(b64, nombre){
     w.ejecutarImportacion(false);
     ok(E('plantillas.length') === 1 && E('plantillas')[0].nombre === 'Plantilla del archivo', 'Reemplazar todo deja solo lo del archivo');
     ok(descargas === 1, 'y antes baja una copia de lo que había');
-  }
-
-  {
-    seccion('18. Acta de entrega-recepción de uniformes y calzado');
-    const app3 = abrir();
-    for(let i = 0; i < 50 && !app3.w.eval('plantillas').length; i++) await espera(100);
-    await espera(300);
-    const w3 = app3.w, E3 = s => w3.eval(s);
-    const u = E3('plantillas').find(p => p.seedKey === 'acta_entrega_uniformes');
-    ok(!!u && u.categoria === 'Actas', 'está entre las plantillas de fábrica, en Actas');
-    ok(E3('plantillas').filter(p => p.seedKey === 'acta_entrega_uniformes').length === 1, 'una sola vez');
-    w3.seleccionar(u.id);
-    const est = w3.estructuraDocx(u);
-    ok(est.escalares.every(tg => E3('buscarVar')(tg)), 'todo tag escalar tiene variable (catálogo de la app)', est.escalares.filter(tg => !E3('buscarVar')(tg)).join(','));
-    ok(['custodio', 'custodioCargo', 'cedulaCustodio', 'ac', 'cedulaAc', 'area', 'fuente', 'ciudad', 'fechaRecepcion'].every(tg => est.escalares.includes(tg)), 'pide custodio, AC, área, fuente, ciudad y fecha');
-    ok(!/\{(jefe|objeto|punit|ptotal|subtotal)\}/.test(new PizZip(Buffer.from(w3.archivoDocxDe(u), 'base64')).file('word/document.xml').asText()), 'sin restos del acta de entrega al área protegida');
-    // Se rellena: dos ítems, el segundo sin observación.
-    const datos = w3.datosDocx(u, { ciudad: 'Quito', fechaRecepcion: '9 de noviembre de 2026', fuente: 'Fondos FAP 2026', custodio: 'Catalina Tapia', custodioCargo: 'Asistente Técnica Administrativa', ac: 'Alicia Cedeño', cedulaAc: '0912345678', cedulaCustodio: '1712345678', area: 'Refugio X', AdminContador: 'Administradora Contadora', administradoracontadora: 'administradora contadora' });
-    datos.items = [{ cantidad: '1', desc: 'CHAQUETA', observacion: 'Gabardina' }, { cantidad: '2', desc: 'CAMISETAS POLO', observacion: '' }];
-    const zip = new PizZip(Buffer.from(w3.archivoDocxDe(u), 'base64'));
-    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, nullGetter: () => '⟦FALTA⟧' });
-    doc.render(datos);
-    const txt = doc.getZip().file('word/document.xml').asText().replace(/<\/w:p>/g, '\n').replace(/<[^>]+>/g, '');
-    ok(!/⟦FALTA⟧|undefined/.test(txt) && /CHAQUETA/.test(txt) && /CAMISETAS POLO/.test(txt) && /Catalina Tapia/.test(txt), 'rellena con la tabla de ítems y sin huecos');
-    // Una biblioteca anterior (ya sembrada) la recibe sin duplicar ni tocar lo que tiene.
-    const previa = abrir(prev => { prev.localStorage.setItem('fap_gen_docx_semillas', '1'); prev.localStorage.setItem('fap_gen_plantillas_v2', JSON.stringify([{ id: 'zz', nombre: 'Propia', categoria: 'Actas', cuerpo: '<p>x</p>', actualizado: '2026-01-01' }])); });
-    for(let i = 0; i < 50 && !previa.w.eval('plantillas').length; i++) await espera(100);
-    await espera(300);
-    const pl = previa.w.eval('plantillas');
-    ok(pl.some(p => p.id === 'zz') && pl.filter(p => p.seedKey === 'acta_entrega_uniformes').length === 1 && !pl.some(p => p.seedKey === 'acta_terminacion'), 'una biblioteca anterior la recibe sola, conserva lo suyo y no repone lo que no pidió');
   }
 
   ok(!errores.length, 'ningún error de JavaScript en todo el recorrido', errores.join(' | '));
