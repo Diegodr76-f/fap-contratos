@@ -13323,6 +13323,7 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .carpeta-acc{visibility:hidden;display:flex;gap:2px;flex-shrink:0}
 .mini-ico{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px;color:var(--gris);line-height:1}
 .mini-ico:hover{background:#fff;color:var(--azul)}
+svg.ico{display:inline-block;vertical-align:-2px;flex:0 0 auto}
 .item-pl .mini-ico{margin-left:auto}
 .picker-fila{padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13.5px}
 .picker-fila:hover{background:var(--azul-claro)}
@@ -13670,7 +13671,7 @@ tr:hover td{background:var(--azul-claro)}
   <button onclick="document.getElementById('imp-file').click()">Importar</button>
   <input type="file" id="imp-file" accept=".json" style="display:none" onchange="importarBiblioteca(event)">
 </header>
-<div id="aviso-storage">⚠ El almacenamiento local no está disponible en esta vista. Los cambios se guardan en memoria; usa <b>Exportar biblioteca</b> para no perderlos. Al abrir el archivo en tu navegador, el guardado será automático.</div>
+<div id="aviso-storage">El almacenamiento local no está disponible en esta vista. Los cambios se guardan en memoria; usa <b>Exportar biblioteca</b> para no perderlos. Al abrir el archivo en tu navegador, el guardado será automático.</div>
 
 <main>
   <aside>
@@ -13776,7 +13777,7 @@ const store = {
       // guardado caería a memoria y se perdería todo al recargar, en silencio.
       memStore[k] = v;
       const av = document.getElementById('aviso-storage');
-      if(av){ av.style.display='block'; av.innerHTML = '⚠ <b>El almacenamiento del navegador está lleno</b>: los últimos cambios NO quedaron guardados. Elimina plantillas Word que no uses o haz <b>Exportar biblioteca</b> ya para no perder nada.'; }
+      if(av){ av.style.display='block'; av.innerHTML = '<b>El almacenamiento del navegador está lleno</b>: los últimos cambios NO quedaron guardados. Elimina plantillas Word que no uses o haz <b>Exportar biblioteca</b> ya para no perder nada.'; }
       if(!avisoQuotaDado){ avisoQuotaDado = true; alert('El almacenamiento del navegador está lleno y los últimos cambios NO se pudieron guardar.\n\nElimina plantillas Word que no uses (pesan mucho) o usa «Exportar biblioteca» ahora mismo como respaldo.'); }
     }
   },
@@ -14081,18 +14082,30 @@ function validarCedula(c){
   for(let i=0;i<9;i++){ let v = d[i]*(i%2===0?2:1); if(v>9) v-=9; s+=v; }
   return ((10 - (s%10)) % 10) === d[9];
 }
+/* Íconos de un mismo juego (trazo de 2, color del texto). Sustituyen a los emojis, que
+   cada sistema dibuja a su manera y con su propio color. */
+const ICONOS = {
+  carpeta: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  mover: '<path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/>',
+  lapiz: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+  papelera: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  mas: '<path d="M5 12h14"/><path d="M12 5v14"/>'
+};
+function ico(nombre){
+  return `<svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[nombre]}</svg>`;
+}
 /* Devuelve '' si está bien (o vacío), o un texto de aviso si algo no cuadra */
 function avisoIdentificacion(val){
   const s = String(val||'').replace(/[^\d]/g,'');
   if(!s) return '';
-  if(s.length === 10) return validarCedula(s) ? '' : '⚠ La cédula no pasa la verificación (revisa los dígitos)';
+  if(s.length === 10) return validarCedula(s) ? '' : 'La cédula no pasa la verificación (revisa los dígitos)';
   if(s.length === 13){
-    if(!/001$/.test(s)) return '⚠ Un RUC normalmente termina en 001';
+    if(!/001$/.test(s)) return 'Un RUC normalmente termina en 001';
     const tercero = +s[2];
-    if(tercero < 6 && !validarCedula(s.slice(0,10))) return '⚠ RUC de persona natural: la cédula base no valida';
+    if(tercero < 6 && !validarCedula(s.slice(0,10))) return 'RUC de persona natural: la cédula base no valida';
     return '';
   }
-  return '⚠ Debe tener 10 dígitos (cédula) o 13 (RUC)';
+  return 'Debe tener 10 dígitos (cédula) o 13 (RUC)';
 }
 const esIdVar = v => /cedula|ruc|identificacion/i.test(v);
 
@@ -15133,7 +15146,7 @@ function arbolPickerHtml(cual, excluirId, nivel, padreId){
   const excluidos = excluirId ? descendientesIds(cual, excluirId) : new Set();
   if(excluirId) excluidos.add(excluirId);
   return nodosHijos(cual, padreId).filter(f => !excluidos.has(f.id)).map(f => `
-    <div class="picker-fila" style="padding-left:${8+nivel*16}px" onclick="ejecutarMoverItem('${cual}','${f.id}')">📁 ${esc(f.nombre)}</div>
+    <div class="picker-fila" style="padding-left:${8+nivel*16}px" onclick="ejecutarMoverItem('${cual}','${f.id}')">${ico('carpeta')} ${esc(f.nombre)}</div>
     ${arbolPickerHtml(cual, excluirId, nivel+1, f.id)}
   `).join('');
 }
@@ -15142,7 +15155,7 @@ function abrirMoverItem(cual, itemId){
   abrirModal(`
     <div class="m-cab"><h3>Mover a carpeta</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
-      <div class="picker-fila raiz" onclick="ejecutarMoverItem('${cual}', null)">📥 Sin carpeta (raíz)</div>
+      <div class="picker-fila raiz" onclick="ejecutarMoverItem('${cual}', null)">Sin carpeta (raíz)</div>
       ${arbolPickerHtml(cual, null, 0, null) || '<p style="font-size:13px;color:var(--gris)">Todavía no hay carpetas. Crea una con «+ Carpeta».</p>'}
     </div>`);
 }
@@ -15151,7 +15164,7 @@ function abrirMoverCarpeta(cual, id){
   abrirModal(`
     <div class="m-cab"><h3>Mover carpeta</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
-      <div class="picker-fila raiz" onclick="ejecutarMoverItem('${cual}', null)">📥 Nivel raíz</div>
+      <div class="picker-fila raiz" onclick="ejecutarMoverItem('${cual}', null)">Nivel raíz</div>
       ${arbolPickerHtml(cual, id, 0, null)}
     </div>`);
 }
@@ -15172,13 +15185,13 @@ function renderNodoCarpeta(cual, folder, nivel, renderItem){
   const pad = 8 + nivel*14;
   let html = `<div class="carpeta-fila" style="padding-left:${pad}px" onclick="toggleCarpeta('${cual}','${folder.id}')">
     <span class="carpeta-toggle">${abierta ? '▾' : '▸'}</span>
-    <span class="carpeta-nom" title="${esc(folder.nombre)}">📁 ${esc(folder.nombre)}</span>
+    <span class="carpeta-nom" title="${esc(folder.nombre)}">${ico('carpeta')} ${esc(folder.nombre)}</span>
     <span class="carpeta-n">${n}</span>
     <span class="carpeta-acc">
-      <button class="mini-ico" title="Nueva subcarpeta" onclick="event.stopPropagation();crearSubcarpeta('${cual}','${folder.id}')">＋</button>
-      <button class="mini-ico" title="Mover carpeta" onclick="event.stopPropagation();abrirMoverCarpeta('${cual}','${folder.id}')">📂</button>
-      <button class="mini-ico" title="Renombrar" onclick="event.stopPropagation();renombrarCarpetaUI('${cual}','${folder.id}')">✎</button>
-      <button class="mini-ico" title="Eliminar carpeta" onclick="event.stopPropagation();eliminarCarpetaUI('${cual}','${folder.id}')">🗑</button>
+      <button class="mini-ico" title="Nueva subcarpeta" onclick="event.stopPropagation();crearSubcarpeta('${cual}','${folder.id}')">${ico('mas')}</button>
+      <button class="mini-ico" title="Mover carpeta" onclick="event.stopPropagation();abrirMoverCarpeta('${cual}','${folder.id}')">${ico('mover')}</button>
+      <button class="mini-ico" title="Renombrar" onclick="event.stopPropagation();renombrarCarpetaUI('${cual}','${folder.id}')">${ico('lapiz')}</button>
+      <button class="mini-ico" title="Eliminar carpeta" onclick="event.stopPropagation();eliminarCarpetaUI('${cual}','${folder.id}')">${ico('papelera')}</button>
     </span>
   </div>`;
   if(abierta){
@@ -15455,13 +15468,13 @@ function aplicarFijos(vars, datos){
 /* ============ Render: sidebar ============ */
 function renderCats(){
   const c = document.getElementById('cats');
-  c.innerHTML = `<button class="chip" onclick="crearSubcarpeta('pl', null)">📁＋ Carpeta</button>`;
+  c.innerHTML = `<button class="chip" onclick="crearSubcarpeta('pl', null)">+ Carpeta</button>`;
 }
 function renderItemPlantilla(p, nivel){
   const pad = 8 + (nivel||0)*14;
   return `<div class="item-pl ${seleccion===p.id?'sel':''}" style="padding-left:${pad}px" onclick="seleccionar('${p.id}')">
       <div class="nom">${esc(p.nombre)}</div>
-      <div class="meta">${p.tipo==='docx' ? '<span class="badge badge-word">WORD</span>' : ''}<span>act. ${p.actualizado}</span><button class="mini-ico" title="Mover a otra carpeta" onclick="event.stopPropagation();abrirMoverItem('pl','${p.id}')">📂</button></div>
+      <div class="meta">${p.tipo==='docx' ? '<span class="badge badge-word">WORD</span>' : ''}<span>act. ${p.actualizado}</span><button class="mini-ico" title="Mover a otra carpeta" onclick="event.stopPropagation();abrirMoverItem('pl','${p.id}')">${ico('mover')}</button></div>
     </div>`;
 }
 function renderLista(){
@@ -15474,7 +15487,7 @@ function renderLista(){
     cont.innerHTML = filtradas.map(p => `
       <div class="item-pl ${seleccion===p.id?'sel':''}" onclick="seleccionar('${p.id}')">
         <div class="nom">${esc(p.nombre)}</div>
-        <div class="meta">${p.carpetaId ? `<span class="badge" title="Carpeta">${esc(rutaCarpeta('pl',p.carpetaId))}</span>` : ''}${p.tipo==='docx' ? '<span class="badge badge-word">WORD</span>' : ''}<span>act. ${p.actualizado}</span><button class="mini-ico" title="Mover a otra carpeta" onclick="event.stopPropagation();abrirMoverItem('pl','${p.id}')">📂</button></div>
+        <div class="meta">${p.carpetaId ? `<span class="badge" title="Carpeta">${esc(rutaCarpeta('pl',p.carpetaId))}</span>` : ''}${p.tipo==='docx' ? '<span class="badge badge-word">WORD</span>' : ''}<span>act. ${p.actualizado}</span><button class="mini-ico" title="Mover a otra carpeta" onclick="event.stopPropagation();abrirMoverItem('pl','${p.id}')">${ico('mover')}</button></div>
       </div>`).join('');
     cont.scrollTop = top;
     return;
@@ -15644,14 +15657,14 @@ function renderGenerar(c, p){
   if(editandoDoc){
     c.innerHTML = `
       ${htmlAvisoBorrador()}
-      <div class="banner-edicion">✏ Estás editando el documento final: lo que ves es exactamente lo que se descargará. Puedes insertar cláusulas del repositorio (📋) y renumerar (🔢).
+      <div class="banner-edicion">Estás editando el documento final: lo que ves es exactamente lo que se descargará. Puedes insertar cláusulas del repositorio («Cláusula») y renumerar («Renumerar»).
         <button class="btn sec mini" style="margin-left:auto" onclick="salirEdicionDoc()">← Volver al formulario</button>
       </div>
       ${membreteHTMLPreview(datosForm) ? `<div style="background:#fff;border:1px solid var(--borde);border-radius:8px;padding:12px 32px 2px;margin-bottom:10px">${membreteHTMLPreview(datosForm)}</div>` : ''}
       ${buildToolbar('preview', false, false)}
       <div id="preview" class="editando" contenteditable="true" oninput="sincronizarDocEditado()">${docEditado}</div>
       <div class="acciones-gen">
-        <button class="btn" onclick="descargarWord()">⬇ Descargar Word (.docx)</button>
+        <button class="btn" onclick="descargarWord()">Descargar Word (.docx)</button>
       </div>`;
     return;
   }
@@ -15671,7 +15684,7 @@ function renderGenerar(c, p){
   const selectoresConc = concs.map(g => {
     const idx = indiceConc(g.nombre);
     const gobernadas = Object.keys(g.tags||{}).filter(t => vars.includes(t));
-    return `<div class="campo"><label>⚥ ${esc(g.etiqueta)} <span class="tag-auto">cambia todo</span></label>
+    return `<div class="campo"><label>${esc(g.etiqueta)} <span class="tag-auto">cambia todo</span></label>
       <select id="conc_${esc(g.nombre)}" onchange="aplicarConcordanciaUI('${esc(g.nombre)}', this.selectedIndex)">
         ${(g.opciones||[]).map((o,i)=>`<option value="${i}" ${i===idx?'selected':''}>${esc(o)}</option>`).join('')}
       </select>
@@ -15711,7 +15724,7 @@ function renderGenerar(c, p){
     ${htmlAvisoDescarga()}${htmlAvisoBorrador()}
     <div class="rapidas">
       <button class="btn sec" onclick="abrirPickerRegistro()" ${registroEstado==='protegido'?'title="El registro está protegido: te pediré la frase de acceso"':(registroEstado!=='ok'?'title="El registro aún no está cargado"':'')}>Tomar datos del registro</button>
-      <button class="btn sec" onclick="abrirPickerContraparte()">👤 Usar contraparte guardada</button>
+      <button class="btn sec" onclick="abrirPickerContraparte()">Usar contraparte guardada</button>
       ${tieneNumero ? `<button class="btn sec" onclick="aplicarNumeroSugerido()">№ Sugerir número siguiente</button>` : ''}
     </div>
     <div class="gen-grid">
@@ -15727,8 +15740,8 @@ function renderGenerar(c, p){
         </div>
         ${esDocx ? htmlCondiciones(p) + htmlListas(p) : ''}
         <div class="acciones-gen">
-          <button class="btn" onclick="descargarWord()">⬇ Descargar Word (.docx)</button>
-          ${esDocx ? '' : '<button class="btn sec" onclick="editarDocumento()" title="Retocar el texto final: cambiar redacción, insertar o quitar cláusulas">✏ Editar documento final</button>'}
+          <button class="btn" onclick="descargarWord()">Descargar Word (.docx)</button>
+          ${esDocx ? '' : '<button class="btn sec" onclick="editarDocumento()" title="Retocar el texto final: cambiar redacción, insertar o quitar cláusulas">Editar documento final</button>'}
           <button class="btn sec" onclick="limpiarForm()">Limpiar campos</button>
         </div>
       </div>
@@ -15906,7 +15919,7 @@ function confirmarPendientes(p){
    plantillas y queda registrado en el repositorio. */
 function bloquearPorObligatorios(lista){
   abrirModal(`
-    <div class="m-cab"><h3>⛔ Faltan datos obligatorios</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cab"><h3>Faltan datos obligatorios</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       <p style="font-size:13px;line-height:1.55">Sin ${lista.length === 1 ? 'este dato' : 'estos datos'} el instrumento saldría defectuoso, así que el Word no se genera:</p>
       <ul class="lista-oblig">
@@ -16225,7 +16238,7 @@ function editarContraparte(i){
     </div>
     <div class="m-pie">
       <button class="btn sec" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn" onclick="guardarContraparte(${i})">💾 Guardar</button>
+      <button class="btn" onclick="guardarContraparte(${i})">Guardar</button>
     </div>`);
 }
 function guardarContraparte(i){
@@ -16298,7 +16311,7 @@ function renderLote(c, p){
 
   const tablaLote = loteFilas.length ? `
     <div class="tabla-scroll"><table class="lote-tabla"><thead><tr>
-      <th>#</th>${concsLote.map(g => `<th title="Género o tipo de persona de este documento">⚥ ${esc(g.etiqueta)}</th>`).join('')}${columnas.map(v => `<th>${esc(etiqueta(v))}${esRequerido(v)?' *':''}</th>`).join('')}<th></th>
+      <th>#</th>${concsLote.map(g => `<th title="Género o tipo de persona de este documento">${esc(g.etiqueta)}</th>`).join('')}${columnas.map(v => `<th>${esc(etiqueta(v))}${esRequerido(v)?' *':''}</th>`).join('')}<th></th>
     </tr></thead><tbody>
       ${loteFilas.map((fila,i) => `<tr>
         <td style="color:var(--gris);padding-top:7px">${i+1}</td>
@@ -16329,7 +16342,7 @@ function renderLote(c, p){
               <button class="btn sec mini" onclick="marcarVisibles(true)">Marcar todos</button>
               <button class="btn sec mini" onclick="marcarVisibles(false)">Desmarcar</button>
             </div>` : registroEstado==='protegido'
-              ? `<div style="font-size:12.5px;color:var(--gris)">El registro está protegido con la frase de acceso del CLM.<div style="margin-top:8px"><button class="btn mini" onclick="desbloquearRegistro()">🔓 Desbloquear el registro</button></div></div>`
+              ? `<div style="font-size:12.5px;color:var(--gris)">El registro está protegido con la frase de acceso del CLM.<div style="margin-top:8px"><button class="btn mini" onclick="desbloquearRegistro()">Desbloquear el registro</button></div></div>`
               : `<div style="font-size:12.5px;color:var(--gris)">El registro no está disponible. Usa el botón «Registro» de la cabecera para reintentar o para cargar el archivo contratos_export.json, o pega los datos desde Excel aquí a la derecha. →</div>`}
         </div>
         <div>
@@ -16343,11 +16356,11 @@ function renderLote(c, p){
     <div class="lote-sec">
       <div class="paso-tit"><span class="num">3</span> Revisar y corregir (${loteFilas.length} documento${loteFilas.length===1?'':'s'})</div>
       <div style="font-size:12px;color:var(--gris);margin-bottom:8px">Las celdas amarillas están vacías y saldrán como «__________» en el Word; las <b style="color:var(--peligro)">rojas son obligatorias</b> e impiden generar el lote. Los montos en letras${vars.some(v => derivadaDe(v, vars)) ? ', las fechas largas y el monto total (original + aumento)' : ' y las fechas largas'} se escriben solos al generar.</div>
-      ${concsLote.length ? `<div class="nota" style="margin-bottom:8px">⚥ Concordancia: salvo que lo cambies en la columna de cada documento, saldrán con ${concsLote.map(g => `<b>${esc(g.etiqueta)}</b> = «${esc((g.opciones||[])[indiceConc(g.nombre)]||'')}»`).join(' · ')} (se elige en la pestaña Generar). Al pegar desde Excel puedes traer una columna con el nombre del grupo (p. ej. «${esc(concsLote[0].nombre)}») y «femenino», «masculino» o «empresa».</div>` : ''}
+      ${concsLote.length ? `<div class="nota" style="margin-bottom:8px">Concordancia: salvo que lo cambies en la columna de cada documento, saldrán con ${concsLote.map(g => `<b>${esc(g.etiqueta)}</b> = «${esc((g.opciones||[])[indiceConc(g.nombre)]||'')}»`).join(' · ')} (se elige en la pestaña Generar). Al pegar desde Excel puedes traer una columna con el nombre del grupo (p. ej. «${esc(concsLote[0].nombre)}») y «femenino», «masculino» o «empresa».</div>` : ''}
       ${tablaLote}
     </div>
     <div class="lote-sec" style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" onclick="generarLote()" ${loteFilas.length?'':'disabled'}>⬇ Generar ${loteFilas.length ? loteFilas.length + ' ' : ''}Word en un ZIP</button>
+      <button class="btn" onclick="generarLote()" ${loteFilas.length?'':'disabled'}>Generar ${loteFilas.length ? loteFilas.length + ' ' : ''}Word en un ZIP</button>
       <button class="btn sec" onclick="if(confirm('¿Vaciar el lote actual?')){loteFilas=[];guardar();renderContenido()}" ${loteFilas.length?'':'disabled'}>Vaciar lote</button>
     </div>`;
   if(registroEstado==='ok') renderLoteRegistro();
@@ -16825,7 +16838,7 @@ function importarDocxAComposicion(p){
     + `• ${vinc} enlazadas a un texto idéntico que ya estaba\n\n`
     + `Las que entraron como variante no duplican la cláusula: quedan junto a las de los otros contratos, y al generar eliges cuál va. Edita cualquiera aquí y el cambio se propaga a todas las composiciones que la comparten. La plantilla Word original sigue intacta y sigue mandando: cuando la mejores en Word y la subas, te ofrezco llevar la mejora aquí y a las demás plantillas Word.`
     + (marcadoresPerdidos
-      ? `\n\n⚠ El Word tenía ${marcadoresPerdidos} marcador(es) de condición o tabla repetible ({#tag}) que la composición HTML no puede reproducir (no tiene ese mecanismo). Se conservó el texto de adentro, pero fijo: siempre visible en vez de opcional, y como una sola fila en vez de repetirse. Revisa esas tablas/secciones en «Editar plantilla» y ajústalas a mano si hace falta.`
+      ? `\n\nEl Word tenía ${marcadoresPerdidos} marcador(es) de condición o tabla repetible ({#tag}) que la composición HTML no puede reproducir (no tiene ese mecanismo). Se conservó el texto de adentro, pero fijo: siempre visible en vez de opcional, y como una sola fila en vez de repetirse. Revisa esas tablas/secciones en «Editar plantilla» y ajústalas a mano si hace falta.`
       : ''));
 }
 /* Acepta las marcas de revisión (control de cambios) del XML de Word: descarta
@@ -17146,10 +17159,10 @@ function abrirTraspaso(p, cambios, op){
   traspaso = { origen: p, cambios };
   const opcion = (attrs, motivo, texto, nota) => `<label class="tr-op${motivo ? ' no' : ''}"><input type="checkbox" ${attrs} ${motivo ? 'disabled' : 'checked'}><span>${texto}${motivo ? `<span class="tr-nota">No se puede: ${esc(motivo)}. Ahí cámbiala a mano en Word.</span>` : nota ? `<span class="tr-nota">${nota}</span>` : ''}</span></label>`;
   const bloques = cambios.map((c, i) => {
-    const words = c.words.map(w => opcion(`data-c="${i}" data-pl="${w.t.id}"`, w.motivo, `📄 ${esc(w.t.nombre)}`)).join('');
+    const words = c.words.map(w => opcion(`data-c="${i}" data-pl="${w.t.id}"`, w.motivo, `Word: ${esc(w.t.nombre)}`)).join('');
     const vars = c.variantes.map(({ cl, v }) => {
       const compos = composicionesQueUsan(v);
-      return opcion(`data-c="${i}" data-cl="${cl.id}" data-var="${v.id}"`, '', `📚 Repositorio: ${esc(cl.nombre)} · variante «${esc(v.nombre)}»`,
+      return opcion(`data-c="${i}" data-cl="${cl.id}" data-var="${v.id}"`, '', `Repositorio: ${esc(cl.nombre)} · variante «${esc(v.nombre)}»`,
         compos.length ? `Con ella se actualiza${compos.length > 1 ? 'n' : ''}: ${compos.map(esc).join(', ')}` : '');
     }).join('');
     return `<div class="tr-cambio">
@@ -17227,7 +17240,7 @@ async function aplicarTraspaso(){
     if(!r.b64) continue;
     previo.words.push({ id: t.id, archivoB64: t.archivoB64 || null, seedKey: t.seedKey || null, actualizado: t.actualizado });
     await reemplazarDocx(t, r.b64);
-    r.hechos.forEach(c => hechos.push(`📄 ${t.nombre} · ${c.titulo}`));
+    r.hechos.forEach(c => hechos.push(`Word: ${t.nombre} · ${c.titulo}`));
   }
   const tocadas = new Set();
   aVariantes.forEach(({ c, clId, varId }) => {
@@ -17236,7 +17249,7 @@ async function aplicarTraspaso(){
     if(!v) return;
     previo.variantes.push({ clId, varId, cuerpo: v.cuerpo });
     v.cuerpo = c.ahora.html; tocadas.add(cl);
-    hechos.push(`📚 Repositorio · ${cl.nombre} («${v.nombre}»)`);
+    hechos.push(`Repositorio · ${cl.nombre} («${v.nombre}»)`);
   });
   const compos = new Set();
   tocadas.forEach(cl => propagarClausulaABloques(cl).plantillas.forEach(n => compos.add(n)));
@@ -18130,7 +18143,7 @@ function toolbarWord(target){
     ${b('insertUnorderedList','• Lista','Lista con viñetas')}${b('insertOrderedList','1. Lista','Lista numerada')}
     <button onclick="sangria('${target}',false)" title="Subir de nivel en la lista">⇤</button><button onclick="sangria('${target}',true)" title="Bajar de nivel en la lista">⇥</button>
     <div class="sep"></div><button onclick="mayusculas('${target}')" title="Convertir la selección a mayúsculas">AA</button>
-    ${b('removeFormat','✘ Formato','Quitar negrita, cursiva y subrayado de la selección')}
+    ${b('removeFormat','Sin formato','Quitar negrita, cursiva y subrayado de la selección')}
     <div class="sep"></div><button onclick="abrirModalVariables('${target}')" style="color:var(--azul);font-weight:700" title="Insertar una variable">{ Variable }</button>
   </div>`;
 }
@@ -18151,8 +18164,8 @@ function htmlTextoWord(p){
         ${toolbarWord('editor')}
         <div id="editor" class="ed-word" contenteditable="true" style="${edWord.letra}">${edWord.html}</div>
         <div class="ew-acc">
-          <button class="btn" onclick="guardarSeccionWord()">💾 Guardar en el Word</button>
-          <button class="btn sec" onclick="verPreviaWord()">👁 Ver cómo queda</button>
+          <button class="btn" onclick="guardarSeccionWord()">Guardar en el Word</button>
+          <button class="btn sec" onclick="verPreviaWord()">Ver cómo queda</button>
           <button class="btn sec" onclick="cancelarSeccionWord()">Cancelar</button>
           <span class="nota">Se guarda con el formato de este Word: solo cambia lo que tocas. Lo que lleva 🔒 se edita en Word.</span>
         </div>
@@ -18162,7 +18175,7 @@ function htmlTextoWord(p){
       <div class="eb-cab">
         ${esCl ? `<span class="eb-mov"><button class="ic" title="Subir" onclick="moverSeccionWord(${k},-1)" ${k <= 1 ? 'disabled' : ''}>▲</button><button class="ic" title="Bajar" onclick="moverSeccionWord(${k},1)" ${k >= nCl ? 'disabled' : ''}>▼</button></span>` : ''}
         ${insignia}<span class="ew-tit">${esc(titulo)}</span>
-        <button class="btn sec mini" onclick="abrirSeccionWord(${k})">✎ Editar</button>
+        <button class="btn sec mini" onclick="abrirSeccionWord(${k})">Editar</button>
         ${esCl ? `<button class="btn peligro mini" onclick="quitarSeccionWord(${k})" title="Quitar esta cláusula del Word">✕</button>` : ''}
       </div>
       <div class="eb-prev" title="Doble clic para editar" ondblclick="abrirSeccionWord(${k})">${esc(recorte(s.resumen, 220)) || '‹vacío›'}</div>
@@ -18170,13 +18183,13 @@ function htmlTextoWord(p){
   }).join('');
   const deshacer = (versionesWord[p.id] || []).length;
   return `<div class="card ew">
-    <h3>✎ Texto del documento</h3>
+    <h3>Texto del documento</h3>
     <p class="ew-ayuda">Edita aquí cualquier parte: se guarda <b>en este Word, con su formato</b>, y solo cambia lo que tocas. Si la misma cláusula está igual en otras plantillas Word o en el repositorio, te ofrezco llevar el cambio.</p>
     <div class="eb-lista">${tarjetas}</div>
     <div class="eb-add ew-pie">
-      ${nCl ? `<button class="btn mini" onclick="agregarClausulaWordRepo()" title="Añadir una cláusula del repositorio, con el formato de este Word">🔗 Cláusula del repositorio</button>
+      ${nCl ? `<button class="btn mini" onclick="agregarClausulaWordRepo()" title="Añadir una cláusula del repositorio, con el formato de este Word">Cláusula del repositorio</button>
       <button class="btn sec mini" onclick="agregarClausulaWordNueva()">＋ Cláusula nueva</button>` : ''}
-      <button class="btn sec mini" onclick="verPreviaWord()">👁 Ver el Word</button>
+      <button class="btn sec mini" onclick="verPreviaWord()">Ver el Word</button>
       ${deshacer ? `<button class="btn sec mini" onclick="deshacerWord()" title="Vuelve el Word a como estaba antes del último cambio hecho aquí">↶ Deshacer el último cambio</button>` : ''}
     </div>
   </div>`;
@@ -18378,7 +18391,7 @@ function validarTagsDocx(p){
   return [...new Set(problemas)];
 }
 function avisoTagsHTML(probs){
-  return `<div class="aviso-tags"><b>⚠ La plantilla tiene ${probs.length} problema(s) de tags que impiden generar el documento:</b>
+  return `<div class="aviso-tags"><b>La plantilla tiene ${probs.length} problema(s) de tags que impiden generar el documento:</b>
     <ol>${probs.map(x => `<li>${x}</li>`).join('')}</ol>
     <p class="nota">Corrígelos en Word y vuelve a subir la plantilla. Recuerda: un tag es <code>{nombre}</code> — con llaves rectas <code>{ }</code> (no comillas), sin espacios ni puntos, y los bloques abren con <code>{#nombre}</code> y cierran con <code>{/nombre}</code> escrito <b>igual</b>.</p></div>`;
 }
@@ -18557,7 +18570,7 @@ function actualizarPreviewDocx(){
         el.innerHTML = '<p style="color:var(--gris)">Vista previa no disponible; el Word se genera igual.</p>';
       }
     }catch(e){
-      el.innerHTML = `<div class="aviso-tags"><b>⚠ La plantilla tiene un problema de tags</b><p>${esc(explicarErrorDocx(e))}</p><p class="nota">Descarga la plantilla, corrige el tag en Word y vuelve a subirla.</p></div>`;
+      el.innerHTML = `<div class="aviso-tags"><b>La plantilla tiene un problema de tags</b><p>${esc(explicarErrorDocx(e))}</p><p class="nota">Descarga la plantilla, corrige el tag en Word y vuelve a subirla.</p></div>`;
     }
   }, 350);
 }
@@ -19026,7 +19039,7 @@ function abrirFijos(){
     </div>
     <div class="m-pie">
       <button class="btn sec" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn" onclick="guardarFijos()">💾 Guardar</button>
+      <button class="btn" onclick="guardarFijos()">Guardar</button>
     </div>`);
 }
 function filaFijoHTML(k, v){
@@ -19052,7 +19065,7 @@ const RE_VAR = /\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g;
 const escXml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 function abrirMembrete(){
   abrirModal(`
-    <div class="m-cab"><h3>🖼 Papel membretado institucional</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cab"><h3>Papel membretado institucional</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">Los instrumentos jurídicos que redactes aquí (plantillas HTML) salen <b>sobre el papel membretado oficial</b>: se vierte el texto dentro del .docx del FIAS/FAP, conservando su encabezado con logos, su pie de página y sus márgenes reales. En las plantillas Word el formato ya vive dentro del propio archivo y no se toca.</p>
       <div class="campo"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="mb-activo" style="width:auto" ${membrete.activo?'checked':''}> Aplicar el papel membretado a los documentos</label></div>
@@ -19083,7 +19096,7 @@ function abrirMembrete(){
       <div class="campo">
         <label>Alineación del encabezado</label>
         <div class="mb-align" id="mb-align">
-          ${['left','center','right'].map(a => `<button type="button" class="btn sec mini ${(membrete.alineacion||'left')===a?'activo':''}" data-al="${a}" onclick="fijarAlineacionMembrete('${a}')">${a==='left'?'⬅ Izquierda':a==='center'?'⬍ Centro':'Derecha ➡'}</button>`).join('')}
+          ${['left','center','right'].map(a => `<button type="button" class="btn sec mini ${(membrete.alineacion||'left')===a?'activo':''}" data-al="${a}" onclick="fijarAlineacionMembrete('${a}')">${a==='left'?'Izquierda':a==='center'?'Centro':'Derecha'}</button>`).join('')}
         </div>
       </div>
       <div class="campo">
@@ -19100,7 +19113,7 @@ function abrirMembrete(){
     </div>
     <div class="m-pie">
       <button class="btn sec" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn" onclick="guardarMembrete()">💾 Guardar</button>
+      <button class="btn" onclick="guardarMembrete()">Guardar</button>
     </div>`);
   pintarPapelLogos('mb-papel-logos');
 }
@@ -19520,15 +19533,15 @@ function renderEditar(c, p){
     // Chip de origen + (si vinculado) selector de variante
     let origen = '';
     if(r && b.personalizado){
-      origen = `<span class="eb-src pers" title="Salió del repositorio pero la editaste; una actualización de la cláusula base no la toca.">⚿ Personalizada · ${esc(r.cl.nombre)}</span>
+      origen = `<span class="eb-src pers" title="Salió del repositorio pero la editaste; una actualización de la cláusula base no la toca.">Personalizada · ${esc(r.cl.nombre)}</span>
         <button class="btn sec mini" onclick="revertirBloque('${b.id}')" title="Descartar tus cambios y volver a la versión del repositorio">↺ Volver a la del repositorio</button>`;
     } else if(r){
       const opts = r.cl.variantes.map(v => `<option value="${v.id}" ${v.id===r.v.id?'selected':''}>${esc(v.nombre)}</option>`).join('');
-      origen = `<span class="eb-src repo" title="Referencia viva al repositorio: si la cláusula cambia allá, esta plantilla se actualiza sola.">🔗 Repositorio</span>
+      origen = `<span class="eb-src repo" title="Referencia viva al repositorio: si la cláusula cambia allá, esta plantilla se actualiza sola.">Repositorio</span>
         <select class="eb-var" onchange="cambiarVarianteBloque('${b.id}',this.value)" title="Variante de la cláusula">${opts}</select>
-        <button class="btn sec mini" onclick="desvincularBloque('${b.id}')" title="Soltar la referencia y quedarte con este texto como propio">✂ Desvincular</button>`;
+        <button class="btn sec mini" onclick="desvincularBloque('${b.id}')" title="Soltar la referencia y quedarte con este texto como propio">Desvincular</button>`;
     } else if(esCl){
-      origen = `<button class="btn sec mini" onclick="vincularBloque('${b.id}')" title="Enlazar este bloque a una cláusula del repositorio">🔗 Vincular al repositorio</button>`;
+      origen = `<button class="btn sec mini" onclick="vincularBloque('${b.id}')" title="Enlazar este bloque a una cláusula del repositorio">Vincular al repositorio</button>`;
     }
     const cabecera = `
       <div class="eb-cab">
@@ -19539,12 +19552,12 @@ function renderEditar(c, p){
         ${insignia}
         <input class="eb-tit" value="${esc(b.titulo||'')}" ${vinculado?'readonly title="El nombre viene de la cláusula del repositorio"':''} placeholder="${esCl?'Nombre de la cláusula (ej. ANTECEDENTES)':'Etiqueta del bloque (ej. Firmas)'}" oninput="fijarTituloBloque('${b.id}',this.value)">
         ${!r ? `<button class="btn sec mini" onclick="alternarTipoBloque('${b.id}')" title="Cambiar entre cláusula numerada y texto libre">${esCl?'≡ Cláusula':'¶ Texto'}</button>` : ''}
-        <button class="btn ${abierto?'':'sec'} mini" onclick="${abierto?`cerrarBloque()`:`editarBloque('${b.id}')`}">${abierto?'✓ Listo':'✎ Editar'}</button>
+        <button class="btn ${abierto?'':'sec'} mini" onclick="${abierto?`cerrarBloque()`:`editarBloque('${b.id}')`}">${abierto?'✓ Listo':'Editar'}</button>
         <button class="btn peligro mini" onclick="eliminarBloque('${b.id}')" title="Quitar bloque">✕</button>
       </div>
       ${origen ? `<div class="eb-origen">${origen}</div>` : ''}`;
     if(abierto){
-      const aviso = vinculado ? `<div class="eb-avlink">🔗 Vinculada al repositorio. Si editas el texto aquí, este bloque quedará <b>personalizado</b> y dejará de recibir las actualizaciones de la cláusula.</div>` : '';
+      const aviso = vinculado ? `<div class="eb-avlink">Vinculada al repositorio. Si editas el texto aquí, este bloque quedará <b>personalizado</b> y dejará de recibir las actualizaciones de la cláusula.</div>` : '';
       return `<div class="eb abierto">${cabecera}${aviso}${buildToolbar('editor', true, false)}<div id="editor" contenteditable="true">${b.cuerpo||''}</div></div>`;
     }
     const prev = (b.cuerpo||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,150);
@@ -19555,7 +19568,7 @@ function renderEditar(c, p){
   c.innerHTML = `
     <div class="ed-meta">
       <div class="campo"><label>Nombre de la plantilla</label><input id="ed-nombre" value="${esc(p.nombre)}"></div>
-      <div class="campo"><label>Carpeta</label><div class="carpeta-actual">📁 ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
+      <div class="campo"><label>Carpeta</label><div class="carpeta-actual">${ico('carpeta')} ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
       <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
     ${(() => {
@@ -19563,16 +19576,16 @@ function renderEditar(c, p){
       return w ? `<div class="aviso-tags" style="background:var(--azul-claro);border-left-color:var(--azul);color:var(--texto);margin-bottom:12px"><b>Esta composición viene de «${esc(w.nombre)}».</b> Lo que generes desde aquí sale con el formato institucional, no con el del Word. Para editar el texto y que salga <b>con el formato del Word</b>, edítalo en el propio Word, en «Texto del documento». <button class="btn mini" style="margin-left:6px" onclick="seleccionar('${w.id}');cambiarTab('editar')">Abrir «${esc(w.nombre)}»</button></div>` : '';
     })()}
     <div class="eb-barra">
-      <span class="eb-hint">La plantilla es una lista de bloques. Arrastra el orden con ▲▼, edita cada uno con ✎. Las cláusulas se numeran solas (PRIMERA, SEGUNDA…) según su orden.</span>
+      <span class="eb-hint">La plantilla es una lista de bloques. Arrastra el orden con ▲▼, edita cada uno con «Editar». Las cláusulas se numeran solas (PRIMERA, SEGUNDA…) según su orden.</span>
       <div class="eb-add">
-        <button class="btn mini" onclick="agregarClausulaDelRepositorio()" title="Insertar una cláusula del repositorio como bloque vinculado">🔗 Cláusula del repositorio</button>
+        <button class="btn mini" onclick="agregarClausulaDelRepositorio()" title="Insertar una cláusula del repositorio como bloque vinculado">Cláusula del repositorio</button>
         <button class="btn sec mini" onclick="agregarBloque('clausula')">＋ Cláusula propia</button>
         <button class="btn sec mini" onclick="agregarBloque('texto')">＋ Texto</button>
       </div>
     </div>
     <div class="eb-lista">${tarjetas}</div>
     <div class="ed-acciones">
-      <button class="btn" onclick="guardarPlantilla()">💾 Guardar cambios</button>
+      <button class="btn" onclick="guardarPlantilla()">Guardar cambios</button>
       <button class="btn sec" onclick="duplicarPlantilla()">Duplicar</button>
       <button class="btn sec" onclick="exportarPlantilla()">Exportar esta plantilla</button>
       <button class="btn peligro" onclick="eliminarPlantilla()">Eliminar</button>
@@ -19635,7 +19648,7 @@ function agregarBloque(tipo){
   const p = plActual(); if(!p) return;
   commitBloqueAbierto(p);
   const b = tipo === 'clausula'
-    ? { id: uid(), tipo:'clausula', titulo:'NUEVA CLÁUSULA', cuerpo:'<p>Redacta aquí el texto de la cláusula. Inserta variables con {{ Variable }} o cláusulas del repositorio con 📋.</p>' }
+    ? { id: uid(), tipo:'clausula', titulo:'NUEVA CLÁUSULA', cuerpo:'<p>Redacta aquí el texto de la cláusula. Inserta variables con {{ Variable }} o cláusulas del repositorio con el botón «Cláusula».</p>' }
     : { id: uid(), tipo:'texto', titulo:'Texto', cuerpo:'<p>Texto libre (encabezado, comparecientes, firmas…).</p>' };
   p.bloques.push(b);
   bloqueEditando = b.id;
@@ -19744,11 +19757,11 @@ function buildToolbar(target, conVariables, esRepo){
     ${b('insertUnorderedList',null,'• Lista')}${b('insertOrderedList',null,'1. Lista')}<button onclick="listaLetras('${target}')" title="Lista con letras a., b., c.">a. Lista</button>
     <button onclick="sangria('${target}',false)" title="Reducir sangría (Shift+Tab)">⇤</button><button onclick="sangria('${target}',true)" title="Aumentar sangría (Tab)">⇥</button>
     <div class="sep"></div>
-    <button onclick="insertarTabla('${target}')" title="Insertar tabla">▦ Tabla</button>
+    <button onclick="insertarTabla('${target}')" title="Insertar tabla">Tabla</button>
     <button onclick="mayusculas('${target}')" title="Convertir selección a mayúsculas">AA</button>
-    ${b('removeFormat',null,'✘ Formato','Quitar formato de la selección')}
+    ${b('removeFormat',null,'Sin formato','Quitar formato de la selección')}
     ${conVariables ? `<div class="sep"></div><button onclick="abrirModalVariables('${target}')" style="color:var(--azul);font-weight:700" title="Insertar una variable del repositorio (Catálogo de Tags FAP)">{{ Variable }}</button>` : ''}
-    ${!esRepo ? `<div class="sep"></div><button onclick="abrirModalClausulas('${target}')" style="color:var(--azul);font-weight:700" title="Insertar una cláusula del repositorio">📋 Cláusula</button><button onclick="guardarSeleccionComoClausula('${target}')" title="Guarda el texto seleccionado como cláusula del repositorio">📌 Guardar cláusula</button><button onclick="renumerarClausulas('${target}')" title="Renumera automáticamente los encabezados de cláusula">🔢 Renumerar</button>` : ''}
+    ${!esRepo ? `<div class="sep"></div><button onclick="abrirModalClausulas('${target}')" style="color:var(--azul);font-weight:700" title="Insertar una cláusula del repositorio">Cláusula</button><button onclick="guardarSeleccionComoClausula('${target}')" title="Guarda el texto seleccionado como cláusula del repositorio">Guardar cláusula</button><button onclick="renumerarClausulas('${target}')" title="Renumera automáticamente los encabezados de cláusula">Renumerar</button>` : ''}
   </div>`;
 }
 function fmtEn(target, cmd, val){ document.getElementById(target).focus({ preventScroll: true }); document.execCommand(cmd, false, val || null); }
@@ -19845,11 +19858,11 @@ function renderModalVariables(){
   // El grupo «Concordancia» (el/la, del/de la) primero: es lo que suele buscarse.
   const claves = Object.keys(grupos).sort((a,b) => (a==='Concordancia'?-1:0) - (b==='Concordancia'?-1:0));
   body.innerHTML = claves.map(g => `
-    <div class="modal-cat">${g==='Concordancia' ? '⚥ Concordancia — el/la, del/de la (eliges una vez al generar)' : esc(g)}</div>
+    <div class="modal-cat">${g==='Concordancia' ? 'Concordancia — el/la, del/de la (eliges una vez al generar)' : esc(g)}</div>
     ${grupos[g].map(v => {
       const pv = previewConc(v.nombre);
       const desc = pv ? `elige al generar: <b>${esc(pv)}</b>` : esc(v.descripcion||'');
-      return `<div class="var-fila" onclick="insertarVariableEnDoc('${esc(v.nombre)}')"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${desc}</span><span class="tipo-pill">${pv?'⚥':esc(v.tipo)}</span></div>`;
+      return `<div class="var-fila" onclick="insertarVariableEnDoc('${esc(v.nombre)}')"><code>{{${esc(v.nombre)}}}</code><span class="var-desc">${desc}</span><span class="tipo-pill">${pv?'género':esc(v.tipo)}</span></div>`;
     }).join('')}`
   ).join('');
 }
@@ -19943,11 +19956,11 @@ function renderVariables(c){
   const huerfanas = concordanciasHuerfanas();
   const avisoHuerfanas = huerfanas.length ? `
     <div class="aviso-tags" style="background:#FDF0D2">
-      <b>⚥ ${huerfanas.length} variable(s) de concordancia no pertenecen a ningún grupo</b>
+      <b>${huerfanas.length} variable(s) de concordancia no pertenecen a ningún grupo</b>
       <p style="margin:7px 0">Están marcadas como «Concordancia» pero <b>no producen selector de género/opción al generar</b>, porque el selector lo crea el <b>grupo</b> (con sus opciones), no la etiqueta del diccionario. Por eso una como <code>{{ellaadministradorcontador}}</code> «no se lee como opción».</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">${huerfanas.slice(0,24).map(v=>`<code onclick="abrirConcordancias()" style="cursor:pointer" title="Añádela a un grupo en «Grupos de concordancia»">{{${esc(v.nombre)}}}</code>`).join('')}${huerfanas.length>24?` <span style="font-size:11px;color:var(--gris)">y ${huerfanas.length-24} más…</span>`:''}</div>
       <p class="nota" style="margin-top:8px">Para que funcionen: <b>Grupos de concordancia → edita o crea el grupo</b> (p. ej. «Administrador/a Contador/a»), define sus <b>opciones</b> (Masculino | Femenino…) y <b>añade estos tags</b> con la palabra que sale en cada opción. <button class="btn sec mini" onclick="abrirConcordancias()">Abrir Grupos de concordancia</button></p>
-      <p class="nota" style="margin-top:6px">💡 Muchas de estas coinciden con familias conocidas (administrador/a del AP, administrador/a contador/a, género del área protegida…). <button class="btn mini" onclick="ejecutarConsolidacionAuto()">🧹 Consolidar automáticamente</button> las agrupa por ti sin pisar nada de lo que ya tengas.</p>
+      <p class="nota" style="margin-top:6px">Muchas de estas coinciden con familias conocidas (administrador/a del AP, administrador/a contador/a, género del área protegida…). <button class="btn mini" onclick="ejecutarConsolidacionAuto()">Consolidar automáticamente</button> las agrupa por ti sin pisar nada de lo que ya tengas.</p>
     </div>` : '';
   c.innerHTML = `
     <div class="banner-edicion" style="margin-bottom:12px">Este es el diccionario único de variables del ecosistema FAP: el mismo catálogo de tags que usan las plantillas Word (docxtemplater), La Mágica y el CRM. Las plantillas y cláusulas de esta herramienta deben usar estos nombres para que todo el sistema hable el mismo idioma.</div>
@@ -19986,7 +19999,7 @@ function renderVariables(c){
             <div class="nota">Vacío = se adivina quitando el sufijo («montoLetras» → «monto»). Si el nombre no sigue ese patrón (como aquí), indica el tag exacto.</div>
           </div>
           <div class="ed-acciones" style="margin-top:6px">
-            <button class="btn" onclick="guardarVariableEd()">💾 Guardar</button>
+            <button class="btn" onclick="guardarVariableEd()">Guardar</button>
             <button class="btn peligro" onclick="eliminarVariableEd()">Eliminar</button>
             <span class="estado" id="var-estado"></span>
           </div>
@@ -19996,10 +20009,10 @@ function renderVariables(c){
           <button class="btn sec" onclick="exportarVariables()">Exportar variables</button>
         </div>
         <div class="card" style="margin-top:12px">
-          <h3 style="margin:0 0 6px">⚥ Grupos de concordancia</h3>
+          <h3 style="margin:0 0 6px">Grupos de concordancia</h3>
           <p style="font-size:12.5px;color:var(--gris);margin-bottom:8px">Cuadros combinados: una sola elección al llenar (p. ej. contratista masculino/femenino/empresa) cambia varias palabras a la vez en todo el documento.</p>
-          ${huerfanas.length ? `<button class="btn mini" style="margin-bottom:8px" onclick="ejecutarConsolidacionAuto()">🧹 Consolidar automáticamente (${huerfanas.length})</button>` : ''}
-          ${(() => { const n = gruposConcordanciaDuplicados().length; return n ? `<button class="btn mini" style="margin-bottom:8px" onclick="consolidarConcordanciasDuplicadas()">🧹 Unir duplicados (${n})</button>` : ''; })()}
+          ${huerfanas.length ? `<button class="btn mini" style="margin-bottom:8px" onclick="ejecutarConsolidacionAuto()">Consolidar automáticamente (${huerfanas.length})</button>` : ''}
+          ${(() => { const n = gruposConcordanciaDuplicados().length; return n ? `<button class="btn mini" style="margin-bottom:8px" onclick="consolidarConcordanciasDuplicadas()">Unir duplicados (${n})</button>` : ''; })()}
           <button class="btn sec" onclick="abrirConcordancias()">Administrar grupos (${concordancias.length})</button>
         </div>
       </div>
@@ -20019,25 +20032,25 @@ function abrirConcordancias(){
     </div>`;
   }).join('');
   abrirModal(`
-    <div class="m-cab"><h3>⚥ Grupos de concordancia</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cab"><h3>Grupos de concordancia</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       <div style="background:var(--azul-claro);border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:12px">
         <b>Cómo se usa (el/la, del/de la):</b>
         <ol style="margin:6px 0 0 18px;padding:0;line-height:1.7">
-          <li>En tu plantilla, donde iría «el/la contratista», inserta el tag con el botón <b>{{ Variable }}</b> → grupo <b>⚥ Concordancia</b> → <code>{{elLaContratista}}</code>. Para «del/de la» usa <code>{{delDeLaContratista}}</code>.</li>
+          <li>En tu plantilla, donde iría «el/la contratista», inserta el tag con el botón <b>{{ Variable }}</b> → grupo <b>Concordancia</b> → <code>{{elLaContratista}}</code>. Para «del/de la» usa <code>{{delDeLaContratista}}</code>.</li>
           <li>Al <b>generar</b>, arriba del formulario aparece un desplegable (masculino / femenino / empresa). Eliges <b>una sola vez</b>.</li>
           <li>Todas las apariciones de esos tags se ajustan solas en todo el documento.</li>
         </ol>
       </div>
       <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">Cada grupo tiene unas <b>opciones</b> (lo que eliges al llenar) y unos <b>tags</b>; para cada tag defines qué palabra sale en cada opción.</p>
-      ${concordanciasHuerfanas().length ? `<div class="aviso-tags" style="margin-bottom:10px"><b>⚥ ${concordanciasHuerfanas().length} tag(s) sueltos sin grupo.</b> <button class="btn mini" onclick="ejecutarConsolidacionAuto()">🧹 Consolidar automáticamente</button></div>` : ''}
+      ${concordanciasHuerfanas().length ? `<div class="aviso-tags" style="margin-bottom:10px"><b>${concordanciasHuerfanas().length} tag(s) sueltos sin grupo.</b> <button class="btn mini" onclick="ejecutarConsolidacionAuto()">Consolidar automáticamente</button></div>` : ''}
       ${(() => { const dup = gruposConcordanciaDuplicados(); return dup.length ? `<div class="aviso-tags" style="margin-bottom:10px;background:#FDF0D2">
-        <b>⚠ ${dup.length} grupo(s) se pisan</b> (gobiernan los mismos tags): se te pregunta lo mismo más de una vez.
+        <b>${dup.length} grupo(s) se pisan</b> (gobiernan los mismos tags): se te pregunta lo mismo más de una vez.
         <div style="margin:6px 0;font-size:12px">${dup.map(g => g.map(x=>`«${esc(x.etiqueta)}»`).join(' = ')).join('<br>')}</div>
-        <button class="btn mini" onclick="consolidarConcordanciasDuplicadas()">🧹 Unir duplicados (${dup.length})</button>
+        <button class="btn mini" onclick="consolidarConcordanciasDuplicadas()">Unir duplicados (${dup.length})</button>
       </div>` : ''; })()}
       ${(() => { const col = colisionesTagsConcordancia(); return col.length ? `<div class="aviso-tags" style="margin-bottom:10px">
-        <b>⚠ ${col.length} tag(s) reclamados por grupos que NO se pueden unir</b> (opciones distintas — son roles distintos, p. ej. contratista y consultor).
+        <b>${col.length} tag(s) reclamados por grupos que NO se pueden unir</b> (opciones distintas — son roles distintos, p. ej. contratista y consultor).
         <div style="margin:6px 0;font-size:12px">${col.map(([t,gs]) => `<code>{{${esc(t)}}}</code> en ${gs.map(g=>`«${esc(g.etiqueta)}»`).join(' y ')}`).join('<br>')}</div>
         <span style="font-size:12px">El que se aplique de último pisa al otro en silencio. Renombra el tag en uno de los dos grupos (y en las plantillas que lo usan) para separarlos.</span>
       </div>` : ''; })()}
@@ -20076,11 +20089,11 @@ function editarConcordancia(id){
         <datalist id="cc-huerfanas-dl">${concordanciasHuerfanas().map(v=>`<option value="${esc(v.nombre)}">`).join('')}</datalist>
         <button class="btn sec mini" onclick="agregarTagConc()">+ Añadir tag</button>
       </div>
-      ${concordanciasHuerfanas().length ? `<div class="nota" style="margin-top:5px">💡 Al escribir, verás sugerencias de tags de concordancia que aún no están en ningún grupo — añádelos aquí para que funcionen.</div>` : ''}
+      ${concordanciasHuerfanas().length ? `<div class="nota" style="margin-top:5px">Al escribir, verás sugerencias de tags de concordancia que aún no están en ningún grupo — añádelos aquí para que funcionen.</div>` : ''}
     </div>
     <div class="m-pie">
       <button class="btn sec" onclick="abrirConcordancias()">Cancelar</button>
-      <button class="btn" onclick="guardarConcordancia('${g.id}')">💾 Guardar grupo</button>
+      <button class="btn" onclick="guardarConcordancia('${g.id}')">Guardar grupo</button>
     </div>`);
 }
 function opcionesActualesConc(){
@@ -20208,10 +20221,10 @@ function abrirModalClausulas(target){
   abrirPickerClausula();
 }
 function abrirPickerClausula(){
-  const titulo = modoClausula && modoClausula.tipo === 'wordNueva' ? '🔗 Añadir al Word una cláusula del repositorio'
-    : modoClausula && modoClausula.tipo === 'bloqueNuevo' ? '🔗 Añadir cláusula del repositorio como bloque'
-    : modoClausula && modoClausula.tipo === 'bloqueVincular' ? '🔗 Vincular el bloque a una cláusula'
-    : '📋 Insertar cláusula del repositorio';
+  const titulo = modoClausula && modoClausula.tipo === 'wordNueva' ? 'Añadir al Word una cláusula del repositorio'
+    : modoClausula && modoClausula.tipo === 'bloqueNuevo' ? 'Añadir cláusula del repositorio como bloque'
+    : modoClausula && modoClausula.tipo === 'bloqueVincular' ? 'Vincular el bloque a una cláusula'
+    : 'Insertar cláusula del repositorio';
   abrirModal(`
     <div class="m-cab"><h3>${titulo}</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
@@ -20224,7 +20237,7 @@ function renderModalClausulas(){
   const cont = document.getElementById('mc-lista');
   const q = normalizar(document.getElementById('mc-busq').value || '');
   if(!clausulas.length){
-    cont.innerHTML = '<p style="color:var(--gris);font-size:13px">Aún no hay cláusulas guardadas. Ve a la pestaña <b>Cláusulas</b> para crear la primera, o usa 📌 para guardar un texto seleccionado.</p>';
+    cont.innerHTML = '<p style="color:var(--gris);font-size:13px">Aún no hay cláusulas guardadas. Ve a la pestaña <b>Cláusulas</b> para crear la primera, o usa «Guardar cláusula» para guardar un texto seleccionado.</p>';
     return;
   }
   const cats = {};
@@ -20349,7 +20362,7 @@ async function guardarSeleccionComoClausula(target){
   }
   const titulo = nombrePropuestoClausula(cuerpo, respaldo);
   const r = await pedirDatos({
-    titulo: '📌 Guardar la selección como cláusula',
+    titulo: 'Guardar la selección como cláusula',
     ok: 'Guardar en el repositorio',
     ayuda: 'Si ya existe una cláusula con ese nombre, el texto entra como <b>una variante más</b> de ella, no como una cláusula suelta.',
     campos: [
@@ -20383,18 +20396,18 @@ function renderRepositorio(c){
     <div class="gen-grid" style="grid-template-columns:330px 1fr">
       <div>
         <div class="card" id="rep-lista-scroll" style="max-height:66vh;overflow-y:auto">
-          <h3 style="display:flex;align-items:center;justify-content:space-between">Cláusulas <button class="chip" style="text-transform:none" onclick="crearSubcarpeta('cl', null)">📁＋ Carpeta</button></h3>
+          <h3 style="display:flex;align-items:center;justify-content:space-between">Cláusulas <button class="chip" style="text-transform:none" onclick="crearSubcarpeta('cl', null)">+ Carpeta</button></h3>
           <div class="campo" style="margin-bottom:10px"><input type="search" id="rep-busq" placeholder="Buscar cláusula…" value="${esc(repoFiltro)}" oninput="repoFiltro=this.value;document.getElementById('lista-clausulas').innerHTML=listaClausulasHtml()"></div>
           <div id="lista-clausulas">${listaClausulasHtml()}</div>
         </div>
         <div class="acciones-gen">
           <button class="btn sec" onclick="nuevaCategoriaClausula()">+ Nueva cláusula</button>
           ${(() => { const n = gruposDuplicadosClausulas().length; return n
-            ? `<button class="btn" onclick="consolidarClausulasDuplicadas()" title="Une las cláusulas con el mismo título en una sola, dejando cada redacción como variante">🧹 Unir repetidas (${n})</button>`
+            ? `<button class="btn" onclick="consolidarClausulasDuplicadas()" title="Une las cláusulas con el mismo título en una sola, dejando cada redacción como variante">Unir repetidas (${n})</button>`
             : ''; })()}
         </div>
       </div>
-      <div id="editor-variante">${varianteActual() ? renderVarianteEditorHtml() : `<div class="vacio" style="margin-top:30px">Selecciona una variante de la izquierda,<br>o crea una cláusula nueva.<br><br>Cada cláusula puede tener varias <b>variantes</b> (p. ej. garantía para bienes vs. servicios).<br>Desde el editor de plantillas o desde el documento final, el botón <b>📋 Cláusula</b><br>inserta cualquiera de estas variantes donde la necesites,<br>y <b>📌 Guardar cláusula</b> trae aquí el texto que selecciones en un documento.</div>`}</div>
+      <div id="editor-variante">${varianteActual() ? renderVarianteEditorHtml() : `<div class="vacio" style="margin-top:30px">Selecciona una variante de la izquierda,<br>o crea una cláusula nueva.<br><br>Cada cláusula puede tener varias <b>variantes</b> (p. ej. garantía para bienes vs. servicios).<br>Desde el editor de plantillas o desde el documento final, el botón <b>Cláusula</b><br>inserta cualquiera de estas variantes donde la necesites,<br>y <b>Guardar cláusula</b> trae aquí el texto que selecciones en un documento.</div>`}</div>
     </div>`;
 }
 function renderItemClausula(cl, nivel, forzarAbierta){
@@ -20403,8 +20416,8 @@ function renderItemClausula(cl, nivel, forzarAbierta){
       <div class="rep-clausula-nombre">
         <span onclick="toggleClausula('${cl.id}')" style="flex:1">${esc(cl.nombre)}</span>
         <span class="n-var">${cl.variantes.length} var.</span>
-        <button class="mini-ico" title="Mover a otra carpeta" onclick="event.stopPropagation();abrirMoverItem('cl','${cl.id}')">📂</button>
-        <span class="del" onclick="eliminarClausulaCompleta('${cl.id}')" title="Eliminar cláusula completa">🗑</span>
+        <button class="mini-ico" title="Mover a otra carpeta" onclick="event.stopPropagation();abrirMoverItem('cl','${cl.id}')">${ico('mover')}</button>
+        <span class="del" onclick="eliminarClausulaCompleta('${cl.id}')" title="Eliminar cláusula completa">${ico('papelera')}</span>
       </div>
       <div class="rep-variantes" style="display:${clausulaAbierta === cl.id || forzarAbierta ? 'block' : 'none'}">
         ${cl.variantes.map(v => `<div class="rep-variante ${varianteSel && varianteSel.clId === cl.id && varianteSel.varId === v.id ? 'sel' : ''}" onclick="seleccionarVariante('${cl.id}','${v.id}')">${esc(v.nombre)}</div>`).join('')}
@@ -20447,14 +20460,14 @@ function renderVarianteEditorHtml(){
   return `
     <div class="card">
       <h3>Editar variante</h3>
-      <div class="campo"><label>Cláusula</label><div class="carpeta-actual">${cl.carpetaId ? `📁 ${esc(rutaCarpeta('cl', cl.carpetaId))} · ` : ''}<b>${esc(cl.nombre)}</b><button class="btn sec mini" onclick="abrirMoverItem('cl','${cl.id}')">Mover…</button></div></div>
+      <div class="campo"><label>Cláusula</label><div class="carpeta-actual">${cl.carpetaId ? `${ico('carpeta')} ${esc(rutaCarpeta('cl', cl.carpetaId))} · ` : ''}<b>${esc(cl.nombre)}</b><button class="btn sec mini" onclick="abrirMoverItem('cl','${cl.id}')">Mover…</button></div></div>
       <div class="campo"><label>Nombre de esta variante</label><input id="rep-var-nombre" value="${esc(v.nombre)}"></div>
       <div class="campo"><label>Variables que pide esta variante</label><div id="rep-var-chips">${vars.length ? vars.map(x => `<span class="chip-var">${esc(x)}</span>`).join('') : '<span style="font-size:12px;color:var(--gris)">Ninguna (texto fijo)</span>'}</div></div>
     </div>
     ${buildToolbar('rep-editor', true, true)}
     <div id="rep-editor" contenteditable="true" oninput="refrescarChipsVariante()">${v.cuerpo}</div>
     <div class="ed-acciones">
-      <button class="btn" onclick="guardarVariante()">💾 Guardar variante</button>
+      <button class="btn" onclick="guardarVariante()">Guardar variante</button>
       <button class="btn sec" onclick="duplicarVariante()">Duplicar</button>
       <button class="btn peligro" onclick="eliminarVariante()">Eliminar variante</button>
       <span class="estado" id="rep-estado"></span>
@@ -20577,27 +20590,27 @@ function renderEditarDocx(c, p){
   c.innerHTML = `
     <div class="ed-meta">
       <div class="campo"><label>Nombre de la plantilla</label><input id="ed-nombre" value="${esc(p.nombre)}"></div>
-      <div class="campo"><label>Carpeta</label><div class="carpeta-actual">📁 ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
+      <div class="campo"><label>Carpeta</label><div class="carpeta-actual">${ico('carpeta')} ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
       <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
     ${htmlTextoWord(p)}
     ${revisiones ? `<div class="aviso-tags" style="background:var(--azul-claro);border-left-color:var(--azul);color:var(--texto)"><b>ℹ Esta plantilla tiene «Control de cambios» activo en Word.</b><p style="margin:6px 0 0">La herramienta usa el <b>texto final</b> (acepta las revisiones automáticamente), así los tags se leen y se rellenan bien. <b>Recomendación:</b> en Word ve a <i>Revisar → Aceptar todos los cambios</i> y <i>Revisar → Control de cambios (desactivar)</i>, y vuelve a subir la plantilla, para evitar confusiones.</p></div>` : ''}
     ${problemas.length ? avisoTagsHTML(problemas) : ''}
     <div class="card">
-      <h3>📄 Plantilla Word real</h3>
+      <h3>Plantilla Word real</h3>
       <p style="font-size:13px;line-height:1.6;margin-bottom:10px">El contenido y el formato de esta plantilla —colores, listas a., b., c., numeración, membrete con logos, pies de página, tablas, estilos— <b>se editan directamente en Word</b>, con todo su poder. Esta herramienta no toca el formato: solo rellena los <code style="background:var(--azul-claro);padding:1px 5px;border-radius:4px">{tags}</code> con los datos.</p>
       <div class="acciones-gen" style="margin-top:0">
-        <button class="btn" onclick="descargarPlantillaDocx()">⬇ Descargar la plantilla (.docx)</button>
-        <button class="btn sec" onclick="document.getElementById('docx-upd').click()">⬆ Subir la versión editada</button>
+        <button class="btn" onclick="descargarPlantillaDocx()">Descargar la plantilla (.docx)</button>
+        <button class="btn sec" onclick="document.getElementById('docx-upd').click()">Subir la versión editada</button>
         <input type="file" id="docx-upd" accept=".docx" style="display:none" onchange="subirVersionDocx(event)">
       </div>
       <div class="nota" style="margin-top:8px">Flujo: descarga → edita en Word (agrega o mueve {tags} donde quieras) → sube la versión nueva. Los datos capturados no se pierden.</div>
       <div class="nota" style="margin-top:6px"><b>Mejora una cláusula una sola vez.</b> Al subir la versión nueva (o al guardar en «Texto del documento»), te muestro qué cláusulas cambiaste y te ofrezco llevar el cambio a las demás plantillas Word que tenían el mismo texto y al repositorio de cláusulas.</div>
     </div>
     <div class="card" style="margin-top:12px;border:1px solid var(--verde-mark, #9BC53D)">
-      <h3>🔗 Indexar sus cláusulas en el repositorio</h3>
+      <h3>Indexar sus cláusulas en el repositorio</h3>
       <p style="font-size:13px;line-height:1.6;margin-bottom:10px">Extrae el texto de este Word, lo parte en <b>cláusulas</b> y las guarda en el <b>repositorio</b>, para insertarlas en otros documentos. También crea una <b>composición</b>: una copia editable aquí mismo. Esta plantilla Word no se toca, y sigue siendo la que manda: cuando la mejores en Word y la subas, el repositorio y la composición se ponen al día.</p>
-      <button class="btn" onclick="importarDocxAComposicion(plActual())">🔗 Indexar cláusulas${composicionDe(p) ? ' de nuevo' : ''}</button>
+      <button class="btn" onclick="importarDocxAComposicion(plActual())">Indexar cláusulas${composicionDe(p) ? ' de nuevo' : ''}</button>
       <div class="nota" style="margin-top:8px">La composición se genera con el formato institucional (Titillium, papel membretado), no con el de este Word. Para cambiar el texto y conservar el formato, usa «Texto del documento», arriba.</div>
     </div>
     <div class="card" style="margin-top:12px">
@@ -20605,11 +20618,11 @@ function renderEditarDocx(c, p){
       ${est.escalares.length ? `<div style="margin-bottom:8px">${est.escalares.map(chip).join('')}</div>` : '<p style="font-size:13px;color:var(--gris)">No se detectaron tags {así} en el documento.</p>'}
       ${est.condiciones.length ? `<div style="font-size:12px;color:var(--gris);margin-bottom:4px">Secciones opcionales (se eligen al generar):</div><div style="margin-bottom:8px">${est.condiciones.map(cn => `<span class="chip-var">{#${esc(cn.nombre)}}…{/${esc(cn.nombre)}}</span>`).join('')}</div>` : ''}
       ${est.listas.length ? `<div style="font-size:12px;color:var(--gris);margin-bottom:4px">Tablas repetibles:</div><div style="margin-bottom:8px">${est.listas.map(l => `<span class="chip-var${buscarVar(l.nombre)?'':' chip-var-warn'}">{#${esc(l.nombre)}} → ${l.campos.map(esc).join(', ')}</span>`).join('')}</div>` : ''}
-      ${sinRegistrar ? `<div class="warn-txt" style="margin-top:6px">⚠ ${sinRegistrar} tag(s) en amarillo no están en el repositorio de variables, así que el formulario no conoce su tipo ni descripción. <button class="btn sec mini" onclick="registrarTagsFaltantes()">Registrarlos ahora</button></div>` : '<div style="font-size:12px;color:var(--ok);font-weight:600;margin-top:6px">✓ Todos los tags están en el repositorio de variables.</div>'}
+      ${sinRegistrar ? `<div class="warn-txt" style="margin-top:6px">${sinRegistrar} tag(s) en amarillo no están en el repositorio de variables, así que el formulario no conoce su tipo ni descripción. <button class="btn sec mini" onclick="registrarTagsFaltantes()">Registrarlos ahora</button></div>` : '<div style="font-size:12px;color:var(--ok);font-weight:600;margin-top:6px">✓ Todos los tags están en el repositorio de variables.</div>'}
       <div class="nota" style="margin-top:8px">Para cláusulas con variantes, envuelve cada versión en el Word con <code style="background:var(--azul-claro);padding:1px 4px;border-radius:4px">{#nombreOpcion}</code> … <code style="background:var(--azul-claro);padding:1px 4px;border-radius:4px">{/nombreOpcion}</code>: al generar aparecerá un casillero para incluirla o no.</div>
     </div>
     <div class="ed-acciones">
-      <button class="btn" onclick="guardarPlantilla()">💾 Guardar cambios</button>
+      <button class="btn" onclick="guardarPlantilla()">Guardar cambios</button>
       <button class="btn sec" onclick="duplicarPlantilla()">Duplicar</button>
       <button class="btn sec" onclick="exportarPlantilla()">Exportar esta plantilla</button>
       <button class="btn peligro" onclick="eliminarPlantilla()">Eliminar</button>
@@ -20918,7 +20931,7 @@ async function avisarSiAlmacenamientoApretado(){
   // y el margen se acaba rápido: ahí el aviso importa mucho más.
   if(!u.idbOK && pctLS > 0.6){
     av.style.display = 'block';
-    av.innerHTML = `⚠ <b>Poco espacio de guardado</b> (${mb(u.lsBytes)} de ~5 MB usados, y este navegador no permite el almacén grande). Haz <b>Exportar biblioteca</b> y elimina plantillas Word que no uses.`;
+    av.innerHTML = `<b>Poco espacio de guardado</b> (${mb(u.lsBytes)} de ~5 MB usados, y este navegador no permite el almacén grande). Haz <b>Exportar biblioteca</b> y elimina plantillas Word que no uses.`;
     return;
   }
   // Con IndexedDB en uso, esta herramienta NO ocupa localStorage: lo que haya
@@ -20927,12 +20940,12 @@ async function avisarSiAlmacenamientoApretado(){
   // que no se avisa nada: sería una alarma por espacio ajeno, en cada carga.
   if(!usarIdbParaTodo && pctLS > 0.8){
     av.style.display = 'block';
-    av.innerHTML = `⚠ <b>El guardado rápido está casi lleno</b> (${mb(u.lsBytes)} de ~5 MB). Haz <b>Exportar biblioteca</b> como respaldo; si el aviso persiste, avísame para revisar qué lo está ocupando.`;
+    av.innerHTML = `<b>El guardado rápido está casi lleno</b> (${mb(u.lsBytes)} de ~5 MB). Haz <b>Exportar biblioteca</b> como respaldo; si el aviso persiste, avísame para revisar qué lo está ocupando.`;
     return;
   }
   if(u.usage && u.quota && u.usage / u.quota > 0.85){
     av.style.display = 'block';
-    av.innerHTML = `⚠ <b>Queda poco espacio en el navegador</b> (${mb(u.usage)} de ${mb(u.quota)}). Haz <b>Exportar biblioteca</b> y libera espacio en el disco.`;
+    av.innerHTML = `<b>Queda poco espacio en el navegador</b> (${mb(u.usage)} de ${mb(u.quota)}). Haz <b>Exportar biblioteca</b> y libera espacio en el disco.`;
   }
 }
 
