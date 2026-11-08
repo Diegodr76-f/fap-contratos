@@ -8,11 +8,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#0B153F; --texto:#252A3D; --tenue:#5A6072; --debil:#8B92A6;
+    --ink:#0B153F; --texto:#252A3D; --tenue:#5A6072; --debil:#6B7180;
     --azul:#00249C; --azul-claro:#EEF1FB; --papel:#F4F6FB; --tarjeta:#FFFFFF;
     --linea:#E2E6F2; --linea-fuerte:#C8CFE4;
     --ren:#1E7A4D; --ren-bg:#E4F2E9;
-    --nue:#B4690E; --nue-bg:#FAF0DE;
+    --nue:#9A5B0A; --nue-bg:#FAF0DE;
     --rojo:#B23B3B; --rojo-bg:#FBEDED;
   }
   *{box-sizing:border-box}
@@ -158,6 +158,15 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
   .vacio{color:var(--tenue);text-align:center;padding:50px 20px}
   @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+  /* Pulido (nov. 2026). Titulares sin palabras huérfanas, cifras que se alinean en
+     columna, y un botón que responde al pulsarlo — sin moverse, para no pelear con
+     los que ya usan transform. Quien pide menos movimiento no ve animaciones. */
+  h1,h2,h3,h4{text-wrap:balance}
+  p,li{text-wrap:pretty}
+  table,input,select,output{font-variant-numeric:tabular-nums}
+  button:not(:disabled):active{filter:brightness(.93)}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>

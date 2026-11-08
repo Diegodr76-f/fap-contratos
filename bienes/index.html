@@ -25,9 +25,9 @@
 <style>
   :root{
     --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
-    --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
-    --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
-    --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0E9AA7;
+    --line:#E3E6F0; --line2:#EAEDF5; --muted:#5A6072; --muted2:#6B7180;
+    --green:#1E7A4D; --greenbg:#E7F6EE; --amber:#9A5B0A; --amberbg:#FCF3DD;
+    --red:#B23B3B; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0B7C87;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;min-height:100%}
@@ -35,7 +35,7 @@
   a{color:var(--navy);text-decoration:none}
   button{font-family:inherit}
   input,select,textarea{font-family:inherit;font-size:14px}
-  ::placeholder{color:var(--muted2)}
+  ::placeholder{color:#8B92A6} /* más claro que el texto a propósito: un ejemplo no debe parecer un dato ya lleno */
   @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .up{animation:up .25s ease}
 
@@ -191,6 +191,15 @@
     .etiqueta .cod{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;font-weight:700}
     .etiqueta .desc{font-size:11px;color:#444;max-width:220px}
   }
+
+  /* Pulido (nov. 2026). Titulares sin palabras huérfanas, cifras que se alinean en
+     columna, y un botón que responde al pulsarlo — sin moverse, para no pelear con
+     los que ya usan transform. Quien pide menos movimiento no ve animaciones. */
+  h1,h2,h3,h4{text-wrap:balance}
+  p,li{text-wrap:pretty}
+  table,input,select,output{font-variant-numeric:tabular-nums}
+  button:not(:disabled):active{filter:brightness(.93)}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -962,13 +971,13 @@ function pantallaAcceso(msg){
         ? '<button type="button" class="btn big" id="gMs" style="width:100%">'+
             '<svg width="16" height="16" viewBox="0 0 21 21" style="flex:0 0 auto"><rect width="9" height="9" x="1" y="1" fill="#F25022"/><rect width="9" height="9" x="11" y="1" fill="#7FBA00"/><rect width="9" height="9" x="1" y="11" fill="#00A4EF"/><rect width="9" height="9" x="11" y="11" fill="#FFB900"/></svg>'+
             ' Iniciar sesión con Microsoft</button>'
-        : '<p style="margin:16px 0 0;font-size:11.5px;color:#9AA0B2">El inicio de sesión con la cuenta de FIAS todavía no está configurado '+
+        : '<p style="margin:16px 0 0;font-size:11.5px;color:var(--muted)">El inicio de sesión con la cuenta de FIAS todavía no está configurado '+
           '(falta registrar la app en Entra ID — ver <b>CONECTAR.md</b>).</p>')+
       // Respaldo de la administradora: sirve el día uno (antes de terminar de
       // configurar Entra ID) y el día que el flujo protegido falle. La llave
       // aquí es tener el archivo: quien no lo tenga no ve nada, y el que lo
       // abre nunca sale de su propio navegador.
-      '<p style="margin:16px 0 0;font-size:11.5px;color:#9AA0B2">¿Administras los bienes y no puedes iniciar sesión? '+
+      '<p style="margin:16px 0 0;font-size:11.5px;color:var(--muted)">¿Administras los bienes y no puedes iniciar sesión? '+
         '<a href="#" id="gXlsx" style="font-weight:700">Abre tu matriz .xlsx</a> — se lee en tu navegador, no se sube a ningún lado.</p>'+
       '<input type="file" id="gFile" accept=".xlsx" style="display:none">'+
     '</form>';

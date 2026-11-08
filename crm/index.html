@@ -12,15 +12,15 @@
 <style>
   :root{
     --navy:#00249C; --ink:#0B153F; --bg:#F4F6FB; --card:#ffffff;
-    --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
-    --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
-    --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB;
+    --line:#E3E6F0; --line2:#EAEDF5; --muted:#5A6072; --muted2:#6B7180;
+    --green:#1E7A4D; --greenbg:#E7F6EE; --amber:#9A5B0A; --amberbg:#FCF3DD;
+    --red:#B23B3B; --redbg:#FBE7E7; --tint:#EEF1FB;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{font-family:'Titillium Web',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
   button{font-family:inherit}
-  ::placeholder{color:var(--muted2)}
+  ::placeholder{color:#8B92A6} /* más claro que el texto a propósito: un ejemplo no debe parecer un dato ya lleno */
   input,select,textarea{font-family:inherit;font-size:14px}
   a{color:var(--navy)}
   @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -174,6 +174,15 @@
   .empty{text-align:center;padding:60px 20px;color:var(--muted)}
   .empty svg{margin-bottom:12px}
   .draftbadge{display:inline-block;font-size:10.5px;font-weight:700;color:#8A5E06;background:var(--amberbg);border:1px solid #F0DCA6;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.4px}
+
+  /* Pulido (nov. 2026). Titulares sin palabras huérfanas, cifras que se alinean en
+     columna, y un botón que responde al pulsarlo — sin moverse, para no pelear con
+     los que ya usan transform. Quien pide menos movimiento no ve animaciones. */
+  h1,h2,h3,h4{text-wrap:balance}
+  p,li{text-wrap:pretty}
+  table,input,select,output{font-variant-numeric:tabular-nums}
+  button:not(:disabled):active{filter:brightness(.93)}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>

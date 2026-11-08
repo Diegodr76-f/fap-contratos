@@ -13642,6 +13642,15 @@ tr:hover td{background:var(--azul-claro)}
   #contenido{padding:12px}
   header{padding:8px 12px}
 }
+
+  /* Pulido (nov. 2026). Titulares sin palabras huérfanas, cifras que se alinean en
+     columna, y un botón que responde al pulsarlo — sin moverse, para no pelear con
+     los que ya usan transform. Quien pide menos movimiento no ve animaciones. */
+  h1,h2,h3,h4{text-wrap:balance}
+  p,li{text-wrap:pretty}
+  table,input,select,output{font-variant-numeric:tabular-nums}
+  button:not(:disabled):active{filter:brightness(.93)}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -13653,12 +13662,12 @@ tr:hover td{background:var(--azul-claro)}
     <div class="sub">Fondo de Áreas Protegidas — Unidad Legal</div>
   </div>
   <div class="spacer"></div>
-  <button id="chip-registro" onclick="clicChipRegistro()" title="Registro de contratos del CRM (Excel maestro)">📇 Registro: cargando…</button>
+  <button id="chip-registro" onclick="clicChipRegistro()" title="Registro de contratos del CRM (Excel maestro)">Registro: cargando…</button>
   <input type="file" id="reg-file" accept=".json" style="display:none" onchange="cargarRegistroArchivo(event)">
-  <button onclick="abrirFijos()" title="Valores institucionales que se llenan solos en todos los documentos">⚙ Datos fijos</button>
-  <button onclick="abrirMembrete()" title="Encabezado institucional con logos que se repite en todas las páginas del Word">🖼 Membrete</button>
-  <button onclick="exportarBiblioteca()">⬇ Exportar biblioteca</button>
-  <button onclick="document.getElementById('imp-file').click()">⬆ Importar</button>
+  <button onclick="abrirFijos()" title="Valores institucionales que se llenan solos en todos los documentos">Datos fijos</button>
+  <button onclick="abrirMembrete()" title="Encabezado institucional con logos que se repite en todas las páginas del Word">Membrete</button>
+  <button onclick="exportarBiblioteca()">Exportar biblioteca</button>
+  <button onclick="document.getElementById('imp-file').click()">Importar</button>
   <input type="file" id="imp-file" accept=".json" style="display:none" onchange="importarBiblioteca(event)">
 </header>
 <div id="aviso-storage">⚠ El almacenamiento local no está disponible en esta vista. Los cambios se guardan en memoria; usa <b>Exportar biblioteca</b> para no perderlos. Al abrir el archivo en tu navegador, el guardado será automático.</div>
@@ -13670,7 +13679,7 @@ tr:hover td{background:var(--azul-claro)}
       <div class="cats" id="cats"></div>
       <div id="lista-plantillas"></div>
       <div class="pie">
-        <button class="btn" style="flex:1.4" onclick="document.getElementById('docx-nuevo').click()" title="Sube un .docx etiquetado con {tags}: el formato queda intacto en Word y la herramienta solo lo rellena">⬆ Plantilla Word</button>
+        <button class="btn" style="flex:1.4" onclick="document.getElementById('docx-nuevo').click()" title="Sube un .docx etiquetado con {tags}: el formato queda intacto en Word y la herramienta solo lo rellena">+ Plantilla Word</button>
         <button class="btn sec" style="flex:1" onclick="nuevaPlantilla()" title="Plantilla simple redactada aquí mismo (formato limitado)">+ HTML</button>
         <input type="file" id="docx-nuevo" accept=".docx" style="display:none" onchange="crearPlantillaDesdeDocx(event)">
       </div>
@@ -15289,19 +15298,19 @@ function pintarChipRegistro(){
   b.classList.remove('reg-ok', 'reg-pend');
   if(registroEstado==='ok'){
     const e = edadRegistro();
-    b.textContent = `📇 Registro: ${registro.length} contratos${e && e.vieja ? ' · sin actualizar' : ''}`;
+    b.textContent = `Registro: ${registro.length} contratos${e && e.vieja ? ' · sin actualizar' : ''}`;
     b.classList.add(e && e.vieja ? 'reg-pend' : 'reg-ok');
     b.title = `Registro de contratos cargado${e ? ' (' + e.txt + ')' : ''}. Clic para recargar.`;
   }
   else if(registroEstado==='protegido'){
-    b.textContent = '📇 Registro: protegido · desbloquear'; b.classList.add('reg-pend');
+    b.textContent = 'Registro: protegido · desbloquear'; b.classList.add('reg-pend');
     b.title = 'El registro de contratos se publica cifrado. Pulsa y escribe la frase de acceso (la misma del CLM): queda guardada y abre las dos herramientas.';
   }
   else if(registroEstado==='error'){
-    b.textContent = '📇 Registro: sin conexión · reintentar'; b.classList.add('reg-pend');
+    b.textContent = 'Registro: sin conexión · reintentar'; b.classList.add('reg-pend');
     b.title = 'No se pudo descargar el registro. Clic para reintentar; si sigue sin conexión, te dejo cargar el archivo contratos_export.json a mano.';
   }
-  else { b.textContent = '📇 Registro: cargando…'; b.title = 'Registro de contratos del CRM (Excel maestro)'; }
+  else { b.textContent = 'Registro: cargando…'; b.title = 'Registro de contratos del CRM (Excel maestro)'; }
 }
 async function clicChipRegistro(){
   if(registroEstado === 'cargando') return;
@@ -15613,7 +15622,7 @@ function renderContenidoInterno(){
   const p = plActual();
   if(!p){
     const pedir = { lote: 'Para generar varios documentos a la vez, primero elige la plantilla.', editar: 'Elige la plantilla que quieres editar.' }[tabActual];
-    const boton = `<button class="btn" onclick="abrirLista()" style="margin-top:14px">📂 Elegir una plantilla</button>`;
+    const boton = `<button class="btn" onclick="abrirLista()" style="margin-top:14px">Elegir una plantilla</button>`;
     if(pedir){ c.innerHTML = `<div class="vacio"><b>${pedir}</b><br>${boton}</div>`; return; }
     c.innerHTML = `<div class="vacio">
       <b>¿Cómo genero un documento?</b><br>
@@ -15701,7 +15710,7 @@ function renderGenerar(c, p){
   c.innerHTML = `
     ${htmlAvisoDescarga()}${htmlAvisoBorrador()}
     <div class="rapidas">
-      <button class="btn sec" onclick="abrirPickerRegistro()" ${registroEstado==='protegido'?'title="El registro está protegido: te pediré la frase de acceso"':(registroEstado!=='ok'?'title="El registro aún no está cargado"':'')}>📇 Tomar datos del registro</button>
+      <button class="btn sec" onclick="abrirPickerRegistro()" ${registroEstado==='protegido'?'title="El registro está protegido: te pediré la frase de acceso"':(registroEstado!=='ok'?'title="El registro aún no está cargado"':'')}>Tomar datos del registro</button>
       <button class="btn sec" onclick="abrirPickerContraparte()">👤 Usar contraparte guardada</button>
       ${tieneNumero ? `<button class="btn sec" onclick="aplicarNumeroSugerido()">№ Sugerir número siguiente</button>` : ''}
     </div>
@@ -19009,7 +19018,7 @@ async function descargarWord(){
 function abrirFijos(){
   const filas = Object.entries(fijos).map(([k,v]) => filaFijoHTML(k,v)).join('');
   abrirModal(`
-    <div class="m-cab"><h3>⚙ Datos fijos institucionales</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cab"><h3>Datos fijos institucionales</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">Escríbelos una sola vez. Cada variable de plantilla con este nombre (p. ej. <b>representante_fias</b>, <b>ciudad</b>) se llenará sola en todos los documentos, incluido el lote. Siempre puedes editarla en el formulario antes de descargar.</p>
       <div id="fj-lista">${filas}</div>
