@@ -544,6 +544,25 @@ exportar. Lo que salió, y la regla que queda:
 - Los rótulos de los campos salen de `etiqueta()` («Cédula del/la AC», no «Cedula ac»): los
   más comunes en `ETIQUETAS`, el resto partiendo el nombre y corrigiendo siglas y tildes.
 
+## Contraste y pulido de la interfaz
+
+Todo texto pasa **4,5:1** sobre blanco y sobre el fondo `#F4F6FB`. Los grises y colores
+de estado son los mismos en las ocho herramientas: texto secundario `#5A6072`, terciario
+`#6B7180`, verde `#1E7A4D`, ámbar `#9A5B0A`, rojo `#B23B3B`. Los de antes (`#9AA0B2`,
+`#C98A08`, `#1E9E5A`) daban entre 2,4 y 3,5:1: en un portátil al sol, en territorio, no se
+leían. La única excepción es el `::placeholder`, más claro **a propósito**: un ejemplo no
+debe parecer un dato ya lleno.
+
+Cada hoja de estilos cierra con el mismo bloque «Pulido»: titulares con
+`text-wrap:balance`, cifras tabulares en tablas y campos (los montos se alinean en
+columna), y un botón que se oscurece al pulsarlo. Una herramienta nueva lo copia.
+
+**Nada de emojis como íconos.** Cada sistema los dibuja a su manera y con su color, y
+mezclados no forman un juego. Un botón dice lo que hace en palabras; si tiene que ser
+solo un ícono (mover, renombrar, borrar en una fila), sale de `ico()` en Instrumentos,
+todos del mismo trazo y con `title`. Quedan los símbolos que funcionan como tipografía
+—✕ cerrar, ✓, ▲▼ ordenar, ▾▸ desplegar, flechas— y el 🔒 de lo que se edita en Word.
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:
