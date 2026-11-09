@@ -539,6 +539,48 @@ exportar. Lo que salió, y la regla que queda:
 - Los rótulos de los campos salen de `etiqueta()` («Cédula del/la AC», no «Cedula ac»): los
   más comunes en `ETIQUETAS`, el resto partiendo el nombre y corrigiendo siglas y tildes.
 
+### Tres cosas que el formulario no sabía hacer (noviembre 2026)
+
+**Texto largo.** Todo campo libre era una casilla de una línea. Una variable de tipo
+`parrafo` se llena en un cuadro que crece, y al generar **cada línea sale como un párrafo de
+Word de verdad** (`partirParrafosXml()`), con el `<w:pPr>` del párrafo de la plantilla y el
+`<w:rPr>` de la corrida de la etiqueta. No se usa el salto de línea de docxtemplater: en un
+texto justificado Word estira la última línea de cada tramo. El párrafo que sigue no repite
+el número de lista ni los ids del original; dentro de un hipervínculo, un control o un
+campo —y en un párrafo que cierra sección— se queda como salto de línea, que es lo único
+seguro. En las plantillas HTML lo mismo lo hace `partirParrafosHtml()`. Un campo corto se
+vuelve largo con el botón ¶ o solo, al pegarle varios párrafos (`pegarEnCampo()`); el tipo
+vive en el repositorio de variables, así que vale para todas las plantillas. `parrafo` es un
+tipo **de esta herramienta**: `generador/variables_fap.json` no lo usa, y un archivo de
+variables exportado de aquí lo lleva — si el sistema no lo conoce, ahí es `texto`.
+
+**Los datos de un documento sirven para el siguiente.** «Reusar datos» solo reabría la misma
+plantilla. Ahora `pasarDatos()` lleva a otra plantilla lo que se llama igual —es para lo que
+existe el catálogo—: «Tomar datos de otro documento» en el formulario, «Usar estos datos en
+otra plantilla» tras descargar, y «En otra plantilla» en el Historial. Tres reglas: **no
+adivina** (un dato pasa si se llama igual, sin contar mayúsculas ni guiones bajos; nada por
+parecido), **lo que se calcula se rehace** (letras, totales) y **el género viaja**: el
+historial guarda `conc`, y para los documentos de antes se lee de lo que quedó escrito
+(`concDeDatos()`); si dos opciones dan el mismo texto no se elige ninguna y se avisa. De paso,
+«Reusar datos» ya no deja el género que hubiera en pantalla. Entre computadoras: se abre el
+historial exportado de la otra persona, solo para tomar datos, sin mezclarlo con el propio.
+Los datos **no** viajan escondidos dentro del Word: ese archivo lo recibe el proveedor.
+
+**Las contrapartes se completan desde el Excel, leído en el navegador.** El registro
+publicado solo trae el nombre del proveedor, y la regla de no publicar el RUC no cambia.
+«Traer datos del Excel maestro» lee el `.xlsx` ahí mismo (`leerXlsx()`, con el PizZip que ya
+está; o las filas pegadas): no se sube nada. Como con el robot, **no se confía en
+posiciones**: la hoja, la fila de encabezados y las columnas se proponen por su rótulo
+(`proponerHojaCp()`, `adivinarColumnasCp()`) y se corrigen antes de traer; un «Correo
+electrónico AC» no es el correo del proveedor. Se empareja por nombre (`normalizar()`, nada
+por parecido), se completa **solo lo vacío** y antes de tocar nada se dice qué va a pasar. A
+una cédula de 9 dígitos o un RUC de 12 se le repone el cero que Excel quita. Y «Tomar datos
+del registro» trae de una vez los datos de la contraparte guardada de ese proveedor
+(`aplicarContraparteDeRegistro()`); si el proveedor cambió y no tiene ficha, borra los del
+anterior: un RUC ajeno junto a otro nombre es peor que el hueco.
+
+Secciones 19, 20 y 21 de `probar_instrumentos.js`.
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:
