@@ -61,6 +61,14 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 scripts/probar_robot.py
 
+      # Las ocho herramientas son HTML sueltos y cada una lleva sus colores: se
+      # separan solas. Esto vigila lo que se puede leer sin navegador —contraste,
+      # una sola paleta, campos a 16 px en el teléfono, que nada frene la carga—.
+      # Lo demás se mide a mano con scripts/medir_diseno.js (necesita Chromium).
+      - name: El sistema de diseño
+        if: ${{ !cancelled() }}
+        run: python3 scripts/probar_diseno.py
+
       - uses: actions/setup-node@v4
         if: ${{ !cancelled() }}
         with:
