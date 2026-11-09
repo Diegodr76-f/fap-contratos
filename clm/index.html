@@ -17,11 +17,19 @@
 <script defer src="vendor/pizzip.min.js"></script>
 <script defer src="vendor/docxtemplater.min.js"></script>
 <style>
+  /* Los tokens del sistema de diseño FAP: plan/SISTEMA_DE_DISENO.md.
+     Todo color que se usa como TEXTO —los dos grises y los de estado— pasa 4,5:1
+     sobre blanco, sobre --bg y sobre su propio fondo claro; lo comprueba
+     scripts/probar_diseno.py. Antes «Por vencer» se leía a 2,7:1 y los rótulos
+     de los campos a 2,6:1: en el celular, a pleno sol, no se leían.
+     --amber-s es el ámbar vivo de siempre y es solo para marcas (el punto, el
+     borde de la tarjeta, el mapa): nunca para texto. --ph es el texto de ejemplo
+     de un campo vacío, que tiene que verse vacío. */
   :root{
     --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
-    --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
-    --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
-    --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0E9AA7;
+    --line:#E3E6F0; --line2:#EAEDF5; --muted:#5A6072; --muted2:#666C7B; --ph:#9AA0B2;
+    --green:#1E7A4D; --greenbg:#E7F6EE; --amber:#96590B; --amberbg:#FCF3DD; --amber-s:#C98A08;
+    --red:#B23B3B; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0A7780;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%}
@@ -29,7 +37,7 @@
   a{color:var(--navy);text-decoration:none}
   button{font-family:inherit}
   input,select,textarea{font-family:inherit;font-size:14px}
-  ::placeholder{color:var(--muted2)}
+  ::placeholder{color:var(--ph)}
   @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .up{animation:up .25s ease}
 
@@ -70,7 +78,7 @@
 
   .srcpill{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);border:1px solid var(--line2);padding:5px 10px;border-radius:99px;white-space:nowrap}
   .srcdot{width:8px;height:8px;border-radius:50%;background:var(--green)}
-  .srcdot.off{background:var(--amber)}
+  .srcdot.off{background:var(--amber-s)}
 
   /* Celular: el menú es UNA fila que se desliza con el dedo y se queda arriba.
      Antes se partía en cinco filas, la barra superior (pegajosa) se montaba
@@ -90,6 +98,10 @@
     .topbar h1{font-size:15.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .gsearch{order:3;width:100%;margin-left:0}
     .content{padding:14px 12px 60px}
+    /* Un campo con letra de menos de 16 px hace que Safari en el iPhone acerque la
+       página al tocarlo y la deje acercada: había que alejarla con dos dedos después
+       de cada campo. Va con !important porque un tamaño en línea le ganaría. */
+    input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px!important}
   }
   @media(max-width:560px){
     .frow2{flex-direction:column;gap:0}
@@ -163,13 +175,13 @@
   table.list th.td-sig{background:#FAFBFE}
   table.list tbody tr:hover .td-sig{background:var(--tint)}
   .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
-  .dot.g{background:var(--green)}.dot.a{background:var(--amber)}.dot.r{background:var(--red)}.dot.done{background:var(--muted2)}
+  .dot.g{background:var(--green)}.dot.a{background:var(--amber-s)}.dot.r{background:var(--red)}.dot.done{background:var(--muted2)}
 
   /* cards grid */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
   .cc{background:#fff;border:1px solid var(--line2);border-radius:14px;padding:16px;cursor:pointer;transition:box-shadow .15s,transform .15s;border-left:5px solid var(--line);position:relative}
   .cc:hover{box-shadow:0 12px 30px rgba(11,21,63,.09);transform:translateY(-2px)}
-  .cc.g{border-left-color:var(--green)}.cc.a{border-left-color:var(--amber)}.cc.r{border-left-color:var(--red)}.cc.done{border-left-color:var(--muted2);opacity:.85}
+  .cc.g{border-left-color:var(--green)}.cc.a{border-left-color:var(--amber-s)}.cc.r{border-left-color:var(--red)}.cc.done{border-left-color:var(--muted2);opacity:.85}
   .cc-nro{font-size:11.5px;font-weight:700;color:var(--navy)}
   .cc-title{font-size:14px;font-weight:700;margin:7px 0 2px;line-height:1.3}
   .cc-area{font-size:12px;color:var(--muted);margin-bottom:10px}
@@ -346,7 +358,7 @@
   .aprow .vl{flex:0 0 auto;font-size:12.5px;font-weight:700;white-space:nowrap}
   .apc{display:block;width:100%;text-align:left;border:1px solid var(--line2);border-radius:11px;padding:10px 12px;margin-bottom:8px;background:#fff;cursor:pointer;border-left:4px solid var(--line)}
   .apc:hover{background:var(--tint)}
-  .apc.g{border-left-color:var(--green)}.apc.a{border-left-color:var(--amber)}
+  .apc.g{border-left-color:var(--green)}.apc.a{border-left-color:var(--amber-s)}
   .apc.r{border-left-color:var(--red)}.apc.done{border-left-color:var(--muted2)}
   .apc .t{font-size:11.5px;font-weight:700;color:var(--navy)}
   .apc .o{font-size:12.5px;font-weight:600;margin:3px 0 5px;line-height:1.3}
@@ -384,6 +396,17 @@
   .navitem:focus-visible,.btn:focus-visible,.chip:focus-visible,.actbtn:focus-visible,.rolebtn:focus-visible,
   .iconbtn:focus-visible,.back:focus-visible,.viewtog button:focus-visible,.linkbtn:focus-visible{outline:2.5px solid var(--navy2);outline-offset:2px}
   .linkbtn{all:unset;cursor:pointer;font-size:12px;font-weight:700;color:var(--navy);text-decoration:underline}
+  /* Y lo que no está en esa lista —un botón nuevo, un enlace— tampoco se queda sin él. */
+  a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2.5px solid var(--navy2);outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  /* Celular: lo que se toca con el dedo mide 40 px de alto como mínimo («Salir» medía
+     28). Va aquí al final y no en la media query de arriba: .btn y compañía llevan
+     all:unset, y declarado después de esta regla le borraría el alto. */
+  @media(max-width:860px){
+    .btn,.chip,.viewtog button,.signed,.rolebtn{min-height:40px;box-sizing:border-box}
+    .iconbtn{padding:11px}
+    .back{padding:9px 0;margin-bottom:6px}
+  }
   .srcdot.old{background:var(--red)}
   .srcpill.old{color:#8A5E06;background:var(--amberbg);border-color:#F0DCA6}
   .gres.sel{background:var(--tint)}
@@ -574,7 +597,7 @@ const CAT_COLORS=[
   [/combustible/,{bg:"#FDEBD7",fg:"#9A5B10"}],
   [/mantenimiento/,{bg:"#E3EBFC",fg:"#1D48B8"}],
   [/arrenda|arriendo/,{bg:"#EFE6FA",fg:"#6B34B8"}],
-  [/consultor|profesional/,{bg:"#DDF3F0",fg:"#0E7D6F"}],
+  [/consultor|profesional/,{bg:"#DDF3F0",fg:"#0B6E62"}],
   [/limpieza/,{bg:"#E2F5E4",fg:"#1F7A34"}],
   [/internet|conectividad/,{bg:"#DDF0F9",fg:"#0B6E96"}],
   [/radio/,{bg:"#FBE3EE",fg:"#B03070"}],
@@ -1242,7 +1265,7 @@ function vPipeline(){
   const cols=[
     {key:"solicitud",label:"Solicitud / Precontractual",col:"var(--violet)",items:mySolicitudes().filter(s=>s.estado!=="listo")},
     {key:"vigente",label:"En ejecución",col:"var(--green)"},
-    {key:"aviso",label:"Por vencer (≤90 d)",col:"var(--amber)"},
+    {key:"aviso",label:"Por vencer (≤90 d)",col:"var(--amber-s)"},
     {key:"vencido",label:"Vencidos",col:"var(--red)"},
     {key:"cerrado",label:"Terminados / Cerrados",col:"var(--muted2)"}
   ];
@@ -2789,7 +2812,7 @@ const mapVal=(e)=>MAPST.metric==="monto"?e.monto:e.items.length;
 const mapFmt=(v)=>MAPST.metric==="monto"?moneyShort(v):v+(v===1?" contrato":" contratos");
 function mapColor(e){
   if(e.ven)return "var(--red)";
-  if(e.avi)return "var(--amber)";
+  if(e.avi)return "var(--amber-s)";
   if(e.act)return "var(--navy2)";
   return "var(--muted2)";
 }
@@ -2844,7 +2867,7 @@ function vMapa(){
     }
   });
 
-  const leyenda=[["var(--navy2)","Al día"],["var(--amber)","Con contratos por vencer"],
+  const leyenda=[["var(--navy2)","Al día"],["var(--amber-s)","Con contratos por vencer"],
                  ["var(--red)","Con contratos vencidos"],["var(--violet)","Oficina (no es área protegida)"]]
     .map(([c,t])=>`<span class="li"><span class="sw" style="background:${c};border-radius:50%">&nbsp;</span>${t}</span>`).join("");
 

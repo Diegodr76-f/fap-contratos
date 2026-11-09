@@ -7,17 +7,25 @@
 <meta name="description" content="Herramienta de calificación y evaluación de ofertas del FAP/FIAS para procesos de selección por convocatoria: consultorías por puntos y adquisiciones de bienes/servicios por Cumple/No Cumple. Calcula puntajes técnicos y económicos, aplica umbrales, ordena oferentes y genera el acta de calificación.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<!-- La letra no frena la primera pantalla: con señal floja una hoja de estilos
+     normal deja la página en blanco hasta que Google responde. Así se pinta de
+     inmediato con la letra del sistema y cambia a Titillium cuando llega. -->
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet"></noscript>
 <!-- Motor de relleno de plantillas Word alojado en el propio repositorio (no en CDN externos),
      igual que La Mágica y el CLM: evita bloqueos de redes corporativas y antivirus. -->
 <script src="vendor/pizzip.min.js"></script>
 <script src="vendor/docxtemplater.min.js"></script>
 <style>
+  /* Los tokens del sistema de diseño FAP (plan/SISTEMA_DE_DISENO.md), los mismos
+     del CLM. Todo color que se usa como texto pasa 4,5:1 sobre blanco, sobre --bg y
+     sobre su fondo claro (scripts/probar_diseno.py). --amber-s es el ámbar vivo y
+     es solo para marcas, nunca para texto. --ph, el texto de ejemplo de un campo vacío. */
   :root{
     --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
-    --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
-    --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
-    --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0E9AA7;
+    --line:#E3E6F0; --line2:#EAEDF5; --muted:#5A6072; --muted2:#666C7B; --ph:#9AA0B2;
+    --green:#1E7A4D; --greenbg:#E7F6EE; --amber:#96590B; --amberbg:#FCF3DD; --amber-s:#C98A08;
+    --red:#B23B3B; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0A7780;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -25,7 +33,7 @@
   a{color:var(--navy);text-decoration:none}
   button{font-family:inherit}
   input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
-  ::placeholder{color:var(--muted2)}
+  ::placeholder{color:var(--ph)}
   h1,h2,h3,h4,p{margin:0}
   @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .up{animation:up .25s ease}
@@ -150,6 +158,41 @@
 
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:11px;font-size:13px;font-weight:600;box-shadow:0 14px 34px rgba(11,21,63,.28);z-index:80;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+  /* Teclado: los botones llevan all:unset y con eso pierden el recuadro de foco. */
+  a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2.5px solid var(--navy2);outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  .unica-acc{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+
+  /* ===== celular =====
+     La barra de arriba tenía 60 px fijos y siete botones: en el teléfono el nombre
+     de la herramienta quedaba cortado por arriba y la página se salía por la derecha. */
+  @media(max-width:720px){
+    .topbar{position:static;height:auto;min-height:56px;flex-wrap:wrap;padding:8px 12px;gap:8px 10px}
+    .brand{flex:1;min-width:0}
+    .brand .s{display:none}
+    /* Las acciones, en una fila que se desliza con el dedo, como el menú del CLM. */
+    .tb-actions{margin-left:0;flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .tb-actions::-webkit-scrollbar{display:none}
+    .tb-actions .btn{flex:0 0 auto}
+    .wrap{padding:14px 12px 80px}
+    .panel{padding:16px 14px}
+    .acta-doc{padding:20px 16px}
+    /* Cada miembro de la Comisión es una tarjeta: nombre, cargo y rol a todo lo ancho. */
+    #comisionBox .crit-row{flex-wrap:wrap}
+    #comisionBox .crit-row .in{flex:1 1 100%!important;width:100%!important}
+    #comisionBox .cmVotoLbl{flex:1;min-height:40px}
+    .winner{flex-wrap:wrap}
+    .unica-acc .btn{white-space:normal;text-align:center;flex:1 1 100%}
+    .seg{display:flex}
+    .seg button{flex:1}
+    /* Lo que se toca con el dedo: 40 px de alto como mínimo. */
+    .btn,.seg button{min-height:40px;box-sizing:border-box}
+    .btn.xs{min-width:40px}
+    /* Con letra de menos de 16 px, Safari en el iPhone acerca la página al tocar un
+       campo y la deja acercada. Con !important: un tamaño en línea le ganaría. */
+    input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px!important}
+  }
 
   /* print */
   .print-only{display:none}
@@ -989,7 +1032,7 @@ function renderResultados(){
         <div class="wt" style="color:#8A5210">Propuesta única presentada — requiere decisión expresa</div>
         <div class="wn">${esc(u.nombre||'(sin nombre)')}</div>
         <div class="ws">Se recibió una sola oferta y cumple los requisitos (${S.tipo==='puntos'?`puntaje técnico ${fNum(u._tec)}`:'legal y técnico'})${u.precio?`, precio ${fUSD(u.precio)}`:''}. Según las bases, la Comisión debe pronunciarse expresamente sobre si es <b>conveniente a los intereses institucionales</b> antes de adjudicar.</div>
-        <div style="margin-top:10px;display:flex;gap:8px">
+        <div class="unica-acc">
           <button class="btn sm" id="unicaSi" style="background:var(--green)">✓ Es conveniente — adjudicar</button>
           <button class="btn sm danger" id="unicaNo">✗ No es conveniente — declarar desierto</button>
         </div>
