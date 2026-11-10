@@ -7,7 +7,11 @@
 <meta name="description" content="Registro de activos fijos y bienes de control del FAP/FIAS: la AC llena un formulario corto, la fila cae en la matriz nacional y la administradora de bienes revisa y da seguimiento.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<!-- La letra no frena la primera pantalla: con señal floja una hoja de estilos
+     normal deja la página en blanco hasta que Google responde. Así se pinta de
+     inmediato con la letra del sistema y cambia a Titillium cuando llega. -->
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet"></noscript>
 <!-- Lector de Excel: PizZip ya vive en el repositorio (no en un CDN externo), igual
      que en el CLM y el Calificador. Sirve para abrir la matriz .xlsx sin internet. -->
 <script src="../clm/vendor/pizzip.min.js"></script>
@@ -23,11 +27,15 @@
      internet y sin que importe qué Excel tenga cada quien. -->
 <script src="../clm/vendor/qrcode.js"></script>
 <style>
+  /* Los tokens del sistema de diseño FAP (plan/SISTEMA_DE_DISENO.md), los mismos
+     del CLM. Todo color que se usa como texto pasa 4,5:1 sobre blanco, sobre --bg y
+     sobre su fondo claro (scripts/probar_diseno.py). --amber-s es el ámbar vivo y
+     es solo para marcas, nunca para texto. --ph, el texto de ejemplo de un campo vacío. */
   :root{
     --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
-    --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
-    --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
-    --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0E9AA7;
+    --line:#E3E6F0; --line2:#EAEDF5; --muted:#5A6072; --muted2:#666C7B; --ph:#9AA0B2;
+    --green:#1E7A4D; --greenbg:#E7F6EE; --amber:#96590B; --amberbg:#FCF3DD; --amber-s:#C98A08;
+    --red:#B23B3B; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0A7780;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;min-height:100%}
@@ -35,7 +43,7 @@
   a{color:var(--navy);text-decoration:none}
   button{font-family:inherit}
   input,select,textarea{font-family:inherit;font-size:14px}
-  ::placeholder{color:var(--muted2)}
+  ::placeholder{color:var(--ph)}
   @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .up{animation:up .25s ease}
 
@@ -65,7 +73,7 @@
   .content{padding:22px 24px 70px;max-width:1180px;width:100%;margin:0 auto}
   .srcpill{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);border:1px solid var(--line2);padding:5px 10px;border-radius:99px;white-space:nowrap;margin-left:auto}
   .srcdot{width:8px;height:8px;border-radius:50%;background:var(--green)}
-  .srcdot.off{background:var(--amber)}
+  .srcdot.off{background:var(--amber-s)}
 
   @media(max-width:860px){
     .shell{flex-direction:column}
@@ -75,6 +83,9 @@
     .navitem{width:auto;padding:8px 11px}
     .side-foot{margin-left:auto;border:0}
     .content{padding:16px 14px 60px}
+    /* Con letra de menos de 16 px, Safari en el iPhone acerca la página al tocar un
+       campo y la deja acercada. Con !important: un tamaño en línea le ganaría. */
+    input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px!important}
   }
 
   /* ===== atoms ===== */
@@ -146,7 +157,7 @@
   .ai .v.mut{color:var(--muted2);font-weight:600}
 
   .note{border-left:3px solid var(--navy);background:var(--tint);border-radius:0 10px 10px 0;padding:11px 14px;font-size:12.5px;line-height:1.55;margin:12px 0}
-  .note.warn{border-color:var(--amber);background:var(--amberbg)}
+  .note.warn{border-color:var(--amber-s);background:var(--amberbg)}
   .note.err{border-color:var(--red);background:var(--redbg)}
   .note.ok{border-color:var(--green);background:var(--greenbg)}
 
@@ -171,6 +182,15 @@
   .gate input:focus{border-color:var(--navy)}
   .gate .or{display:flex;align-items:center;gap:10px;margin:18px 0 14px;color:var(--muted2);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
   .gate .or:before,.gate .or:after{content:"";flex:1;height:1px;background:var(--line2)}
+  /* Teclado: los botones llevan all:unset y con eso pierden el recuadro de foco. */
+  a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2.5px solid var(--navy2);outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  /* Celular: lo que se toca con el dedo mide 40 px de alto como mínimo. Va aquí al
+     final: .btn y .chip llevan all:unset, y declarado después le borraría el alto. */
+  @media(max-width:860px){
+    .btn,.chip,.navitem{min-height:40px;box-sizing:border-box}
+    .iconbtn{padding:11px}
+  }
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;letter-spacing:.6px}
   .copyrow{display:flex;align-items:center;gap:8px}
   .print-only{display:none}
@@ -962,13 +982,13 @@ function pantallaAcceso(msg){
         ? '<button type="button" class="btn big" id="gMs" style="width:100%">'+
             '<svg width="16" height="16" viewBox="0 0 21 21" style="flex:0 0 auto"><rect width="9" height="9" x="1" y="1" fill="#F25022"/><rect width="9" height="9" x="11" y="1" fill="#7FBA00"/><rect width="9" height="9" x="1" y="11" fill="#00A4EF"/><rect width="9" height="9" x="11" y="11" fill="#FFB900"/></svg>'+
             ' Iniciar sesión con Microsoft</button>'
-        : '<p style="margin:16px 0 0;font-size:11.5px;color:#9AA0B2">El inicio de sesión con la cuenta de FIAS todavía no está configurado '+
+        : '<p style="margin:16px 0 0;font-size:11.5px;color:#666C7B">El inicio de sesión con la cuenta de FIAS todavía no está configurado '+
           '(falta registrar la app en Entra ID — ver <b>CONECTAR.md</b>).</p>')+
       // Respaldo de la administradora: sirve el día uno (antes de terminar de
       // configurar Entra ID) y el día que el flujo protegido falle. La llave
       // aquí es tener el archivo: quien no lo tenga no ve nada, y el que lo
       // abre nunca sale de su propio navegador.
-      '<p style="margin:16px 0 0;font-size:11.5px;color:#9AA0B2">¿Administras los bienes y no puedes iniciar sesión? '+
+      '<p style="margin:16px 0 0;font-size:11.5px;color:#666C7B">¿Administras los bienes y no puedes iniciar sesión? '+
         '<a href="#" id="gXlsx" style="font-weight:700">Abre tu matriz .xlsx</a> — se lee en tu navegador, no se sube a ningún lado.</p>'+
       '<input type="file" id="gFile" accept=".xlsx" style="display:none">'+
     '</form>';

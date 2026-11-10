@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Generador de Instrumentos Legales · FAP</title>
-<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<!-- La letra no frena la primera pantalla: con señal floja una hoja de estilos
+     normal deja la página en blanco hasta que Google responde. Así se pinta de
+     inmediato con la letra del sistema y cambia a Titillium cuando llega. -->
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap" rel="stylesheet"></noscript>
 <meta name="theme-color" content="#00249C">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-180.png">
@@ -13279,7 +13283,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   --peligro:#B3261E;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Titillium Web',sans-serif;background:var(--fondo);color:var(--texto);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+body{font-family:'Titillium Web',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--fondo);color:var(--texto);height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
 /* ---------- Encabezado ---------- */
 header{background:var(--azul);color:#fff;padding:10px 20px;display:flex;align-items:center;gap:10px 14px;flex-shrink:0;flex-wrap:wrap}
@@ -13641,7 +13645,14 @@ tr:hover td{background:var(--azul-claro)}
   .tab{white-space:nowrap;flex-shrink:0;padding:9px 12px}
   #contenido{padding:12px}
   header{padding:8px 12px}
+  /* Con letra de menos de 16 px, Safari en el iPhone acerca la página al tocar un
+     campo y la deja acercada. Con !important: un tamaño en línea le ganaría. */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px!important}
 }
+/* Teclado: que se vea dónde está el foco (plan/SISTEMA_DE_DISENO.md). */
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2.5px solid #2547C9;outline-offset:2px}
+header button:focus-visible{outline-color:#fff}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>

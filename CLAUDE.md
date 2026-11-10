@@ -544,6 +544,40 @@ exportar. Lo que salió, y la regla que queda:
 - Los rótulos de los campos salen de `etiqueta()` («Cédula del/la AC», no «Cedula ac»): los
   más comunes en `ETIQUETAS`, el resto partiendo el nombre y corrigiendo siglas y tildes.
 
+## La cara de las herramientas: `plan/SISTEMA_DE_DISENO.md`
+
+Las ocho herramientas son HTML sueltos y cada una lleva sus colores y sus reglas: se
+parecen porque se copiaron una de otra, y así se separan solas. En noviembre de 2026
+«Por vencer» se leía a 2,7:1 en el CLM, los 157 campos de las ocho hacían zoom en el
+iPhone, el CRM no tenía diseño de celular y La Mágica pedía su motor de Word a dos CDN
+con la copia ya en el repositorio. Nada lo detectaba, porque nada de eso rompe una prueba.
+
+Los colores, los tamaños, los componentes y lo que queda pendiente están en
+`plan/SISTEMA_DE_DISENO.md`. **Esa es la referencia; no la repitas aquí.** Lo que muerde:
+
+- **Un color que se usa como texto pasa 4,5:1** sobre blanco, sobre el fondo de la página y
+  sobre su fondo claro. `--amber-s` (el ámbar vivo) es solo para marcas —el punto, el borde—,
+  y `--ph` solo para `::placeholder`: un rótulo o una ayuda van en `--muted2`.
+- **Una sola paleta.** CRM, Calificador y Bienes llevan los tokens del CLM con el mismo valor;
+  Planificador y Renovaciones, los mismos valores con nombre en español. La Mágica no tiene
+  tokens (escribe los colores en línea): al tocar una pantalla suya, usa esos mismos valores.
+- **Los campos, a 16 px en el teléfono**, con `!important` dentro de la media query.
+- **`all:unset` muerde tres veces**: deja el botón en `content-box` (un `min-height:40px` mide
+  40 más el relleno), le quita el recuadro de foco, y si va declarado DESPUÉS de tu regla —o
+  en línea— te la borra. En línea, cada propiedad de la media query necesita su `!important`.
+- **Nada de fuera frena la página**: la letra de Google va con `media="print" onload`, y una
+  librería se copia a `clm/vendor/` y se pide de ahí. El motor de Word de La Mágica y del CRM
+  sale de `clm/vendor/`; el CDN queda de respaldo (`onerror="fapMotor(…)"`) para la copia
+  exportada, y `motorListo()` quita el aviso de «no cargó» cuando llega tarde.
+
+```bash
+python3 scripts/probar_diseno.py     # en el CI: contraste, paleta, 16 px, carga, foco
+node scripts/medir_diseno.js         # a mano, en Chromium a 390 px: qué se sale, qué no se lee
+```
+
+**Después de tocar la cara de una herramienta, corre `medir_diseno.js`.** Abre las 19
+pantallas con contratos de mentira y mide lo que jsdom no puede: anchos y colores calculados.
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:

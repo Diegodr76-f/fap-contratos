@@ -5,14 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Contratos 2027 — Confirma tus contratos · FAP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+<!-- La letra no frena la primera pantalla: con señal floja una hoja de estilos
+     normal deja la página en blanco hasta que Google responde. Así se pinta de
+     inmediato con la letra del sistema y cambia a Titillium cuando llega. -->
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet"></noscript>
 <style>
+  /* Los mismos colores del sistema de diseño FAP (plan/SISTEMA_DE_DISENO.md), con
+     los nombres en español de esta herramienta. Todo color que se usa como texto
+     pasa 4,5:1 sobre blanco, sobre --papel y sobre su fondo claro
+     (scripts/probar_diseno.py): «PROCESO NUEVO» se leía a 3,7:1. */
   :root{
-    --ink:#0B153F; --texto:#252A3D; --tenue:#5A6072; --debil:#8B92A6;
+    --ink:#0B153F; --texto:#252A3D; --tenue:#5A6072; --debil:#666C7B;
     --azul:#00249C; --azul-claro:#EEF1FB; --papel:#F4F6FB; --tarjeta:#FFFFFF;
     --linea:#E2E6F2; --linea-fuerte:#C8CFE4;
     --ren:#1E7A4D; --ren-bg:#E4F2E9;
-    --nue:#B4690E; --nue-bg:#FAF0DE;
+    --nue:#96590B; --nue-bg:#FAF0DE;
     --rojo:#B23B3B; --rojo-bg:#FBEDED;
   }
   *{box-sizing:border-box}
@@ -30,7 +38,7 @@
     display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 auto}
   .tit{font-weight:700;font-size:15px;color:var(--ink);line-height:1.15}
   .sub{font-size:12.5px;color:var(--tenue)}
-  .cambiar{all:unset;cursor:pointer;margin-left:auto;color:var(--azul);font-weight:600;font-size:13px;white-space:nowrap}
+  .cambiar{all:unset;cursor:pointer;margin-left:auto;color:var(--azul);font-weight:600;font-size:13px;white-space:nowrap;padding:11px 0}
   .cambiar:focus-visible{outline:2px solid var(--azul);outline-offset:3px;border-radius:4px}
 
   h1{font-size:26px;font-weight:700;color:var(--ink);margin:26px 0 8px;letter-spacing:-.3px}
@@ -157,7 +165,15 @@
     opacity:0;transition:.25s;z-index:99;pointer-events:none;max-width:88vw;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
   .vacio{color:var(--tenue);text-align:center;padding:50px 20px}
-  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+  /* Teclado: que se vea dónde está el foco también en lo que no tiene su propia regla. */
+  a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+  @media(max-width:640px){
+    .orden button{min-height:40px;box-sizing:border-box}
+    /* Con letra de menos de 16 px, Safari en el iPhone acerca la página al tocar un
+       campo y la deja acercada. Con !important: un tamaño en línea le ganaría. */
+    input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px!important}
+  }
 </style>
 </head>
 <body>
