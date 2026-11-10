@@ -13360,6 +13360,11 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .campo input,.campo textarea,.campo select{width:100%;padding:7px 9px;border:1px solid var(--borde);border-radius:6px;font-family:inherit;font-size:13px}
 .campo input[readonly]{background:var(--azul-claro);color:var(--azul);font-weight:600}
 .campo textarea.largo{resize:vertical;line-height:1.45;min-height:64px}
+.prov-estado{font-size:12.5px;line-height:1.55;border-radius:8px;padding:8px 12px;margin:0 0 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.prov-estado.ok{background:#E7F6EE;border:1px solid #8FD3B0;color:#0B5E3C}
+.prov-estado.pend{background:#FFF7E6;border:1px solid #F0C36D;color:#7A4D00}
+.tag-excel{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:#E7F6EE;color:#0B5E3C;white-space:nowrap;vertical-align:1px}
+.btn-hueco{display:inline-block;width:34px}
 .cpx-mapa{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 12px}
 .cpx-mapa .campo{margin:0}
 .cpx-resumen{font-size:12.5px;line-height:1.6;background:var(--azul-claro);border-radius:8px;padding:9px 12px}
@@ -15298,6 +15303,103 @@ async function desbloquearRegistro(){
     aviso = 'Frase incorrecta. Inténtalo de nuevo.';
   }
 }
+/* ============ Proveedores del Excel maestro (solo en esta herramienta) ============
+   Cédula o RUC, representante, correo y dirección de cada proveedor. Son datos
+   privados —el RUC de una persona natural es su cédula—, así que el robot los
+   publica aparte (instrumentos/proveedores_export.json) y cifrados con OTRA frase,
+   que solo tiene quien usa el Generador: la del registro la tienen las 20 ACs y no
+   abre este archivo. Ninguna otra herramienta lo pide (lo vigila probar_robot.py).
+   Lo descifrado vive solo en memoria: no se guarda en el navegador. La frase sí
+   (como la del registro), bajo su propia clave. */
+const RUTAS_PROVEEDORES = [
+  './proveedores_export.json',
+  'https://diegodr76-f.github.io/fap-contratos/instrumentos/proveedores_export.json'
+];
+const PROV_KEY_LS = 'fap_gen_clave_proveedores';
+let provExcel = [];            // [{ nombre, identificacion, representante, email, direccion }]
+let provPorClave = new Map();  // normalizar(nombre) → fila de provExcel
+let provEstado = 'cargando';   // cargando | ok | protegido | sin (no se publica) | error (sin conexión)
+let provSobre = null, provGenerado = null;
+function ponerProvExcel(lista){
+  provExcel = (Array.isArray(lista) ? lista : []).filter(p => p && p.nombre);
+  provPorClave = new Map();
+  provExcel.forEach(p => { const k = normalizar(p.nombre); if(k && !provPorClave.has(k)) provPorClave.set(k, p); });
+  provEstado = 'ok'; provSobre = null;
+}
+async function cargarProveedores(){
+  let sobre = null, faltaArchivo = false;
+  for(const url of RUTAS_PROVEEDORES){
+    const ctl = window.AbortController ? new AbortController() : null;
+    const reloj = setTimeout(() => { if(ctl) ctl.abort(); }, 20000);
+    try{
+      const r = await fetch(url, { cache:'no-store', signal: ctl ? ctl.signal : undefined });
+      if(r.ok){ sobre = await r.json(); break; }
+      if(r.status === 404) faltaArchivo = true;
+    }catch(e){ /* siguiente ruta */ }
+    finally{ clearTimeout(reloj); }
+  }
+  if(!sobre || !fapIsEnc(sobre)){
+    // Sin archivo publicado (falta el secreto PROVEEDORES_KEY) no es un error: queda
+    // el camino de siempre, traerlos del Excel a mano.
+    provEstado = faltaArchivo && !sobre ? 'sin' : 'error';
+    if(tabActual === 'contrapartes') renderContenido();
+    return;
+  }
+  provGenerado = sobre.generado || null;
+  let pass = '';
+  try{ pass = localStorage.getItem(PROV_KEY_LS) || ''; }catch(e){}
+  let lista = null;
+  if(pass){ try{ lista = await fapDecrypt(sobre, pass); }catch(e){ lista = null; } }
+  if(Array.isArray(lista)) ponerProvExcel(lista);
+  else { provSobre = sobre; provEstado = 'protegido'; }
+  if(tabActual === 'contrapartes') renderContenido();
+}
+async function desbloquearProveedores(){
+  if(!provSobre){ await cargarProveedores(); if(provEstado !== 'protegido') return provEstado === 'ok'; }
+  let aviso = '';
+  for(;;){
+    const r = await pedirDatos({
+      titulo: 'Abrir los proveedores del Excel maestro',
+      ok: 'Abrir',
+      ayuda: (aviso ? `<b style="color:var(--peligro)">${esc(aviso)}</b><br>` : '') +
+        'Los datos de los proveedores (cédula o RUC, representante, correo, dirección) se publican cifrados con <b>su propia frase</b>: la que guardaste en el secreto <code>PROVEEDORES_KEY</code> del repositorio. <b>No es la del registro</b>, que tienen las ACs. Queda guardada en este navegador.',
+      campos: [{ nombre:'frase', etiqueta:'Frase de proveedores', tipo:'clave' }],
+      validar: v => v.frase ? '' : 'Escribe la frase de proveedores.'
+    });
+    if(!r) return false;
+    let lista = null;
+    try{ lista = await fapDecrypt(provSobre, r.frase); }catch(e){ lista = null; }
+    if(Array.isArray(lista)){
+      let guardada = true;
+      try{ localStorage.setItem(PROV_KEY_LS, r.frase); }catch(e){ guardada = false; }
+      ponerProvExcel(lista);
+      renderContenido();
+      avisar(`Proveedores abiertos: ${provExcel.length}.` + (guardada ? '' : ' Este navegador no deja guardar la frase: se pedirá de nuevo la próxima vez.'));
+      return true;
+    }
+    aviso = 'Frase incorrecta. Inténtalo de nuevo.';
+  }
+}
+function edadDe(generado){
+  if(!generado) return null;
+  const f = new Date(generado); if(isNaN(f)) return null;
+  const dia = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dias = Math.round((dia(new Date()) - dia(f)) / 86400000);
+  const hora = f.toLocaleTimeString('es-EC', { hour:'2-digit', minute:'2-digit' });
+  return { dias, vieja: dias >= 2,
+    txt: dias <= 0 ? `actualizados hoy ${hora}` : dias === 1 ? 'actualizados ayer' : `actualizados hace ${dias} días` };
+}
+function htmlEstadoProveedores(){
+  if(provEstado === 'ok'){
+    const e = edadDe(provGenerado);
+    return `<div class="prov-estado ok">📇 <b>${provExcel.length}</b> proveedores del Excel maestro${e ? ' (' + esc(e.txt) + ')' : ''}${e && e.vieja ? ' <b>— el robot no ha vuelto a correr</b>' : ''}. Se leen con tu frase de proveedores: las ACs no los ven. Lo que edites aquí manda sobre el Excel.</div>`;
+  }
+  if(provEstado === 'protegido')
+    return `<div class="prov-estado pend">🔒 Los datos de los proveedores del Excel maestro están publicados, cifrados con tu frase de proveedores. <button class="btn sec mini" onclick="desbloquearProveedores()">Abrir</button></div>`;
+  if(provEstado === 'error')
+    return `<div class="prov-estado pend">No se pudo descargar la lista de proveedores del Excel maestro. <button class="btn sec mini" onclick="provEstado='cargando';renderContenido();cargarProveedores()">Reintentar</button></div>`;
+  return '';
+}
 /* Cuándo se actualizó la base, como en la píldora del CLM: una base de hace dos
    días o más no se presenta como viva. */
 function edadRegistro(){
@@ -16335,43 +16437,73 @@ function elegirDelRegistro(i){
 }
 
 /* ============ Contrapartes ============ */
+/* Lo que se ve y se usa: las contrapartes guardadas aquí y, si están abiertos,
+   los proveedores del Excel maestro. Se juntan por nombre (normalizar(), nada por
+   parecido). Lo guardado manda: el Excel solo llena lo que una guardada tiene
+   vacío, y un proveedor que solo está en el Excel aparece con su etiqueta.
+   { x: datos ya juntos, i: índice en contrapartes (-1 si solo está en el Excel),
+     j: índice en provExcel (o -1), delExcel: campos que puso el Excel } */
+const CAMPOS_DATOS_CP = ['identificacion','representante','email','direccion'];
+function contrapartesVista(){
+  const out = [], vistos = new Set();
+  contrapartes.forEach((c, i) => {
+    const k = normalizar(c.nombre || '');
+    const e = provEstado === 'ok' && k ? provPorClave.get(k) : null;
+    const x = { ...c }, delExcel = [];
+    if(e) CAMPOS_DATOS_CP.forEach(cmp => { if(!String(x[cmp] || '').trim() && e[cmp]){ x[cmp] = e[cmp]; delExcel.push(cmp); } });
+    if(k) vistos.add(k);
+    out.push({ x, i, j: e ? provExcel.indexOf(e) : -1, delExcel });
+  });
+  if(provEstado === 'ok') provExcel.forEach((e, j) => {
+    const k = normalizar(e.nombre);
+    if(!k || vistos.has(k)) return;
+    vistos.add(k);
+    out.push({ x: { nombre: e.nombre, identificacion: e.identificacion || '', representante: e.representante || '', email: e.email || '', direccion: e.direccion || '' }, i: -1, j, delExcel: [] });
+  });
+  return out;
+}
 function renderContrapartes(c){
   const q = busqCp.trim();
-  const indexados = contrapartes.map((x,i) => ({ x, i }));
-  const vis = q ? indexados.filter(({x}) => coincideBusqueda([x.nombre, x.identificacion, x.representante, x.email, x.direccion], q)) : indexados;
-  const filas = vis.map(({x,i}) => `
+  const vista = contrapartesVista();
+  const vis = q ? vista.filter(({x}) => coincideBusqueda([x.nombre, x.identificacion, x.representante, x.email, x.direccion], q)) : vista;
+  const deExcel = (r, cmp) => r.delExcel.includes(cmp) ? ' <span class="tag-excel" title="Viene del Excel maestro">Excel</span>' : '';
+  const filas = vis.slice(0, 400).map(r => { const x = r.x; return `
     <tr>
-      <td><b>${esc(x.nombre||'')}</b>${x.representante?`<br><span style="font-size:11.5px;color:var(--gris)">Rep.: ${esc(x.representante)}</span>`:''}</td>
-      <td>${esc(x.identificacion||'')}${avisoIdentificacion(x.identificacion)?'<br><span class="warn-txt" style="font-size:10.5px">'+esc(avisoIdentificacion(x.identificacion))+'</span>':''}</td>
-      <td>${esc(x.email||'')}</td>
+      <td><b>${esc(x.nombre||'')}</b>${r.i < 0 ? ' <span class="tag-excel" title="Está en el Excel maestro; no lo has guardado aquí">Excel maestro</span>' : ''}${x.representante?`<br><span style="font-size:11.5px;color:var(--gris)">Rep.: ${esc(x.representante)}${deExcel(r,'representante')}</span>`:''}</td>
+      <td>${esc(x.identificacion||'')}${x.identificacion ? deExcel(r,'identificacion') : ''}${avisoIdentificacion(x.identificacion)?'<br><span class="warn-txt" style="font-size:10.5px">'+esc(avisoIdentificacion(x.identificacion))+'</span>':''}</td>
+      <td>${esc(x.email||'')}${x.email ? deExcel(r,'email') : ''}</td>
       <td style="font-size:12px;color:var(--gris)">${esc(x.direccion||'')}</td>
       <td style="white-space:nowrap">
-        <button class="btn sec mini" onclick="usarContraparte(${i})">Usar</button>
-        <button class="btn sec mini" onclick="editarContraparte(${i})">Editar</button>
-        <button class="btn peligro mini" onclick="eliminarContraparte(${i})">✕</button>
+        <button class="btn sec mini" onclick="${r.i >= 0 ? `usarContraparte(${r.i})` : `usarProveedorExcel(${r.j})`}">Usar</button>
+        <button class="btn sec mini" onclick="editarContraparte(${r.i}${r.i < 0 ? ', ' + r.j : ''})" title="${r.i < 0 ? 'Guarda una copia aquí con tus cambios: lo tuyo manda sobre el Excel' : 'Editar'}">Editar</button>
+        ${r.i >= 0 ? `<button class="btn peligro mini" onclick="eliminarContraparte(${r.i})">✕</button>` : '<span class="btn-hueco" title="Viene del Excel maestro: para quitarlo, quítalo del Excel"></span>'}
       </td>
-    </tr>`).join('');
+    </tr>`; }).join('');
   c.innerHTML = `
     <div class="hist-acciones">
       <button class="btn" onclick="editarContraparte(-1)">+ Nueva contraparte</button>
       <button class="btn sec" onclick="importarProveedoresRegistro()" ${registroEstado!=='ok'?'disabled title="El registro no está cargado: desbloquéalo con el botón «Registro» de la cabecera"':'title="Trae los nombres de los proveedores del registro de contratos"'}>Importar proveedores del registro</button>
       <button class="btn sec" onclick="abrirContrapartesExcel()" title="Completa cédula o RUC, representante, correo y dirección desde el Excel. Se lee en esta computadora: no se sube ni se publica.">📊 Traer datos del Excel maestro</button>
     </div>
-    ${contrapartes.length && contrapartes.some(x => !x.identificacion) ? `<div class="nota" style="margin:-4px 0 10px">${contrapartes.filter(x => !x.identificacion).length} de ${contrapartes.length} contrapartes no tienen cédula ni RUC. El registro publicado solo trae el nombre; el resto se completa de una vez con «Traer datos del Excel maestro».</div>` : ''}
-    ${contrapartes.length ? `
+    ${htmlEstadoProveedores()}
+    ${provEstado !== 'ok' && contrapartes.length && contrapartes.some(x => !x.identificacion) ? `<div class="nota" style="margin:-4px 0 10px">${contrapartes.filter(x => !x.identificacion).length} de ${contrapartes.length} contrapartes no tienen cédula ni RUC. El registro de contratos solo trae el nombre; el resto se completa de una vez con «Traer datos del Excel maestro».</div>` : ''}
+    ${vista.length ? `
       <div class="campo" style="margin:4px 0 12px">
         <input type="search" id="busq-cp" value="${esc(busqCp)}" placeholder="Buscar por nombre, RUC/cédula, representante o correo…" oninput="busqCp=this.value;renderContenido()">
       </div>
       ${vis.length ? `<div class="tabla-scroll"><table><thead><tr><th>Nombre</th><th>Cédula / RUC</th><th>Correo</th><th>Dirección</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
-        <div class="nota" style="margin-top:8px">${vis.length} de ${contrapartes.length} contrapartes${q?` que coinciden con «${esc(busqCp)}»`:''}.</div>`
+        <div class="nota" style="margin-top:8px">${vis.length > 400 ? `Se muestran 400 de ${vis.length}: busca para encontrar el resto. ` : ''}${vis.length} de ${vista.length} contrapartes${q?` que coinciden con «${esc(busqCp)}»`:''}.</div>`
         : `<div class="vacio">Ninguna contraparte coincide con «${esc(busqCp)}».</div>`}`
       : '<div class="vacio">Guarda aquí a tus proveedores e instituciones frecuentes.<br>Sus datos (nombre, RUC, representante…) se insertarán en los documentos con un clic,<br>sin volver a escribirlos nunca.</div>'}`;
 }
-function editarContraparte(i){
-  const x = i >= 0 ? contrapartes[i] : { nombre:'', identificacion:'', representante:'', email:'', direccion:'' };
+function editarContraparte(i, j){
+  const e = i < 0 && j != null ? provExcel[j] : null;
+  const x = i >= 0 ? contrapartes[i] : e ? { nombre: e.nombre || '', identificacion: e.identificacion || '', representante: e.representante || '', email: e.email || '', direccion: e.direccion || '' }
+    : { nombre:'', identificacion:'', representante:'', email:'', direccion:'' };
   abrirModal(`
-    <div class="m-cab"><h3>${i>=0?'Editar':'Nueva'} contraparte</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cab"><h3>${i>=0?'Editar':e?'Editar proveedor del Excel maestro':'Nueva'} contraparte</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
+      ${e ? '<p class="nota" style="margin:0 0 10px">Se guarda una copia aquí, y lo que cambies manda sobre el Excel maestro. El Excel no se toca.</p>' : ''}
       <div class="campo"><label>Nombre / Razón social</label><input id="cp-nombre" value="${esc(x.nombre)}"></div>
       <div class="campo"><label>Cédula / RUC</label><input id="cp-id" value="${esc(x.identificacion)}" oninput="document.getElementById('cp-warn').textContent = avisoIdentificacion(this.value)"><div class="warn-txt" id="cp-warn">${avisoIdentificacion(x.identificacion)}</div></div>
       <div class="campo"><label>Representante legal (si aplica)</label><input id="cp-rep" value="${esc(x.representante)}"></div>
@@ -16695,7 +16827,17 @@ function aplicarContrapartesExcel(){
    tildes ni puntuación). Nada por parecido. */
 function contraparteDe(nombre){
   const k = normalizar(nombre || '');
-  return k ? (contrapartes.find(x => normalizar(x.nombre || '') === k) || null) : null;
+  if(!k) return null;
+  const r = contrapartesVista().find(v => normalizar(v.x.nombre || '') === k);
+  return r ? r.x : null;
+}
+function usarProveedorExcel(j){
+  const e = provExcel[j]; if(!e) return;
+  if(!plActual()){ avisar('Primero elige una plantilla en la lista de la izquierda.'); return; }
+  aplicarContraparte(e);
+  tabActual = 'generar';
+  pedirResetScroll();
+  renderTabs(); renderContenido();
 }
 /* Al tomar un contrato del registro, los datos del proveedor vienen con él: los
    de su contraparte guardada. Y si el proveedor cambió y no tiene contraparte, se
@@ -16726,19 +16868,32 @@ function usarContraparte(i){
   pedirResetScroll();   // cambias de pestaña al formulario: empieza arriba
   renderTabs(); renderContenido();
 }
+let pickerCp = [];   // la vista con la que se abrió el selector, para elegir por índice
 function abrirPickerContraparte(){
-  if(!contrapartes.length){
+  if(provEstado === 'protegido' && !contrapartes.length){ desbloquearProveedores().then(ok => { if(ok) abrirPickerContraparte(); }); return; }
+  pickerCp = contrapartesVista();
+  if(!pickerCp.length){
     if(confirm('Aún no tienes contrapartes guardadas.\n\n¿Quieres crear la primera ahora?')) { editarContraparte(-1); }
     return;
   }
   abrirModal(`
     <div class="m-cab"><h3>Usar contraparte guardada</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
-      <div class="reg-lista">${contrapartes.map((x,i) => `
-        <div class="reg-fila" onclick="aplicarContraparte(contrapartes[${i}]);cerrarModal();renderContenido()">
-          <div class="d"><div class="l1">${esc(x.nombre)}</div><div class="l2">${esc(x.identificacion||'sin cédula/RUC')}${x.representante?' · Rep.: '+esc(x.representante):''}</div></div>
-        </div>`).join('')}</div>
+      ${provEstado === 'protegido' ? `<div class="prov-estado pend" style="margin-bottom:8px">🔒 Faltan los proveedores del Excel maestro. <button class="btn sec mini" onclick="desbloquearProveedores().then(ok => { if(ok) abrirPickerContraparte(); })">Abrir</button></div>` : ''}
+      <div class="reg-filtros"><input type="search" id="pc-busq" placeholder="Buscar por nombre, cédula o RUC…" oninput="renderPickerContraparte()"></div>
+      <div class="reg-lista" id="pc-lista"></div>
     </div>`);
+  renderPickerContraparte();
+  const b = document.getElementById('pc-busq'); if(b) b.focus();
+}
+function renderPickerContraparte(){
+  const lista = document.getElementById('pc-lista'); if(!lista) return;
+  const q = (document.getElementById('pc-busq') || {}).value || '';
+  const filas = pickerCp.map((r, k) => ({ r, k })).filter(({ r }) => !q.trim() || coincideBusqueda([r.x.nombre, r.x.identificacion, r.x.representante], q));
+  lista.innerHTML = filas.length ? filas.slice(0, 120).map(({ r, k }) => `
+    <div class="reg-fila" onclick="aplicarContraparte(pickerCp[${k}].x);cerrarModal();renderContenido()">
+      <div class="d"><div class="l1">${esc(r.x.nombre)}${r.i < 0 ? ' <span class="tag-excel">Excel maestro</span>' : ''}</div><div class="l2">${esc(r.x.identificacion||'sin cédula/RUC')}${r.x.representante?' · Rep.: '+esc(r.x.representante):''}</div></div>
+    </div>`).join('') : '<div style="padding:14px;color:var(--gris);font-size:13px">Ninguna contraparte coincide.</div>';
 }
 
 /* ============ Tomar datos de otro documento ============
@@ -21586,6 +21741,7 @@ document.addEventListener('selectionchange', () => {
   renderLista();
   renderContenido();
   cargarRegistro();
+  cargarProveedores();
   pedirAlmacenamientoPersistente();
   // Tras el guardado diferido, que es el que libera localStorage: si no, se
   // mediría el espacio de antes de la limpieza y el aviso saldría con un

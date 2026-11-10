@@ -732,6 +732,94 @@ function validarConPython(b64, nombre){
     ok(!a.errores.length, 'sin errores de JavaScript', a.errores.join(' | '));
   }
 
+  {
+    seccion('22. Proveedores del Excel maestro: con su propia frase, y solo aquí');
+    // Lo que publica el robot (instrumentos/proveedores_export.json), cifrado como él:
+    // AES-256-GCM con la clave derivada por PBKDF2-SHA256 de la frase de proveedores.
+    const wc = require('crypto').webcrypto;
+    const FRASE = 'frase-de-proveedores', FRASE_AC = 'frase-del-registro';
+    const lista = [
+      { nombre: 'Ferretería El Roble Cía. Ltda.', identificacion: '1790012345001', representante: 'Rosa Prueba', email: 'roble@ejemplo.ec', direccion: 'Av. 1' },
+      { nombre: 'Taller Solo En Excel S.A.', identificacion: '0190012345001' }];
+    const salt = wc.getRandomValues(new Uint8Array(16)), iv = wc.getRandomValues(new Uint8Array(12));
+    const base = await wc.subtle.importKey('raw', new TextEncoder().encode(FRASE), 'PBKDF2', false, ['deriveKey']);
+    const key = await wc.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 1000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    const ct = new Uint8Array(await wc.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(lista))));
+    const b64 = u => Buffer.from(u).toString('base64');
+    const SOBRE = { fap_enc: 1, kdf: 'PBKDF2-SHA256', iter: 1000, salt: b64(salt), iv: b64(iv), ct: b64(ct), generado: new Date().toISOString() };
+
+    const pedidas = [];
+    const { JSDOM, VirtualConsole } = require('jsdom');
+    const errs = []; const vc = new VirtualConsole(); vc.on('jsdomError', e => errs.push(e.message));
+    const dom = new JSDOM(HTML, { url: 'http://localhost/instrumentos/index.html', runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole: vc,
+      beforeParse(w){
+        w.fetch = (url) => { pedidas.push(String(url));
+          return /proveedores_export\.json$/.test(url) ? Promise.resolve({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(SOBRE)) }) : Promise.reject(new Error('sin red')); };
+        w.alert = () => {}; w.confirm = () => true;
+        if(!w.crypto.subtle) Object.defineProperty(w, 'crypto', { value: wc, configurable: true });
+        w.addEventListener('error', e => errs.push(e.message));
+      } });
+    const w = dom.window, E = s => w.eval(s);
+    for(let i = 0; i < 50 && !E('plantillas.length'); i++) await espera(100);
+    for(let i = 0; i < 50 && E('provEstado') === 'cargando'; i++) await espera(100);
+    ok(pedidas.some(u => /^\.\/proveedores_export\.json$|instrumentos\/proveedores_export\.json$/.test(u)), 'al arrancar pide los proveedores publicados', pedidas.join(' | '));
+    ok(E('provEstado') === 'protegido' && E('provExcel.length') === 0, 'sin frase quedan cerrados: no hay nada descifrado', E('provEstado'));
+    w.eval(`contrapartes = [{ nombre:'FERRETERIA EL ROBLE CIA LTDA', identificacion:'', representante:'', email:'yo@ejemplo.ec', direccion:'' }]; tabActual = 'contrapartes'`);
+    w.renderTabs(); w.renderContenido();
+    ok(/desbloquearProveedores/.test(w.document.getElementById('contenido').innerHTML), 'la pestaña Contrapartes ofrece abrirlos');
+
+    // La frase del registro no sirve; la de proveedores, sí
+    const responder = frase => { setTimeout(() => { const i = w.document.querySelector('#modal input[type="password"], #modal input'); i.value = frase; i.dispatchEvent(new w.Event('input', { bubbles: true }));
+      const b = Array.from(w.document.querySelectorAll('#modal .m-pie .btn')).pop(); b.click(); }, 30); };
+    const prom = w.desbloquearProveedores();
+    responder(FRASE_AC);
+    await espera(400);
+    ok(E('provEstado') === 'protegido' && /Frase incorrecta/.test(w.document.getElementById('modal').textContent), 'la frase del registro, la de las ACs, no los abre');
+    responder(FRASE);
+    const abrio = await prom;
+    ok(abrio && E('provEstado') === 'ok' && E('provExcel.length') === 2, 'con la frase de proveedores se abren', E('provEstado'));
+    ok(E(`localStorage.getItem('fap_gen_clave_proveedores')`) === FRASE && E(`localStorage.getItem('fap_data_key')`) !== FRASE,
+      'la frase queda guardada aparte de la del registro');
+    ok(!Object.keys(w.localStorage).some(k => /1790012345001/.test(w.localStorage.getItem(k) || '')), 'y nada descifrado se guarda en el navegador');
+
+    const vista = E('contrapartesVista()');
+    ok(vista.length === 2 && vista[0].x.identificacion === '1790012345001' && vista[0].x.email === 'yo@ejemplo.ec' && vista[0].delExcel.join() === 'identificacion,representante,direccion',
+      'la contraparte guardada se completa con el Excel, pero lo que ya tenía escrito manda', JSON.stringify(vista[0]));
+    ok(vista[1].i === -1 && vista[1].x.nombre === 'Taller Solo En Excel S.A.', 'y el proveedor que solo está en el Excel aparece igual', JSON.stringify(vista[1]));
+    w.renderContenido();
+    const txt = w.document.getElementById('contenido').textContent;
+    ok(/2 proveedores del Excel maestro/.test(txt) && /Excel maestro/.test(txt) && /las ACs no los ven/.test(txt), 'la pestaña dice cuántos hay y de dónde viene cada uno');
+    ok(E('contrapartes.length') === 1, 'abrirlos no copia nada a las contrapartes guardadas');
+
+    // Editar uno del Excel guarda una copia que manda
+    w.editarContraparte(-1, 1);
+    ok(w.document.getElementById('cp-id').value === '0190012345001', 'editar uno del Excel abre sus datos');
+    w.document.getElementById('cp-email').value = 'nuevo@ejemplo.ec';
+    w.guardarContraparte(-1);
+    ok(E('contrapartes.length') === 2 && E('contrapartesVista().length') === 2 && E(`contraparteDe('Taller Solo En Excel S.A.').email`) === 'nuevo@ejemplo.ec',
+      'y lo guarda como contraparte propia, sin duplicarlo en la lista');
+
+    // Tomar un contrato del registro trae el RUC del Excel
+    w.eval(`registro = [{ nro:'FIAS-FAP-2026-001', proveedor:'Ferretería El Roble Cía. Ltda.', detalle:'Mantenimiento', area:'Reserva', monto:1150, firma:'2026-03-02' }]; registroEstado = 'ok'`);
+    const acta = E('plantillas').find(p => p.seedKey === 'acta_terminacion');
+    w.seleccionar(acta.id); w.limpiarForm(); w.elegirDelRegistro(0);
+    ok(E('datosForm.proveedorRuc') === '1790012345001', '«Tomar datos del registro» trae el RUC del Excel maestro', E('datosForm.proveedorRuc'));
+    w.abrirPickerContraparte();
+    ok(w.document.querySelectorAll('#pc-lista .reg-fila').length === 2, '«Usar contraparte guardada» también los lista');
+
+    // Sin archivo publicado (falta el secreto) no es un error
+    const a2 = abrir(); const w2 = a2.w;
+    w2.fetch = (url) => Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+    for(let i = 0; i < 50 && !w2.eval('plantillas.length'); i++) await espera(100);
+    await w2.cargarProveedores();
+    w2.eval(`tabActual = 'contrapartes'`); w2.renderTabs(); w2.renderContenido();
+    ok(w2.eval('provEstado') === 'sin' && !/prov-estado/.test(w2.document.getElementById('contenido').innerHTML) && /abrirContrapartesExcel/.test(w2.document.getElementById('contenido').innerHTML),
+      'sin archivo publicado no hay aviso de error, y queda «Traer datos del Excel maestro»', w2.eval('provEstado'));
+    const sw = fs.readFileSync(path.join(RAIZ, 'instrumentos', 'sw.js'), 'utf8');
+    ok(/proveedores\)?_export|\(contratos\|proveedores\)_export/.test(sw), 'el service worker no guarda el archivo de proveedores en su caché');
+    ok(!errs.length, 'sin errores de JavaScript', errs.join(' | '));
+  }
+
   ok(!errores.length, 'ningún error de JavaScript en todo el recorrido', errores.join(' | '));
   console.log(`\n${pruebas - fallos}/${pruebas} comprobaciones bien.`);
   process.exit(fallos ? 1 : 0);

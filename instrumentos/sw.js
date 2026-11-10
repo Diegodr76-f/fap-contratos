@@ -15,7 +15,9 @@
    se queda dentro no se vuelve a pedir nunca. Y addAll es atómico — si un solo
    recurso da 404, no se guarda ninguno y la app deja de funcionar sin conexión:
    por eso aquí no puede figurar nada que no exista en el repositorio. */
-const CACHE = "instrumentos-v3";
+/* La v4 borra cualquier copia de proveedores_export.json que la v3, con su "caché
+   primero", alcanzara a guardar antes de instalarse esta. */
+const CACHE = "instrumentos-v4";
 const SHELL = [
   "./",
   "./index.html",
@@ -41,7 +43,9 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  if (/\/contratos_export\.json$/.test(url.pathname)) return;
+  // Los datos que el robot reescribe cada mañana pasan siempre de largo. Los de
+  // proveedores, además, son privados: ni cifrados se dejan en la caché.
+  if (/\/(contratos|proveedores)_export\.json$/.test(url.pathname)) return;
 
   const esPagina = req.mode === "navigate" || req.destination === "document";
   if (esPagina) {

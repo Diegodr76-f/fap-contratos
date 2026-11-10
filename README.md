@@ -160,7 +160,9 @@ propio enlace (`#/proveedor/servitec`), y el buscador de arriba también encuent
     «Reintentar» y el CLM la reintenta solo cada vez que se abre.
   - Si la hoja no existe, todo funciona como antes. Si el Registro no se pudo leer (sin señal),
     las alertas de calificar se pausan en vez de pedir lo que quizá ya se hizo, y el pool lo dice.
-  - La hoja «Proveedores» del Excel **no** se lee: lleva el RUC, que es información privada.
+  - La hoja «Proveedores» del Excel no llega al CLM: lleva el RUC, que es información privada.
+    Solo la lee el Generador de Instrumentos, y solo si existe su propia frase (abajo, en
+    «Seguridad de los datos»).
 
 ### Del CLM a La Mágica sin volver a teclear
 
@@ -788,6 +790,17 @@ solo ve un bloque cifrado ilegible.
 > **Historial:** revisado el 2 de septiembre de 2026 commit por commit — ningún commit del
 > repositorio contiene datos de contratos en claro, ni en `contratos_export.json` ni en las copias
 > embebidas. La advertencia anterior sobre versiones en claro en el historial estaba desactualizada.
+>
+> **Los proveedores van con otra frase.** La cédula o el RUC, el representante, el correo y la
+> dirección de cada proveedor (hoja «Proveedores» del Excel y, si la hay, la columna RUC de la hoja
+> «2026») solo los usa el Generador de Instrumentos. El robot los publica en
+> `instrumentos/proveedores_export.json` **solo si existe el secreto `PROVEEDORES_KEY`**, cifrados con
+> esa frase, que tiene que ser **distinta** de `DATA_KEY`: la del registro la tienen todas las ACs y no
+> abre este archivo (si son iguales, el robot no lo publica). El Generador la pide una vez y la
+> guarda en ese navegador; nada descifrado se guarda. Sin el secreto todo queda como antes y las
+> contrapartes se completan a mano desde el Excel («Traer datos del Excel maestro», que lo lee en el
+> navegador sin subir nada). Ojo: el archivo cifrado queda en el historial de git, así que si la
+> frase se filtra, cambiarla no protege las versiones anteriores.
 >
 > **El punto débil real** es otro: el bloque cifrado es público, así que se puede atacar por fuerza
 > bruta sin conexión y sin que nadie se entere. Los 250 000 ciclos de PBKDF2 encarecen cada intento,

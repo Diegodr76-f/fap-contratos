@@ -387,9 +387,12 @@ sostienen hoy (sección 22 de `probar_clm.js`):
   corrige un error: la Unidad borra la fila de la tabla). Con el Registro ilegible no se toca
   nada. La entrada no tiene contraseña por persona: por eso el flujo le escribe a la AC.
   Guía de la tabla y el flujo: `plan/FLUJO_CALIFICACIONES.md` (sección 24 de las pruebas).
-- **El RUC no se publica ni se usa.** La hoja «Proveedores» del Excel lo trae y es
-  información privada (el de una persona natural es su cédula), así que el robot no la lee;
-  tampoco se valida ningún RUC: no se puede verificar desde aquí.
+- **El RUC no llega al CLM.** La hoja «Proveedores» del Excel lo trae y es información
+  privada (el de una persona natural es su cédula). El único que lo lee es el Generador de
+  Instrumentos, que usa una sola persona, con una frase que las ACs no tienen (ver «Las
+  contrapartes» más abajo). Nada en el CLM, el CRM, La Mágica ni las renovaciones pide
+  `proveedores_export.json`, y `probar_robot.py` lo vigila. Tampoco se valida ningún RUC: no
+  se puede verificar desde aquí.
 - **Solo se pide calificar desde `CALIFICA_DESDE` (2026-01-01)**, una fecha fija y no
   «el año en curso». `pideCalificacion()` decide; la AC recibe una alerta por contrato
   suyo y la Unidad Operativa **una agregada**, como la de carpetas.
@@ -566,9 +569,22 @@ historial guarda `conc`, y para los documentos de antes se lee de lo que quedó 
 historial exportado de la otra persona, solo para tomar datos, sin mezclarlo con el propio.
 Los datos **no** viajan escondidos dentro del Word: ese archivo lo recibe el proveedor.
 
-**Las contrapartes se completan desde el Excel, leído en el navegador.** El registro
-publicado solo trae el nombre del proveedor, y la regla de no publicar el RUC no cambia.
-«Traer datos del Excel maestro» lee el `.xlsx` ahí mismo (`leerXlsx()`, con el PizZip que ya
+**Las contrapartes: los proveedores del Excel, solo aquí y con su propia frase.** Con el
+secreto `PROVEEDORES_KEY`, el robot publica cédula o RUC, representante, correo y dirección
+(hoja «Proveedores» y, si la hay, la columna RUC de «2026»; columnas por su rótulo, todas
+opcionales menos el nombre) en `instrumentos/proveedores_export.json`, cifrado con **esa**
+frase. Reglas: sin el secreto no se lee la hoja; si es igual a `DATA_KEY` no se publica (la del
+registro la tienen las 20 ACs); `contratos_export.json` no cambia ni un byte; el registro del
+robot dice cuántos, nunca cuáles; ninguna otra herramienta pide el archivo, y el service worker
+no lo guarda. En el Generador, `cargarProveedores()` lo baja al arrancar y
+`desbloquearProveedores()` pide la frase una vez (`localStorage['fap_gen_clave_proveedores']`,
+aparte de `fap_data_key`); lo descifrado vive solo en memoria. **No se copia a las
+contrapartes**: `contrapartesVista()` junta las guardadas con las del Excel por nombre, y **lo
+guardado manda** —el Excel solo llena lo vacío—; editar uno del Excel guarda una copia propia.
+`contraparteDe()` y el selector leen de la vista, así que «Tomar datos del registro» trae el RUC
+solo. Sección 3 de `probar_robot.py` y 22 de `probar_instrumentos.js`.
+
+Sin el secreto queda el camino a mano: «Traer datos del Excel maestro» lee el `.xlsx` ahí mismo (`leerXlsx()`, con el PizZip que ya
 está; o las filas pegadas): no se sube nada. Como con el robot, **no se confía en
 posiciones**: la hoja, la fila de encabezados y las columnas se proponen por su rótulo
 (`proponerHojaCp()`, `adivinarColumnasCp()`) y se corrigen antes de traer; un «Correo
@@ -579,7 +595,7 @@ del registro» trae de una vez los datos de la contraparte guardada de ese prove
 (`aplicarContraparteDeRegistro()`); si el proveedor cambió y no tiene ficha, borra los del
 anterior: un RUC ajeno junto a otro nombre es peor que el hueco.
 
-Secciones 19, 20 y 21 de `probar_instrumentos.js`.
+Secciones 19, 20, 21 y 22 de `probar_instrumentos.js`.
 
 ## Datos de contratos
 
