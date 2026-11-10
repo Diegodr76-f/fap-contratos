@@ -1999,6 +1999,14 @@
       "tipo": "texto"
     },
     {
+      "id": "pmi81fjmdpwomh",
+      "grupo": "Proceso",
+      "nombre": "condicionesEspecificas",
+      "descripcion": "Información técnica, cronograma de actividades u otras condiciones específicas del requerimiento (opcional). Texto largo: cada línea es un párrafo. Si está vacío, el párrafo no se imprime.",
+      "ejemplo": "El servicio incluye el mantenimiento preventivo de los dos vehículos del área, cada tres meses.",
+      "tipo": "texto"
+    },
+    {
       "id": "pmrkw7von5xxl2",
       "grupo": "Proceso",
       "nombre": "oficionotificacion",

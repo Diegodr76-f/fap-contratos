@@ -295,6 +295,21 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   (`itemFalta()`, `primerItemIncompleto()`), y en el documento la cantidad sale con
   `fmtCantidad()` («1.500», «2,5»). Las columnas están en `.fila-item`, no en línea, para que
   en el teléfono la media query las vuelva tarjeta.
+- **Texto largo: cada línea, un párrafo** (`CAMPOS_LARGOS`, en `fillDoc()`). Solo `formaPago` y
+  `condicionesEspecificas`: `fillDoc()` cambia sus saltos de línea por una marca
+  (`datosConParrafos()`) y, ya rellenado el Word, `partirParrafosXml()` parte el párrafo donde cayó
+  —con el formato del párrafo y, en una lista, con la sangría del texto del punto y sin repetir la
+  viñeta—. No se usa el salto de línea de docxtemplater: en un párrafo justificado Word estira la
+  última línea de cada tramo. **`{objeto}` no es largo a propósito**: va entre comillas dentro de una
+  frase en una veintena de sitios, y partirlo cortaría la frase. `partirParrafosXml()` es la misma,
+  letra por letra, que la del Generador de Instrumentos (sección 32 de `probar_generador.js`).
+- **`{condicionesEspecificas}` es la nota que salía impresa.** Las invitaciones (3 y 4) y la
+  solicitud de cotización de la renovación (20) traían escrito «(Detallar información técnica,
+  cronograma de actividades u otras condiciones específicas si aplica.)», y salía tal cual si la AC
+  no lo cambiaba en Word. Hoy es un campo opcional junto al detalle del requerimiento, en una
+  condición de tres párrafos (`{#condicionesEspecificas}` · `{condicionesEspecificas}` ·
+  `{/…}`): vacío, el párrafo no sale. Los comentarios de Word que estaban en ese párrafo pasaron al
+  siguiente, para que el comentario siga siendo válido cuando el párrafo desaparece.
 - **El detalle tiene que cuadrar con el monto** (`cuadreMonto()`): la orden imprime el monto en
   letras y el total de la tabla, y si no cuadran el papel firmado se contradice. Por eso es un
   requisito del momento de los precios y frena los documentos que imprimen la tabla.
@@ -549,9 +564,10 @@ exportar. Lo que salió, y la regla que queda:
 Word de verdad** (`partirParrafosXml()`), con el `<w:pPr>` del párrafo de la plantilla y el
 `<w:rPr>` de la corrida de la etiqueta. No se usa el salto de línea de docxtemplater: en un
 texto justificado Word estira la última línea de cada tramo. El párrafo que sigue no repite
-el número de lista ni los ids del original; dentro de un hipervínculo, un control o un
-campo —y en un párrafo que cierra sección— se queda como salto de línea, que es lo único
-seguro. En las plantillas HTML lo mismo lo hace `partirParrafosHtml()`. Un campo corto se
+la viñeta ni los ids del original —en una lista toma la sangría del texto del punto, de
+`numbering.xml`—; dentro de un hipervínculo, un control o un campo —y en un párrafo que cierra
+sección— se queda como salto de línea, que es lo único seguro. Es **la misma función** que usa
+La Mágica, letra por letra (lo comprueba `probar_generador.js`). En las plantillas HTML lo mismo lo hace `partirParrafosHtml()`. Un campo corto se
 vuelve largo con el botón ¶ o solo, al pegarle varios párrafos (`pegarEnCampo()`); el tipo
 vive en el repositorio de variables, así que vale para todas las plantillas. `parrafo` es un
 tipo **de esta herramienta**: `generador/variables_fap.json` no lo usa, y un archivo de

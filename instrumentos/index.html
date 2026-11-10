@@ -15553,40 +15553,88 @@ function ajustarAlturaLargo(el){
   el.style.height = 'auto';
   el.style.height = Math.min(Math.max(el.scrollHeight + 2, 64), 420) + 'px';
 }
-/* Parte en párrafos de verdad cada párrafo de Word que traiga la marca. El
-   párrafo nuevo repite el formato del original (su <w:pPr>) y la letra de la
-   corrida donde estaba la etiqueta (su <w:rPr>). Lo que no se puede partir con
-   seguridad —la etiqueta dentro de un hipervínculo, de un control o de un campo,
-   o un párrafo que cierra una sección— se queda con salto de línea. */
-function partirParrafosXml(xml){
-  let desde = 0;
-  const abiertos = (t, nombre) => (t.match(new RegExp('<' + nombre + '[ >]', 'g')) || []).length - (t.match(new RegExp('</' + nombre + '>', 'g')) || []).length;
+/* Texto largo: cada línea, un párrafo de Word de verdad. Quien arma los datos
+   pone la marca U+E000 en vez de cada salto de línea, y aquí se parte el párrafo
+   donde cayó. El nuevo repite el formato del original (su <w:pPr>) y la letra de
+   la etiqueta (su <w:rPr>), sin los ids de Word ni el salto de página. En una
+   lista no repite la viñeta: toma la sangría del texto del punto y queda alineado
+   debajo (numXml es word/numbering.xml, de donde sale esa sangría). Lo que no se
+   puede partir con seguridad —dentro de un hipervínculo, un control, un campo o
+   una revisión, o en un párrafo que cierra sección— queda como salto de línea.
+   No se usa el salto de línea de docxtemplater para todo: en un párrafo
+   justificado, Word estira la última línea de cada tramo de margen a margen.
+   ES LA MISMA FUNCIÓN en generador/index.html e instrumentos/index.html, letra
+   por letra: si cambias una, cambia la otra (probar_generador.js lo comprueba). */
+function partirParrafosXml(xml, numXml){
+  var MARCA = '\uE000', desde = 0;
+  function cuenta(t, re){ return (t.match(re) || []).length; }
+  function abiertos(t, n){ return cuenta(t, new RegExp('<' + n + '[ >]', 'g')) - cuenta(t, new RegExp('</' + n + '>', 'g')); }
+  // Un elemento que puede traer otro igual dentro (<w:pPrChange><w:pPr>…): hasta su cierre de verdad.
+  function hastaCierre(t, n){
+    if(t.indexOf('<' + n + '/>') === 0) return '<' + n + '/>';
+    if(t.indexOf('<' + n + '>') !== 0) return '';
+    var re = new RegExp('<' + n + '>|</' + n + '>', 'g'), nivel = 0, m;
+    while((m = re.exec(t))){ nivel += m[0].charAt(1) === '/' ? -1 : 1; if(!nivel) return t.slice(0, m.index + m[0].length); }
+    return '';
+  }
+  function izquierda(t){ var m = /<w:ind\b[^>]*?\bw:(?:left|start)="(-?\d+)"/.exec(t || ''); return m ? m[1] : null; }
+  function sangriaLista(pPr){
+    var propia = izquierda(pPr);
+    if(propia !== null) return propia;
+    var mn = /<w:numId w:val="(\d+)"/.exec(pPr), ml = /<w:ilvl w:val="(\d+)"/.exec(pPr);
+    if(!mn || !numXml) return null;
+    var lvl = ml ? ml[1] : '0';
+    var num = new RegExp('<w:num w:numId="' + mn[1] + '"[^>]*>([\\s\\S]*?)</w:num>').exec(numXml);
+    if(!num) return null;
+    var sobre = new RegExp('<w:lvlOverride w:ilvl="' + lvl + '"[^>]*>([\\s\\S]*?)</w:lvlOverride>').exec(num[1]);
+    var enSobre = sobre && izquierda(sobre[1]);
+    if(enSobre) return enSobre;
+    var ab = /<w:abstractNumId w:val="(\d+)"/.exec(num[1]);
+    var abs = ab && new RegExp('<w:abstractNum\\b[^>]*w:abstractNumId="' + ab[1] + '"[^>]*>([\\s\\S]*?)</w:abstractNum>').exec(numXml);
+    var nivel = abs && new RegExp('<w:lvl w:ilvl="' + lvl + '"[^>]*>([\\s\\S]*?)</w:lvl>').exec(abs[1]);
+    return nivel ? izquierda(nivel[1]) : null;
+  }
+  // <w:ind> en su sitio dentro del <w:pPr>: el orden de los hijos lo fija el esquema.
+  function ponerInd(pPr, ind){
+    pPr = pPr.replace(/<w:ind\b[^>]*\/>/, '');
+    if(!pPr || pPr === '<w:pPr/>') return '<w:pPr>' + ind + '</w:pPr>';
+    var pos = -1;
+    ['w:contextualSpacing','w:mirrorIndents','w:suppressOverlap','w:jc','w:textDirection','w:textAlignment',
+     'w:textboxTightWrap','w:outlineLvl','w:divId','w:cnfStyle','w:rPr','w:sectPr','w:pPrChange'].forEach(function(n){
+      var m = new RegExp('<' + n + '[ />]').exec(pPr);
+      if(m && (pos < 0 || m.index < pos)) pos = m.index;
+    });
+    if(pos < 0) pos = pPr.lastIndexOf('</w:pPr>');
+    return pPr.slice(0, pos) + ind + pPr.slice(pos);
+  }
   for(;;){
-    const i = xml.indexOf(SALTO_PARRAFO, desde);
+    var i = xml.indexOf(MARCA, desde);
     if(i < 0) break;
-    const ini = Math.max(xml.lastIndexOf('<w:p>', i), xml.lastIndexOf('<w:p ', i));
-    const fin = xml.indexOf('</w:p>', i);
-    const enLinea = () => { xml = xml.slice(0, i) + '</w:t><w:br/><w:t xml:space="preserve">' + xml.slice(i + 1); desde = i; };
-    const quitar = () => { xml = xml.slice(0, i) + ' ' + xml.slice(i + 1); desde = i; };
-    if(ini < 0 || fin < 0){ quitar(); continue; }
-    const antes = xml.slice(ini, i);
-    const apertura = antes.match(/^<w:p(?: [^>]*)?>/)[0];
-    const mPPr = antes.slice(apertura.length).match(/^<w:pPr>[\s\S]*?<\/w:pPr>|^<w:pPr\/>/);
-    const pPr = mPPr ? mPPr[0] : '';
-    const rIni = Math.max(antes.lastIndexOf('<w:r>'), antes.lastIndexOf('<w:r '));
-    const corrida = rIni >= 0 ? antes.slice(rIni) : '';
-    const enTexto = Math.max(corrida.lastIndexOf('<w:t>'), corrida.lastIndexOf('<w:t ')) > corrida.lastIndexOf('</w:t>') && corrida.indexOf('</w:r>') < 0;
-    const previo = rIni >= 0 ? antes.slice(apertura.length + pPr.length, rIni) : '';
-    const anidado = ['w:hyperlink','w:sdt','w:ins','w:del','w:smartTag','w:fldSimple','w:customXml'].some(n => abiertos(previo, n) > 0)
-      || (previo.match(/w:fldCharType="begin"/g) || []).length > (previo.match(/w:fldCharType="end"/g) || []).length;
-    if(!enTexto){ quitar(); continue; }
-    // Un cuadro de texto anidado antes de la marca: ese <w:p> ya cerró, no es el suyo.
-    if(anidado || antes.indexOf('</w:p>') >= 0 || /<w:sectPr[ >]/.test(pPr)){ enLinea(); continue; }
-    const mRPr = corrida.replace(/^<w:r(?: [^>]*)?>/, '').match(/^<w:rPr>[\s\S]*?<\/w:rPr>|^<w:rPr\/>/);
-    // El párrafo que sigue no repite el número de lista ni el salto de página, y
-    // no lleva los ids del original (Word los quiere únicos).
-    const pPrSig = pPr.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, '').replace(/<w:pageBreakBefore(?: [^>]*)?\/>/, '');
-    const corte = '</w:t></w:r></w:p><w:p>' + pPrSig + '<w:r>' + (mRPr ? mRPr[0] : '') + '<w:t xml:space="preserve">';
+    var ini = Math.max(xml.lastIndexOf('<w:p>', i), xml.lastIndexOf('<w:p ', i));
+    var fin = xml.indexOf('</w:p>', i);
+    if(ini < 0 || fin < 0){ xml = xml.slice(0, i) + ' ' + xml.slice(i + 1); desde = i; continue; }
+    var antes = xml.slice(ini, i);
+    var apertura = antes.match(/^<w:p(?: [^>]*)?>/)[0];
+    var pPr = hastaCierre(antes.slice(apertura.length), 'w:pPr');
+    var rIni = Math.max(antes.lastIndexOf('<w:r>'), antes.lastIndexOf('<w:r '));
+    var corrida = rIni >= 0 ? antes.slice(rIni) : '';
+    var enTexto = Math.max(corrida.lastIndexOf('<w:t>'), corrida.lastIndexOf('<w:t ')) > corrida.lastIndexOf('</w:t>') && corrida.indexOf('</w:r>') < 0;
+    if(!enTexto){ xml = xml.slice(0, i) + ' ' + xml.slice(i + 1); desde = i; continue; }
+    var previo = antes.slice(apertura.length + pPr.length, rIni);
+    var anidado = ['w:hyperlink','w:sdt','w:ins','w:del','w:smartTag','w:fldSimple','w:customXml'].some(function(n){ return abiertos(previo, n) > 0; })
+      || cuenta(previo, /w:fldCharType="begin"/g) > cuenta(previo, /w:fldCharType="end"/g);
+    // Un cuadro de texto antes de la marca: el </w:p> que aparece es el suyo, no este párrafo.
+    if(anidado || antes.indexOf('</w:p>') >= 0 || /<w:sectPr[ >]/.test(pPr)){
+      xml = xml.slice(0, i) + '</w:t><w:br/><w:t xml:space="preserve">' + xml.slice(i + 1); desde = i; continue;
+    }
+    var rPr = hastaCierre(corrida.replace(/^<w:r(?: [^>]*)?>/, ''), 'w:rPr');
+    var pPrSig = pPr.replace(/<w:pageBreakBefore(?: [^>]*)?\/>/, '');
+    if(/<w:numPr>/.test(pPrSig)){
+      var izq = sangriaLista(pPrSig);
+      pPrSig = pPrSig.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, '');
+      if(izq !== null) pPrSig = ponerInd(pPrSig, '<w:ind w:left="' + izq + '" w:firstLine="0"/>');
+    }
+    var corte = '</w:t></w:r></w:p><w:p>' + pPrSig + '<w:r>' + rPr + '<w:t xml:space="preserve">';
     xml = xml.slice(0, i) + corte + xml.slice(i + 1);
     desde = i + '</w:t></w:r></w:p>'.length;
   }
@@ -19349,9 +19397,10 @@ function generarBlobDocx(p, datos){
   doc.render(datos);
   // Los textos largos: cada línea, un párrafo de Word (ver partirParrafosXml).
   const salida = doc.getZip();
+  const numXml = salida.file('word/numbering.xml') ? salida.file('word/numbering.xml').asText() : '';
   Object.keys(salida.files).filter(n => /^word\/[^/]+\.xml$/.test(n)).forEach(n => {
     const x = salida.files[n].asText();
-    if(x.indexOf(SALTO_PARRAFO) >= 0) salida.file(n, partirParrafosXml(x));
+    if(x.indexOf(SALTO_PARRAFO) >= 0) salida.file(n, partirParrafosXml(x, numXml));
   });
   return salida.generate({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
