@@ -17,6 +17,30 @@ con `docxtemplater`. Para cambiar el formato: edita el `.docx` en Word conservan
 `{tags}` y reemplaza el archivo en esta carpeta (GitHub) — igual que las plantillas de La
 Mágica. Un tag que agregues sin que la herramienta lo envíe queda en blanco (no rompe nada).
 
+## Género, sesión y «Cumple / No cumple» (igual que en La Mágica)
+
+Las dos actas llevan los mismos datos que la de La Mágica (`5_Acta_adjudicacion.docx`), con los
+mismos nombres del catálogo:
+
+- `{presencialVirtual}` — «¿Cómo sesionó la Comisión?» (panel 1). Es **cómo sesionó** la
+  Comisión; cómo asistió cada miembro sigue siendo el cuadro «Presencial / Virtual» de la tabla
+  de quórum, que se elige en el propio Word. Sin elegir, sale `____________` para completarlo.
+- `{elLaOrdenador}` — «el ordenador» / «la ordenadora», según el **género de quien preside**
+  (en La Mágica es el del responsable del área, que es quien preside). El texto de la plantilla
+  pone « de gasto» a continuación.
+- **No hay `{PresidenteA}` ni `{SecretarioA}`**: aquí el rol y el cargo de cada miembro se
+  escriben con barra («Presidente/a», «Delegado/a técnico/a») y la herramienta los resuelve con el
+  **género elegido para ese miembro** (`concordarGenero()`). Llegan ya resueltos en `{rol}`,
+  `{cargo}`, `{v1rol}`… Sin género no se adivina por el nombre: la barra se queda y **el Word no
+  se genera** hasta elegirlo (`faltanGeneros()`).
+- **«Cumple / No cumple» no es un cuadro aquí**: sale de la evaluación de cada oferta
+  (`{res}`, `{resultado}`, `{enPresupuesto}`). En La Mágica es un cuadro porque la AC lo juzga
+  a mano en Word; aquí ya está juzgado.
+- `{modalidad}` en la fila «Modalidad de selección» (antes decía siempre «Comparación de
+  precios», también en la consultoría).
+
+`node scripts/probar_calificador.js` lo comprueba rellenando las dos actas.
+
 ## Reglas de oro (bucles)
 
 1. **Repetir una fila de tabla**: `{#lista}` al inicio de la primera celda y `{/lista}` al

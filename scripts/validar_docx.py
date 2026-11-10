@@ -14,7 +14,7 @@ permisivos; Word no. Por eso esto valida contra el esquema oficial ISO/IEC
 29500-4:2016, que está en scripts/esquemas/ y sí las rechaza, señalando además
 el elemento exacto.
 
-    python3 scripts/validar_docx.py                      las plantillas del repo
+    python3 scripts/validar_docx.py                      todos los .docx del repo
     python3 scripts/validar_docx.py <carpeta|archivo>    lo que se le diga
 
 Sin lxml instalado hace solo las comprobaciones de estructura, que son de
@@ -140,16 +140,32 @@ def cargar_validador():
         return None, 'el esquema no cargó: %s' % e
 
 
+def _todos_los_docx():
+    """Todos los .docx del repositorio, salvo carpetas de dependencias y esquemas."""
+    saltar = {'.git', 'node_modules', 'esquemas'}
+    out = []
+    for carpeta, subdirs, ficheros in os.walk(RAIZ):
+        subdirs[:] = sorted(d for d in subdirs if d not in saltar)
+        out += [os.path.join(carpeta, f) for f in sorted(ficheros)
+                if f.endswith('.docx') and not f.startswith('~$')]
+    return out
+
+
 def validar(objetivo=None):
     """Valida una carpeta o un archivo. Devuelve 0 si todo abre, 1 si no."""
-    objetivo = objetivo or PLANTILLAS
-    if os.path.isdir(objetivo):
+    if objetivo is None:
+        # Sin argumento: TODAS las carpetas con .docx, descubiertas y no listadas,
+        # como hace variables.py --check. Antes miraba solo generador/plantillas, y
+        # el acta de puntos del Calificador llevaba semanas con el orden de
+        # <w:pBdr> y <w:tblBorders> roto sin que nada lo dijera.
+        archivos = _todos_los_docx()
+    elif os.path.isdir(objetivo):
         archivos = [os.path.join(objetivo, f) for f in sorted(os.listdir(objetivo))
                     if f.endswith('.docx')]
     else:
         archivos = [objetivo]
     if not archivos:
-        raise SystemExit('No hay .docx en ' + objetivo)
+        raise SystemExit('No hay .docx en ' + str(objetivo or RAIZ))
 
     validador, aviso = cargar_validador()
     if aviso:

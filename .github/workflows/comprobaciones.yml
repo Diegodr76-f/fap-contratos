@@ -78,6 +78,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: node scripts/probar_clm.js
 
+      - name: El Calificador concuerda el género y rellena sus actas
+        if: ${{ !cancelled() }}
+        run: node scripts/probar_calificador.js
+
       - name: Instrumentos edita y lleva cláusulas de un Word a otro sin romperlo
         if: ${{ !cancelled() }}
         run: node scripts/probar_instrumentos.js
