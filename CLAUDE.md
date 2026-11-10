@@ -618,6 +618,29 @@ anterior: un RUC ajeno junto a otro nombre es peor que el hueco.
 
 Secciones 19, 20, 21 y 22 de `probar_instrumentos.js`.
 
+## El Calificador — `calificacion/index.html`
+
+Sus dos actas Word (`calificacion/plantillas/`, cumple/no cumple y por puntos) se habían quedado
+atrás de la de La Mágica: «se reúnen de manera [nada] los miembros», un cuadro «el/la ordenador/a»,
+«Presidente/a» con barra en un papel que se firma. Hoy hablan el mismo idioma, con una diferencia
+que importa: **aquí el género es de cada miembro de la Comisión**, no de la AC ni del área.
+
+- `concordarGenero()` resuelve las barras de `rol` y `cargo` con el género elegido para ese
+  miembro; `faltanGeneros()` dice a quién le falta (todo el que lleva barra y quien preside) y,
+  mientras falte alguien, **el Word no se genera**. No se adivina por el nombre.
+- `{presencialVirtual}` (¿cómo sesionó la Comisión?) y `{elLaOrdenador}` (género de quien preside)
+  son las del catálogo, las mismas de La Mágica. Cómo asistió cada miembro sigue siendo un cuadro
+  del Word.
+- **«Cumple / No cumple» no se convierte**: aquí sale de la evaluación de cada oferta.
+- Lo guarda `scripts/probar_calificador.js`, que rellena las dos actas y las pasa por
+  `validar_docx.py`. Y `validar_docx.py` sin argumento ya recorre **todos** los `.docx` del
+  repositorio: antes miraba solo `generador/plantillas/` y el acta de puntos llevaba tiempo
+  inválida para Word (orden de `<w:pBdr>` y `<w:tblBorders>`) sin que nada lo dijera.
+
+```bash
+node scripts/probar_calificador.js
+```
+
 ## Datos de contratos
 
 **Nunca publiques datos de contratos en claro.** El sitio es público y estático:
