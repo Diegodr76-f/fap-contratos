@@ -13359,6 +13359,19 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .campo label .tag-auto{font-size:10px;font-weight:700;color:var(--ok);background:#E7F6EE;border-radius:4px;padding:0 5px;margin-left:5px;text-transform:none}
 .campo input,.campo textarea,.campo select{width:100%;padding:7px 9px;border:1px solid var(--borde);border-radius:6px;font-family:inherit;font-size:13px}
 .campo input[readonly]{background:var(--azul-claro);color:var(--azul);font-weight:600}
+.campo textarea.largo{resize:vertical;line-height:1.45;min-height:64px}
+.prov-estado{font-size:12.5px;line-height:1.55;border-radius:8px;padding:8px 12px;margin:0 0 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.prov-estado.ok{background:#E7F6EE;border:1px solid #8FD3B0;color:#0B5E3C}
+.prov-estado.pend{background:#FFF7E6;border:1px solid #F0C36D;color:#7A4D00}
+.tag-excel{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:#E7F6EE;color:#0B5E3C;white-space:nowrap;vertical-align:1px}
+.btn-hueco{display:inline-block;width:34px}
+.cpx-mapa{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 12px}
+.cpx-mapa .campo{margin:0}
+.cpx-resumen{font-size:12.5px;line-height:1.6;background:var(--azul-claro);border-radius:8px;padding:9px 12px}
+.btn-largo{all:unset;box-sizing:border-box;cursor:pointer;font-size:11px;font-weight:600;color:var(--gris);border:1px solid var(--borde);border-radius:5px;padding:0 6px;margin-left:4px;line-height:1.5}
+.campo:not(.campo-largo) .btn-largo{opacity:0;transition:opacity .12s}
+.campo:not(.campo-largo):hover .btn-largo,.campo:not(.campo-largo):focus-within .btn-largo{opacity:1}
+.btn-largo:hover,.btn-largo:focus-visible{color:var(--azul);border-color:var(--azul);background:var(--azul-claro)}
 .campo textarea[readonly]{background:var(--azul-claro);color:var(--azul);font-weight:600;resize:none;overflow:hidden;line-height:1.4;min-height:34px}
 /* Las notas fuera de un campo (bajo la vista previa, en el lote, en los
    modales…) no tenían estilo y salían a tamaño de párrafo. */
@@ -14156,16 +14169,16 @@ function variablesSemilla(){
     V('Locales (plantillas HTML)','representante_fias','Representante del FIAS que suscribe','Director Ejecutivo del FIAS'),
     V('Locales (plantillas HTML)','tipo_proceso','Tipo de proceso','comparación de precios / selección directa'),
     V('Locales (plantillas HTML)','garantia_tecnica','Duración de la garantía técnica','un (1) año'),
-    V('Locales (plantillas HTML)','cronograma_pagos','Cronograma de pagos parciales',''),
+    V('Locales (plantillas HTML)','cronograma_pagos','Cronograma de pagos parciales','','parrafo'),
     V('Locales (plantillas HTML)','vigencia','Vigencia del convenio','dos (2) años'),
-    V('Locales (plantillas HTML)','compromisos_fias','Compromisos que asume el FIAS en el convenio (texto libre)',''),
-    V('Locales (plantillas HTML)','compromisos_institucion','Compromisos que asume la institución contraparte en el convenio (texto libre)',''),
+    V('Locales (plantillas HTML)','compromisos_fias','Compromisos que asume el FIAS en el convenio (texto libre)','','parrafo'),
+    V('Locales (plantillas HTML)','compromisos_institucion','Compromisos que asume la institución contraparte en el convenio (texto libre)','','parrafo'),
     V('Locales (plantillas HTML)','institucion','Institución contraparte del convenio',''),
     V('Locales (plantillas HTML)','representante_institucion','Representante de la institución contraparte',''),
-    V('Locales (plantillas HTML)','antecedentes','Antecedentes del convenio (texto libre)',''),
-    V('Locales (plantillas HTML)','justificacion','Justificación del ajuste (texto libre)',''),
-    V('Locales (plantillas HTML)','motivacion','Motivación de la terminación (texto libre)',''),
-    V('Locales (plantillas HTML)','liquidacion','Detalle de liquidación (texto libre)',''),
+    V('Locales (plantillas HTML)','antecedentes','Antecedentes del convenio (texto libre)','','parrafo'),
+    V('Locales (plantillas HTML)','justificacion','Justificación del ajuste (texto libre)','','parrafo'),
+    V('Locales (plantillas HTML)','motivacion','Motivación de la terminación (texto libre)','','parrafo'),
+    V('Locales (plantillas HTML)','liquidacion','Detalle de liquidación (texto libre)','','parrafo'),
     V('Locales (plantillas HTML)','numero_documento','Número del documento genérico','')
   ];
   lista.forEach(v => { if(REQUERIDAS_BASE.includes(v.nombre)) v.requerido = true; });
@@ -14426,6 +14439,22 @@ function asegurarOrigenSemillas(){
   falta = sinOrigen();
   falta.forEach(t => variablesRepo.push({ id: uid(), grupo: 'Locales (plantillas Word)', nombre: t, descripcion: '', ejemplo: '', tipo: tipoDe(t) }));
   guardar();
+}
+/* Las variables de fábrica que se describen como «texto libre» (antecedentes,
+   justificación…) pasan a texto largo en las instalaciones que ya existían. Se
+   hace UNA vez: quien después vuelva una de ellas a una línea, así se queda. */
+function migrarTextosLargos(){
+  if(store.get('fap_gen_mig_largos')) return;
+  let n = 0;
+  variablesRepo.forEach(v => { if(v.tipo === 'texto' && /\(texto libre\)/i.test(v.descripcion || '')){ v.tipo = 'parrafo'; n++; } });
+  if(v_cronograma()) n++;
+  store.set('fap_gen_mig_largos', '1');
+  if(n) guardar();
+  function v_cronograma(){
+    const v = buscarVar('cronograma_pagos');
+    if(v && v.tipo === 'texto'){ v.tipo = 'parrafo'; return true; }
+    return false;
+  }
 }
 /* Grupos que se pisan: gobiernan al menos un tag en común, así que preguntan
    lo mismo más de una vez y el que se aplica de último gana en silencio.
@@ -14736,6 +14765,7 @@ function htmlAvisoDescarga(){
   if(!ultimaDescarga || ultimaDescarga.plId !== seleccion) return '';
   return `<div class="aviso-borrador" id="aviso-descarga">✓ Se descargó «${esc(ultimaDescarga.archivo)}». El formulario quedó listo para el siguiente.
     <button class="btn sec" onclick="volverAUltimaDescarga()">↩ Volver a los datos de este</button>
+    <button class="btn sec" onclick="usarUltimaDescargaEnOtra()" title="Por ejemplo: del acta a su autorización, sin teclear de nuevo lo que comparten">→ Usar estos datos en otra plantilla</button>
     <button class="btn sec" onclick="cerrarAvisoDescarga()" title="Los datos siguen en Historial → Reusar datos">✕</button></div>`;
 }
 function volverAUltimaDescarga(){
@@ -15273,6 +15303,103 @@ async function desbloquearRegistro(){
     aviso = 'Frase incorrecta. Inténtalo de nuevo.';
   }
 }
+/* ============ Proveedores del Excel maestro (solo en esta herramienta) ============
+   Cédula o RUC, representante, correo y dirección de cada proveedor. Son datos
+   privados —el RUC de una persona natural es su cédula—, así que el robot los
+   publica aparte (instrumentos/proveedores_export.json) y cifrados con OTRA frase,
+   que solo tiene quien usa el Generador: la del registro la tienen las 20 ACs y no
+   abre este archivo. Ninguna otra herramienta lo pide (lo vigila probar_robot.py).
+   Lo descifrado vive solo en memoria: no se guarda en el navegador. La frase sí
+   (como la del registro), bajo su propia clave. */
+const RUTAS_PROVEEDORES = [
+  './proveedores_export.json',
+  'https://diegodr76-f.github.io/fap-contratos/instrumentos/proveedores_export.json'
+];
+const PROV_KEY_LS = 'fap_gen_clave_proveedores';
+let provExcel = [];            // [{ nombre, identificacion, representante, email, direccion }]
+let provPorClave = new Map();  // normalizar(nombre) → fila de provExcel
+let provEstado = 'cargando';   // cargando | ok | protegido | sin (no se publica) | error (sin conexión)
+let provSobre = null, provGenerado = null;
+function ponerProvExcel(lista){
+  provExcel = (Array.isArray(lista) ? lista : []).filter(p => p && p.nombre);
+  provPorClave = new Map();
+  provExcel.forEach(p => { const k = normalizar(p.nombre); if(k && !provPorClave.has(k)) provPorClave.set(k, p); });
+  provEstado = 'ok'; provSobre = null;
+}
+async function cargarProveedores(){
+  let sobre = null, faltaArchivo = false;
+  for(const url of RUTAS_PROVEEDORES){
+    const ctl = window.AbortController ? new AbortController() : null;
+    const reloj = setTimeout(() => { if(ctl) ctl.abort(); }, 20000);
+    try{
+      const r = await fetch(url, { cache:'no-store', signal: ctl ? ctl.signal : undefined });
+      if(r.ok){ sobre = await r.json(); break; }
+      if(r.status === 404) faltaArchivo = true;
+    }catch(e){ /* siguiente ruta */ }
+    finally{ clearTimeout(reloj); }
+  }
+  if(!sobre || !fapIsEnc(sobre)){
+    // Sin archivo publicado (falta el secreto PROVEEDORES_KEY) no es un error: queda
+    // el camino de siempre, traerlos del Excel a mano.
+    provEstado = faltaArchivo && !sobre ? 'sin' : 'error';
+    if(tabActual === 'contrapartes') renderContenido();
+    return;
+  }
+  provGenerado = sobre.generado || null;
+  let pass = '';
+  try{ pass = localStorage.getItem(PROV_KEY_LS) || ''; }catch(e){}
+  let lista = null;
+  if(pass){ try{ lista = await fapDecrypt(sobre, pass); }catch(e){ lista = null; } }
+  if(Array.isArray(lista)) ponerProvExcel(lista);
+  else { provSobre = sobre; provEstado = 'protegido'; }
+  if(tabActual === 'contrapartes') renderContenido();
+}
+async function desbloquearProveedores(){
+  if(!provSobre){ await cargarProveedores(); if(provEstado !== 'protegido') return provEstado === 'ok'; }
+  let aviso = '';
+  for(;;){
+    const r = await pedirDatos({
+      titulo: 'Abrir los proveedores del Excel maestro',
+      ok: 'Abrir',
+      ayuda: (aviso ? `<b style="color:var(--peligro)">${esc(aviso)}</b><br>` : '') +
+        'Los datos de los proveedores (cédula o RUC, representante, correo, dirección) se publican cifrados con <b>su propia frase</b>: la que guardaste en el secreto <code>PROVEEDORES_KEY</code> del repositorio. <b>No es la del registro</b>, que tienen las ACs. Queda guardada en este navegador.',
+      campos: [{ nombre:'frase', etiqueta:'Frase de proveedores', tipo:'clave' }],
+      validar: v => v.frase ? '' : 'Escribe la frase de proveedores.'
+    });
+    if(!r) return false;
+    let lista = null;
+    try{ lista = await fapDecrypt(provSobre, r.frase); }catch(e){ lista = null; }
+    if(Array.isArray(lista)){
+      let guardada = true;
+      try{ localStorage.setItem(PROV_KEY_LS, r.frase); }catch(e){ guardada = false; }
+      ponerProvExcel(lista);
+      renderContenido();
+      avisar(`Proveedores abiertos: ${provExcel.length}.` + (guardada ? '' : ' Este navegador no deja guardar la frase: se pedirá de nuevo la próxima vez.'));
+      return true;
+    }
+    aviso = 'Frase incorrecta. Inténtalo de nuevo.';
+  }
+}
+function edadDe(generado){
+  if(!generado) return null;
+  const f = new Date(generado); if(isNaN(f)) return null;
+  const dia = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dias = Math.round((dia(new Date()) - dia(f)) / 86400000);
+  const hora = f.toLocaleTimeString('es-EC', { hour:'2-digit', minute:'2-digit' });
+  return { dias, vieja: dias >= 2,
+    txt: dias <= 0 ? `actualizados hoy ${hora}` : dias === 1 ? 'actualizados ayer' : `actualizados hace ${dias} días` };
+}
+function htmlEstadoProveedores(){
+  if(provEstado === 'ok'){
+    const e = edadDe(provGenerado);
+    return `<div class="prov-estado ok">📇 <b>${provExcel.length}</b> proveedores del Excel maestro${e ? ' (' + esc(e.txt) + ')' : ''}${e && e.vieja ? ' <b>— el robot no ha vuelto a correr</b>' : ''}. Se leen con tu frase de proveedores: las ACs no los ven. Lo que edites aquí manda sobre el Excel.</div>`;
+  }
+  if(provEstado === 'protegido')
+    return `<div class="prov-estado pend">🔒 Los datos de los proveedores del Excel maestro están publicados, cifrados con tu frase de proveedores. <button class="btn sec mini" onclick="desbloquearProveedores()">Abrir</button></div>`;
+  if(provEstado === 'error')
+    return `<div class="prov-estado pend">No se pudo descargar la lista de proveedores del Excel maestro. <button class="btn sec mini" onclick="provEstado='cargando';renderContenido();cargarProveedores()">Reintentar</button></div>`;
+  return '';
+}
 /* Cuándo se actualizó la base, como en la píldora del CLM: una base de hace dos
    días o más no se presenta como viva. */
 function edadRegistro(){
@@ -15372,6 +15499,166 @@ function tipoDe(v){
 const esFecha = v => tipoDe(v) === 'fecha';
 const esMonto = v => tipoDe(v) === 'numero';
 const esLetras = v => tipoDe(v) === 'letras';
+/* ============ Texto largo ============
+   Todo campo libre era una casilla de una línea: los antecedentes de un informe o
+   la justificación de una adenda no cabían, y pegar tres párrafos los aplastaba en
+   uno. Una variable de tipo «parrafo» se llena en un cuadro que crece y acepta
+   Enter, y al generar CADA línea sale como un párrafo de Word de verdad, con el
+   formato del párrafo donde está la etiqueta (ver partirParrafosXml). No se usa
+   el salto de línea de docxtemplater: en un párrafo justificado, Word estira la
+   última línea de cada tramo de margen a margen. */
+const esLargo = v => tipoDe(v) === 'parrafo';
+const SALTO_PARRAFO = '';   // marca interna: nunca llega al documento
+/* Lo escrito, como se imprime: sin líneas en blanco al principio ni al final y
+   sin espacios colgando. Una línea en blanco ENTRE párrafos se respeta. */
+const textoLargo = val => String(val == null ? '' : val).replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n').replace(/^\n+|\n+$/g, '');
+/* Pasa una variable a texto largo (o la devuelve a una línea). El tipo vive en
+   el repositorio, así que vale para todas las plantillas que usen ese tag. */
+function ponerTipoTexto(v, largo){
+  const reg = buscarVar(v);
+  if(reg) reg.tipo = largo ? 'parrafo' : 'texto';
+  else variablesRepo.push({ id: uid(), grupo: 'Locales (plantillas Word)', nombre: v, descripcion: '', ejemplo: '', tipo: largo ? 'parrafo' : 'texto' });
+  guardar();
+}
+function alternarLargo(v){
+  const largo = !esLargo(v);
+  const el = document.getElementById('f_' + v);
+  if(el) datosForm[v] = el.value;
+  if(!largo && /\n/.test(String(datosForm[v] || ''))){
+    if(!confirm('Este campo tiene varios párrafos. Al volver a una sola línea se juntan en uno.\n\n¿Continuar?')) return;
+    datosForm[v] = textoLargo(datosForm[v]).split('\n').filter(l => l.trim()).join(' ');
+  }
+  ponerTipoTexto(v, largo);
+  programarGuardadoBorrador();
+  renderContenido();
+  const nuevo = document.getElementById('f_' + v);
+  if(nuevo) nuevo.focus({ preventScroll: true });
+}
+/* Pegar varios párrafos en una casilla de una línea: en vez de aplastarlos, el
+   campo se vuelve de texto largo y los conserva. */
+function pegarEnCampo(ev, v){
+  const cb = ev.clipboardData || window.clipboardData;
+  const texto = cb ? textoLargo(cb.getData('text')) : '';
+  if(!/\n/.test(texto)) return;   // una sola línea: pegado normal
+  ev.preventDefault();
+  const el = ev.target, ini = el.selectionStart != null ? el.selectionStart : el.value.length, fin = el.selectionEnd != null ? el.selectionEnd : ini;
+  datosForm[v] = el.value.slice(0, ini) + texto + el.value.slice(fin);
+  ponerTipoTexto(v, true);
+  renderContenido();
+  actualizarCampo(v, datosForm[v]);
+  avisar(`«${etiqueta(v)}» ahora es un campo de texto largo: conserva los párrafos que pegaste.`);
+}
+function ajustarAlturaLargo(el){
+  if(!el) return;
+  el.style.height = 'auto';
+  el.style.height = Math.min(Math.max(el.scrollHeight + 2, 64), 420) + 'px';
+}
+/* Texto largo: cada línea, un párrafo de Word de verdad. Quien arma los datos
+   pone la marca U+E000 en vez de cada salto de línea, y aquí se parte el párrafo
+   donde cayó. El nuevo repite el formato del original (su <w:pPr>) y la letra de
+   la etiqueta (su <w:rPr>), sin los ids de Word ni el salto de página. En una
+   lista no repite la viñeta: toma la sangría del texto del punto y queda alineado
+   debajo (numXml es word/numbering.xml, de donde sale esa sangría). Lo que no se
+   puede partir con seguridad —dentro de un hipervínculo, un control, un campo o
+   una revisión, o en un párrafo que cierra sección— queda como salto de línea.
+   No se usa el salto de línea de docxtemplater para todo: en un párrafo
+   justificado, Word estira la última línea de cada tramo de margen a margen.
+   ES LA MISMA FUNCIÓN en generador/index.html e instrumentos/index.html, letra
+   por letra: si cambias una, cambia la otra (probar_generador.js lo comprueba). */
+function partirParrafosXml(xml, numXml){
+  var MARCA = '\uE000', desde = 0;
+  function cuenta(t, re){ return (t.match(re) || []).length; }
+  function abiertos(t, n){ return cuenta(t, new RegExp('<' + n + '[ >]', 'g')) - cuenta(t, new RegExp('</' + n + '>', 'g')); }
+  // Un elemento que puede traer otro igual dentro (<w:pPrChange><w:pPr>…): hasta su cierre de verdad.
+  function hastaCierre(t, n){
+    if(t.indexOf('<' + n + '/>') === 0) return '<' + n + '/>';
+    if(t.indexOf('<' + n + '>') !== 0) return '';
+    var re = new RegExp('<' + n + '>|</' + n + '>', 'g'), nivel = 0, m;
+    while((m = re.exec(t))){ nivel += m[0].charAt(1) === '/' ? -1 : 1; if(!nivel) return t.slice(0, m.index + m[0].length); }
+    return '';
+  }
+  function izquierda(t){ var m = /<w:ind\b[^>]*?\bw:(?:left|start)="(-?\d+)"/.exec(t || ''); return m ? m[1] : null; }
+  function sangriaLista(pPr){
+    var propia = izquierda(pPr);
+    if(propia !== null) return propia;
+    var mn = /<w:numId w:val="(\d+)"/.exec(pPr), ml = /<w:ilvl w:val="(\d+)"/.exec(pPr);
+    if(!mn || !numXml) return null;
+    var lvl = ml ? ml[1] : '0';
+    var num = new RegExp('<w:num w:numId="' + mn[1] + '"[^>]*>([\\s\\S]*?)</w:num>').exec(numXml);
+    if(!num) return null;
+    var sobre = new RegExp('<w:lvlOverride w:ilvl="' + lvl + '"[^>]*>([\\s\\S]*?)</w:lvlOverride>').exec(num[1]);
+    var enSobre = sobre && izquierda(sobre[1]);
+    if(enSobre) return enSobre;
+    var ab = /<w:abstractNumId w:val="(\d+)"/.exec(num[1]);
+    var abs = ab && new RegExp('<w:abstractNum\\b[^>]*w:abstractNumId="' + ab[1] + '"[^>]*>([\\s\\S]*?)</w:abstractNum>').exec(numXml);
+    var nivel = abs && new RegExp('<w:lvl w:ilvl="' + lvl + '"[^>]*>([\\s\\S]*?)</w:lvl>').exec(abs[1]);
+    return nivel ? izquierda(nivel[1]) : null;
+  }
+  // <w:ind> en su sitio dentro del <w:pPr>: el orden de los hijos lo fija el esquema.
+  function ponerInd(pPr, ind){
+    pPr = pPr.replace(/<w:ind\b[^>]*\/>/, '');
+    if(!pPr || pPr === '<w:pPr/>') return '<w:pPr>' + ind + '</w:pPr>';
+    var pos = -1;
+    ['w:contextualSpacing','w:mirrorIndents','w:suppressOverlap','w:jc','w:textDirection','w:textAlignment',
+     'w:textboxTightWrap','w:outlineLvl','w:divId','w:cnfStyle','w:rPr','w:sectPr','w:pPrChange'].forEach(function(n){
+      var m = new RegExp('<' + n + '[ />]').exec(pPr);
+      if(m && (pos < 0 || m.index < pos)) pos = m.index;
+    });
+    if(pos < 0) pos = pPr.lastIndexOf('</w:pPr>');
+    return pPr.slice(0, pos) + ind + pPr.slice(pos);
+  }
+  for(;;){
+    var i = xml.indexOf(MARCA, desde);
+    if(i < 0) break;
+    var ini = Math.max(xml.lastIndexOf('<w:p>', i), xml.lastIndexOf('<w:p ', i));
+    var fin = xml.indexOf('</w:p>', i);
+    if(ini < 0 || fin < 0){ xml = xml.slice(0, i) + ' ' + xml.slice(i + 1); desde = i; continue; }
+    var antes = xml.slice(ini, i);
+    var apertura = antes.match(/^<w:p(?: [^>]*)?>/)[0];
+    var pPr = hastaCierre(antes.slice(apertura.length), 'w:pPr');
+    var rIni = Math.max(antes.lastIndexOf('<w:r>'), antes.lastIndexOf('<w:r '));
+    var corrida = rIni >= 0 ? antes.slice(rIni) : '';
+    var enTexto = Math.max(corrida.lastIndexOf('<w:t>'), corrida.lastIndexOf('<w:t ')) > corrida.lastIndexOf('</w:t>') && corrida.indexOf('</w:r>') < 0;
+    if(!enTexto){ xml = xml.slice(0, i) + ' ' + xml.slice(i + 1); desde = i; continue; }
+    var previo = antes.slice(apertura.length + pPr.length, rIni);
+    var anidado = ['w:hyperlink','w:sdt','w:ins','w:del','w:smartTag','w:fldSimple','w:customXml'].some(function(n){ return abiertos(previo, n) > 0; })
+      || cuenta(previo, /w:fldCharType="begin"/g) > cuenta(previo, /w:fldCharType="end"/g);
+    // Un cuadro de texto antes de la marca: el </w:p> que aparece es el suyo, no este párrafo.
+    if(anidado || antes.indexOf('</w:p>') >= 0 || /<w:sectPr[ >]/.test(pPr)){
+      xml = xml.slice(0, i) + '</w:t><w:br/><w:t xml:space="preserve">' + xml.slice(i + 1); desde = i; continue;
+    }
+    var rPr = hastaCierre(corrida.replace(/^<w:r(?: [^>]*)?>/, ''), 'w:rPr');
+    var pPrSig = pPr.replace(/<w:pageBreakBefore(?: [^>]*)?\/>/, '');
+    if(/<w:numPr>/.test(pPrSig)){
+      var izq = sangriaLista(pPrSig);
+      pPrSig = pPrSig.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, '');
+      if(izq !== null) pPrSig = ponerInd(pPrSig, '<w:ind w:left="' + izq + '" w:firstLine="0"/>');
+    }
+    var corte = '</w:t></w:r></w:p><w:p>' + pPrSig + '<w:r>' + rPr + '<w:t xml:space="preserve">';
+    xml = xml.slice(0, i) + corte + xml.slice(i + 1);
+    desde = i + '</w:t></w:r></w:p>'.length;
+  }
+  return xml;
+}
+/* Lo mismo en las plantillas HTML: el salto marcado parte el <p> donde cayó. En
+   una celda, un punto de lista o un título se queda como salto de línea. */
+function partirParrafosHtml(html){
+  if(html.indexOf('data-salto') < 0) return html;
+  const div = document.createElement('div'); div.innerHTML = html;
+  let br;
+  while((br = div.querySelector('br[data-salto]'))){
+    const bloque = br.closest('p,li,td,th,h1,h2,h3,h4,h5,h6');
+    if(!bloque || bloque.tagName !== 'P' || !div.contains(bloque)){ br.removeAttribute('data-salto'); continue; }
+    const r = document.createRange();
+    r.setStartAfter(br); r.setEndAfter(bloque.lastChild);
+    const resto = r.extractContents();
+    br.remove();
+    const nuevo = bloque.cloneNode(false); nuevo.removeAttribute('id');
+    nuevo.appendChild(resto);
+    bloque.after(nuevo);
+  }
+  return div.innerHTML;
+}
 const baseLetras = v => v.replace(/_en_letras(\d*)$/i,'$1').replace(/Letras(\d*)$/,'$1');
 /* Variable numérica de la que se calcula un campo "letras": si la variable
    tiene un origen elegido a mano (útil cuando el nombre no sigue ningún
@@ -15505,6 +15792,7 @@ function fijarSeleccion(id){
   camposFaltantes = new Set();
   borradorAviso = null;
   ultimaDescarga = null;
+  avisoDatosTraidos = null;
   store.set('fap_gen_ultima_seleccion', id || '');
 }
 /* Expande la carpeta dada y todas sus carpetas ancestras, para que un ítem
@@ -15680,14 +15968,26 @@ function renderGenerar(c, p){
       const val = datosForm[v] ? fmtMonto(datosForm[v]) : '';
       return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span> <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span></label><input readonly id="f_${v}" value="${esc(val)}" placeholder="Se llena al escribir las dos cifras"><div class="nota">Se calcula solo: ${esc(der.como)}</div></div>`;
     }
+    if(esLargo(v)){
+      const phL = reg && reg.ejemplo ? ` placeholder="${esc(reg.ejemplo)}"` : ' placeholder="Escribe o pega el texto. Cada Enter es un párrafo nuevo en el documento."';
+      const notaL = reg && reg.descripcion ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
+      const astL = esRequerido(v) ? '<span class="oblig-ast" title="Obligatorio: sin este dato no se genera el documento">*</span>' : '';
+      return `<div class="campo campo-largo"><label>${esc(etiqueta(v))}${astL} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${fijos[v] ? ' <span class="tag-auto">fijo</span>' : ''}
+        <button type="button" class="btn-largo" onclick="alternarLargo('${v}')" title="Volver a una casilla de una sola línea">¶ texto largo ✕</button></label>
+        <textarea class="largo" rows="3"${phL} id="f_${v}" oninput="actualizarCampo('${v}', this.value);ajustarAlturaLargo(this)">${esc(datosForm[v]||'')}</textarea>${notaL}</div>`;
+    }
     const tipo = esFecha(v) ? 'date' : (esMonto(v) ? 'number' : 'text');
     const extra = esMonto(v) ? ' step="0.01" min="0"' : '';
+    // Un texto corto puede volverse largo: con el botón, o solo, al pegarle varios párrafos.
+    const cortoLibre = tipo === 'text' && !esIdVar(v);
+    const btnLargo = cortoLibre ? ` <button type="button" class="btn-largo" onclick="alternarLargo('${v}')" title="Convertir en texto largo: acepta varios párrafos, y cada uno sale como párrafo en el Word">¶</button>` : '';
+    const pegar = cortoLibre ? ` onpaste="pegarEnCampo(event, '${v}')"` : '';
     const ph = reg && reg.ejemplo ? ` placeholder="${esc(reg.ejemplo)}"` : '';
     const tagFijo = fijos[v] ? ' <span class="tag-auto">fijo</span>' : '';
     const nota = reg && reg.descripcion ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
     const warn = esIdVar(v) ? `<div class="warn-txt" id="w_${v}">${avisoIdentificacion(datosForm[v])}</div>` : '';
     const ast = esRequerido(v) ? '<span class="oblig-ast" title="Obligatorio: sin este dato no se genera el documento">*</span>' : '';
-    return `<div class="campo"><label>${esc(etiqueta(v))}${ast} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${tagFijo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)">${nota}${warn}</div>`;
+    return `<div class="campo"><label>${esc(etiqueta(v))}${ast} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${tagFijo}${btnLargo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)"${pegar}>${nota}${warn}</div>`;
   }).join('');
 
   // La vista previa de Word tarda en rehacerse. Si se repinta la misma
@@ -15699,10 +15999,11 @@ function renderGenerar(c, p){
   const nodosPrevios = esDocx && prevViejo && prevViejo.getAttribute('data-pl') === p.id && !prevViejo.querySelector('.aviso-tags')
     ? Array.from(prevViejo.childNodes) : null;
   c.innerHTML = `
-    ${htmlAvisoDescarga()}${htmlAvisoBorrador()}
+    ${htmlAvisoDescarga()}${htmlAvisoBorrador()}${htmlAvisoDatosTraidos()}
     <div class="rapidas">
       <button class="btn sec" onclick="abrirPickerRegistro()" ${registroEstado==='protegido'?'title="El registro está protegido: te pediré la frase de acceso"':(registroEstado!=='ok'?'title="El registro aún no está cargado"':'')}>📇 Tomar datos del registro</button>
       <button class="btn sec" onclick="abrirPickerContraparte()">👤 Usar contraparte guardada</button>
+      <button class="btn sec" onclick="abrirPickerDocumento()" title="Pasa a este formulario los datos de un documento que ya generaste">📄 Tomar datos de otro documento</button>
       ${tieneNumero ? `<button class="btn sec" onclick="aplicarNumeroSugerido()">№ Sugerir número siguiente</button>` : ''}
     </div>
     <div class="gen-grid">
@@ -15735,6 +16036,7 @@ function renderGenerar(c, p){
   if(nodosPrevios && nodosPrevios.length){ const nuevo = document.getElementById('preview'); if(nuevo) nuevo.replaceChildren(...nodosPrevios); }
   ajustarAltoPreview();
   c.querySelectorAll('.campo textarea[readonly]').forEach(ajustarAlturaLetras);
+  c.querySelectorAll('.campo textarea.largo').forEach(ajustarAlturaLargo);
   aplicarMarcasFaltantes();   // el innerHTML nuevo no trae las marcas de lo que faltaba
   programarGuardadoBorrador();
   if(esDocx) actualizarPreviewDocx(); else resaltarVarEnPreview(false);
@@ -16062,6 +16364,7 @@ function marcarPendientesEnPreview(raiz){
 function limpiarForm(){
   datosForm = {}; condForm = {}; listasForm = {}; concSel = {}; editandoDoc = false; docEditado = '';
   camposFaltantes = new Set();
+  avisoDatosTraidos = null;
   olvidarBorrador();
   const p = plActual();
   if(p) aplicarFijos(varsDe(p), datosForm);
@@ -16103,18 +16406,26 @@ function valorDe(datos, v){
   return val;
 }
 function rellenarDatos(html, datos, preview){
-  return html.replace(/\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g, (m, v) => {
+  let hayLargo = false;
+  // Un texto largo: cada línea parte el párrafo donde está la variable.
+  const impreso = (v, val) => {
+    if(!esLargo(v) || !/\n/.test(val)) return esc(val);
+    hayLargo = true;
+    return textoLargo(val).split('\n').map(esc).join('<br data-salto="1">');
+  };
+  const salida = html.replace(/\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g, (m, v) => {
     const val = valorDe(datos, v);
     if(preview){
       // data-var: enlaza el marcador con su campo del formulario en los dos sentidos.
       return val
-        ? `<span class="ph-ok" data-var="${esc(v)}">${esc(val)}</span>`
+        ? `<span class="ph-ok" data-var="${esc(v)}">${impreso(v, val)}</span>`
         : `<span class="ph-pend" data-var="${esc(v)}">${esc(etiqueta(v))}</span>`;
     }
     // Sin <strong>: el valor hereda el formato que la variable tenga en la
     // plantilla (si {{proveedor}} está en negrita, sale en negrita; si no, no).
-    return val ? esc(val) : '__________';
+    return val ? impreso(v, val) : '__________';
   });
+  return hayLargo ? partirParrafosHtml(salida) : salida;
 }
 
 /* ============ Selector: registro de contratos ============ */
@@ -16165,6 +16476,7 @@ function elegirDelRegistro(i){
   const row = registro[i]; const p = plActual();
   if(!row || !p) return;
   const vars = varsDe(p);
+  aplicarContraparteDeRegistro(row, datosForm, vars);
   aplicarFilaRegistro(row, datosForm);
   aplicarFijos(vars, datosForm);
   completarDerivadas(vars, datosForm);
@@ -16173,41 +16485,73 @@ function elegirDelRegistro(i){
 }
 
 /* ============ Contrapartes ============ */
+/* Lo que se ve y se usa: las contrapartes guardadas aquí y, si están abiertos,
+   los proveedores del Excel maestro. Se juntan por nombre (normalizar(), nada por
+   parecido). Lo guardado manda: el Excel solo llena lo que una guardada tiene
+   vacío, y un proveedor que solo está en el Excel aparece con su etiqueta.
+   { x: datos ya juntos, i: índice en contrapartes (-1 si solo está en el Excel),
+     j: índice en provExcel (o -1), delExcel: campos que puso el Excel } */
+const CAMPOS_DATOS_CP = ['identificacion','representante','email','direccion'];
+function contrapartesVista(){
+  const out = [], vistos = new Set();
+  contrapartes.forEach((c, i) => {
+    const k = normalizar(c.nombre || '');
+    const e = provEstado === 'ok' && k ? provPorClave.get(k) : null;
+    const x = { ...c }, delExcel = [];
+    if(e) CAMPOS_DATOS_CP.forEach(cmp => { if(!String(x[cmp] || '').trim() && e[cmp]){ x[cmp] = e[cmp]; delExcel.push(cmp); } });
+    if(k) vistos.add(k);
+    out.push({ x, i, j: e ? provExcel.indexOf(e) : -1, delExcel });
+  });
+  if(provEstado === 'ok') provExcel.forEach((e, j) => {
+    const k = normalizar(e.nombre);
+    if(!k || vistos.has(k)) return;
+    vistos.add(k);
+    out.push({ x: { nombre: e.nombre, identificacion: e.identificacion || '', representante: e.representante || '', email: e.email || '', direccion: e.direccion || '' }, i: -1, j, delExcel: [] });
+  });
+  return out;
+}
 function renderContrapartes(c){
   const q = busqCp.trim();
-  const indexados = contrapartes.map((x,i) => ({ x, i }));
-  const vis = q ? indexados.filter(({x}) => coincideBusqueda([x.nombre, x.identificacion, x.representante, x.email, x.direccion], q)) : indexados;
-  const filas = vis.map(({x,i}) => `
+  const vista = contrapartesVista();
+  const vis = q ? vista.filter(({x}) => coincideBusqueda([x.nombre, x.identificacion, x.representante, x.email, x.direccion], q)) : vista;
+  const deExcel = (r, cmp) => r.delExcel.includes(cmp) ? ' <span class="tag-excel" title="Viene del Excel maestro">Excel</span>' : '';
+  const filas = vis.slice(0, 400).map(r => { const x = r.x; return `
     <tr>
-      <td><b>${esc(x.nombre||'')}</b>${x.representante?`<br><span style="font-size:11.5px;color:var(--gris)">Rep.: ${esc(x.representante)}</span>`:''}</td>
-      <td>${esc(x.identificacion||'')}${avisoIdentificacion(x.identificacion)?'<br><span class="warn-txt" style="font-size:10.5px">'+esc(avisoIdentificacion(x.identificacion))+'</span>':''}</td>
-      <td>${esc(x.email||'')}</td>
+      <td><b>${esc(x.nombre||'')}</b>${r.i < 0 ? ' <span class="tag-excel" title="Está en el Excel maestro; no lo has guardado aquí">Excel maestro</span>' : ''}${x.representante?`<br><span style="font-size:11.5px;color:var(--gris)">Rep.: ${esc(x.representante)}${deExcel(r,'representante')}</span>`:''}</td>
+      <td>${esc(x.identificacion||'')}${x.identificacion ? deExcel(r,'identificacion') : ''}${avisoIdentificacion(x.identificacion)?'<br><span class="warn-txt" style="font-size:10.5px">'+esc(avisoIdentificacion(x.identificacion))+'</span>':''}</td>
+      <td>${esc(x.email||'')}${x.email ? deExcel(r,'email') : ''}</td>
       <td style="font-size:12px;color:var(--gris)">${esc(x.direccion||'')}</td>
       <td style="white-space:nowrap">
-        <button class="btn sec mini" onclick="usarContraparte(${i})">Usar</button>
-        <button class="btn sec mini" onclick="editarContraparte(${i})">Editar</button>
-        <button class="btn peligro mini" onclick="eliminarContraparte(${i})">✕</button>
+        <button class="btn sec mini" onclick="${r.i >= 0 ? `usarContraparte(${r.i})` : `usarProveedorExcel(${r.j})`}">Usar</button>
+        <button class="btn sec mini" onclick="editarContraparte(${r.i}${r.i < 0 ? ', ' + r.j : ''})" title="${r.i < 0 ? 'Guarda una copia aquí con tus cambios: lo tuyo manda sobre el Excel' : 'Editar'}">Editar</button>
+        ${r.i >= 0 ? `<button class="btn peligro mini" onclick="eliminarContraparte(${r.i})">✕</button>` : '<span class="btn-hueco" title="Viene del Excel maestro: para quitarlo, quítalo del Excel"></span>'}
       </td>
-    </tr>`).join('');
+    </tr>`; }).join('');
   c.innerHTML = `
     <div class="hist-acciones">
       <button class="btn" onclick="editarContraparte(-1)">+ Nueva contraparte</button>
-      <button class="btn sec" onclick="importarProveedoresRegistro()" ${registroEstado!=='ok'?'disabled title="El registro no está cargado: desbloquéalo con el botón «Registro» de la cabecera"':''}>Importar proveedores del registro</button>
+      <button class="btn sec" onclick="importarProveedoresRegistro()" ${registroEstado!=='ok'?'disabled title="El registro no está cargado: desbloquéalo con el botón «Registro» de la cabecera"':'title="Trae los nombres de los proveedores del registro de contratos"'}>Importar proveedores del registro</button>
+      <button class="btn sec" onclick="abrirContrapartesExcel()" title="Completa cédula o RUC, representante, correo y dirección desde el Excel. Se lee en esta computadora: no se sube ni se publica.">📊 Traer datos del Excel maestro</button>
     </div>
-    ${contrapartes.length ? `
+    ${htmlEstadoProveedores()}
+    ${provEstado !== 'ok' && contrapartes.length && contrapartes.some(x => !x.identificacion) ? `<div class="nota" style="margin:-4px 0 10px">${contrapartes.filter(x => !x.identificacion).length} de ${contrapartes.length} contrapartes no tienen cédula ni RUC. El registro de contratos solo trae el nombre; el resto se completa de una vez con «Traer datos del Excel maestro».</div>` : ''}
+    ${vista.length ? `
       <div class="campo" style="margin:4px 0 12px">
         <input type="search" id="busq-cp" value="${esc(busqCp)}" placeholder="Buscar por nombre, RUC/cédula, representante o correo…" oninput="busqCp=this.value;renderContenido()">
       </div>
       ${vis.length ? `<div class="tabla-scroll"><table><thead><tr><th>Nombre</th><th>Cédula / RUC</th><th>Correo</th><th>Dirección</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
-        <div class="nota" style="margin-top:8px">${vis.length} de ${contrapartes.length} contrapartes${q?` que coinciden con «${esc(busqCp)}»`:''}.</div>`
+        <div class="nota" style="margin-top:8px">${vis.length > 400 ? `Se muestran 400 de ${vis.length}: busca para encontrar el resto. ` : ''}${vis.length} de ${vista.length} contrapartes${q?` que coinciden con «${esc(busqCp)}»`:''}.</div>`
         : `<div class="vacio">Ninguna contraparte coincide con «${esc(busqCp)}».</div>`}`
       : '<div class="vacio">Guarda aquí a tus proveedores e instituciones frecuentes.<br>Sus datos (nombre, RUC, representante…) se insertarán en los documentos con un clic,<br>sin volver a escribirlos nunca.</div>'}`;
 }
-function editarContraparte(i){
-  const x = i >= 0 ? contrapartes[i] : { nombre:'', identificacion:'', representante:'', email:'', direccion:'' };
+function editarContraparte(i, j){
+  const e = i < 0 && j != null ? provExcel[j] : null;
+  const x = i >= 0 ? contrapartes[i] : e ? { nombre: e.nombre || '', identificacion: e.identificacion || '', representante: e.representante || '', email: e.email || '', direccion: e.direccion || '' }
+    : { nombre:'', identificacion:'', representante:'', email:'', direccion:'' };
   abrirModal(`
-    <div class="m-cab"><h3>${i>=0?'Editar':'Nueva'} contraparte</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cab"><h3>${i>=0?'Editar':e?'Editar proveedor del Excel maestro':'Nueva'} contraparte</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
+      ${e ? '<p class="nota" style="margin:0 0 10px">Se guarda una copia aquí, y lo que cambies manda sobre el Excel maestro. El Excel no se toca.</p>' : ''}
       <div class="campo"><label>Nombre / Razón social</label><input id="cp-nombre" value="${esc(x.nombre)}"></div>
       <div class="campo"><label>Cédula / RUC</label><input id="cp-id" value="${esc(x.identificacion)}" oninput="document.getElementById('cp-warn').textContent = avisoIdentificacion(this.value)"><div class="warn-txt" id="cp-warn">${avisoIdentificacion(x.identificacion)}</div></div>
       <div class="campo"><label>Representante legal (si aplica)</label><input id="cp-rep" value="${esc(x.representante)}"></div>
@@ -16247,7 +16591,315 @@ function importarProveedoresRegistro(){
     }
   });
   guardar(); renderContenido();
-  alert(n ? `Se importaron ${n} proveedores del registro. Completa su cédula/RUC una sola vez y quedará guardada.` : 'No hay proveedores nuevos que importar.');
+  alert(n ? `Se importaron ${n} proveedores del registro, solo con su nombre.\n\nSu cédula o RUC, correo y dirección se completan de una vez con «Traer datos del Excel maestro».` : 'No hay proveedores nuevos que importar.');
+}
+
+/* ============ Contrapartes desde el Excel maestro ============
+   «Importar proveedores del registro» trae solo el nombre, porque el registro
+   publicado no lleva nada más: la cédula y el RUC no se publican (el RUC de una
+   persona natural es su cédula) y esa regla no cambia. Lo que sí se puede es leer
+   el Excel AQUÍ, en el navegador de quien ya lo tiene: el archivo no se sube ni
+   sale de la computadora. Se elige el .xlsx (o se pegan las filas), se empareja
+   por nombre con las contrapartes guardadas y se completa SOLO lo que estaba
+   vacío: un dato que la persona ya escribió nunca se pisa.
+   El Excel es de otra persona y se reordena, así que no se confía en posiciones:
+   la hoja, la fila de encabezados y las columnas se proponen por su rótulo y se
+   pueden corregir antes de traer nada. */
+const CAMPOS_CP = [
+  { campo:'nombre', rotulo:'Nombre / Razón social', alias:['nombre del proveedor','proveedor','razon social','nombre o razon social','nombre','contratista'], no:/representante|administrador|\bac\b|area|contacto|banco/ },
+  { campo:'identificacion', rotulo:'Cédula / RUC', alias:['ruc','cedula','ci','identificacion','numero de identificacion','ruc ci','cedula ruc','ruc cedula','ruc o cedula','cedula o ruc'], no:/representante|administrador|\bac\b/ },
+  { campo:'representante', rotulo:'Representante legal', alias:['representante legal','representante'], no:/cedula|ruc|correo|\bci\b/ },
+  { campo:'email', rotulo:'Correo', alias:['correo','correo electronico','email','e mail','mail'], no:/administrador|\bac\b/ },
+  { campo:'direccion', rotulo:'Dirección', alias:['direccion','domicilio','ubicacion'], no:/administrador|\bac\b/ }
+];
+let cpExcel = null;   // { hojas, hoja, filaEnc, mapa:{campo→columna|-1}, agregar }
+const rotuloCol = h => normalizar(h == null ? '' : h).replace(/_/g, ' ');
+const letraCol = j => { let s = ''; for(j = j + 1; j > 0; j = Math.floor((j - 1) / 26)) s = String.fromCharCode(65 + (j - 1) % 26) + s; return s; };
+/* Lee un .xlsx con lo que la herramienta ya trae (PizZip): hojas, textos
+   compartidos y celdas. Devuelve [{ nombre, filas:[[celda…]…] }], todo como texto. */
+function leerXlsx(bytes){
+  const zip = new PizZip(bytes);
+  const txt = n => zip.file(n) ? zip.file(n).asText() : '';
+  const textoDe = x => (x.replace(/<rPh[\s\S]*?<\/rPh>/g, '').match(/<t(?: [^>]*)?>[\s\S]*?<\/t>/g) || []).map(t => desescaparXml(t.replace(/^<t[^>]*>|<\/t>$/g, ''))).join('');
+  const sst = [];
+  txt('xl/sharedStrings.xml').replace(/<si>([\s\S]*?)<\/si>|<si\/>/g, (m, c) => { sst.push(c ? textoDe(c) : ''); return ''; });
+  const rels = {};
+  txt('xl/_rels/workbook.xml.rels').replace(/<Relationship\b[^>]*>/g, m => {
+    const id = (m.match(/\bId="([^"]*)"/) || [])[1], t = (m.match(/\bTarget="([^"]*)"/) || [])[1];
+    if(id && t) rels[id] = t.charAt(0) === '/' ? t.slice(1) : 'xl/' + t;
+    return '';
+  });
+  const hojas = [];
+  txt('xl/workbook.xml').replace(/<sheet\b[^>]*>/g, m => {
+    const nombre = desescaparXml((m.match(/\bname="([^"]*)"/) || [])[1] || ''), rid = (m.match(/\br:id="([^"]*)"/) || [])[1];
+    const xml = txt(rels[rid] || '');
+    if(!xml) return '';
+    const filas = [];
+    xml.replace(/<row\b[^>]*>([\s\S]*?)<\/row>/g, (mr, cuerpo) => {
+      const fila = []; let sig = 0;
+      cuerpo.replace(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g, (mc, attrs, dentro) => {
+        const ref = (attrs.match(/\br="([A-Z]+)\d+"/) || [])[1];
+        let j = sig;
+        if(ref){ j = 0; for(const ch of ref) j = j * 26 + (ch.charCodeAt(0) - 64); j--; }
+        sig = j + 1;
+        const t = (attrs.match(/\bt="([^"]*)"/) || [])[1] || '';
+        const v = dentro ? ((dentro.match(/<v>([\s\S]*?)<\/v>/) || [])[1]) : undefined;
+        let val = '';
+        if(t === 's') val = sst[+v] || '';
+        else if(t === 'inlineStr') val = textoDe(dentro || '');
+        else if(v !== undefined){
+          val = desescaparXml(v);
+          // Excel guarda 1790012345001 como 1.790012345001E12
+          if(t !== 'str' && /^-?\d+(\.\d+)?E[+-]?\d+$/i.test(val)){ const n = Number(val); if(Number.isFinite(n) && Number.isInteger(n)) val = n.toFixed(0); }
+        }
+        if(j < 400) fila[j] = String(val).replace(/\s+/g, ' ').trim();
+        return '';
+      });
+      for(let k = 0; k < fila.length; k++) if(fila[k] === undefined) fila[k] = '';
+      filas.push(fila);
+      return '';
+    });
+    hojas.push({ nombre, filas });
+    return '';
+  });
+  return hojas;
+}
+/* Filas copiadas de Excel: tabuladores entre celdas, y comillas en las celdas
+   que traen un salto de línea dentro. */
+function leerPegadoTabla(texto){
+  const filas = []; let fila = [], celda = '', comillas = false;
+  const t = String(texto || '').replace(/\r\n?/g, '\n');
+  for(let i = 0; i < t.length; i++){
+    const ch = t[i];
+    if(comillas){
+      if(ch === '"'){ if(t[i + 1] === '"'){ celda += '"'; i++; } else comillas = false; }
+      else celda += ch;
+    } else if(ch === '"' && celda === '') comillas = true;
+    else if(ch === '\t'){ fila.push(celda.trim()); celda = ''; }
+    else if(ch === '\n'){ fila.push(celda.trim()); filas.push(fila); fila = []; celda = ''; }
+    else celda += ch;
+  }
+  if(celda !== '' || fila.length){ fila.push(celda.trim()); filas.push(fila); }
+  return filas.map(f => f.map(c => c.replace(/\s+/g, ' ')));
+}
+/* Qué columna es cada dato, por el rótulo de su encabezado. Un «Correo
+   electrónico AC» no es el correo del proveedor: los rótulos de la AC se saltan. */
+function adivinarColumnasCp(encabezados){
+  const rot = encabezados.map(rotuloCol), mapa = {}, usadas = new Set();
+  ['representante','identificacion','email','direccion','nombre'].forEach(campo => {
+    const def = CAMPOS_CP.find(x => x.campo === campo);
+    let mejor = -1, puntos = 0;
+    rot.forEach((h, j) => {
+      if(!h || usadas.has(j) || def.no.test(h)) return;
+      let p = 0;
+      def.alias.forEach(a => {
+        if(h === a) p = Math.max(p, 3);
+        else if(h.indexOf(a + ' ') === 0) p = Math.max(p, 2);
+        else if((' ' + h + ' ').indexOf(' ' + a + ' ') >= 0) p = Math.max(p, 1);
+      });
+      if(p > puntos){ puntos = p; mejor = j; }
+    });
+    mapa[campo] = mejor;
+    if(mejor >= 0) usadas.add(mejor);
+  });
+  return mapa;
+}
+/* La hoja y la fila de encabezados que más parecen una lista de proveedores. */
+function proponerHojaCp(hojas){
+  let mejor = null;
+  hojas.forEach((h, hi) => {
+    h.filas.slice(0, 12).forEach((fila, fi) => {
+      const mapa = adivinarColumnasCp(fila);
+      const otros = ['identificacion','representante','email','direccion'].filter(c => mapa[c] >= 0).length;
+      if(mapa.nombre < 0 || !otros) return;
+      const puntos = otros + (/proveedor|contraparte|contratista/i.test(h.nombre) ? 0.5 : 0);
+      if(!mejor || puntos > mejor.puntos) mejor = { hoja: hi, filaEnc: fi, mapa, puntos };
+    });
+  });
+  if(mejor) return mejor;
+  const hi = Math.max(0, hojas.findIndex(h => h.filas.some(f => f.some(c => c))));
+  const fi = Math.max(0, hojas[hi].filas.findIndex(f => f.filter(c => c).length >= 2));
+  return { hoja: hi, filaEnc: fi, mapa: adivinarColumnasCp(hojas[hi].filas[fi] || []) };
+}
+/* Excel guarda la cédula como número y le quita el cero de adelante: 9 o 12
+   dígitos solo pueden ser una cédula o un RUC de las provincias 01 a 09. */
+function arreglarIdentificacion(v){
+  const crudo = String(v == null ? '' : v).trim();
+  let s = crudo.replace(/\.0+$/, '').replace(/[\s.\-]/g, '');
+  if(!/^\d+$/.test(s)) return crudo;
+  if(s.length === 9 || s.length === 12) s = '0' + s;
+  return s;
+}
+function filasContrapartesExcel(){
+  const x = cpExcel; if(!x) return { filas: [], ceros: 0 };
+  const h = x.hojas[x.hoja]; let ceros = 0;
+  const filas = [];
+  (h ? h.filas.slice(x.filaEnc + 1) : []).forEach(f => {
+    const d = {};
+    CAMPOS_CP.forEach(c => { const j = x.mapa[c.campo]; d[c.campo] = j >= 0 && f[j] != null ? String(f[j]).trim() : ''; });
+    if(!d.nombre) return;
+    if(d.identificacion){
+      const digitos = d.identificacion.replace(/\.0+$/, '').replace(/\D/g, '').length;
+      const id = arreglarIdentificacion(d.identificacion);
+      if(/^\d+$/.test(id) && id.length === digitos + 1) ceros++;
+      d.identificacion = id;
+    }
+    filas.push(d);
+  });
+  return { filas, ceros };
+}
+/* Une las filas del Excel con las contrapartes guardadas. Con simular=true solo
+   cuenta. Completa lo vacío; lo que ya tenía dato se conserva aunque difiera. */
+function fusionarContrapartesExcel(filas, agregar, simular){
+  const lista = simular ? JSON.parse(JSON.stringify(contrapartes)) : contrapartes;
+  const porNombre = new Map();
+  lista.forEach(c => { const k = normalizar(c.nombre || ''); if(k && !porNombre.has(k)) porNombre.set(k, c); });
+  const r = { completadas: 0, datos: 0, distintos: 0, nuevas: 0 };
+  const tocadas = new Set(), conDistinto = new Set(), nuevas = new Set();
+  filas.forEach(d => {
+    const k = normalizar(d.nombre); if(!k) return;
+    let c = porNombre.get(k);
+    if(!c){
+      if(!agregar) return;
+      c = { nombre: d.nombre, identificacion: '', representante: '', email: '', direccion: '' };
+      lista.push(c); porNombre.set(k, c); nuevas.add(c);
+    }
+    ['identificacion','representante','email','direccion'].forEach(campo => {
+      const nuevo = d[campo]; if(!nuevo) return;
+      const actual = String(c[campo] || '').trim();
+      if(!actual){ c[campo] = nuevo; if(!nuevas.has(c)){ r.datos++; tocadas.add(c); } }
+      else if(normalizar(actual) !== normalizar(nuevo)) conDistinto.add(c);
+    });
+  });
+  r.completadas = tocadas.size; r.distintos = conDistinto.size; r.nuevas = nuevas.size;
+  return r;
+}
+function abrirContrapartesExcel(){
+  cpExcel = null;
+  abrirModal(`
+    <div class="m-cab"><h3>Traer contrapartes del Excel maestro</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <p style="font-size:13px;line-height:1.55;margin:0 0 10px">Elige el Excel donde están los datos de los proveedores (cédula o RUC, representante, correo, dirección). <b>Se lee en esta computadora: no se sube ni se publica.</b></p>
+      <label class="btn" style="cursor:pointer;display:inline-block">📂 Elegir el archivo .xlsx<input type="file" id="cpx-archivo" accept=".xlsx,.xlsm" style="display:none" onchange="cargarExcelContrapartes(event)"></label>
+      <div class="campo" style="margin-top:14px"><label>…o copia las filas en Excel, con su fila de encabezados, y pégalas aquí</label>
+        <textarea class="pegar-caja" id="cpx-pegar" rows="4" placeholder="Nombre del proveedor&#9;RUC&#9;Correo&#9;Dirección"></textarea></div>
+      <button class="btn sec" onclick="pegarExcelContrapartes()">Usar lo pegado</button>
+    </div>`);
+}
+function cargarExcelContrapartes(ev){
+  const file = ev.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let hojas = null;
+    try{ hojas = leerXlsx(reader.result); }catch(e){}
+    if(!hojas || !hojas.some(h => h.filas.length)){
+      alert('No se pudo leer ese archivo como un Excel (.xlsx).\n\nSi es un .xls antiguo o está protegido con contraseña, ábrelo en Excel, copia las filas con su encabezado y pégalas en el cuadro.');
+      return;
+    }
+    prepararContrapartesExcel(hojas.filter(h => h.filas.length));
+  };
+  reader.readAsArrayBuffer(file);
+  ev.target.value = '';
+}
+function pegarExcelContrapartes(){
+  const filas = leerPegadoTabla((document.getElementById('cpx-pegar') || {}).value || '').filter(f => f.some(c => c));
+  if(filas.length < 2){ avisar('Necesito al menos dos filas: la de encabezados y una de datos.', 'err'); return; }
+  prepararContrapartesExcel([{ nombre: 'Lo pegado', filas }]);
+}
+function prepararContrapartesExcel(hojas){
+  const p = proponerHojaCp(hojas);
+  cpExcel = { hojas, hoja: p.hoja, filaEnc: p.filaEnc, mapa: p.mapa, agregar: true };
+  renderContrapartesExcel();
+}
+function cambiarHojaCpExcel(i){
+  const x = cpExcel; if(!x) return;
+  x.hoja = +i;
+  const solo = proponerHojaCp([x.hojas[x.hoja]]);
+  x.filaEnc = solo.filaEnc; x.mapa = solo.mapa;
+  renderContrapartesExcel();
+}
+function cambiarFilaEncCpExcel(n){
+  const x = cpExcel; if(!x) return;
+  const h = x.hojas[x.hoja];
+  x.filaEnc = Math.min(Math.max((parseInt(n, 10) || 1) - 1, 0), Math.max(h.filas.length - 1, 0));
+  x.mapa = adivinarColumnasCp(h.filas[x.filaEnc] || []);
+  renderContrapartesExcel();
+}
+function renderContrapartesExcel(){
+  const x = cpExcel; if(!x) return;
+  const h = x.hojas[x.hoja], enc = h.filas[x.filaEnc] || [];
+  const { filas, ceros } = filasContrapartesExcel();
+  const r = fusionarContrapartesExcel(filas, x.agregar, true);
+  const opciones = campo => `<option value="-1">— no traer —</option>` + enc.map((t, j) => t ? `<option value="${j}" ${x.mapa[campo] === j ? 'selected' : ''}>${letraCol(j)} · ${esc(t)}</option>` : '').join('');
+  const muestra = filas.slice(0, 3).map(d => `<tr>${CAMPOS_CP.map(c => `<td>${esc(d[c.campo] || '')}</td>`).join('')}</tr>`).join('');
+  const hayOtros = ['identificacion','representante','email','direccion'].some(c => x.mapa[c] >= 0);
+  abrirModal(`
+    <div class="m-cab"><h3>Traer contrapartes del Excel maestro</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <div class="reg-filtros">
+        ${x.hojas.length > 1 ? `<label style="font-size:12.5px">Hoja <select id="cpx-hoja" onchange="cambiarHojaCpExcel(this.value)">${x.hojas.map((o, i) => `<option value="${i}" ${i === x.hoja ? 'selected' : ''}>${esc(o.nombre)}</option>`).join('')}</select></label>` : ''}
+        <label style="font-size:12.5px">Los encabezados están en la fila <input type="number" id="cpx-fila" min="1" value="${x.filaEnc + 1}" style="flex:none;min-width:0;width:64px" onchange="cambiarFilaEncCpExcel(this.value)"></label>
+      </div>
+      <p class="nota" style="margin:2px 0 8px">Revisa de qué columna sale cada dato. Los propuse por el rótulo; si alguno no es, cámbialo.</p>
+      <div class="cpx-mapa">${CAMPOS_CP.map(c => `<div class="campo"><label>${esc(c.rotulo)}</label><select id="cpx-col-${c.campo}" onchange="cpExcel.mapa['${c.campo}']=+this.value;renderContrapartesExcel()">${opciones(c.campo)}</select></div>`).join('')}</div>
+      ${muestra ? `<div class="tabla-scroll" style="margin:6px 0 10px"><table><thead><tr>${CAMPOS_CP.map(c => `<th>${esc(c.rotulo)}</th>`).join('')}</tr></thead><tbody>${muestra}</tbody></table></div>` : ''}
+      <div class="cpx-resumen" id="cpx-resumen">
+        ${x.mapa.nombre < 0 ? '<b>Elige la columna del nombre</b>: sin ella no se puede emparejar con tus contrapartes.'
+          : !hayOtros ? '<b>Elige al menos una columna más</b> (cédula o RUC, representante, correo o dirección): solo con el nombre no hay nada que completar.'
+          : `<b>${filas.length}</b> fila${filas.length === 1 ? '' : 's'} con nombre.
+             <b>${r.completadas}</b> de tus contrapartes se completan (${r.datos} dato${r.datos === 1 ? '' : 's'} que estaban vacíos).
+             ${x.agregar ? `<b>${r.nuevas}</b> son nuevas.` : ''}
+             ${r.distintos ? `<br>En <b>${r.distintos}</b> ya tenías un dato distinto al del Excel: se conserva el tuyo.` : ''}
+             ${ceros ? `<br>A <b>${ceros}</b> cédula(s) o RUC se les repone el cero inicial que Excel quita.` : ''}`}
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-top:10px"><input type="checkbox" id="cpx-agregar" ${x.agregar ? 'checked' : ''} onchange="cpExcel.agregar=this.checked;renderContrapartesExcel()"> Añadir también los proveedores que todavía no tengo guardados</label>
+    </div>
+    <div class="m-pie">
+      <button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn" id="cpx-traer" onclick="aplicarContrapartesExcel()" ${x.mapa.nombre < 0 || !hayOtros || !filas.length ? 'disabled' : ''}>Traer</button>
+    </div>`);
+  const m = document.getElementById('modal'); if(m) m.classList.add('ancho');
+}
+function aplicarContrapartesExcel(){
+  const x = cpExcel; if(!x) return;
+  const { filas } = filasContrapartesExcel();
+  const r = fusionarContrapartesExcel(filas, x.agregar, false);
+  cpExcel = null;
+  guardar(); cerrarModal();
+  if(tabActual === 'contrapartes') renderContenido();
+  avisar(r.datos || r.nuevas
+    ? `Listo: ${r.completadas} contraparte(s) completadas y ${r.nuevas} nuevas.${r.distintos ? ` En ${r.distintos} se conservó el dato que ya tenías.` : ''}`
+    : 'No había nada que completar: tus contrapartes ya tenían esos datos.');
+}
+/* La contraparte guardada de un proveedor, por su nombre (sin contar mayúsculas,
+   tildes ni puntuación). Nada por parecido. */
+function contraparteDe(nombre){
+  const k = normalizar(nombre || '');
+  if(!k) return null;
+  const r = contrapartesVista().find(v => normalizar(v.x.nombre || '') === k);
+  return r ? r.x : null;
+}
+function usarProveedorExcel(j){
+  const e = provExcel[j]; if(!e) return;
+  if(!plActual()){ avisar('Primero elige una plantilla en la lista de la izquierda.'); return; }
+  aplicarContraparte(e);
+  tabActual = 'generar';
+  pedirResetScroll();
+  renderTabs(); renderContenido();
+}
+/* Al tomar un contrato del registro, los datos del proveedor vienen con él: los
+   de su contraparte guardada. Y si el proveedor cambió y no tiene contraparte, se
+   borran los del anterior: un RUC ajeno junto a otro nombre es peor que el hueco. */
+function aplicarContraparteDeRegistro(row, datos, vars){
+  const nombre = String(row.proveedor || '').trim();
+  if(!nombre) return;
+  const cp = contraparteDe(nombre);
+  const cambio = normalizar(datos.proveedor || datos.nombre_proveedor || datos.institucion || '') !== normalizar(nombre);
+  Object.entries(MAPA_CONTRAPARTE).forEach(([v, campo]) => {
+    if(campo === 'nombre' || !vars.includes(v)) return;
+    if(cp && cp[campo]) datos[v] = cp[campo];
+    else if(cambio) delete datos[v];
+  });
 }
 function aplicarContraparte(x){
   const p = plActual(); if(!p) return;
@@ -16264,19 +16916,244 @@ function usarContraparte(i){
   pedirResetScroll();   // cambias de pestaña al formulario: empieza arriba
   renderTabs(); renderContenido();
 }
+let pickerCp = [];   // la vista con la que se abrió el selector, para elegir por índice
 function abrirPickerContraparte(){
-  if(!contrapartes.length){
+  if(provEstado === 'protegido' && !contrapartes.length){ desbloquearProveedores().then(ok => { if(ok) abrirPickerContraparte(); }); return; }
+  pickerCp = contrapartesVista();
+  if(!pickerCp.length){
     if(confirm('Aún no tienes contrapartes guardadas.\n\n¿Quieres crear la primera ahora?')) { editarContraparte(-1); }
     return;
   }
   abrirModal(`
     <div class="m-cab"><h3>Usar contraparte guardada</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
-      <div class="reg-lista">${contrapartes.map((x,i) => `
-        <div class="reg-fila" onclick="aplicarContraparte(contrapartes[${i}]);cerrarModal();renderContenido()">
-          <div class="d"><div class="l1">${esc(x.nombre)}</div><div class="l2">${esc(x.identificacion||'sin cédula/RUC')}${x.representante?' · Rep.: '+esc(x.representante):''}</div></div>
-        </div>`).join('')}</div>
+      ${provEstado === 'protegido' ? `<div class="prov-estado pend" style="margin-bottom:8px">🔒 Faltan los proveedores del Excel maestro. <button class="btn sec mini" onclick="desbloquearProveedores().then(ok => { if(ok) abrirPickerContraparte(); })">Abrir</button></div>` : ''}
+      <div class="reg-filtros"><input type="search" id="pc-busq" placeholder="Buscar por nombre, cédula o RUC…" oninput="renderPickerContraparte()"></div>
+      <div class="reg-lista" id="pc-lista"></div>
     </div>`);
+  renderPickerContraparte();
+  const b = document.getElementById('pc-busq'); if(b) b.focus();
+}
+function renderPickerContraparte(){
+  const lista = document.getElementById('pc-lista'); if(!lista) return;
+  const q = (document.getElementById('pc-busq') || {}).value || '';
+  const filas = pickerCp.map((r, k) => ({ r, k })).filter(({ r }) => !q.trim() || coincideBusqueda([r.x.nombre, r.x.identificacion, r.x.representante], q));
+  lista.innerHTML = filas.length ? filas.slice(0, 120).map(({ r, k }) => `
+    <div class="reg-fila" onclick="aplicarContraparte(pickerCp[${k}].x);cerrarModal();renderContenido()">
+      <div class="d"><div class="l1">${esc(r.x.nombre)}${r.i < 0 ? ' <span class="tag-excel">Excel maestro</span>' : ''}</div><div class="l2">${esc(r.x.identificacion||'sin cédula/RUC')}${r.x.representante?' · Rep.: '+esc(r.x.representante):''}</div></div>
+    </div>`).join('') : '<div style="padding:14px;color:var(--gris);font-size:13px">Ninguna contraparte coincide.</div>';
+}
+
+/* ============ Tomar datos de otro documento ============
+   El acta de aumento de monto y su autorización llevan el mismo contrato, el
+   mismo proveedor y los mismos montos, pero «Reusar datos» solo reabría la MISMA
+   plantilla: para la segunda había que teclearlo todo otra vez. Como todas las
+   plantillas hablan el mismo catálogo, lo que se llama igual se pasa tal cual.
+   Reglas:
+   · Solo viaja lo que la plantilla de destino pide; lo demás se ignora.
+   · No adivina: un dato pasa si se llama igual (sin contar mayúsculas ni guiones
+     bajos: «fechanotificacion» es «fechaNotificacion»). Nada por parecido.
+   · El género también viaja; si el documento de origen no deja claro cuál era,
+     no se elige ninguno y se avisa.
+   · Lo que se calcula solo (letras, totales) se rehace, no se copia. */
+let avisoDatosTraidos = null;   // { origen, n, sinGenero } de lo último que se trajo al formulario
+let historialAjeno = [];        // historial exportado por otra persona, abierto solo para tomar datos: no se guarda
+let fuenteParaDestino = null;   // los datos que esperan a que se elija la plantilla de destino
+const claveVar = n => String(n || '').toLowerCase().replace(/_/g, '');
+/* Un registro del historial, en la misma forma que la foto del formulario. */
+function fuenteDeHistorial(h){
+  const f = { nombre: h.archivo || h.plantilla || 'documento', plantilla: h.plantilla || '', datos: {}, cond: {}, listas: {}, conc: h.conc || null };
+  Object.entries(h.datos || {}).forEach(([k, v]) => {
+    if(Array.isArray(v)) f.listas[k] = v;
+    else if(typeof v === 'boolean') f.cond[k] = v;
+    else if(v != null) f.datos[k] = v;
+  });
+  return f;
+}
+/* Qué opción de cada grupo de concordancia se había elegido, leído de lo que
+   quedó escrito en sus tags (el historial de antes no guardaba la elección).
+   Si dos opciones dan el mismo texto en esos tags, no se sabe cuál era: no se
+   devuelve ninguna. */
+function concDeDatos(datos){
+  const sel = {};
+  concordancias.forEach(g => {
+    const tags = Object.keys(g.tags || {}).filter(t => String(datos[t] == null ? '' : datos[t]).trim());
+    if(!tags.length) return;
+    const caben = (g.opciones || []).map((o, i) => i).filter(i => tags.every(t => (g.tags[t] || [])[i] === datos[t]));
+    if(caben.length === 1) sel[g.nombre] = caben[0];
+  });
+  return sel;
+}
+/* De dónde sale cada campo de la plantilla p: { variable de p → clave en la fuente }. */
+function camposQueLlena(f, p){
+  const vars = varsDe(p), gob = tagsGobernados(), porClave = {}, mapa = {};
+  Object.keys(f.datos).forEach(k => { const c = claveVar(k); if(!(c in porClave)) porClave[c] = k; });
+  vars.forEach(v => {
+    if(gob.has(v) || esLetras(v) || derivadaDe(v, vars)) return;
+    const k = Object.prototype.hasOwnProperty.call(f.datos, v) ? v : porClave[claveVar(v)];
+    if(k !== undefined && String(f.datos[k] == null ? '' : f.datos[k]).trim()) mapa[v] = k;
+  });
+  return mapa;
+}
+/* Escribe en el formulario abierto (plantilla p) lo que la fuente trae. */
+function pasarDatos(f, p){
+  const vars = varsDe(p);
+  const mapa = camposQueLlena(f, p);
+  Object.entries(mapa).forEach(([v, k]) => { datosForm[v] = f.datos[k]; });
+  let n = Object.keys(mapa).length;
+  if(p.tipo === 'docx'){
+    const est = estructuraDocx(p);
+    est.condiciones.forEach(c => { if(typeof f.cond[c.nombre] === 'boolean') condForm[c.nombre] = f.cond[c.nombre]; });
+    est.listas.forEach(l => {
+      const filas = f.listas[l.nombre];
+      if(Array.isArray(filas) && filas.length){ listasForm[l.nombre] = JSON.parse(JSON.stringify(filas)); n++; }
+    });
+  }
+  const conc = { ...concDeDatos(f.datos), ...(f.conc || {}) };
+  const sinGenero = [];
+  concordanciasDe(vars).forEach(g => {
+    const i = conc[g.nombre];
+    if(i != null && i >= 0 && i < (g.opciones || []).length) aplicarConcordancia(g.nombre, +i);
+    else sinGenero.push(g.etiqueta || g.nombre);
+  });
+  aplicarFijos(vars, datosForm);
+  completarDerivadas(vars, datosForm);
+  completarLetras(vars, datosForm);
+  return { n, sinGenero };
+}
+function fuentesDeDatos(){
+  return historial.map(h => ({ h, ajeno: false })).concat(historialAjeno.map(h => ({ h, ajeno: true })));
+}
+function abrirPickerDocumento(){
+  const p = plActual(); if(!p) return;
+  abrirModal(`
+    <div class="m-cab"><h3>Tomar datos de otro documento</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <p class="nota" style="margin:0 0 8px">Pasa a «${esc(p.nombre)}» los datos que ya escribiste en otro documento: lo que se llama igual llega tal cual, con el género y las tablas.</p>
+      <div class="reg-filtros"><input type="search" id="pd-busq" placeholder="Buscar por plantilla, archivo o dato (contrato, proveedor…)" oninput="renderPickerDocumento()"></div>
+      <div class="reg-lista" id="pd-lista"></div>
+      <div class="nota" style="margin-top:10px">¿Lo generó otra persona, o tú en otra computadora? Que te pase su historial (pestaña <b>Historial</b> → «Exportar historial») y
+        <label class="btn sec mini" style="cursor:pointer">ábrelo aquí<input type="file" accept=".json,application/json" style="display:none" onchange="abrirHistorialAjeno(event)"></label>
+        Solo se usa para tomar datos: no se guarda en tu historial.</div>
+    </div>`);
+  renderPickerDocumento();
+}
+function renderPickerDocumento(){
+  const p = plActual(), lista = document.getElementById('pd-lista');
+  if(!p || !lista) return;
+  const q = (document.getElementById('pd-busq') || {}).value || '';
+  const total = estadoCampos(p).editables.length;
+  const filas = fuentesDeDatos().map((x, i) => {
+    const f = fuenteDeHistorial(x.h);
+    return { x, i, f, n: Object.keys(camposQueLlena(f, p)).length };
+  }).filter(r => r.n > 0 && (!q.trim() || coincideBusqueda([r.x.h.plantilla, r.x.h.archivo].concat(Object.values(r.f.datos).map(String)), q)));
+  if(!filas.length){
+    lista.innerHTML = `<div style="padding:14px;color:var(--gris);font-size:13px">${fuentesDeDatos().length
+      ? (q.trim() ? 'Ningún documento coincide con la búsqueda.' : 'Ningún documento del historial tiene datos que esta plantilla pida.')
+      : 'Aún no has generado documentos en este navegador. Cada Word que descargues quedará aquí para tomar sus datos.'}</div>`;
+    return;
+  }
+  lista.innerHTML = filas.slice(0, 80).map(({ x, i, f, n }) => {
+    const d = new Date(x.h.fecha);
+    const resumen = Object.entries(f.datos).filter(([, v]) => String(v).trim()).slice(0, 3).map(([k, v]) => `${etiqueta(k)}: ${String(v).slice(0, 60)}`).join(' · ');
+    return `<div class="reg-fila" onclick="tomarDatosDe(${i})">
+      <div class="d">
+        <div class="l1">${esc(x.h.plantilla || '')}${x.ajeno ? ' <span class="tag-auto">de otro historial</span>' : ''}</div>
+        <div class="l2">${isNaN(d) ? '' : esc(d.toLocaleDateString('es-EC')) + ' · '}${esc(x.h.archivo || '')}</div>
+        <div class="l2">${esc(resumen)}</div>
+      </div>
+      <div class="l2" style="white-space:nowrap;font-weight:600">llena ${n} de ${total}</div>
+    </div>`;
+  }).join('');
+}
+function tomarDatosDe(i){
+  const p = plActual(), x = fuentesDeDatos()[i];
+  if(!p || !x) return;
+  const f = fuenteDeHistorial(x.h);
+  const r = pasarDatos(f, p);
+  avisoDatosTraidos = { origen: f.nombre, n: r.n, sinGenero: r.sinGenero };
+  camposFaltantes = new Set();
+  guardarBorrador();
+  cerrarModal(); renderContenido();
+}
+function abrirHistorialAjeno(ev){
+  const file = ev.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data = null;
+    try{ data = JSON.parse(reader.result); }catch(e){}
+    if(!data || data.tipo !== 'historial_fap' || !Array.isArray(data.historial)){
+      alert('Ese archivo no es un historial exportado del Generador de Instrumentos.\n\nSe obtiene en la pestaña Historial → «Exportar historial (JSON)».');
+      return;
+    }
+    historialAjeno = data.historial.filter(h => h && h.datos && typeof h.datos === 'object');
+    renderPickerDocumento();
+    avisar(`Historial abierto: ${historialAjeno.length} documento(s). Elige de cuál tomar los datos.`);
+  };
+  reader.readAsText(file);
+  ev.target.value = '';
+}
+function htmlAvisoDatosTraidos(){
+  const a = avisoDatosTraidos, p = plActual();
+  if(!a || !p) return '';
+  const faltan = estadoCampos(p).pendientes.length;
+  return `<div class="aviso-borrador" id="aviso-traidos">✓ Se trajeron ${a.n} dato${a.n === 1 ? '' : 's'} de «${esc(a.origen)}».
+    ${faltan ? `<button class="btn sec" onclick="irAPrimerFaltante()">Falta${faltan === 1 ? '' : 'n'} ${faltan} por llenar →</button>` : 'No falta ninguno.'}
+    ${a.sinGenero.length ? `<span style="color:#8A5A00">Elige a mano: ${esc(a.sinGenero.join(', '))} (el documento de origen no lo dejaba claro).</span>` : ''}
+    <button class="btn sec" onclick="avisoDatosTraidos=null;renderContenido()">✕</button></div>`;
+}
+/* El camino inverso: con los datos en la mano, elegir a qué plantilla van. */
+function abrirPickerDestino(f){
+  fuenteParaDestino = f;
+  abrirModal(`
+    <div class="m-cab"><h3>Usar estos datos en otra plantilla</h3><button onclick="cerrarModal()">✕</button></div>
+    <div class="m-cuerpo">
+      <p class="nota" style="margin:0 0 8px">Datos de «${esc(f.nombre)}». Elige el documento que sigue: llega con todo lo que comparten ya escrito.</p>
+      <div class="reg-filtros"><input type="search" id="pt-busq" placeholder="Buscar plantilla…" oninput="renderPickerDestino()"></div>
+      <div class="reg-lista" id="pt-lista"></div>
+    </div>`);
+  renderPickerDestino();
+}
+function renderPickerDestino(){
+  const f = fuenteParaDestino, lista = document.getElementById('pt-lista');
+  if(!f || !lista) return;
+  const q = (document.getElementById('pt-busq') || {}).value || '';
+  // La de origen no se propone: para repetir el mismo documento ya está «Reusar datos».
+  const filas = plantillas.filter(p => p.id !== f.plId && p.nombre !== f.plantilla && (!q.trim() || coincideBusqueda([p.nombre, p.carpetaId ? rutaCarpeta('pl', p.carpetaId) : ''], q))).map(p => {
+    let n = 0;
+    try{ n = Object.keys(camposQueLlena(f, p)).length; }catch(e){}
+    return { p, n };
+  }).filter(r => r.n > 0).sort((a, b) => b.n - a.n);
+  lista.innerHTML = filas.length ? filas.map(({ p, n }) => `
+    <div class="reg-fila" onclick="usarDatosEn('${esc(p.id)}')">
+      <div class="d"><div class="l1">${esc(p.nombre)}</div>${p.carpetaId ? `<div class="l2">📁 ${esc(rutaCarpeta('pl', p.carpetaId))}</div>` : ''}</div>
+      <div class="l2" style="white-space:nowrap;font-weight:600">llena ${n} campo${n === 1 ? '' : 's'}</div>
+    </div>`).join('') : '<div style="padding:14px;color:var(--gris);font-size:13px">Ninguna otra plantilla pide estos datos.</div>';
+}
+function usarDatosEn(id){
+  const f = fuenteParaDestino, destino = plantillas.find(x => x.id === id);
+  if(!f || !destino) return;
+  if(id !== seleccion && borradorDe(id) &&
+     !confirm(`En «${destino.nombre}» habías dejado un documento a medias.\n\nSi sigues, se reemplaza por estos datos.`)) return;
+  asegurarBloqueGuardado();
+  if(id !== seleccion) guardarBorrador();   // lo que se llenaba en la plantilla anterior no se pierde
+  fijarSeleccion(id);
+  datosForm = {}; condForm = {}; listasForm = {}; concSel = {}; editandoDoc = false; docEditado = ''; bloqueEditando = null;
+  const r = pasarDatos(f, destino);
+  avisoDatosTraidos = { origen: f.nombre, n: r.n, sinGenero: r.sinGenero };
+  fuenteParaDestino = null;
+  guardarBorrador();
+  if(destino.carpetaId) abrirAncestros('pl', destino.carpetaId);
+  tabActual = 'generar';
+  pedirResetScroll();
+  cerrarModal(); renderLista(); renderTabs(); renderContenido();
+}
+function usarUltimaDescargaEnOtra(){
+  const u = ultimaDescarga; if(!u) return;
+  abrirPickerDestino({ nombre: u.archivo, plId: u.plId, datos: u.snap.datos || {}, cond: u.snap.cond || {}, listas: u.snap.listas || {}, conc: u.snap.conc || null });
+}
+function usarHistorialEnOtra(i){
+  if(historial[i]) abrirPickerDestino(fuenteDeHistorial(historial[i]));
 }
 
 /* ============ Lote (generación masiva) ============ */
@@ -16388,7 +17265,9 @@ function agregarMarcadosAlLote(){
   let n = 0;
   document.querySelectorAll('.lt-check:checked').forEach(ch => {
     const row = registro[+ch.value]; if(!row) return;
-    const datos = aplicarFijos(vars, aplicarFilaRegistro(row, {}));
+    const datos = {};
+    aplicarContraparteDeRegistro(row, datos, vars);
+    aplicarFijos(vars, aplicarFilaRegistro(row, datos));
     loteFilas.push(datos); n++;
   });
   if(!n){ avisar('Marca al menos un contrato de la lista.'); return; }
@@ -18469,6 +19348,7 @@ function datosDocx(p, base, enLote, marcarVacios){
     if(!val && esLetras(t) && base[origenDe(t)]) val = formatoLetras(origenDe(t), base[origenDe(t)]);
     if(esFecha(t) && val) val = fechaImpresa(val);
     if(val && esDinero(t)) val = fmtMonto(val);
+    if(val && esLargo(t)) val = textoLargo(val).replace(/\n/g, SALTO_PARRAFO);
     datos[t] = val;
   });
   est.condiciones.forEach(cn => { datos[cn.nombre] = enLote ? true : condForm[cn.nombre] !== false; });
@@ -18515,7 +19395,14 @@ function generarBlobDocx(p, datos){
     nullGetter(part){ return part.module ? '' : '__________'; }
   });
   doc.render(datos);
-  return doc.getZip().generate({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  // Los textos largos: cada línea, un párrafo de Word (ver partirParrafosXml).
+  const salida = doc.getZip();
+  const numXml = salida.file('word/numbering.xml') ? salida.file('word/numbering.xml').asText() : '';
+  Object.keys(salida.files).filter(n => /^word\/[^/]+\.xml$/.test(n)).forEach(n => {
+    const x = salida.files[n].asText();
+    if(x.indexOf(SALTO_PARRAFO) >= 0) salida.file(n, partirParrafosXml(x, numXml));
+  });
+  return salida.generate({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 /* Vista previa: se genera el Word con los datos actuales y se pinta con docx-preview */
 let tPrevDocx = null;
@@ -18975,7 +19862,7 @@ async function descargarWord(){
       // transformar), para que «Reusar datos» los devuelva a los campos tal cual.
       const crudos = { ...datosForm, ...condForm };
       Object.entries(listasForm).forEach(([k, v]) => { if(Array.isArray(v) && v.length) crudos[k] = v; });
-      historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(crudos)) });
+      historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(crudos)), conc: { ...concSel } });
       if(historial.length > 500) historial.length = 500;
       guardar();
       pasarAlSiguiente(p, archivo);
@@ -18996,7 +19883,7 @@ async function descargarWord(){
     const blob = await construirDocx(p, datosForm, cuerpoOverride);
     const archivo = nombreArchivo(p, datosForm, null);
     descargarBlob(blob, archivo);
-    historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(datosForm)) });
+    historial.unshift({ fecha: new Date().toISOString(), plantilla: p.nombre, archivo, datos: JSON.parse(JSON.stringify(datosForm)), conc: { ...concSel } });
     if(historial.length > 500) historial.length = 500;
     guardar();
     pasarAlSiguiente(p, archivo);
@@ -19877,7 +20764,8 @@ async function registrarVariableDesdeModal(){
    descripción → tipo → grupo), sin volver atrás, sin validar hasta el final y
    perdiendo lo escrito si se cancelaba en el tercero. Ahora es un solo
    formulario que valida antes de cerrar. */
-const TIPOS_VAR = ['texto','numero','fecha','letras','repetible'];
+const TIPOS_VAR = ['texto','parrafo','numero','fecha','letras','repetible'];
+const ROTULO_TIPO = { texto:'Texto', parrafo:'Texto largo (varios párrafos)', numero:'Número / monto', fecha:'Fecha', letras:'Cantidad en letras (se calcula sola)', repetible:'Bloque repetible {#tag}' };
 const limpiarNombreVar = s => String(s||'').trim().replace(/\s+/g,'_').replace(/[{}]/g,'');
 async function registrarVariable(sugerido){
   const gruposExistentes = gruposVar().filter(g => g !== 'Todos');
@@ -19890,7 +20778,7 @@ async function registrarVariable(sugerido){
       { nombre:'descripcion', etiqueta:'Descripción — guía el formulario al generar', tipo:'area', filas:2, ejemplo:'Valor de la garantía de fiel cumplimiento' },
       { nombre:'ejemplo', etiqueta:'Ejemplo (opcional)', ejemplo:'850,00' },
       { nombre:'tipo', etiqueta:'Tipo', tipo:'select', valor:'texto', opciones:[
-          ['texto','Texto'], ['numero','Número / monto'], ['fecha','Fecha'],
+          ['texto','Texto'], ['parrafo','Texto largo (varios párrafos)'], ['numero','Número / monto'], ['fecha','Fecha'],
           ['letras','Cantidad en letras (se calcula sola)'], ['repetible','Bloque repetible {#tag}']
         ] },
       { nombre:'grupo', etiqueta:'Grupo', valor:'Locales (plantillas HTML)', lista:'dl-grupos-var',
@@ -19969,7 +20857,7 @@ function renderVariables(c){
             </select>
             <div class="nota">Vale para todas las plantillas que usen <code>{{${esc(sel.nombre)}}}</code>. Márcala solo si su ausencia deja el instrumento defectuoso.</div>
           </div>
-          <div class="campo"><label>Tipo</label><select id="var-ed-tipo" onchange="document.getElementById('var-ed-origen-wrap').style.display = this.value==='letras' ? '' : 'none'">${['texto','numero','fecha','letras','repetible'].map(t=>`<option ${sel.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div>
+          <div class="campo"><label>Tipo</label><select id="var-ed-tipo" onchange="document.getElementById('var-ed-origen-wrap').style.display = this.value==='letras' ? '' : 'none'">${TIPOS_VAR.map(t=>`<option value="${t}" ${sel.tipo===t?'selected':''}>${esc(ROTULO_TIPO[t])}</option>`).join('')}</select></div>
           <div class="campo" id="var-ed-origen-wrap" style="${sel.tipo==='letras'?'':'display:none'}">
             <label>Variable de origen (el monto en números)</label>
             <input id="var-ed-origen" list="vars-origen-dl" value="${esc(sel.origen||'')}" placeholder="${esc(baseLetras(sel.nombre)||'monto…')}">
@@ -20164,7 +21052,9 @@ function eliminarVariableEd(){
   varSelId = null; guardar(); renderContenido();
 }
 function exportarVariables(){
-  descargarJSON({ tipo:'variables_fap', version:1, exportado:new Date().toISOString(), variables: variablesRepo }, `variables-fap-${hoy()}.json`);
+  // Las variables de concordancia («{dellaAP}», «{AdminContador}»…) sin sus grupos
+  // son campos sueltos: el género habría que configurarlo de nuevo. Van juntas.
+  descargarJSON({ tipo:'variables_fap', version:2, exportado:new Date().toISOString(), variables: variablesRepo, concordancias }, `variables-fap-${hoy()}.json`);
 }
 
 /* ============ Renumeración automática de cláusulas ============ */
@@ -20644,7 +21534,7 @@ function renderHistorial(c){
     const resumen = Object.entries(h.datos||{})
       .filter(([,v]) => (typeof v === 'string' && v.trim()) || typeof v === 'number')
       .slice(0,3).map(([k,v]) => `${etiqueta(k)}: ${v}`).join(' · ');
-    return `<tr><td style="white-space:nowrap">${f.toLocaleDateString('es-EC')} ${f.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(h.plantilla)}</td><td>${esc(h.archivo)}</td><td style="font-size:12px;color:var(--gris)">${esc(resumen)}</td><td><button class="btn sec mini" onclick="reusar(${i})">Reusar datos</button></td></tr>`;
+    return `<tr><td style="white-space:nowrap">${f.toLocaleDateString('es-EC')} ${f.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(h.plantilla)}</td><td>${esc(h.archivo)}</td><td style="font-size:12px;color:var(--gris)">${esc(resumen)}</td><td style="white-space:nowrap"><button class="btn sec mini" onclick="reusar(${i})" title="Abre la misma plantilla con estos datos">Reusar datos</button> <button class="btn sec mini" onclick="usarHistorialEnOtra(${i})" title="Lleva estos datos a otra plantilla: del acta a su autorización, por ejemplo">En otra plantilla</button></td></tr>`;
   }).join('');
   c.innerHTML = `
     <div class="hist-acciones">
@@ -20665,6 +21555,9 @@ function reusar(i){
     else if(typeof v === 'boolean') condForm[k] = v;
     else datosForm[k] = v;
   });
+  // El género con el que se generó: sin esto el formulario se quedaba con la
+  // elección que hubiera en pantalla y reescribía «la contratista» como «el contratista».
+  concSel = { ...concDeDatos(datosForm), ...(h.conc || {}) };
   guardarBorrador();
   tabActual = 'generar'; bloqueEditando = null;
   pedirResetScroll();   // vienes del historial a un documento distinto: empieza arriba
@@ -20697,7 +21590,8 @@ function importarBiblioteca(ev){
       } else if(data.tipo === 'variables_fap' && Array.isArray(data.variables)){
         let n = 0;
         data.variables.forEach(v => { if(!buscarVar(v.nombre)){ v.id = uid(); variablesRepo.push(v); n++; } });
-        alert(`Variables importadas: ${n} nuevas (las que ya existían se conservaron).`);
+        const g = fusionarConcordancias(data.concordancias);
+        alert(`Variables importadas: ${n} nuevas (las que ya existían se conservaron).` + (g ? `\nGrupos de concordancia (género y demás) listos para usar: ${g} nuevos.` : ''));
       } else if(data.tipo === 'biblioteca_fap' && Array.isArray(data.plantillas)){
         // Antes era un confirm(): «Aceptar» fusionaba y «Cancelar» REEMPLAZABA toda la
         // biblioteca. Quien tocaba Cancelar para arrepentirse perdía lo que tenía.
@@ -20752,6 +21646,15 @@ function finalizarImportacion(){
   abiertasCl = new Set(carpetasClausulas.filter(f => !f.padreId).map(f => f.id));
   guardar(); renderCats(); renderLista(); renderContenido();
 }
+/* Suma los grupos de concordancia que no existan (por nombre) y registra sus tags
+   como variables. Devuelve cuántos añadió. Nunca pisa un grupo ya configurado. */
+function fusionarConcordancias(lista){
+  if(!Array.isArray(lista)) return 0;
+  const cnom = new Set(concordancias.map(g => g.nombre));
+  let n = 0;
+  lista.forEach(g => { if(g && g.nombre && !cnom.has(g.nombre)){ g.id = uid(); concordancias.push(g); registrarTagsConcordancia(g); cnom.add(g.nombre); n++; } });
+  return n;
+}
 function importarBibliotecaDatos(data, modo){
   if(modo){
     const nombres = new Set(plantillas.map(p => p.nombre));
@@ -20775,10 +21678,7 @@ function importarBibliotecaDatos(data, modo){
     }
     if(data.fijos) fijos = { ...data.fijos, ...fijos };
     if(data.membrete && !membrete.imagen && !membrete.texto) membrete = data.membrete;
-    if(Array.isArray(data.concordancias)){
-      const cnom = new Set(concordancias.map(g => g.nombre));
-      data.concordancias.forEach(g => { if(!cnom.has(g.nombre)){ g.id = uid(); concordancias.push(g); registrarTagsConcordancia(g); } });
-    }
+    fusionarConcordancias(data.concordancias);
   } else {
     // Reemplazo total: los .docx de la biblioteca vieja quedarían
     // huérfanos en IndexedDB si no se limpian antes de perder sus ids.
@@ -20883,12 +21783,14 @@ document.addEventListener('selectionchange', () => {
   await cargar();   // espera a traer de vuelta los .docx guardados en IndexedDB
   // En pantalla estrecha el cajón de plantillas arranca cerrado (salvo que ya lo hayas abierto a propósito)
   asegurarOrigenSemillas();
+  migrarTextosLargos();
   const guardado = store.get('fap_gen_aside_oculto');
   if(guardado === '1' || (guardado == null && estrecha())) document.body.classList.add('aside-oculto');
   renderCats();
   renderLista();
   renderContenido();
   cargarRegistro();
+  cargarProveedores();
   pedirAlmacenamientoPersistente();
   // Tras el guardado diferido, que es el que libera localStorage: si no, se
   // mediría el espacio de antes de la limpieza y el aviso saldría con un

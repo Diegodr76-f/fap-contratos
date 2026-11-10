@@ -28,6 +28,9 @@ jobs:
         env:
           EXCEL_URL: ${{ secrets.EXCEL_URL }}
           DATA_KEY: ${{ secrets.DATA_KEY }}
+          # Opcional. Otra frase, solo para el Generador de Instrumentos: sin ella
+          # los datos de los proveedores (RUC, cédula) ni se leen.
+          PROVEEDORES_KEY: ${{ secrets.PROVEEDORES_KEY }}
         run: python scripts/actualizar_datos.py
 
       - name: Publicar cambios (solo si hay datos nuevos)
@@ -37,5 +40,7 @@ jobs:
           git add crm/contratos_export.json
           # Solo existe cuando el Excel tiene la hoja «Registro de Calificaciones».
           [ -f crm/calificaciones_export.json ] && git add crm/calificaciones_export.json || true
+          # Solo existe cuando está el secreto PROVEEDORES_KEY.
+          [ -f instrumentos/proveedores_export.json ] && git add instrumentos/proveedores_export.json || true
           git diff --cached --quiet || git commit -m "Actualización automática de contratos"
           git push

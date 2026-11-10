@@ -6,6 +6,11 @@ lee la hoja "2026" + la hoja "Export" y regenera crm/contratos_export.json.
 
 Y, si existe, la hoja "Registro de Calificaciones" -> crm/calificaciones_export.json
 (cifrado). Es opcional: sin ella se publica exactamente lo de siempre.
+
+Y, solo si existe el secreto PROVEEDORES_KEY, los datos de los proveedores (hoja
+"Proveedores" y columna RUC de "2026") -> instrumentos/proveedores_export.json,
+cifrado con ESA frase, que no es la del registro. Lo lee solo el Generador de
+Instrumentos, que usa una sola persona; las ACs no tienen esa frase.
 """
 import os, re, json, base64, datetime, sys
 import requests, openpyxl
@@ -23,6 +28,11 @@ DATA_KEY = os.environ.get("DATA_KEY", "").strip()
 if not DATA_KEY:
     sys.exit("ERROR: falta el secreto DATA_KEY. No se publica en claro por seguridad. "
              "Añádelo en Settings → Secrets and variables → Actions.")
+
+# La frase de los proveedores. Opcional: sin ella la hoja «Proveedores» ni se lee.
+# Tiene que ser OTRA que DATA_KEY: la del registro la tienen las 20 ACs, y la
+# cédula de una persona natural no es para ellas (ver leer_proveedores()).
+PROVEEDORES_KEY = os.environ.get("PROVEEDORES_KEY", "").strip()
 
 ITER = 250000
 
@@ -235,6 +245,148 @@ def leer_calificaciones(wb):
 
 calificaciones = leer_calificaciones(wb)
 
+# ---------------------------------------------------------------------------
+# Proveedores: cédula o RUC, representante, correo y dirección, para las
+# contrapartes del Generador de Instrumentos. Son datos privados (el RUC de una
+# persona natural es su cédula), así que:
+#  · sin el secreto PROVEEDORES_KEY no se lee nada;
+#  · se publican aparte, cifrados con esa frase, que solo tiene quien usa el
+#    Generador; si alguien pone la misma frase que DATA_KEY, no se publica;
+#  · contratos_export.json no cambia ni un byte;
+#  · el registro del robot (público) dice cuántos, nunca cuáles.
+# Las columnas se buscan por su rótulo y todas son opcionales menos el nombre.
+# ---------------------------------------------------------------------------
+def plano(v):
+    t = str(v or "").lower()
+    for a, b in (("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"), ("ü", "u"), ("ñ", "n")):
+        t = t.replace(a, b)
+    return re.sub(r"[^a-z0-9]+", " ", t).strip()
+
+ALIAS_PROV = {
+    "nombre": ("proveedor", "nombre del proveedor", "razon social", "nombre o razon social", "nombre", "contratista"),
+    "identificacion": ("ruc", "ruc ci", "ruc cedula", "cedula", "cedula ruc", "ci", "identificacion",
+                       "numero de identificacion", "n de identificacion"),
+    "representante": ("representante legal", "representante"),
+    "email": ("correo electronico", "correo", "email", "e mail", "mail"),
+    "direccion": ("direccion", "domicilio"),
+}
+# Un rótulo que nombra a otra persona no es del proveedor: «Correo electrónico AC»,
+# «Cédula del representante».
+NO_PROV = {
+    "nombre": re.compile(r"\b(representante|administrador|ac|area|contacto|banco)\b"),
+    "identificacion": re.compile(r"\b(representante|administrador|ac)\b"),
+    "representante": re.compile(r"\b(cedula|ruc|correo|ci)\b"),
+    "email": re.compile(r"\b(administrador|ac)\b"),
+    "direccion": re.compile(r"\b(administrador|ac)\b"),
+}
+
+def columna_prov(celdas, campo, usadas=()):
+    mejor, puntos = None, 0
+    for j, h in enumerate(celdas):
+        h = plano(h)
+        if not h or j in usadas or NO_PROV[campo].search(h):
+            continue
+        p = 0
+        for a in ALIAS_PROV[campo]:
+            if h == a:
+                p = max(p, 3)
+            elif h.startswith(a + " "):
+                p = max(p, 2)
+        if p > puntos:
+            mejor, puntos = j, p
+    return mejor
+
+def identificacion(v):
+    """Excel guarda la cédula como número: le quita el cero inicial y a veces la
+    escribe como 1792212502001.0. Con 9 o 12 dígitos solo puede faltar ese cero."""
+    if v is None:
+        return None
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    t = re.sub(r"[\s.\-]", "", str(v).strip())
+    if not t:
+        return None
+    if t.isdigit() and len(t) in (9, 12):
+        t = "0" + t
+    return t
+
+def leer_proveedores(wb, ws_contratos):
+    """Lista de proveedores [{nombre, identificacion, ...}] o None si no hay de dónde."""
+    lista, por_clave, choques = [], {}, 0
+    def poner(d):
+        nonlocal choques
+        k = plano(d.get("nombre"))
+        if not k:
+            return
+        if k not in por_clave:
+            por_clave[k] = {"nombre": d["nombre"]}
+            lista.append(por_clave[k])
+        p = por_clave[k]
+        for c in ("identificacion", "representante", "email", "direccion"):
+            v = d.get(c)
+            if not v:
+                continue
+            if not p.get(c):
+                p[c] = v
+            elif c == "identificacion" and p[c] != v:
+                choques += 1
+
+    hubo = False
+    hoja = next((n for n in wb.sheetnames if plano(n) == "proveedores"), None)
+    if hoja is not None:
+        ws_p = wb[hoja]
+        enc = None
+        for i, row in enumerate(ws_p.iter_rows(min_row=1, max_row=10, values_only=True), 1):
+            celdas = list(row)
+            jn = columna_prov(celdas, "nombre")
+            ji = columna_prov(celdas, "identificacion", (jn,)) if jn is not None else None
+            if jn is not None and ji is not None:
+                usadas = {jn, ji}
+                cols = {"nombre": jn, "identificacion": ji}
+                for c in ("representante", "email", "direccion"):
+                    j = columna_prov(celdas, c, usadas)
+                    if j is not None:
+                        cols[c] = j; usadas.add(j)
+                enc = (i, cols)
+                break
+        if enc is None:
+            print("AVISO: la hoja «Proveedores» no tiene, en sus primeras filas, una columna con el "
+                  "nombre del proveedor y otra con el RUC o la cédula: no se lee.")
+        else:
+            hubo = True
+            i, cols = enc
+            for row in ws_p.iter_rows(min_row=i + 1, values_only=True):
+                d = {c: limpio(celda(row, j)) for c, j in cols.items()}
+                d["identificacion"] = identificacion(celda(row, cols["identificacion"]))
+                if d["nombre"]:
+                    poner(d)
+
+    # «El RUC va en la fila del contrato»: si la hoja 2026 tiene esa columna, también cuenta.
+    j_ruc = next((j for j, h in enumerate(hdr) if plano(h) in ("ruc", "ruc ci", "ruc cedula", "cedula ruc", "cedula")
+                  or plano(h).startswith("ruc ")), None)
+    if j_ruc is not None:
+        hubo = True
+        for row in ws_contratos.iter_rows(min_row=3, values_only=True):
+            nombre = limpio(celda(row, C["proveedor"]))
+            ruc = identificacion(celda(row, j_ruc))
+            if nombre and ruc:
+                poner({"nombre": nombre, "identificacion": ruc})
+
+    if not hubo:
+        print("AVISO: hay frase de proveedores, pero el Excel no tiene la hoja «Proveedores» ni una "
+              "columna RUC en «2026»: no se publica nada de proveedores.")
+        return None
+    if choques:
+        print(f"AVISO: {choques} proveedor(es) aparecen con dos RUC distintos: se publica el primero.")
+    return lista
+
+proveedores = None
+if PROVEEDORES_KEY and PROVEEDORES_KEY == DATA_KEY:
+    print("AVISO: PROVEEDORES_KEY es igual a DATA_KEY, la frase que tienen todas las ACs. "
+          "No se publican los proveedores: pon una frase distinta.")
+elif PROVEEDORES_KEY:
+    proveedores = leer_proveedores(wb, ws)
+
 out = []
 for row in ws.iter_rows(min_row=3, values_only=True):
     correo, nro = row[C["correo"]], row[C["nro"]]
@@ -291,6 +443,13 @@ with open("crm/contratos_export.json", "w", encoding="utf-8") as f:
 # El registro va en su propio archivo, cifrado igual: así contratos_export.json no
 # cambia de forma (lo leen el CRM, el CLM, Instrumentos y las renovaciones, que
 # esperan una lista de contratos) y el archivo solo existe cuando existe la hoja.
+if proveedores is not None:
+    os.makedirs("instrumentos", exist_ok=True)
+    sobre_p = cifrar(json.dumps(proveedores, ensure_ascii=False).encode("utf-8"), PROVEEDORES_KEY)
+    sobre_p["generado"] = LEIDO
+    with open("instrumentos/proveedores_export.json", "w", encoding="utf-8") as f:
+        json.dump(sobre_p, f, ensure_ascii=False)
+
 if calificaciones is not None:
     sobre_c = cifrar(json.dumps(calificaciones, ensure_ascii=False).encode("utf-8"), DATA_KEY)
     sobre_c["generado"] = LEIDO
@@ -310,3 +469,7 @@ print(f"OK: {len(out)} contratos publicados (cifrados), "
 
 if calificaciones is not None:
     print(f"    Registro de Calificaciones: {len(calificaciones)} fila(s) publicadas.")
+if proveedores is not None:
+    print(f"    Proveedores: {len(proveedores)} publicados, "
+          f"{sum(1 for p in proveedores if p.get('identificacion'))} con cédula o RUC "
+          "(cifrados con su propia frase; solo los lee el Generador de Instrumentos).")

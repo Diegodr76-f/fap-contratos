@@ -1190,5 +1190,104 @@ seccion('31 · Los datos de ejemplo de versiones anteriores se vacían');
   ok(wr.ST.cfg.ac==='Lcda. Ana Torres' && wr.ST.cfg.areas[0].ap==='Parque Nacional Yasuní','los datos reales no se tocan');
 }
 
-console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
-process.exit(fallos?1:0);
+seccion('32 · Texto largo: cada línea, un párrafo de Word');
+// Las invitaciones y la solicitud de cotización traían escrito «(Detallar
+// información técnica, cronograma…)» y salía tal cual si la AC no lo cambiaba en
+// Word. Hoy es {condicionesEspecificas}, opcional, y lo que se escribe con varias
+// líneas sale con un párrafo por línea —no con saltos de línea, que en un texto
+// justificado estiran la última línea de cada tramo—.
+(async()=>{
+  const SAL='';
+  const parrafos=xml=>(xml.match(/<w:p[ >](?:(?!<w:p[ >])[\s\S])*?<\/w:p>/g)||[]);
+  const txt=p=>p.replace(/<w:br\/>/g,'↵').replace(/<(?!\/?w:t[ >])[^>]*>/g,'').replace(/<\/?w:t[^>]*>/g,'');
+  const wl=nuevoDom();
+  ['3_Invitacion_comparacion.docx','4_Invitacion_seleccion.docx','20_Solicitud_cotizacion_renovacion.docx'].forEach(f=>{
+    const x=new PizZip(wl.ST.tpls[f],{base64:true}).file('word/document.xml').asText();
+    ok(x.indexOf('(Detallar')<0 && /\{#condicionesEspecificas\}[\s\S]*\{condicionesEspecificas\}[\s\S]*\{\/condicionesEspecificas\}/.test(x),
+       f+': la nota «(Detallar…)» es ahora {condicionesEspecificas}, dentro de su condición');
+  });
+  // Un expediente de comparación con dos textos largos
+  wl.ST.cfg.areas=[{id:'a1',ap:'Reserva Ecológica Cotacachi',siglas:'RECC',ciudad:'Quito',mae:'R. Tapia',maeCargo:'Jefa',maeGenero:'F',apGenero:'F',lugar:'Otavalo'}];
+  wl.ST.cfg.ac='Lcda. María Salazar';
+  wl.newExp('Equipos');
+  const d=wl.D();
+  const COND='Los GPS deben traer cargador de vehículo.\n\nEntrega en la sede de Otavalo, de lunes a viernes.';
+  ok('condicionesEspecificas' in d,'un expediente nuevo trae el campo');
+  Object.assign(d,{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien',tipoBien:'Activo fijo',
+    fechaInicio:'2026-09-10',numero:'3',objeto:'Equipos de campo\nsegunda línea del objeto',plazo:'20',presupuesto:'2000',
+    partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',
+    formaPago:'Factura electrónica\r\nActa de entrega-recepción  \n',
+    condicionesEspecificas:COND,
+    fechaInvitacion:'2026-09-11',fechaLimite:'2026-09-18',items:[{desc:'GPS',unidad:'Unidad',cantidad:'2',punit:''}]});
+  d.provs[0]={razon:'Equipos del Norte S.A.',ruc:'',dir:'',tel:'',monto:'',fof:'',genero:'E'};
+  wl.save();
+  // La pantalla: el campo está donde se describe el requerimiento
+  wl.ST.nav='captura'; wl.ST.step=0; wl.render();
+  const campo=wl.document.querySelector('textarea[data-k="condicionesEspecificas"]');
+  ok(!!campo && /Si lo dejas vacío, no sale nada/.test(campo.parentNode.textContent),'el Momento 1 de una comparación pide las condiciones, opcionales');
+  ok(/Cada línea sale como un párrafo/.test(wl.document.querySelector('textarea[data-k="formaPago"]').parentNode.textContent),'y la forma de pago avisa que cada línea es un párrafo');
+  campo.value='Escrito en pantalla.\nSegunda línea.'; wl.onField(campo);
+  ok(wl.D().condicionesEspecificas==='Escrito en pantalla.\nSegunda línea.','lo escrito en el campo se guarda en el expediente');
+  wl.D().condicionesEspecificas=COND;
+  // Generar de verdad, por fillDoc
+  let blob=null;
+  wl.URL.createObjectURL=b=>{ blob=b; return 'blob:x'; }; wl.URL.revokeObjectURL=()=>{};
+  const realCreate=wl.document.createElement.bind(wl.document);
+  wl.document.createElement=function(t){ const el=realCreate(t); if(t==='a') el.click=function(){}; return el; };
+  const generar=async(slot,extra)=>{ blob=null; const ok1=wl.fillDoc(slot, wl.buildTemplateData(extra||{}), 'x');
+    if(!ok1||!blob) return null; const ab=await blob.arrayBuffer(); return new PizZip(Buffer.from(ab)); };
+  const z3=await generar('3_Invitacion_comparacion.docx',{invitado:'Equipos del Norte S.A.'});
+  ok(!!z3,'la invitación se genera');
+  const x3=z3.file('word/document.xml').asText(), ps3=parrafos(x3), t3=ps3.map(txt);
+  ok(x3.indexOf(SAL)<0,'la marca interna no queda en el documento');
+  const iPago=t3.findIndex(t=>/^Forma de pago: Factura electrónica$/.test(t));
+  ok(iPago>=0 && t3[iPago+1]==='Acta de entrega-recepción','la forma de pago: cada línea un párrafo, sin espacios ni líneas en blanco colgando', t3.slice(Math.max(iPago,0),iPago+2).join(' ‖ '));
+  const numXml=z3.file('word/numbering.xml').asText();
+  const numId=(ps3[iPago].match(/<w:numId w:val="(\d+)"/)||[])[1];
+  const abs=(numXml.match(new RegExp('<w:num w:numId="'+numId+'"[^>]*>[\\s\\S]*?<w:abstractNumId w:val="(\\d+)"'))||[])[1];
+  const izq=((numXml.match(new RegExp('<w:abstractNum\\b[^>]*w:abstractNumId="'+abs+'"[\\s\\S]*?<w:lvl w:ilvl="0"[\\s\\S]*?w:left="(\\d+)"'))||[])[1]);
+  ok(!!numId && !/<w:numPr>/.test(ps3[iPago+1]) && new RegExp('<w:ind w:left="'+izq+'" w:firstLine="0"/>').test(ps3[iPago+1]),
+     'en una lista, la segunda línea no repite la viñeta: queda alineada con el texto del punto', 'numId '+numId+' · left '+izq);
+  const iCond=t3.indexOf('Los GPS deben traer cargador de vehículo.');
+  ok(iCond>=0 && t3[iCond+1]==='' && t3[iCond+2]==='Entrega en la sede de Otavalo, de lunes a viernes.','las condiciones salen en sus párrafos (la línea en blanco se respeta)', t3.slice(Math.max(iCond,0),iCond+3).join(' ‖ '));
+  ok(!/<w:i\/>/.test(ps3[iCond]) && /<w:jc w:val="both"\/>/.test(ps3[iCond+2]),'sin la cursiva de la nota, y justificadas como el párrafo de la plantilla');
+  ok(t3.some(t=>t.indexOf('Equipos de campo↵segunda línea del objeto')>=0),'{objeto}, que va entre comillas dentro de una frase, no se parte en párrafos');
+  const dir=require('fs').mkdtempSync(require('path').join(require('os').tmpdir(),'largo-'));
+  const ruta=require('path').join(dir,'invitacion.docx');
+  require('fs').writeFileSync(ruta, z3.generate({type:'nodebuffer'}));
+  const v=require('child_process').spawnSync('python3',[require('path').join(__dirname,'validar_docx.py'),ruta],{encoding:'utf8'});
+  if(v.error) console.log('  · (sin python3: no se pasó por validar_docx.py)');
+  else ok(v.status===0,'validar_docx.py dice que Word abre la invitación', (v.stdout+v.stderr).trim().split('\n').slice(-2).join(' | '));
+  // Vacío: el párrafo desaparece
+  wl.D().condicionesEspecificas=''; wl.save();
+  const zv=await generar('3_Invitacion_comparacion.docx',{invitado:'Equipos del Norte S.A.'});
+  const tv=parrafos(zv.file('word/document.xml').asText()).map(txt);
+  ok(tv.length===ps3.length-3 && !tv.some(t=>/Detallar|condicionesEspecificas/.test(t)),'sin condiciones, ese párrafo no sale: ni la nota ni un hueco', tv.length+' / '+ps3.length);
+  // En la orden, la forma de pago va sola en su párrafo
+  Object.assign(wl.D(),{fechaAdj:'2026-09-20',adjudicado:'Equipos del Norte S.A.'});
+  Object.assign(wl.D().provs[0],{ruc:'1791234567001',dir:'Av. Amazonas',monto:'1150',fof:'2026-09-15'});
+  wl.save();
+  const z7=await generar('7_Orden_de_compra.docx');
+  const t7=parrafos(z7.file('word/document.xml').asText()).map(txt);
+  const i7=t7.indexOf('Factura electrónica');
+  ok(i7>=0 && t7[i7+1]==='Acta de entrega-recepción.','en la orden de compra, un párrafo por documento requerido', t7.slice(Math.max(i7,0),i7+2).join(' ‖ '));
+  // La renovación también lo pide
+  wl.newExp('Renovación'); Object.assign(wl.D(),{areaId:'a1',tipoProceso:'Renovación',bienServicio:'Servicio'}); wl.save();
+  wl.ST.nav='captura'; wl.ST.step=0; wl.render();
+  ok(!!wl.document.querySelector('textarea[data-k="condicionesEspecificas"]'),'el Momento 1 de una renovación también pide las condiciones (van en la solicitud de cotización)');
+  wl.newExp('Compra'); Object.assign(wl.D(),{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Bien'}); wl.save();
+  wl.ST.nav='captura'; wl.ST.step=0; wl.render();
+  ok(!wl.document.querySelector('textarea[data-k="condicionesEspecificas"]'),'una compra directa no lo pide: no tiene invitación');
+  // Un expediente de antes, sin el campo, lo recibe al abrir
+  const wvieja=nuevoDom(win=>{ const e={id:'e1',nombre:'Viejo',data:{areaId:'',tipoProceso:'Comparación de precios',provs:[],items:[]}};
+    win.localStorage.setItem('fap_v3',JSON.stringify({cfg:{},exps:[e],curId:'e1'})); });
+  ok(wvieja.ST.exps[0].data.condicionesEspecificas==='','un expediente de antes recibe el campo al abrir, para que lo escrito se guarde');
+  // Una sola función, en las dos herramientas
+  const fuente=archivo=>{ const t=require('fs').readFileSync(require('path').join(__dirname,'..',archivo),'utf8');
+    const i=t.indexOf('function partirParrafosXml('); return i<0?null:t.slice(i, t.indexOf('\n}\n',i)+2); };
+  const fm=fuente('generador/index.html'), fi=fuente('instrumentos/index.html');
+  ok(!!fm && fm===fi,'partirParrafosXml es la misma, letra por letra, en La Mágica y en el Generador de Instrumentos');
+})().then(()=>{
+  console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
+  process.exit(fallos?1:0);
+});

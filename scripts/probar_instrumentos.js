@@ -502,6 +502,324 @@ function validarConPython(b64, nombre){
     ok(descargas === 1, 'y antes baja una copia de lo que había');
   }
 
+  {
+    seccion('18. Exportar e importar variables: el género viaja con ellas');
+    // Las variables de concordancia sin sus grupos quedaban como campos sueltos
+    // y la AC tenía que configurar el género otra vez.
+    const app4 = abrir();
+    for(let i = 0; i < 50 && !app4.w.eval('plantillas.length'); i++) await espera(100);
+    await espera(300);
+    const w = app4.w, E = s => w.eval(s);
+    let json = null;
+    w.URL.createObjectURL = (b) => { json = b; return 'blob:x'; }; w.URL.revokeObjectURL = () => {};
+    w.HTMLAnchorElement.prototype.click = function(){};
+    const nGrupos = E('concordancias.length');
+    w.exportarVariables();
+    const texto = await new Promise(r => { const fr = new w.FileReader(); fr.onload = () => r(fr.result); fr.readAsText(json); });
+    const datos = JSON.parse(texto);
+    ok(nGrupos > 0 && Array.isArray(datos.concordancias) && datos.concordancias.length === nGrupos, 'el archivo de variables lleva los grupos de concordancia', nGrupos + ' / ' + (datos.concordancias||[]).length);
+    // instalación nueva: sin grupos ni variables
+    w.eval('concordancias = []; variablesRepo = [];');
+    w.alert = () => {};
+    w.importarBiblioteca({ target: { files: [new w.File([texto], 'v.json', { type: 'application/json' })], value: 'x' } });
+    await espera(250);
+    ok(E('concordancias.length') === nGrupos, 'al importar, los grupos quedan listos para usar', E('concordancias.length'));
+    ok(E('concordanciasHuerfanas().length') === 0, 'y ninguna variable de concordancia queda huérfana (sin selector)');
+  }
+
+  {
+    seccion('19. Tomar los datos de un documento para hacer otro');
+    // Del acta al informe sin teclear de nuevo: lo que se llama igual pasa tal
+    // cual, con el género, y lo que no se sabe no se adivina.
+    const a = abrir();
+    for(let i = 0; i < 50 && !a.w.eval('plantillas.length'); i++) await espera(100);
+    await espera(300);
+    const w = a.w, E = s => w.eval(s);
+    w.URL.createObjectURL = () => 'blob:x'; w.URL.revokeObjectURL = () => {};
+    w.HTMLAnchorElement.prototype.click = function(){};
+    const acta = E('plantillas').find(p => p.seedKey === 'acta_terminacion');
+    const informe = E('plantillas').find(p => p.seedKey === 'informe_adenda');
+    ok(!!acta && !!informe, 'están las dos plantillas Word de fábrica');
+    w.seleccionar(acta.id);
+    w.eval(`Object.assign(datosForm, { contratoNro:'FIAS-FAP-2026-041', proveedor:'Ferretería El Roble Cía. Ltda.', proveedorRuc:'1790012345001',
+      objeto:'Mantenimiento de la guardianía', fechaContrato:'2026-03-02', area:'Reserva Ecológica de Prueba', ac:'Ana Prueba', montoTotal:'1150', ciudad:'Quito' })`);
+    w.aplicarConcordancia('contratista', 2);   // empresa
+    const idxAC = E(`concordanciasDe(varsDe(plActual())).findIndex(g => g.nombre !== 'contratista' && (g.opciones||[]).length > 1)`);
+    const grupoAC = E(`concordanciasDe(varsDe(plActual()))[${idxAC}].nombre`);
+    w.aplicarConcordancia(grupoAC, 1);
+    await w.descargarWord();
+    await espera(100);
+    ok(E('historial.length') === 1 && E('historial[0].conc.contratista') === 2, 'el historial guarda con qué género se generó el documento', JSON.stringify(E('historial[0] && historial[0].conc')));
+    ok(/usarUltimaDescargaEnOtra/.test(w.htmlAvisoDescarga()), 'tras descargar se ofrece «Usar estos datos en otra plantilla»');
+    w.usarUltimaDescargaEnOtra();
+    ok(/Informe de adenda/.test(w.document.getElementById('pt-lista').textContent), 'y la lista propone el informe de adenda, con cuántos campos llena', w.document.getElementById('pt-lista').textContent.replace(/\s+/g, ' ').slice(0, 200));
+    w.usarDatosEn(informe.id);
+    ok(E('seleccion') === informe.id && E('tabActual') === 'generar', 'al elegirla se abre esa plantilla en Generar');
+    ok(E('datosForm.contratoNro') === 'FIAS-FAP-2026-041' && E('datosForm.proveedorRuc') === '1790012345001' && E('datosForm.fechaContrato') === '2026-03-02',
+      'con el contrato, el RUC y la fecha ya escritos', JSON.stringify(E('datosForm')).slice(0, 200));
+    ok(E('concSel.contratista') === 2 && E('datosForm.contratistaTrato') === E(`concordancias.find(g => g.nombre === 'contratista').tags.contratistaTrato[2]`),
+      'y el género del contratista: sigue siendo empresa', E('datosForm.contratistaTrato'));
+    // En el informe el total es montoOriginal + montoAumento: se calcula, no se copia.
+    ok(!E('datosForm.montoTotal'), 'el total, que el informe calcula solo, no se copia del acta', E('datosForm.montoTotal'));
+    w.actualizarCampo('montoOriginal', '1000'); w.actualizarCampo('montoAumento', '150');
+    ok(Number(E('datosForm.montoTotal')) === 1150 && /ciento cincuenta/i.test(E('datosForm.montoTotalLetras') || ''), 'y se rehace, con sus letras, al escribir las dos cifras', E('datosForm.montoTotal') + ' / ' + E('datosForm.montoTotalLetras'));
+    ok(!E('datosForm.fechaActa') && !E('datosForm.cedulaAc'), 'lo que el informe no pide no viaja');
+    ok(/Se trajeron \d+ datos/.test(w.document.getElementById('aviso-traidos').textContent) && /Faltan? \d+ por llenar/.test(w.document.getElementById('aviso-traidos').textContent),
+      'el aviso dice cuántos datos llegaron y cuántos faltan', w.document.getElementById('aviso-traidos').textContent.replace(/\s+/g, ' '));
+
+    // Desde el formulario: «Tomar datos de otro documento»
+    w.limpiarForm();
+    ok(!E('datosForm.contratoNro'), 'formulario del informe en blanco');
+    w.abrirPickerDocumento();
+    ok(w.document.querySelectorAll('#pd-lista .reg-fila').length === 1 && /llena \d+ de \d+/.test(w.document.getElementById('pd-lista').textContent),
+      'el selector lista el acta descargada y cuánto llena', w.document.getElementById('pd-lista').textContent.replace(/\s+/g, ' ').slice(0, 160));
+    w.tomarDatosDe(0);
+    ok(E('datosForm.proveedor') === 'Ferretería El Roble Cía. Ltda.' && E('concSel.contratista') === 2, 'y al elegirlo llegan los datos y el género');
+
+    // Un nombre que solo difiere en mayúsculas o guiones bajos es el mismo dato; otro nombre, no.
+    w.eval(`historial.unshift({ fecha: new Date().toISOString(), plantilla: 'Otra', archivo: 'otra.docx', datos: { contratonro: 'FIAS-FAP-2026-077', fecha_contrato: '2026-05-05', nombre_del_proveedor: 'No debe pasar' } })`);
+    w.limpiarForm(); w.tomarDatosDe(0);
+    ok(E('datosForm.contratoNro') === 'FIAS-FAP-2026-077' && E('datosForm.fechaContrato') === '2026-05-05', '«contratonro» y «fecha_contrato» llenan {contratoNro} y {fechaContrato}');
+    ok(!E('datosForm.proveedor'), 'pero nada pasa por parecido: «nombre_del_proveedor» no es {proveedor}', E('datosForm.proveedor'));
+    ok(E('avisoDatosTraidos.sinGenero.length') > 0, 'y si el origen no dice el género, no se elige: se avisa', JSON.stringify(E('avisoDatosTraidos.sinGenero')));
+
+    // Historial de antes (sin la elección guardada): se lee de lo que quedó escrito
+    const tagsEmpresa = E(`JSON.stringify(Object.fromEntries(Object.entries(concordancias.find(g => g.nombre === 'contratista').tags).map(([t, o]) => [t, o[1]])))`);
+    w.eval(`historial.unshift({ fecha: new Date().toISOString(), plantilla: ${JSON.stringify(informe.nombre)}, archivo: 'viejo.docx', datos: Object.assign({ contratoNro: 'V-1' }, ${tagsEmpresa}) })`);
+    w.eval('concSel = {}');
+    w.reusar(0);
+    ok(E('concSel.contratista') === 1, '«Reusar datos» de un documento antiguo recupera su género en vez de quedarse con el de pantalla', E('concSel.contratista'));
+
+    // Historial de otra persona: se abre solo para tomar datos
+    const ajeno = JSON.stringify({ tipo: 'historial_fap', version: 1, historial: [{ fecha: '2026-06-01T10:00:00Z', plantilla: 'Acta ajena', archivo: 'ajena.docx', datos: { contratoNro: 'AJ-9', proveedor: 'Otra Persona' } }] });
+    const nHist = E('historial.length');
+    w.abrirPickerDocumento();
+    w.abrirHistorialAjeno({ target: { files: [new w.File([ajeno], 'h.json', { type: 'application/json' })], value: 'x' } });
+    await espera(250);
+    ok(/de otro historial/.test(w.document.getElementById('pd-lista').textContent) && E('historial.length') === nHist, 'el historial que pasa otra persona se puede usar sin que se mezcle con el propio');
+    ok(!a.errores.length, 'sin errores de JavaScript', a.errores.join(' | '));
+  }
+
+  {
+    seccion('20. Texto largo: varios párrafos que salen como párrafos');
+    const a = abrir();
+    for(let i = 0; i < 50 && !a.w.eval('plantillas.length'); i++) await espera(100);
+    await espera(300);
+    const w = a.w, E = s => w.eval(s);
+    const S = w.SALTO_PARRAFO || E('SALTO_PARRAFO');
+    ok(E(`buscarVar('justificacion').tipo`) === 'parrafo' && E(`buscarVar('antecedentes').tipo`) === 'parrafo', 'las variables de «texto libre» de fábrica nacen como texto largo');
+    ok(E(`buscarVar('proveedor').tipo`) === 'texto', 'y las cortas siguen siendo de una línea');
+
+    // El motor, con un párrafo de lista, justificado y con ids de Word
+    const par = `<w:p w14:paraId="1A2B3C4D" w:rsidR="00AA"><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="3"/></w:numPr><w:jc w:val="both"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">Antes: Uno.${S}Dos.${S}${S}Tres. Después</w:t></w:r></w:p>`;
+    const partido = w.partirParrafosXml(par);
+    const ps = partido.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || [];
+    ok(ps.length === 4 && !partido.includes(S), 'tres saltos dan cuatro párrafos (la línea en blanco se respeta) y la marca no queda en el documento', ps.length);
+    ok(/Antes: Uno\.<\/w:t>/.test(ps[0]) && />Dos\.<\/w:t>/.test(ps[1]) && />Tres\. Después<\/w:t>/.test(ps[3]), 'el texto de alrededor se queda con el primero y el último');
+    ok(ps.every(p => /<w:jc w:val="both"\/>/.test(p)) && ps.slice(1).every(p => /<w:rPr><w:b\/><\/w:rPr>/.test(p)), 'cada párrafo nuevo repite el formato del párrafo y la letra de la etiqueta');
+    ok(/<w:numPr>/.test(ps[0]) && ps.slice(1).every(p => !/<w:numPr>/.test(p) && !/paraId/.test(p)), 'pero no repite el número de lista ni los ids del original');
+    ok(!/<w:br\/>/.test(partido), 'y no usa saltos de línea, que en un texto justificado estiran la última línea');
+    const enlace = `<w:p><w:hyperlink r:id="rId9"><w:r><w:t>a${S}b</w:t></w:r></w:hyperlink></w:p>`;
+    ok(/a<\/w:t><w:br\/><w:t xml:space="preserve">b/.test(w.partirParrafosXml(enlace)) && (w.partirParrafosXml(enlace).match(/<w:p>/g) || []).length === 1,
+      'dentro de un hipervínculo no se parte el párrafo: queda un salto de línea');
+
+    // En un Word de verdad: el informe de adenda, con {objeto} largo
+    const informe = E('plantillas').find(p => p.seedKey === 'informe_adenda');
+    w.seleccionar(informe.id);
+    ok(w.document.getElementById('f_objeto').tagName === 'INPUT' && /btn-largo/.test(w.document.getElementById('f_objeto').closest('.campo').innerHTML), 'un campo de texto corto trae el botón para volverlo largo');
+    // Pegar varios párrafos en la casilla lo convierte solo
+    const inp = w.document.getElementById('f_objeto');
+    inp.value = ''; inp.selectionStart = inp.selectionEnd = 0;
+    let evitado = false;
+    w.pegarEnCampo({ target: inp, preventDefault(){ evitado = true; }, clipboardData: { getData: () => 'Primer párrafo del objeto.\r\nSegundo párrafo.\n\n' } }, 'objeto');
+    ok(evitado && E(`tipoDe('objeto')`) === 'parrafo' && w.document.getElementById('f_objeto').tagName === 'TEXTAREA', 'pegar dos párrafos en una casilla la vuelve de texto largo');
+    ok(E('datosForm.objeto') === 'Primer párrafo del objeto.\nSegundo párrafo.', 'y conserva los párrafos, sin líneas en blanco colgando', JSON.stringify(E('datosForm.objeto')));
+    evitado = false;
+    w.pegarEnCampo({ target: w.document.getElementById('f_proveedor'), preventDefault(){ evitado = true; }, clipboardData: { getData: () => 'Una sola línea' } }, 'proveedor');
+    ok(!evitado && E(`tipoDe('proveedor')`) === 'texto', 'pegar una sola línea no cambia nada');
+    const blob = w.generarBlobDocx(informe, w.datosDocx(informe, E('datosForm')));
+    const b64 = await new Promise(r => { const fr = new w.FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(blob); });
+    const xmlG = xmlDe(b64);
+    const pObj = (xmlG.match(/<w:p[ >](?:(?!<w:p[ >])[\s\S])*?<\/w:p>/g) || []);
+    const i1 = pObj.findIndex(p => p.includes('Primer párrafo del objeto.')), i2 = pObj.findIndex(p => p.includes('Segundo párrafo.'));
+    ok(i1 >= 0 && i2 === i1 + 1 && !xmlG.includes(S), 'en el Word generado son dos párrafos seguidos', i1 + ' / ' + i2);
+    const vL = validarConPython(b64, 'largo');
+    if(vL.saltada) console.log('  · (sin python3: no se pasó por validar_docx.py)');
+    else ok(vL.ok, 'validar_docx.py dice que Word lo abre', vL.salida.trim().split('\n').slice(-3).join(' | '));
+    // Volver a una línea junta los párrafos
+    w.alternarLargo('objeto');
+    ok(E(`tipoDe('objeto')`) === 'texto' && E('datosForm.objeto') === 'Primer párrafo del objeto. Segundo párrafo.', 'volver a una línea junta los párrafos en uno', JSON.stringify(E('datosForm.objeto')));
+
+    // Plantillas HTML: el acta de ajuste de monto y su justificación
+    const html = w.rellenarDatos('<p style="text-align:justify">Motivo: {{justificacion}} Fin.</p><ul><li>{{justificacion}}</li></ul>', { justificacion: 'Uno.\nDos.' }, false);
+    const d = w.document.createElement('div'); d.innerHTML = html;
+    ok(d.querySelectorAll('p').length === 2 && d.querySelectorAll('p')[1].getAttribute('style') === 'text-align:justify' && d.querySelectorAll('p')[1].textContent === 'Dos. Fin.',
+      'en una plantilla HTML el párrafo también se parte, con su mismo estilo', html);
+    ok(d.querySelectorAll('li').length === 1 && d.querySelector('li br') && !/data-salto/.test(html), 'y en un punto de lista se queda como salto de línea, sin crear otro punto');
+    ok(!a.errores.length, 'sin errores de JavaScript', a.errores.join(' | '));
+  }
+
+  {
+    seccion('21. Contrapartes: los datos salen del Excel, leído aquí');
+    const a = abrir();
+    for(let i = 0; i < 50 && !a.w.eval('plantillas.length'); i++) await espera(100);
+    await espera(300);
+    const w = a.w, E = s => w.eval(s);
+    // Un Excel como el maestro: la hoja de contratos (encabezados en la fila 2, con
+    // el correo de la AC) y la de proveedores. Los datos son inventados.
+    const textos = ['Registro de contratos', 'Nro. de contrato', 'Nombre del proveedor', 'Correo electrónico AC', 'FIAS-FAP-2026-001', 'FERRETERIA EL ROBLE CIA LTDA', 'ac@fias.org.ec',
+      'Razón social', 'RUC', 'Representante legal', 'Correo', 'Dirección', 'Ferretería El Roble Cía. Ltda.', 'Rosa Prueba', 'roble@ejemplo.ec', 'Av. Siempre Viva 123 &amp; Sucre',
+      'María Pérez Andrade', 'maria@ejemplo.ec', 'Taller Nuevo S.A.', 'Calle 1'];
+    const T = t => textos.indexOf(t);
+    const c = (ref, v, t) => `<c r="${ref}"${t ? ` t="${t}"` : ''}><v>${v}</v></c>`;
+    const hoja = filas => `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${filas.map((f, i) => `<row r="${i + 1}">${f}</row>`).join('')}</sheetData></worksheet>`;
+    const zx = new PizZip();
+    zx.file('xl/workbook.xml', `<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="2026" sheetId="1" r:id="rId1"/><sheet name="Proveedores" sheetId="2" r:id="rId2"/></sheets></workbook>`);
+    zx.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="x" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="x" Target="worksheets/sheet2.xml"/></Relationships>`);
+    zx.file('xl/sharedStrings.xml', `<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${textos.map((t, i) => i === 12 ? `<si><r><t>Ferretería El Roble </t></r><r><t>Cía. Ltda.</t></r></si>` : `<si><t>${t}</t></si>`).join('')}</sst>`);
+    zx.file('xl/worksheets/sheet1.xml', hoja([
+      c('A1', T('Registro de contratos'), 's'),
+      c('A2', T('Nro. de contrato'), 's') + c('B2', T('Nombre del proveedor'), 's') + c('C2', T('Correo electrónico AC'), 's'),
+      c('A3', T('FIAS-FAP-2026-001'), 's') + c('B3', T('FERRETERIA EL ROBLE CIA LTDA'), 's') + c('C3', T('ac@fias.org.ec'), 's')]));
+    zx.file('xl/worksheets/sheet2.xml', hoja([
+      c('A1', T('Razón social'), 's') + c('B1', T('RUC'), 's') + c('C1', T('Representante legal'), 's') + c('D1', T('Correo'), 's') + c('E1', T('Dirección'), 's'),
+      c('A2', 12, 's') + c('B2', '1.790012345001E12') + c('C2', T('Rosa Prueba'), 's') + c('D2', T('roble@ejemplo.ec'), 's') + c('E2', T('Av. Siempre Viva 123 &amp; Sucre'), 's'),
+      c('A3', T('María Pérez Andrade'), 's') + c('B3', '102030405') + c('D3', T('maria@ejemplo.ec'), 's'),
+      c('A4', T('Taller Nuevo S.A.'), 's') + c('B4', '190012345001') + c('E4', T('Calle 1'), 's')]));
+    const hojas = w.leerXlsx(zx.generate({ type: 'nodebuffer' }).toString('binary'));
+    ok(hojas.length === 2 && hojas[1].nombre === 'Proveedores' && hojas[1].filas.length === 4, 'lee las hojas del .xlsx sin librerías nuevas', hojas.map(h => h.nombre + ':' + h.filas.length).join(' '));
+    ok(hojas[1].filas[1][0] === 'Ferretería El Roble Cía. Ltda.' && hojas[1].filas[1][1] === '1790012345001' && hojas[1].filas[1][4] === 'Av. Siempre Viva 123 & Sucre',
+      'con los textos partidos en trozos, los RUC en notación científica y los «&»', JSON.stringify(hojas[1].filas[1]));
+    const m2026 = w.adivinarColumnasCp(hojas[0].filas[1]);
+    ok(m2026.nombre === 1 && m2026.email === -1, 'en la hoja de contratos, el «Correo electrónico AC» no se toma por el correo del proveedor', JSON.stringify(m2026));
+
+    w.eval(`contrapartes = [
+      { nombre:'FERRETERIA EL ROBLE CIA LTDA', identificacion:'', representante:'', email:'', direccion:'' },
+      { nombre:'María Pérez Andrade', identificacion:'', representante:'', email:'yo.lo.escribi@ejemplo.ec', direccion:'' }]`);
+    w.eval(`tabActual = 'contrapartes'`); w.renderTabs(); w.renderContenido();
+    ok(/abrirContrapartesExcel/.test(w.document.getElementById('contenido').innerHTML) && /2 de 2 contrapartes no tienen cédula ni RUC/.test(w.document.getElementById('contenido').textContent),
+      'la pestaña ofrece traerlos del Excel y dice cuántas están incompletas');
+    w.prepararContrapartesExcel(hojas);
+    ok(E('cpExcel.hoja') === 1 && E('cpExcel.filaEnc') === 0, 'propone la hoja «Proveedores» y su fila de encabezados', E('cpExcel.hoja') + '/' + E('cpExcel.filaEnc'));
+    ok(JSON.stringify(E('cpExcel.mapa')) === JSON.stringify({ representante: 2, identificacion: 1, email: 3, direccion: 4, nombre: 0 }), 'y de qué columna sale cada dato', JSON.stringify(E('cpExcel.mapa')));
+    const res = w.document.getElementById('cpx-resumen').textContent.replace(/\s+/g, ' ');
+    ok(/3 filas con nombre/.test(res) && /2 de tus contrapartes se completan/.test(res) && /1 son nuevas/.test(res) && /En 1 ya tenías un dato distinto/.test(res) && /A 2 cédula/.test(res),
+      'antes de traer nada dice qué va a pasar', res);
+    ok(E('contrapartes.length') === 2 && !E('contrapartes[0].identificacion'), 'y mientras tanto no ha tocado nada');
+    w.aplicarContrapartesExcel();
+    const cps = E('contrapartes');
+    ok(cps[0].identificacion === '1790012345001' && cps[0].representante === 'Rosa Prueba' && cps[0].nombre === 'FERRETERIA EL ROBLE CIA LTDA',
+      'empareja por nombre sin contar tildes ni puntos, y completa lo vacío', JSON.stringify(cps[0]));
+    ok(cps[1].identificacion === '0102030405' && cps[1].email === 'yo.lo.escribi@ejemplo.ec', 'repone el cero que Excel quita a la cédula y conserva el correo que ya estaba escrito', JSON.stringify(cps[1]));
+    ok(cps.length === 3 && cps[2].nombre === 'Taller Nuevo S.A.' && cps[2].identificacion === '0190012345001', 'y añade el proveedor que faltaba', JSON.stringify(cps[2]));
+    w.prepararContrapartesExcel(hojas); w.aplicarContrapartesExcel();
+    ok(E('contrapartes.length') === 3, 'traerlo otra vez no duplica nada');
+
+    // Pegado desde Excel, con una celda entre comillas
+    const pegado = w.leerPegadoTabla('Proveedor\tCédula\tDomicilio\r\nJuan Prueba\t1712345678\t"Calle A\nPiso 2"\r\n');
+    ok(pegado.length === 2 && pegado[1][2] === 'Calle A Piso 2', 'las filas pegadas se leen igual, también una celda con salto de línea', JSON.stringify(pegado));
+    ok(JSON.stringify(w.adivinarColumnasCp(pegado[0])) === JSON.stringify({ representante: -1, identificacion: 1, email: -1, direccion: 2, nombre: 0 }), 'y sus encabezados se reconocen');
+
+    // Al tomar un contrato del registro, el RUC del proveedor llega con él
+    w.eval(`registro = [{ nro:'FIAS-FAP-2026-001', proveedor:'Ferretería El Roble Cía. Ltda.', detalle:'Mantenimiento', area:'Reserva de Prueba', monto:1150, firma:'2026-03-02' },
+                        { nro:'FIAS-FAP-2026-002', proveedor:'Proveedor Sin Ficha', detalle:'Otro', area:'Reserva de Prueba', monto:500, firma:'2026-04-01' }]; registroEstado = 'ok'`);
+    const acta = E('plantillas').find(p => p.seedKey === 'acta_terminacion');
+    w.seleccionar(acta.id); w.limpiarForm();
+    w.elegirDelRegistro(0);
+    ok(E('datosForm.contratoNro') === 'FIAS-FAP-2026-001' && E('datosForm.proveedorRuc') === '1790012345001', '«Tomar datos del registro» trae también el RUC de la contraparte guardada', E('datosForm.proveedorRuc'));
+    w.elegirDelRegistro(1);
+    ok(E('datosForm.proveedor') === 'Proveedor Sin Ficha' && !E('datosForm.proveedorRuc'), 'y al cambiar a un proveedor sin ficha no deja el RUC del anterior', E('datosForm.proveedorRuc'));
+    ok(!a.errores.length, 'sin errores de JavaScript', a.errores.join(' | '));
+  }
+
+  {
+    seccion('22. Proveedores del Excel maestro: con su propia frase, y solo aquí');
+    // Lo que publica el robot (instrumentos/proveedores_export.json), cifrado como él:
+    // AES-256-GCM con la clave derivada por PBKDF2-SHA256 de la frase de proveedores.
+    const wc = require('crypto').webcrypto;
+    const FRASE = 'frase-de-proveedores', FRASE_AC = 'frase-del-registro';
+    const lista = [
+      { nombre: 'Ferretería El Roble Cía. Ltda.', identificacion: '1790012345001', representante: 'Rosa Prueba', email: 'roble@ejemplo.ec', direccion: 'Av. 1' },
+      { nombre: 'Taller Solo En Excel S.A.', identificacion: '0190012345001' }];
+    const salt = wc.getRandomValues(new Uint8Array(16)), iv = wc.getRandomValues(new Uint8Array(12));
+    const base = await wc.subtle.importKey('raw', new TextEncoder().encode(FRASE), 'PBKDF2', false, ['deriveKey']);
+    const key = await wc.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 1000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    const ct = new Uint8Array(await wc.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(lista))));
+    const b64 = u => Buffer.from(u).toString('base64');
+    const SOBRE = { fap_enc: 1, kdf: 'PBKDF2-SHA256', iter: 1000, salt: b64(salt), iv: b64(iv), ct: b64(ct), generado: new Date().toISOString() };
+
+    const pedidas = [];
+    const { JSDOM, VirtualConsole } = require('jsdom');
+    const errs = []; const vc = new VirtualConsole(); vc.on('jsdomError', e => errs.push(e.message));
+    const dom = new JSDOM(HTML, { url: 'http://localhost/instrumentos/index.html', runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole: vc,
+      beforeParse(w){
+        w.fetch = (url) => { pedidas.push(String(url));
+          return /proveedores_export\.json$/.test(url) ? Promise.resolve({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(SOBRE)) }) : Promise.reject(new Error('sin red')); };
+        w.alert = () => {}; w.confirm = () => true;
+        if(!w.crypto.subtle) Object.defineProperty(w, 'crypto', { value: wc, configurable: true });
+        w.addEventListener('error', e => errs.push(e.message));
+      } });
+    const w = dom.window, E = s => w.eval(s);
+    for(let i = 0; i < 50 && !E('plantillas.length'); i++) await espera(100);
+    for(let i = 0; i < 50 && E('provEstado') === 'cargando'; i++) await espera(100);
+    ok(pedidas.some(u => /^\.\/proveedores_export\.json$|instrumentos\/proveedores_export\.json$/.test(u)), 'al arrancar pide los proveedores publicados', pedidas.join(' | '));
+    ok(E('provEstado') === 'protegido' && E('provExcel.length') === 0, 'sin frase quedan cerrados: no hay nada descifrado', E('provEstado'));
+    w.eval(`contrapartes = [{ nombre:'FERRETERIA EL ROBLE CIA LTDA', identificacion:'', representante:'', email:'yo@ejemplo.ec', direccion:'' }]; tabActual = 'contrapartes'`);
+    w.renderTabs(); w.renderContenido();
+    ok(/desbloquearProveedores/.test(w.document.getElementById('contenido').innerHTML), 'la pestaña Contrapartes ofrece abrirlos');
+
+    // La frase del registro no sirve; la de proveedores, sí
+    const responder = frase => { setTimeout(() => { const i = w.document.querySelector('#modal input[type="password"], #modal input'); i.value = frase; i.dispatchEvent(new w.Event('input', { bubbles: true }));
+      const b = Array.from(w.document.querySelectorAll('#modal .m-pie .btn')).pop(); b.click(); }, 30); };
+    const prom = w.desbloquearProveedores();
+    responder(FRASE_AC);
+    await espera(400);
+    ok(E('provEstado') === 'protegido' && /Frase incorrecta/.test(w.document.getElementById('modal').textContent), 'la frase del registro, la de las ACs, no los abre');
+    responder(FRASE);
+    const abrio = await prom;
+    ok(abrio && E('provEstado') === 'ok' && E('provExcel.length') === 2, 'con la frase de proveedores se abren', E('provEstado'));
+    ok(E(`localStorage.getItem('fap_gen_clave_proveedores')`) === FRASE && E(`localStorage.getItem('fap_data_key')`) !== FRASE,
+      'la frase queda guardada aparte de la del registro');
+    ok(!Object.keys(w.localStorage).some(k => /1790012345001/.test(w.localStorage.getItem(k) || '')), 'y nada descifrado se guarda en el navegador');
+
+    const vista = E('contrapartesVista()');
+    ok(vista.length === 2 && vista[0].x.identificacion === '1790012345001' && vista[0].x.email === 'yo@ejemplo.ec' && vista[0].delExcel.join() === 'identificacion,representante,direccion',
+      'la contraparte guardada se completa con el Excel, pero lo que ya tenía escrito manda', JSON.stringify(vista[0]));
+    ok(vista[1].i === -1 && vista[1].x.nombre === 'Taller Solo En Excel S.A.', 'y el proveedor que solo está en el Excel aparece igual', JSON.stringify(vista[1]));
+    w.renderContenido();
+    const txt = w.document.getElementById('contenido').textContent;
+    ok(/2 proveedores del Excel maestro/.test(txt) && /Excel maestro/.test(txt) && /las ACs no los ven/.test(txt), 'la pestaña dice cuántos hay y de dónde viene cada uno');
+    ok(E('contrapartes.length') === 1, 'abrirlos no copia nada a las contrapartes guardadas');
+
+    // Editar uno del Excel guarda una copia que manda
+    w.editarContraparte(-1, 1);
+    ok(w.document.getElementById('cp-id').value === '0190012345001', 'editar uno del Excel abre sus datos');
+    w.document.getElementById('cp-email').value = 'nuevo@ejemplo.ec';
+    w.guardarContraparte(-1);
+    ok(E('contrapartes.length') === 2 && E('contrapartesVista().length') === 2 && E(`contraparteDe('Taller Solo En Excel S.A.').email`) === 'nuevo@ejemplo.ec',
+      'y lo guarda como contraparte propia, sin duplicarlo en la lista');
+
+    // Tomar un contrato del registro trae el RUC del Excel
+    w.eval(`registro = [{ nro:'FIAS-FAP-2026-001', proveedor:'Ferretería El Roble Cía. Ltda.', detalle:'Mantenimiento', area:'Reserva', monto:1150, firma:'2026-03-02' }]; registroEstado = 'ok'`);
+    const acta = E('plantillas').find(p => p.seedKey === 'acta_terminacion');
+    w.seleccionar(acta.id); w.limpiarForm(); w.elegirDelRegistro(0);
+    ok(E('datosForm.proveedorRuc') === '1790012345001', '«Tomar datos del registro» trae el RUC del Excel maestro', E('datosForm.proveedorRuc'));
+    w.abrirPickerContraparte();
+    ok(w.document.querySelectorAll('#pc-lista .reg-fila').length === 2, '«Usar contraparte guardada» también los lista');
+
+    // Sin archivo publicado (falta el secreto) no es un error
+    const a2 = abrir(); const w2 = a2.w;
+    w2.fetch = (url) => Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+    for(let i = 0; i < 50 && !w2.eval('plantillas.length'); i++) await espera(100);
+    await w2.cargarProveedores();
+    w2.eval(`tabActual = 'contrapartes'`); w2.renderTabs(); w2.renderContenido();
+    ok(w2.eval('provEstado') === 'sin' && !/prov-estado/.test(w2.document.getElementById('contenido').innerHTML) && /abrirContrapartesExcel/.test(w2.document.getElementById('contenido').innerHTML),
+      'sin archivo publicado no hay aviso de error, y queda «Traer datos del Excel maestro»', w2.eval('provEstado'));
+    const sw = fs.readFileSync(path.join(RAIZ, 'instrumentos', 'sw.js'), 'utf8');
+    ok(/proveedores\)?_export|\(contratos\|proveedores\)_export/.test(sw), 'el service worker no guarda el archivo de proveedores en su caché');
+    ok(!errs.length, 'sin errores de JavaScript', errs.join(' | '));
+  }
+
   ok(!errores.length, 'ningún error de JavaScript en todo el recorrido', errores.join(' | '));
   console.log(`\n${pruebas - fallos}/${pruebas} comprobaciones bien.`);
   process.exit(fallos ? 1 : 0);

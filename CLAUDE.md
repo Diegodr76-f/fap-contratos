@@ -295,6 +295,21 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   (`itemFalta()`, `primerItemIncompleto()`), y en el documento la cantidad sale con
   `fmtCantidad()` («1.500», «2,5»). Las columnas están en `.fila-item`, no en línea, para que
   en el teléfono la media query las vuelva tarjeta.
+- **Texto largo: cada línea, un párrafo** (`CAMPOS_LARGOS`, en `fillDoc()`). Solo `formaPago` y
+  `condicionesEspecificas`: `fillDoc()` cambia sus saltos de línea por una marca
+  (`datosConParrafos()`) y, ya rellenado el Word, `partirParrafosXml()` parte el párrafo donde cayó
+  —con el formato del párrafo y, en una lista, con la sangría del texto del punto y sin repetir la
+  viñeta—. No se usa el salto de línea de docxtemplater: en un párrafo justificado Word estira la
+  última línea de cada tramo. **`{objeto}` no es largo a propósito**: va entre comillas dentro de una
+  frase en una veintena de sitios, y partirlo cortaría la frase. `partirParrafosXml()` es la misma,
+  letra por letra, que la del Generador de Instrumentos (sección 32 de `probar_generador.js`).
+- **`{condicionesEspecificas}` es la nota que salía impresa.** Las invitaciones (3 y 4) y la
+  solicitud de cotización de la renovación (20) traían escrito «(Detallar información técnica,
+  cronograma de actividades u otras condiciones específicas si aplica.)», y salía tal cual si la AC
+  no lo cambiaba en Word. Hoy es un campo opcional junto al detalle del requerimiento, en una
+  condición de tres párrafos (`{#condicionesEspecificas}` · `{condicionesEspecificas}` ·
+  `{/…}`): vacío, el párrafo no sale. Los comentarios de Word que estaban en ese párrafo pasaron al
+  siguiente, para que el comentario siga siendo válido cuando el párrafo desaparece.
 - **El detalle tiene que cuadrar con el monto** (`cuadreMonto()`): la orden imprime el monto en
   letras y el total de la tabla, y si no cuadran el papel firmado se contradice. Por eso es un
   requisito del momento de los precios y frena los documentos que imprimen la tabla.
@@ -392,9 +407,12 @@ sostienen hoy (sección 22 de `probar_clm.js`):
   corrige un error: la Unidad borra la fila de la tabla). Con el Registro ilegible no se toca
   nada. La entrada no tiene contraseña por persona: por eso el flujo le escribe a la AC.
   Guía de la tabla y el flujo: `plan/FLUJO_CALIFICACIONES.md` (sección 24 de las pruebas).
-- **El RUC no se publica ni se usa.** La hoja «Proveedores» del Excel lo trae y es
-  información privada (el de una persona natural es su cédula), así que el robot no la lee;
-  tampoco se valida ningún RUC: no se puede verificar desde aquí.
+- **El RUC no llega al CLM.** La hoja «Proveedores» del Excel lo trae y es información
+  privada (el de una persona natural es su cédula). El único que lo lee es el Generador de
+  Instrumentos, que usa una sola persona, con una frase que las ACs no tienen (ver «Las
+  contrapartes» más abajo). Nada en el CLM, el CRM, La Mágica ni las renovaciones pide
+  `proveedores_export.json`, y `probar_robot.py` lo vigila. Tampoco se valida ningún RUC: no
+  se puede verificar desde aquí.
 - **Solo se pide calificar desde `CALIFICA_DESDE` (2026-01-01)**, una fecha fija y no
   «el año en curso». `pideCalificacion()` decide; la AC recibe una alerta por contrato
   suyo y la Unidad Operativa **una agregada**, como la de carpetas.
@@ -543,6 +561,62 @@ exportar. Lo que salió, y la regla que queda:
   ahí en el arranque deja la aplicación en blanco.
 - Los rótulos de los campos salen de `etiqueta()` («Cédula del/la AC», no «Cedula ac»): los
   más comunes en `ETIQUETAS`, el resto partiendo el nombre y corrigiendo siglas y tildes.
+
+### Tres cosas que el formulario no sabía hacer (noviembre 2026)
+
+**Texto largo.** Todo campo libre era una casilla de una línea. Una variable de tipo
+`parrafo` se llena en un cuadro que crece, y al generar **cada línea sale como un párrafo de
+Word de verdad** (`partirParrafosXml()`), con el `<w:pPr>` del párrafo de la plantilla y el
+`<w:rPr>` de la corrida de la etiqueta. No se usa el salto de línea de docxtemplater: en un
+texto justificado Word estira la última línea de cada tramo. El párrafo que sigue no repite
+la viñeta ni los ids del original —en una lista toma la sangría del texto del punto, de
+`numbering.xml`—; dentro de un hipervínculo, un control o un campo —y en un párrafo que cierra
+sección— se queda como salto de línea, que es lo único seguro. Es **la misma función** que usa
+La Mágica, letra por letra (lo comprueba `probar_generador.js`). En las plantillas HTML lo mismo lo hace `partirParrafosHtml()`. Un campo corto se
+vuelve largo con el botón ¶ o solo, al pegarle varios párrafos (`pegarEnCampo()`); el tipo
+vive en el repositorio de variables, así que vale para todas las plantillas. `parrafo` es un
+tipo **de esta herramienta**: `generador/variables_fap.json` no lo usa, y un archivo de
+variables exportado de aquí lo lleva — si el sistema no lo conoce, ahí es `texto`.
+
+**Los datos de un documento sirven para el siguiente.** «Reusar datos» solo reabría la misma
+plantilla. Ahora `pasarDatos()` lleva a otra plantilla lo que se llama igual —es para lo que
+existe el catálogo—: «Tomar datos de otro documento» en el formulario, «Usar estos datos en
+otra plantilla» tras descargar, y «En otra plantilla» en el Historial. Tres reglas: **no
+adivina** (un dato pasa si se llama igual, sin contar mayúsculas ni guiones bajos; nada por
+parecido), **lo que se calcula se rehace** (letras, totales) y **el género viaja**: el
+historial guarda `conc`, y para los documentos de antes se lee de lo que quedó escrito
+(`concDeDatos()`); si dos opciones dan el mismo texto no se elige ninguna y se avisa. De paso,
+«Reusar datos» ya no deja el género que hubiera en pantalla. Entre computadoras: se abre el
+historial exportado de la otra persona, solo para tomar datos, sin mezclarlo con el propio.
+Los datos **no** viajan escondidos dentro del Word: ese archivo lo recibe el proveedor.
+
+**Las contrapartes: los proveedores del Excel, solo aquí y con su propia frase.** Con el
+secreto `PROVEEDORES_KEY`, el robot publica cédula o RUC, representante, correo y dirección
+(hoja «Proveedores» y, si la hay, la columna RUC de «2026»; columnas por su rótulo, todas
+opcionales menos el nombre) en `instrumentos/proveedores_export.json`, cifrado con **esa**
+frase. Reglas: sin el secreto no se lee la hoja; si es igual a `DATA_KEY` no se publica (la del
+registro la tienen las 20 ACs); `contratos_export.json` no cambia ni un byte; el registro del
+robot dice cuántos, nunca cuáles; ninguna otra herramienta pide el archivo, y el service worker
+no lo guarda. En el Generador, `cargarProveedores()` lo baja al arrancar y
+`desbloquearProveedores()` pide la frase una vez (`localStorage['fap_gen_clave_proveedores']`,
+aparte de `fap_data_key`); lo descifrado vive solo en memoria. **No se copia a las
+contrapartes**: `contrapartesVista()` junta las guardadas con las del Excel por nombre, y **lo
+guardado manda** —el Excel solo llena lo vacío—; editar uno del Excel guarda una copia propia.
+`contraparteDe()` y el selector leen de la vista, así que «Tomar datos del registro» trae el RUC
+solo. Sección 3 de `probar_robot.py` y 22 de `probar_instrumentos.js`.
+
+Sin el secreto queda el camino a mano: «Traer datos del Excel maestro» lee el `.xlsx` ahí mismo (`leerXlsx()`, con el PizZip que ya
+está; o las filas pegadas): no se sube nada. Como con el robot, **no se confía en
+posiciones**: la hoja, la fila de encabezados y las columnas se proponen por su rótulo
+(`proponerHojaCp()`, `adivinarColumnasCp()`) y se corrigen antes de traer; un «Correo
+electrónico AC» no es el correo del proveedor. Se empareja por nombre (`normalizar()`, nada
+por parecido), se completa **solo lo vacío** y antes de tocar nada se dice qué va a pasar. A
+una cédula de 9 dígitos o un RUC de 12 se le repone el cero que Excel quita. Y «Tomar datos
+del registro» trae de una vez los datos de la contraparte guardada de ese proveedor
+(`aplicarContraparteDeRegistro()`); si el proveedor cambió y no tiene ficha, borra los del
+anterior: un RUC ajeno junto a otro nombre es peor que el hueco.
+
+Secciones 19, 20, 21 y 22 de `probar_instrumentos.js`.
 
 ## Datos de contratos
 
