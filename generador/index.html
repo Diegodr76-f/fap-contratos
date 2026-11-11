@@ -638,6 +638,11 @@ function requisitos(step){
     cuadre();
     return L;
   }
+  // Por contrato, el tercer momento es el envío y no hay cuarto.
+  if(vaPorContratoUO()){
+    if(step===2) req(c&&c.enviadoUO,'','Enviar el expediente a la Unidad Operativa');
+    return L;
+  }
   if(step===2){
     if(d.desierto) return L;
     req(d.fechaRecepcion,'fechaRecepcion','Fecha de terminación / recepción');
@@ -691,10 +696,10 @@ function m1Done(){return pasoHecho(0);}
 function m2Done(){return pasoHecho(1);}
 function m3Done(){return pasoHecho(2);}
 function m4Done(){return pasoHecho(3);}
-function doneArr(){return[m1Done(),m2Done(),m3Done(),m4Done()];}
+function doneArr(){return[m1Done(),m2Done(),m3Done(),m4Done()].slice(0,nMomentos());}
 // El momento en que vive cada campo, para poder decir «está en el Momento 2».
 function momentoDelCampo(campo){
-  for(var i=0;i<4;i++){
+  for(var i=0;i<nMomentos();i++){
     var r=requisitos(i);
     for(var j=0;j<r.length;j++) if(r[j].campo===campo) return i;
   }
@@ -703,9 +708,10 @@ function momentoDelCampo(campo){
 // Los cuatro momentos no se llaman igual en las dos vías.
 function momentosNombres(){
   if(esRenov()) return ['Análisis (sin PAG)','Solicitud (con PAG)','Cotización recibida','Contrato · U. Operativa'];
+  if(vaPorContratoUO()) return ['Apertura', esCD()?'Proveedor':'Adjudicación', 'Contrato · U. Operativa'];
   return ['Apertura', esCD()?'Proveedor':'Adjudicación', 'Recepción', 'Entrega'];
 }
-function momentoAlcanzado(){ var a=doneArr(),n=0; for(var i=0;i<4;i++){ if(a[i]) n=i+1; else break; } return n; }
+function momentoAlcanzado(){ var a=doneArr(),n=0; for(var i=0;i<a.length;i++){ if(a[i]) n=i+1; else break; } return n; }
 // Modalidad de pago / garantías. Con garantías (anticipo y/o fiel cumplimiento) el
 // proceso va por contrato: la orden no aplica. Contra entrega habilita la orden.
 // Días entre dos fechas, contando los dos extremos: del 1 de enero al 31 de
@@ -733,6 +739,14 @@ function motivoContrato(){
   return '';
 }
 function esContrato(){ return !!motivoContrato(); }
+// Un proceso que va por contrato termina, para la AC, al enviar el expediente: el
+// contrato lo elabora la Unidad Operativa, y la recepción y la entrega vienen
+// después, con el contrato ya firmado (su cierre es el acta de terminación del
+// CLM). Por eso tiene TRES momentos y el tercero es el envío, como la renovación
+// tiene el suyo en el cuarto. Un proceso desierto no llega a contrato.
+function vaPorContratoUO(){ var d=D(); return !esRenov() && !!d.tipoProceso && !d.desierto && esContrato(); }
+function nMomentos(){ return vaPorContratoUO()?3:4; }
+function rangoMomentos(){ var r=[]; for(var i=0;i<nMomentos();i++) r.push(i); return r; }
 function montoConIva(){return itemTotals().total;}   // total con IVA (base del umbral de 8.000)
 function firmaDirector(){return montoConIva()>8000;}
 // ¿El proceso puede resolverse con una orden de compra/servicio? Si va por
@@ -840,6 +854,15 @@ function documents(){
     }
   } else {
     list.push({id:'inicio',m:1,name:'Solicitud de inicio del proceso',tpl:null,note:'Elige el tipo de proceso para ver sus documentos.',ready:false});
+  }
+  // Por contrato no hay orden, ni recepción ni entrega en La Mágica: el
+  // documento del tercer momento es el contrato, y lo hace la Unidad Operativa.
+  if(vaPorContratoUO()){
+    list=list.filter(function(x){ return x.id!=='recep' && x.id!=='entrega'; });
+    list.forEach(function(x){ if(x.id==='orden'){ x.ready=false; x.noAplica=true; x.warn8000=false; } });
+    list.push({id:'contratoUO',m:3,name:'Contrato',tpl:null,
+      note:'Lo elabora la Unidad Operativa con este expediente. La recepción y la entrega vienen después, con el contrato firmado.',
+      ready:false});
   }
   // Una compra directa por encima del límite no genera nada: es otra vía.
   if(cdExcede()) list.forEach(function(x){
@@ -1249,7 +1272,7 @@ function render(){
    +"<div style='width:40px;height:40px;border-radius:10px;background:#00249C;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700'>FAP</div>"
    +"<div style='line-height:1.15;min-width:0'><div style='font-weight:700;font-size:15px;color:#0B153F'>Fondo de Áreas Protegidas</div><div class='cab-sub' style='font-size:12px;color:#7A8090'>Rellenado de plantillas · "+esc(headerArea())+"</div></div>"
    +"<div style='flex:1'></div>"
-   +(cur()?("<div style='text-align:right;line-height:1.2;margin-right:6px'><div style='font-size:11px;color:#7A8090;font-weight:600'>Progreso</div><div id='prog' style='font-size:13px;color:#0B153F;font-weight:700'>"+md+" de 4 momentos</div></div><div class='cab-progreso' style='width:110px;height:8px;border-radius:99px;background:#E7EAF4;overflow:hidden'><div id='progbar' style='height:100%;background:#00249C;width:"+(md/4*100)+"%;transition:width .4s'></div></div>"):"")
+   +(cur()?("<div style='text-align:right;line-height:1.2;margin-right:6px'><div style='font-size:11px;color:#7A8090;font-weight:600'>Progreso</div><div id='prog' style='font-size:13px;color:#0B153F;font-weight:700'>"+md+" de "+nMomentos()+" momentos</div></div><div class='cab-progreso' style='width:110px;height:8px;border-radius:99px;background:#E7EAF4;overflow:hidden'><div id='progbar' style='height:100%;background:#00249C;width:"+(md/4*100)+"%;transition:width .4s'></div></div>"):"")
   +"</header>"
   +"<div id='espaciobar'>"+bannerEspacioHTML()+"</div>"
   +"<div class='app-cuerpo'>"
@@ -1471,8 +1494,8 @@ function recompute(){
     if(cur&&!op.some(function(p){return p.razon===cur;})){d.adjudicado='';cur='';if(by('a_rucadj'))by('a_rucadj').value='—';if(by('a_montoadj'))by('a_montoadj').value='—';if(by('a_montoletras'))by('a_montoletras').value='—';}
     adjSel.innerHTML="<option value=''>— elige —</option>"+op.map(function(p){return "<option value=\""+esc(p.razon)+"\" "+(cur===p.razon?'selected':'')+">"+esc(p.razon)+"</option>";}).join('');}
   var done=doneArr(),md=done.filter(Boolean).length;
-  if(by('prog'))by('prog').textContent=md+' de 4 momentos';
-  if(by('progbar'))by('progbar').style.width=(md/4*100)+'%';
+  if(by('prog'))by('prog').textContent=md+' de '+nMomentos()+' momentos';
+  if(by('progbar'))by('progbar').style.width=(md/nMomentos()*100)+'%';
   for(var i=0;i<4;i++){var s=by('stepmark'+i);if(s){s.innerHTML=done[i]?'✓':(i+1);s.style.background=done[i]?'#1E7A4D':(ST.step===i?'#00249C':'#fff');s.style.color=(done[i]||ST.step===i)?'#fff':'#9AA0B2';}}
   var carteles=document.querySelectorAll('.cartel-cd');
   for(var k=0;k<carteles.length;k++) carteles[k].innerHTML=cartelCD();
@@ -1531,16 +1554,18 @@ function avisoMomento(){
    +"</div></div></div>";
 }
 function renderCaptura(){
-  var done=doneArr();
+  var done=doneArr(), nm=nMomentos();
+  // Si el proceso pasó a ir por contrato estando en el Momento 4, ese ya no existe.
+  if(ST.step>=nm) ST.step=nm-1;
   var stepper="<div class='pasos'>"
-   +[0,1,2,3].map(function(i){var b=['Momento 1','Momento 2','Momento 3','Momento 4'][i];var sub=momentosNombres()[i];var active=ST.step===i;return "<button class='paso' onclick='setStep("+i+")' style='background:"+(active?'#EEF1FB':'transparent')+"'><span id='stepmark"+i+"' style='width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:"+(done[i]?'#1E7A4D':(active?'#00249C':'#fff'))+";color:"+((done[i]||active)?'#fff':'#9AA0B2')+";border:"+((done[i]||active)?'none':'1.5px solid #D7DCEA')+"'>"+(done[i]?'✓':(i+1))+"</span><span style='text-align:left;line-height:1.15'><span style='display:block;font-weight:700;font-size:13px;color:"+(active?'#00249C':'#3A4050')+"'>"+b+"</span><span style='display:block;font-size:11px;color:#9AA0B2'>"+sub+"</span></span></button>";}).join('')+"</div>";
+   +rangoMomentos().map(function(i){var b=['Momento 1','Momento 2','Momento 3','Momento 4'][i];var sub=momentosNombres()[i];var active=ST.step===i;return "<button class='paso' onclick='setStep("+i+")' style='background:"+(active?'#EEF1FB':'transparent')+"'><span id='stepmark"+i+"' style='width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:"+(done[i]?'#1E7A4D':(active?'#00249C':'#fff'))+";color:"+((done[i]||active)?'#fff':'#9AA0B2')+";border:"+((done[i]||active)?'none':'1.5px solid #D7DCEA')+"'>"+(done[i]?'✓':(i+1))+"</span><span style='text-align:left;line-height:1.15'><span style='display:block;font-weight:700;font-size:13px;color:"+(active?'#00249C':'#3A4050')+"'>"+b+"</span><span style='display:block;font-size:11px;color:#9AA0B2'>"+sub+"</span></span></button>";}).join('')+"</div>";
   var sections = esRenov()
     ? (ST.step===0?capRen1():ST.step===1?capRen2():ST.step===2?capRen3():capRen4())
-    : (ST.step===0?capM1():ST.step===1?capM2():ST.step===2?capM3():capM4());
+    : (ST.step===0?capM1():ST.step===1?capM2():ST.step===2?(vaPorContratoUO()?capContratoUO():capM3()):capM4());
   var nav="<div style='display:flex;justify-content:space-between;align-items:center;margin-top:18px'>"
    +(ST.step>0?"<button onclick='setStep("+(ST.step-1)+")' style='all:unset;cursor:pointer;padding:11px 18px;border-radius:10px;font-weight:700;font-size:14px;color:#3A4050;background:#fff;border:1.5px solid #D7DCEA'>← Anterior</button>":"<span></span>")
-   +"<span style='font-size:13px;color:#9AA0B2;font-weight:600'>Paso "+(ST.step+1)+" de 4</span>"
-   +(ST.step<3?"<button onclick='setStep("+(ST.step+1)+")' style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#00249C'>Siguiente →</button>":"<button onclick=\"go('documentos')\" style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#00249C'>Ir a Documentos →</button>")
+   +"<span style='font-size:13px;color:#9AA0B2;font-weight:600'>Paso "+(ST.step+1)+" de "+nm+"</span>"
+   +(ST.step<nm-1?"<button onclick='setStep("+(ST.step+1)+")' style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#00249C'>Siguiente →</button>":"<button onclick=\"go('documentos')\" style='all:unset;cursor:pointer;padding:11px 20px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;background:#00249C'>Ir a Documentos →</button>")
    +"</div>";
   setTimeout(function(){ renderRail(); ajustarDescripciones(); },0);
   return "<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Captura — <span id='cap_nombre'>"+esc(cur().nombre)+"</span> <button onclick='renombrarExp()' title='Cambiar el nombre con que aparece en Mis procesos' style='all:unset;cursor:pointer;font-size:13px;font-weight:700;color:#00249C;vertical-align:middle;margin-left:6px'>✎ Cambiar nombre</button></h1>"
@@ -1737,15 +1762,25 @@ function capRen3(){
   return s;
 }
 function capRen4(){
+  return capEnvioUO('1 · Contrato de renovación (Unidad Operativa)',
+    'La parte de la administradora termina aquí: con la cotización registrada, el expediente se envía. La notificación al proveedor la hace el Director Ejecutivo con la Unidad.',
+    'El contrato de renovación lo elabora la Unidad Operativa.');
+}
+function capContratoUO(){
+  return capEnvioUO('1 · Contrato (Unidad Operativa)',
+    motivoUnidadOperativa()+' La parte de la administradora termina al enviar el expediente; la recepción y la entrega vienen con el contrato firmado.',
+    'El contrato lo elabora la Unidad Operativa.');
+}
+function capEnvioUO(titulo,ayuda,quien){
   var c=cur();
   var enviado=c&&c.enviadoUO;
   var pend=checklistPendientes().length;
   var cuerpo=enviado
     ? "<div style='font-size:13.5px;color:#1E7A4D;background:#E7F4EC;border:1px solid #CDE8D6;border-radius:9px;padding:11px 13px;line-height:1.5'><b>Enviado a la Unidad Operativa</b> el "+esc(fechaHora(c.enviadoUO.fecha))+" con "+(c.enviadoUO.archivos||0)+" archivo(s).</div>"
-    : "<div style='font-size:13.5px;color:#7A8090;line-height:1.55'>El contrato de renovación lo elabora la Unidad Operativa. Cuando el expediente esté completo, envíalo desde aquí: la lista de verificación revisa primero que no falte nada, porque el 11 % de los envíos de 2026 fueron duplicados o correctivos."
+    : "<div style='font-size:13.5px;color:#7A8090;line-height:1.55'>"+quien+" Cuando el expediente esté completo, envíalo desde aquí: la lista de verificación revisa primero que no falte nada, porque el 11 % de los envíos de 2026 fueron duplicados o correctivos."
       +(pend?"<div style='margin-top:10px;font-weight:700;color:#B23B3B'>Faltan "+pend+" punto(s) de la lista de verificación.</div>":"<div style='margin-top:10px;font-weight:700;color:#1E7A4D'>La lista de verificación está completa.</div>")
       +"</div>";
-  return block('1 · Contrato de renovación (Unidad Operativa)','La parte de la administradora termina aquí: con la cotización registrada, el expediente se envía. La notificación al proveedor la hace el Director Ejecutivo con la Unidad.',
+  return block(titulo,esc(ayuda),
     cuerpo+"<button onclick=\"go('unidad')\" style='all:unset;cursor:pointer;display:inline-block;margin-top:14px;background:#00249C;color:#fff;font-weight:700;font-size:14px;padding:11px 20px;border-radius:10px'>"+(enviado?'Ver el envío':'Ir a Enviar a la Unidad Operativa →')+"</button>");
 }
 
@@ -2248,7 +2283,7 @@ function renderDocumentos(){
   if(!D().tipoProceso) return "<h1 style='font-size:28px;color:#0B153F'>Generador de documentos</h1><p style='color:#6B7180'>Primero elige el tipo de proceso en <a href='#' onclick=\"go('captura');return false\" style='color:#00249C;font-weight:700'>Captura</a>.</p>";
   var docs=documents(),done=doneArr();
   var mn=momentosNombres();
-  var groups=[0,1,2,3].map(function(i){return {n:String(i+1),label:'Momento '+(i+1)+' · '+mn[i],mi:i};});
+  var groups=rangoMomentos().map(function(i){return {n:String(i+1),label:'Momento '+(i+1)+' · '+mn[i],mi:i};});
   var warn = engineReady()?"":"<div class='card' style='background:#FBF1E1;border-color:#F0E0C0;margin-bottom:18px'><b style='color:#8A5210'>Descarga este HTML para generar.</b><div style='font-size:13px;color:#8A5210;margin-top:4px'>El motor de relleno no cargó en esta vista previa.</div></div>";
   var html=warn+"<h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Generador de documentos</h1><p style='font-size:15px;color:#6B7180;margin:0 0 24px'>Cada documento rellena TU plantilla. Si falta cargarla, te lleva a <a href='#' onclick=\"go('plantillas');return false\" style='color:#00249C;font-weight:700'>Plantillas</a>.</p>";
   if(cdExcede()) html+="<div style='margin-bottom:24px'>"+cartelCD()+"</div>";
@@ -2271,6 +2306,17 @@ function renderDocumentos(){
         html+="<div class='card' style='padding:14px 16px;background:#FAFBFD;display:flex;flex-direction:column;gap:6px'>"
          +"<div style='display:flex;justify-content:space-between;gap:8px'><span style='font-weight:700;font-size:14px;color:#7A8090;line-height:1.35'>"+esc(x.name)+"</span><span style='flex:0 0 auto;font-size:11px;font-weight:700;color:#7A8090;background:#EEF0F6;padding:3px 8px;border-radius:99px;height:fit-content'>No aplica</span></div>"
          +"<div style='font-size:12.5px;color:#7A8090;line-height:1.45'>"+esc(x.note)+"</div></div>";
+        return;
+      }
+      // El contrato no se genera aquí: lo hace la Unidad Operativa con lo que se le
+      // envía. La tarjeta lleva al envío en vez de decir «Bloqueado».
+      if(x.id==='contratoUO'){
+        var env=cur()&&cur().enviadoUO;
+        html+="<div class='card' style='padding:16px;border:1.5px solid "+(env?'#1E7A4D':'#C7D0EC')+";display:flex;flex-direction:column;gap:11px'>"
+         +"<div style='display:flex;justify-content:space-between;gap:8px'><span style='font-weight:700;font-size:14.5px;color:#0B153F;line-height:1.35'>"+esc(x.name)+"</span><span style='flex:0 0 auto;font-size:11px;font-weight:700;color:"+(env?'#1E7A4D':'#00249C')+";background:"+(env?'#E7F4EC':'#EEF1FB')+";padding:3px 8px;border-radius:99px;height:fit-content'>"+(env?'Enviado':'Lo hace la U.O.')+"</span></div>"
+         +"<div style='font-size:12.5px;color:#7A8090;line-height:1.45;min-height:34px'>"+esc(x.note)+"</div>"
+         +"<button onclick=\"go('unidad')\" style='all:unset;cursor:pointer;text-align:center;box-sizing:border-box;font-weight:700;font-size:14px;padding:10px;border-radius:9px;background:"+(env?'#E7F4EC':'#00249C')+";color:"+(env?'#1E7A4D':'#fff')+"'>"+(env?'Enviado ✓ · ver el envío':'Enviar a la Unidad Operativa →')+"</button>"
+         +"</div>";
         return;
       }
       var falta=x.ready||x.espera||x.bloqueo||!x.tpl?'':resumenFaltanHasta(x.m-1);
@@ -2463,9 +2509,10 @@ function marcarEnviadoUO(nArchivos){
   var c=cur(); if(!c) return;
   c.enviadoUO={fecha:new Date().toISOString(), archivos:nArchivos||0, por:ST.cfg.ac||''};
   save();
-  // En la renovación no hay documento de cierre, así que el expediente se cierra
-  // al salir hacia la Unidad Operativa: es donde termina la parte de la AC.
-  if(esRenov() && registrarCierre()) toast('Cierre registrado en el Historial. Se descargó también su archivo de sincronización (.json).');
+  // En la renovación y en lo que va por contrato no hay documento de cierre, así
+  // que el expediente se cierra al salir hacia la Unidad Operativa: es donde
+  // termina la parte de la AC.
+  if((esRenov()||vaPorContratoUO()) && registrarCierre()) toast('Cierre registrado en el Historial. Se descargó también su archivo de sincronización (.json).');
 }
 function uoListFiles(){
   var el=document.getElementById('uoFiles'), box=document.getElementById('uoFileList');
@@ -2781,10 +2828,10 @@ function resumenExp(e){
     return { id:e.id, nombre:e.nombre||'Proceso sin nombre', areaId:d.areaId||'',
       area:A().ap||'—', siglas:A().siglas||'', codigo:codigoProceso(),
       via:esRenov()?'Renovación':(d.tipoProceso||'—'), esRenovacion:esRenov(),
-      momento:m, etapa:momentosNombres()[m>=4?3:m],
+      momento:m, etapa:momentosNombres()[Math.min(m,nMomentos()-1)],
       // Cuántos datos le faltan al momento en el que está parado, para que la
       // fila diga por qué no avanza sin tener que entrar a mirarlo.
-      faltanDatos:m>=4?0:faltan(m).length,
+      faltanDatos:m>=nMomentos()?0:faltan(m).length,
       docsGen:docs.filter(function(x){return x.tpl&&!x.noAplica&&gen[x.id];}).length,
       docsTot:docs.filter(function(x){return x.tpl&&!x.noAplica;}).length,
       obligPend:oblig.filter(function(x){return !gen[x.id];}).length,
