@@ -12,9 +12,6 @@ nada. Y que la hoja «Proveedores», con el RUC de cada proveedor, solo se lee s
 existe su propia frase (PROVEEDORES_KEY), se publica aparte y cifrada con ella, y
 la frase del registro —la que tienen las ACs— no la abre: el RUC es información
 privada (el de una persona natural es su cédula) y solo lo usa el Generador.
-Y que las respuestas de la consulta de continuidad —qué dijo cada AC que pasa
-con su contrato el año siguiente— se publican aparte, vengan de una hoja del
-maestro o de su propio libro (RESPUESTAS_URL), sin tocar lo demás.
 
 Uso (necesita lo mismo que el workflow que corre el robot):
     pip install openpyxl requests cryptography
@@ -101,23 +98,6 @@ def libro(proveedores=None, registro=None, ruc_2026=None, encabezado_prov=None):
             r.append(fila)
     return wb
 
-ENCABEZADO_RESP = ["nro", "detalle", "area", "categoria", "proveedor", "montoTotal2026", "vence", "tipo2026",
-                   "renovable", "decision", "continua", "monto2027", "observaciones", "ac", "correoAC", "respondido"]
-
-def libro_respuestas(filas, wb=None, titulo="Hoja1"):
-    """El Excel donde caen las respuestas de renovaciones/index.html: una fila por contrato.
-    filas: [(nro, decision, continua, observaciones, respondido)]. Con wb, la hoja se añade a ese libro."""
-    if wb is None:
-        wb = openpyxl.Workbook(); h = wb.active; h.title = titulo
-    else:
-        h = wb.create_sheet(titulo)
-    h.append(ENCABEZADO_RESP)
-    for nro, dec, cont, obs, resp in filas:
-        h.append([nro, "Servicio x", "Parque Nacional Cotopaxi", "Mantenimiento", "Servitec S.A.", 1000,
-                  datetime.datetime(2026, 12, 31), "Renovación", "No", dec, cont, None, obs,
-                  "Ana Pérez", "ana@fias.org.ec", resp])
-    return wb
-
 def descifrar(ruta, frase=CLAVE):
     with open(ruta, encoding="utf-8") as f:
         env = json.load(f)
@@ -132,20 +112,14 @@ class Silencioso(http.server.SimpleHTTPRequestHandler):
 
 ULTIMA = {}   # lo que dejó la última corrida que no cabe en la tupla: la ruta de los proveedores
 
-def correr(wb, tmp, frase_prov=None, respuestas=None):
+def correr(wb, tmp, frase_prov=None):
     """Corre el robot contra ese Excel. Devuelve (salida, contratos, registro o None).
-    Con frase_prov, como si existiera el secreto PROVEEDORES_KEY. Con respuestas (un
-    libro, o 'roto'), como si existiera RESPUESTAS_URL apuntando a él."""
+    Con frase_prov, como si existiera el secreto PROVEEDORES_KEY."""
     servir = os.path.join(tmp, "servir"); trabajo = os.path.join(tmp, "trabajo")
     for d in (servir, trabajo):
         shutil.rmtree(d, ignore_errors=True); os.makedirs(d)
     os.makedirs(os.path.join(trabajo, "crm"))
     wb.save(os.path.join(servir, "maestro.xlsx"))
-    if respuestas == "roto":
-        with open(os.path.join(servir, "respuestas.xlsx"), "w") as f:
-            f.write("<html>inicia sesión</html>")
-    elif respuestas is not None:
-        respuestas.save(os.path.join(servir, "respuestas.xlsx"))
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0),
                                           functools.partial(Silencioso, directory=servir))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -156,9 +130,6 @@ def correr(wb, tmp, frase_prov=None, respuestas=None):
         env.update({"DATA_KEY": CLAVE, "EXCEL_URL": f"http://127.0.0.1:{srv.server_address[1]}/maestro.xlsx",
                     "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost"})
         env.pop("PROVEEDORES_KEY", None)
-        env.pop("RESPUESTAS_URL", None)
-        if respuestas is not None:
-            env["RESPUESTAS_URL"] = f"http://127.0.0.1:{srv.server_address[1]}/respuestas.xlsx"
         if frase_prov is not None:
             env["PROVEEDORES_KEY"] = frase_prov
         p = subprocess.run([sys.executable, ROBOT], cwd=trabajo, env=env, capture_output=True, text=True, timeout=120)
@@ -170,7 +141,6 @@ def correr(wb, tmp, frase_prov=None, respuestas=None):
         return salida, None, None
     contratos, _ = descifrar(os.path.join(trabajo, "crm", "contratos_export.json"))
     ULTIMA["proveedores"] = os.path.join(trabajo, "instrumentos", "proveedores_export.json")
-    ULTIMA["decisiones"] = os.path.join(trabajo, "crm", "decisiones_export.json")
     reg = os.path.join(trabajo, "crm", "calificaciones_export.json")
     return salida, contratos, (descifrar(reg)[0] if os.path.exists(reg) else None)
 
@@ -184,8 +154,6 @@ try:
        "cada contrato lleva las mismas llaves de siempre, ni una más",
        sorted(set().union(*[set(c) for c in base or []]) ^ LLAVES_DE_SIEMPRE))
     ok(reg is None, "y no aparece calificaciones_export.json")
-    ok(not os.path.exists(ULTIMA["decisiones"]) and "Consulta de continuidad" not in salida,
-       "ni decisiones_export.json: sin respuestas no hay archivo")
     ok("Proveedores:" not in salida and "Registro de Calificaciones:" not in salida,
        "tampoco hay resumen de las hojas que no están")
 
@@ -313,58 +281,6 @@ try:
     wb["Proveedores"].title = " PROVEEDORES"
     salida, con, reg = correr(wb, tmp)
     ok(reg == [], "los nombres de las hojas se reconocen sin importar mayúsculas ni espacios de más")
-
-    # ------------------------------------------------------------ 5
-    seccion("5 · Las respuestas de la consulta de continuidad: aparte, cifradas, y opcionales")
-    resp = [
-        ("FIAS-FAP-2026-001", "Contratación directa con el mismo proveedor", "Sí", None, "2026-09-10T13:28:57.506Z"),
-        ("FIAS-FAP-2026-002", "Comparación de precios", "Sí", "El administrador quiere cambiar de taller", "2026-09-10T13:29:02.091Z"),
-        ("FIAS-FAP-2026-003", "Renovación con el mismo proveedor", "Sí", None, datetime.datetime(2026, 9, 11, 8, 0, 0)),
-        ("FIAS-FAP-2026-004", "Proceso nuevo — cambio de proveedor", "Sí", None, None),
-        ("FIAS-FAP-2026-005", "No continúa en 2027", "No", None, "2026-09-12T10:00:00.000Z"),
-        ("FIAS-FAP-2026-006", "Algo que nadie ofreció", "Sí", None, "2026-09-12T10:00:00.000Z"),   # no se entiende
-        ("OTRO-001", "Comparación de precios", "Sí", None, "2026-09-12T10:00:00.000Z"),              # no es un contrato
-        (None, None, None, None, None),
-    ]
-    # Camino 1: el libro aparte, tal como lo deja el flujo (su hoja se llama «Hoja1»).
-    salida, con, reg = correr(libro(), tmp, respuestas=libro_respuestas(resp))
-    ok(con == base and reg is None, "los contratos publicados no cambian por tener las respuestas")
-    ruta = ULTIMA["decisiones"]
-    ok(os.path.exists(ruta), "aparece crm/decisiones_export.json")
-    dec, sobre_d = descifrar(ruta)
-    with open(ruta, encoding="utf-8") as f:
-        crudo = f.read()
-    ok("FIAS-FAP" not in crudo and "taller" not in crudo, "cifrado con la frase del registro: nada en claro")
-    ok([(d["nro"][-3:], d["decision"]) for d in dec] == [("001", "directa"), ("002", "comparar"), ("003", "renovar"),
-                                                         ("004", "cambiar"), ("005", "terminar")],
-       "cada respuesta sale como una de las cinco claves que entiende el CLM", [(d["nro"][-3:], d["decision"]) for d in dec])
-    ok(dec[1] == {"nro": "FIAS-FAP-2026-002", "decision": "comparar", "obs": "El administrador quiere cambiar de taller",
-                  "fecha": "2026-09-10T13:29:02.091Z"}, "con su observación y su fecha", dec[1])
-    ok(dec[2].get("fecha") == "2026-09-11T08:00:00" and "fecha" not in dec[3], "una fecha de Excel se lee igual, y sin fecha no se inventa", dec[2:4])
-    ok(all(set(d) <= {"nro", "decision", "obs", "fecha"} for d in dec),
-       "solo publica eso: ni la AC, ni el proveedor, ni los montos", sorted(set().union(*[set(d) for d in dec])))
-    ok(__import__("re").fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", sobre_d.get("generado", "")) is not None,
-       "lleva la hora de lectura fuera del cifrado")
-    ok("5 respuesta(s) publicadas" in salida and "1 respuesta(s)" in salida and "taller" not in salida and "FIAS-FAP-2026-002" not in salida,
-       "el robot dice cuántas publicó y cuántas no entendió, sin nombrar ninguna", salida.strip().splitlines()[-3:])
-
-    # Camino 2: la hoja copiada dentro del Excel maestro, se llame como se llame.
-    salida, con, _ = correr(libro_respuestas(resp[:2], wb=libro(), titulo="Respuestas renovación"), tmp)
-    dec2, _ = descifrar(ULTIMA["decisiones"])
-    ok(con == base and [d["decision"] for d in dec2] == ["directa", "comparar"],
-       "también se leen de una hoja del propio Excel maestro, sin ningún secreto")
-    # Con los dos, manda el libro de respuestas: el maestro puede tener una copia vieja.
-    salida, con, _ = correr(libro_respuestas(resp[:1], wb=libro(), titulo="Copia vieja"), tmp, respuestas=libro_respuestas(resp[:5]))
-    ok(len(descifrar(ULTIMA["decisiones"])[0]) == 5, "si están en los dos sitios, manda el libro de respuestas")
-
-    # El enlace roto no tumba la publicación de los contratos.
-    salida, con, _ = correr(libro(), tmp, respuestas="roto")
-    ok(con == base and not os.path.exists(ULTIMA["decisiones"]) and "no pude leer el Excel de respuestas" in salida,
-       "si el enlace de las respuestas falla, se avisa y los contratos se publican igual", salida.strip().splitlines()[:2])
-    # Una hoja con «nro» pero sin «decision» (la «Export» del maestro) no es la de respuestas.
-    wb = libro(); e = wb.create_sheet("Export"); e.append(["nro", "detalle", "estado"]); e.append(["FIAS-FAP-2026-001", "x", "Activo"])
-    salida, con, _ = correr(wb, tmp)
-    ok(con == base and not os.path.exists(ULTIMA["decisiones"]), "una hoja con «nro» pero sin «decision» no se toma por la de respuestas")
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 

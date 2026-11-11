@@ -57,6 +57,13 @@ function contratos(){
   ];
 }
 
+// Un año de servicio que termina en `fin`: lo que hace recurrente a un contrato
+// (ver esRecurrente() en clm/index.html). Las pruebas que ponen el vencimiento
+// relativo a hoy lo usan, para no depender del día en que se corren.
+const DIA=86400000;
+const isoMas=(iso,dias)=>new Date(Date.parse(iso+'T00:00:00Z')+dias*DIA).toISOString().slice(0,10);
+const anual=fin=>({inicio:isoMas(fin,-364),fin});
+
 // Carga el CLM con una sesión ya abierta y la base servida por un fetch de
 // mentira, para poder probar también el portafolio de hoy —sin ninguna carpeta
 // registrada— y la mirada de una administradora.
@@ -80,13 +87,6 @@ function nuevoDom(lista,ses,op){
           return Promise.resolve(op.registro?{ok:true,status:200,json:()=>Promise.resolve(JSON.parse(JSON.stringify(op.registro)))}
                                             :{ok:false,status:404,json:()=>Promise.reject(new Error('404'))});
         }
-        // Lo que las ACs respondieron en la consulta de continuidad: op.decisiones
-        // (una lista) si se da; si no, 404, que es lo normal mientras nadie lo publique.
-        if(/decisiones_export/.test(String(u))){
-          if(op.decisiones==='falla')return Promise.reject(new Error('sin red'));
-          return Promise.resolve(op.decisiones?{ok:true,status:200,json:()=>Promise.resolve(JSON.parse(JSON.stringify(op.decisiones)))}
-                                              :{ok:false,status:404,json:()=>Promise.reject(new Error('404'))});
-        }
         // El flujo de calificaciones: sin red, salvo que una prueba lo sustituya. Así
         // nada de lo que se hace con el modal sale de verdad.
         if(/powerplatform/.test(String(u)))return Promise.reject(new Error('sin red'));
@@ -103,7 +103,7 @@ function listo(w){
   return new Promise((res,rej)=>{
     let n=0;
     (function esperar(){
-      let hay=0; try{ hay=w.eval('CONTRACTS.length') && w.eval('REG.estado')!=='cargando' && w.eval('DEC.estado')!=='cargando'; }catch(e){}
+      let hay=0; try{ hay=w.eval('CONTRACTS.length') && w.eval('REG.estado')!=='cargando'; }catch(e){}
       if(hay) return res(w);
       if(++n>80) return rej(new Error('el CLM no cargó la base'));
       setTimeout(esperar,10);
@@ -386,7 +386,7 @@ seccion('18 · Lo que el CLM ya sabe viaja a La Mágica');
 // Contrato 1: vence en 60 días y tuvo adenda (el monto vigente no es el original).
 const enSesenta=new Date(Date.now()+60*86400000).toISOString().slice(0,10);
 const paraRenovar=contratos();
-Object.assign(paraRenovar[0],{fin:enSesenta,montoTotal:1450,adenda:'Sí',area:'Reserva de Producción de Fauna Chimborazo'});
+Object.assign(paraRenovar[0],{...anual(enSesenta),montoTotal:1450,adenda:'Sí',area:'Reserva de Producción de Fauna Chimborazo'});
 w=await listo(nuevoDom(paraRenovar,{rol:'ac',user:'Ana Pérez'}));
 const buzon=()=>JSON.parse(w.localStorage.getItem('fap_precarga')||'null');
 const srcMagica=()=>{const f=w.document.getElementById('toolframe');return f?f.getAttribute('src'):'';};
@@ -447,13 +447,13 @@ seccion('19 · No todo lo que vence se renueva');
   const enDiez=new Date(Date.now()+10*86400000).toISOString().slice(0,10);
   const base19=contratos();
   // Consultoría puntual y vencida — como «Delitos Ambientales y Procesos Sancionatorios».
-  Object.assign(base19[0],{cat:'Consultoría',detalle:'Consultoría de delitos ambientales',fin:enDiez,tipo:'Nuevo'});
+  Object.assign(base19[0],{cat:'Consultoría',detalle:'Consultoría de delitos ambientales',...anual(enDiez),tipo:'Nuevo'});
   // Adquisición de equipos de campo, por vencer.
-  Object.assign(base19[1],{cat:'Adquisición de equipos de campo',fin:enDiez,tipo:'Nuevo'});
+  Object.assign(base19[1],{cat:'Adquisición de equipos de campo',...anual(enDiez),tipo:'Nuevo'});
   // Ya es una renovación (agotó su única vuelta), por vencer.
-  Object.assign(base19[2],{tipo:'Renovación',fin:enDiez});
+  Object.assign(base19[2],{tipo:'Renovación',...anual(enDiez)});
   // Sin el dato de tipo (celda vacía en el Excel), por vencer.
-  Object.assign(base19[3],{tipo:'',fin:enDiez});
+  Object.assign(base19[3],{tipo:'',...anual(enDiez)});
   const w19=await listo(nuevoDom(base19,{rol:'ac',user:'Ana Pérez'}));
   const textoView=()=>w19.document.getElementById('view').textContent;
 
@@ -465,7 +465,7 @@ seccion('19 · No todo lo que vence se renueva');
 
   w19.go('detalle',1);
   btn=w19.document.getElementById('a-ren');
-  ok(btn.disabled&&/adquisición de equipos/.test(textoView()),'una adquisición de equipos tampoco se renueva',textoView().slice(0,300));
+  ok(btn.disabled&&/una adquisición/.test(textoView()),'una adquisición de equipos tampoco se renueva',textoView().slice(0,300));
 
   w19.go('detalle',2);
   btn=w19.document.getElementById('a-ren');
@@ -485,38 +485,60 @@ seccion('19 · No todo lo que vence se renueva');
   ok(!filas.some(t=>/FIAS-FAP-2026-001/.test(t)&&/ventana de renovación abierta/.test(t)),
      'y ya no dice «ventana de renovación abierta»');
 
-  // «Servicios logísticos»: el hospedaje de un taller de tres días, firmado como
-  // Nuevo y por vencer. Con la lista negra de antes salía renovable —nadie lo
-  // había excluido—, con «Renovar en La Mágica» en primer lugar.
+  // Qué es recurrente lo dicen las FECHAS, no una lista de categorías. El caso que
+  // lo obligó: «Servicios logísticos» —el hospedaje de un taller de tres días—,
+  // firmado como Nuevo, salía renovable y en primer lugar porque nadie había
+  // excluido esa categoría.
   const base19b=contratos();
-  Object.assign(base19b[0],{cat:'Servicios logísticos',detalle:'Hospedaje, alimentación y uso de instalaciones para el taller',fin:enDiez,tipo:'Nuevo',plazo:3});
-  Object.assign(base19b[1],{cat:'Mantenimiento infraestructura',fin:enDiez,tipo:'Nuevo'});
-  Object.assign(base19b[2],{cat:'Una categoría que todavía no existe',fin:enDiez,tipo:'Nuevo'});
-  Object.assign(base19b[3],{cat:'  servicio de LIMPIEZA ',fin:enDiez,tipo:'Nuevo'});
+  Object.assign(base19b[0],{cat:'Servicios logísticos',detalle:'Hospedaje, alimentación y uso de instalaciones para el taller',
+    inicio:isoMas(enDiez,-2),fin:enDiez,tipo:'Nuevo',plazo:3});
+  // Un mantenimiento correctivo de 30 días: va por orden, es puntual.
+  Object.assign(base19b[1],{cat:'Mantenimiento infraestructura',inicio:isoMas(enDiez,-29),fin:enDiez,tipo:'Nuevo'});
+  // Una categoría que nadie ha clasificado, con un año de servicio: es recurrente.
+  Object.assign(base19b[2],{cat:'Una categoría que todavía no existe',...anual(enDiez),tipo:'Nuevo'});
+  // Un taller de tres días en DICIEMBRE: termina con el año y aun así es puntual.
+  Object.assign(base19b[3],{cat:'Servicios logísticos',inicio:'2026-12-02',fin:'2026-12-04',tipo:'Nuevo'});
   const w19b=await listo(nuevoDom(base19b,{rol:'ac',user:'Ana Pérez'}));
   const tv=()=>w19b.document.getElementById('view').textContent;
   w19b.go('detalle',0);
   btn=w19b.document.getElementById('a-ren');
-  ok(btn.disabled && !btn.onclick,'un servicio logístico por vencer NO ofrece renovar');
-  ok(/«Servicios logísticos» es un servicio puntual/.test(tv()),'y dice por qué, con el nombre de la categoría',tv().slice(0,400));
+  ok(btn.disabled && !btn.onclick,'un servicio logístico de tres días NO ofrece renovar');
+  ok(/Dura 3 días: es un servicio puntual/.test(tv()),'y dice por qué, con lo que dura',tv().slice(0,400));
   ok(!w19b.document.getElementById('a-nue'),'ni un proceso nuevo: un taller no continúa');
+  ok(w19b.esRecurrente(base19b[1])===false,'treinta días o menos es puntual (va por orden)');
   w19b.go('detalle',2);
-  ok(w19b.document.getElementById('a-ren').disabled && !w19b.document.getElementById('a-nue'),
-     'una categoría que nadie ha clasificado no se renueva: la lista es blanca, no negra');
-  ok(w19b.esRenovable(base19b[1])===false,'«Mantenimiento infraestructura» (un arreglo puntual) no es «Mantenimiento»');
-  ok(w19b.esRenovable(base19b[3])===true,'pero mayúsculas y espacios de más en la categoría no cambian nada');
+  ok(!w19b.document.getElementById('a-ren').disabled,'una categoría nueva con un año de servicio se renueva: decide la fecha, no el nombre');
+  ok(w19b.esRecurrente(base19b[3])===false,'tres días en diciembre siguen siendo puntuales, aunque terminen con el año');
+  const caso=(inicio,fin,cat)=>w19b.esRecurrente({inicio,fin,cat:cat||'Mantenimiento'});
+  ok(caso('2026-01-01','2026-12-31') && caso('2026-02-01','2027-01-31'),'de enero a diciembre, o de febrero a enero: recurrente');
+  ok(caso('2026-06-16','2026-12-31'),'un internet que empezó en junio y cierra con el año también lo es');
+  ok(caso('2026-04-01','2027-03-31'),'y uno de abril a marzo, que dura un año entero');
+  ok(!caso('2026-03-01','2026-05-31'),'un arriendo de tres meses que termina en mayo, no');
+  ok(!caso('2026-08-28','2027-01-25','Consultoría'),'una consultoría que termina en enero no: es un producto que se entrega (FIAS-FAP-2026-165)');
+  ok(!caso(null,'2026-12-31') && /Faltan las fechas/.test(w19b.motivoNoRenovable({cat:'Mantenimiento',tipo:'Nuevo',fin:'2026-12-31'})),
+     'sin fecha de inicio ni de firma no se adivina, y se dice qué falta');
   w19b.go('alertas');
-  const fila186=[...w19b.document.querySelectorAll('.alert-row')].map(r=>r.textContent).find(t=>/FIAS-FAP-2026-001/.test(t))||'';
-  ok(/servicio puntual/.test(fila186) && !/renovación|proceso nuevo/.test(fila186),
-     'su alerta de vencimiento no habla de renovar ni de proceso nuevo',fila186);
+  const filaTaller=[...w19b.document.querySelectorAll('.alert-row')].map(r=>r.textContent).find(t=>/FIAS-FAP-2026-001/.test(t))||'';
+  ok(/servicio puntual/.test(filaTaller) && !/renovación|proceso nuevo/.test(filaTaller),
+     'su alerta de vencimiento no habla de renovar ni de proceso nuevo',filaTaller);
 
-  // La misma lista, en los tres sitios donde vive la regla.
-  const lista=src=>{const m=/RECURRENTES\s*=\s*[\[{]([^\]}]*)[\]}]/.exec(src);return m?m[1].split(',').map(x=>x.trim().replace(/^['"]|['"]$/g,'')).filter(Boolean).sort().join(' | '):'';};
-  const enCLM=lista(HTML), enRen=lista(fs.readFileSync(path.join(RAIZ,'renovaciones','index.html'),'utf8')),
-        enPlan=lista(fs.readFileSync(path.join(RAIZ,'scripts','plan_renovaciones.py'),'utf8'));
-  ok(enCLM && enCLM===enRen && enCLM===enPlan,'el CLM, la consulta de renovaciones y el plan tienen la misma lista de servicios recurrentes',
-     [enCLM,enRen,enPlan].join('  ≠  '));
-  ok(!/NO_RECURRENTES/.test(HTML+fs.readFileSync(path.join(RAIZ,'renovaciones','index.html'),'utf8')),'y ninguna conserva la lista negra');
+  // La misma regla en los tres sitios donde vive: se prueban las tres con los mismos casos.
+  const casos=[['2026-01-01','2026-12-31','Mantenimiento'],['2026-06-16','2026-12-31','Internet'],['2026-04-01','2027-03-31','Internet'],
+    ['2026-03-01','2026-05-31','Arrendamiento'],['2026-12-02','2026-12-04','Servicios logísticos'],['2026-12-01','2026-12-31','Combustible'],
+    ['2026-08-28','2027-01-25','Consultoría'],['2026-08-03','2027-01-15','Adquisición de equipos de campo'],['2026-10-08','2027-01-31','Combustible']];
+  const enCLM=casos.map(([i,f,c])=>w19b.esRecurrente({inicio:i,fin:f,cat:c}));
+  const REN=fs.readFileSync(path.join(RAIZ,'renovaciones','index.html'),'utf8');
+  const fuenteRen=REN.slice(REN.indexOf('var DIAS_PUNTUAL'),REN.indexOf('function esRenovable'));
+  const esRecRen=new Function(fuenteRen+';return esRecurrente;')();
+  const enRen=casos.map(([i,f,c])=>esRecRen({inicio:i,fin:f,cat:c}));
+  const py=require('child_process').execFileSync('python3',['-c',
+    'import sys,json,datetime;sys.path.insert(0,"scripts");from plan_renovaciones import es_recurrente as e;d=datetime.date.fromisoformat;'
+    +'print(json.dumps([e(c,d(i),d(f)) for i,f,c in json.loads(sys.argv[1])]))',JSON.stringify(casos)],{cwd:RAIZ}).toString();
+  const enPlan=JSON.parse(py);
+  ok(JSON.stringify(enCLM)===JSON.stringify(enRen) && JSON.stringify(enCLM)===JSON.stringify(enPlan),
+     'el CLM, la consulta de renovaciones y el plan clasifican igual los mismos casos',[enCLM,enRen,enPlan].map(x=>x.map(Number).join('')).join(' · '));
+  ok(!/RECURRENTES\s*=\s*\[|NO_RECURRENTES/.test(HTML+REN+fs.readFileSync(path.join(RAIZ,'scripts','plan_renovaciones.py'),'utf8')),
+     'y ninguno conserva una lista de categorías');
 
   // El caso normal — Nuevo y recurrente — sigue igual que en la sección 18.
   ok(w19.esRenovable(base19[4])===true,'un contrato Nuevo y recurrente sigue siendo renovable',JSON.stringify(base19[4].tipo));
@@ -923,8 +945,8 @@ seccion('23 · El Registro de Calificaciones compartido');
   ok(!u.alertList().some(a=>a.fn==='pcal'),'ni la Unidad la suya');
   u.go('proveedores');
   ok(/No pude leer el Registro/.test(texto(u)),'y el pool lo dice');
-  ok(/const reg=abrirRegistro\(pedido\),dec=abrirDecisiones\(pedidoDec\);\s*await Promise\.race\(\[Promise\.all\(\[reg,dec\]\),new Promise\(r=>setTimeout\(r,1500\)\)\]\)/.test(HTML),
-     'la primera pantalla espera al registro (y a las decisiones) como mucho un segundo y medio');
+  ok(/const reg=abrirRegistro\(pedido\);\s*await Promise\.race\(\[reg,new Promise\(r=>setTimeout\(r,1500\)\)\]\)/.test(HTML),
+      'la primera pantalla espera al registro como mucho un segundo y medio');
 }
 
 // ---------------------------------------------------------------- 24
@@ -1168,12 +1190,12 @@ seccion('27 · El servicio que no se puede renovar continúa por proceso nuevo')
   // y lo único que ofrecía era un botón apagado.
   const enVeinte=new Date(Date.now()+20*86400000).toISOString().slice(0,10);
   const base=contratos();
-  Object.assign(base[0],{tipo:'Renovación',fin:enVeinte,montoTotal:5600,adenda:'Sí',proveedor:'Talleres del Oriente Cía. Ltda.',
+  Object.assign(base[0],{tipo:'Renovación',...anual(enVeinte),montoTotal:5600,adenda:'Sí',proveedor:'Talleres del Oriente Cía. Ltda.',
     detalle:'Mantenimiento preventivo y correctivo de vehículos',area:'Reserva de Producción de Fauna Chimborazo'});
-  Object.assign(base[1],{tipo:'Renovación',cat:'Combustible',fin:enVeinte,proveedor:'Gasolinera El Cóndor'});
-  Object.assign(base[2],{tipo:'Nuevo',fin:enVeinte});                       // renovable
+  Object.assign(base[1],{tipo:'Renovación',cat:'Combustible',...anual(enVeinte),proveedor:'Gasolinera El Cóndor'});
+  Object.assign(base[2],{tipo:'Nuevo',...anual(enVeinte)});                       // renovable
   Object.assign(base[3],{tipo:'Renovación',fin:'2030-12-31'});              // lejos del vencimiento
-  Object.assign(base[4],{tipo:'Renovación',fin:enVeinte,ac:'María Guamán'});
+  Object.assign(base[4],{tipo:'Renovación',...anual(enVeinte),ac:'María Guamán'});
   let w27=await listo(nuevoDom(base,{rol:'ac',user:'Ana Pérez'}));
   const bz=()=>JSON.parse(w27.localStorage.getItem('fap_precarga')||'null');
   const src=()=>{const f=w27.document.getElementById('toolframe');return f?f.getAttribute('src'):'';};
@@ -1258,7 +1280,7 @@ seccion('27 · El servicio que no se puede renovar continúa por proceso nuevo')
   // Un proveedor no elegible: no se prohíbe, pero no pasa sin que la AC lo vea.
   const reg=[{nro:'FIAS-FAP-2026-005',score:42,fecha:'2026-10-01',aportes:[15,12,2,13]}];
   const conMalo=contratos();
-  Object.assign(conMalo[0],{tipo:'Renovación',fin:enVeinte,proveedor:'Mal Servicio S.A.'});
+  Object.assign(conMalo[0],{tipo:'Renovación',...anual(enVeinte),proveedor:'Mal Servicio S.A.'});
   Object.assign(conMalo[4],{proveedor:'Mal Servicio S.A.',cerrado:true,fin:'2026-09-30'});
   w27=await listo(nuevoDom(conMalo,{rol:'ac',user:'Ana Pérez'},{registro:reg}));
   w27.go('detalle',0); w27.document.getElementById('a-nue').onclick();
@@ -1268,37 +1290,6 @@ seccion('27 · El servicio que no se puede renovar continúa por proceso nuevo')
   ok(m.querySelector('#pnProv').textContent==='','y la advertencia se va al elegir comparación de precios');
   ok(w27._confirmas===0,'sin un confirm() de por medio');
 
-  // ---- Lo que la AC respondió en la consulta, si el robot lo publica
-  const dec=[{nro:'FIAS-FAP-2026-001',decision:'comparar',obs:'El administrador quiere cambiar de taller',fecha:'2026-09-10T13:29:02.091Z'},
-             {nro:'FIAS-FAP-2026-002',decision:'terminar',fecha:'2026-09-11T10:00:00.000Z'},
-             {nro:'FIAS-FAP-2026-003',decision:'cambiar',fecha:'2026-09-11T10:00:00.000Z'},
-             {nro:'FIAS-FAP-2026-004',decision:'una que no existe',fecha:'2026-09-11T10:00:00.000Z'},
-             {nro:'FIAS-FAP-2026-001',decision:'directa',fecha:'2026-09-09T08:00:00.000Z'}];
-  w27=await listo(nuevoDom(base,{rol:'ac',user:'Ana Pérez'},{decisiones:dec}));
-  ok(w27.eval('DEC.estado')==='ok' && w27.decisionDe(base[0]).decision==='comparar','si respondió dos veces, vale la última',JSON.stringify(w27.decisionDe(base[0])));
-  ok(w27.decisionDe(base[3])===null,'una decisión que no se entiende no se usa');
-  w27.go('detalle',0);
-  ok(/consulta de continuidad/.test(texto(w27)) && /comparación de precios/.test(texto(w27)) && /cambiar de taller/.test(texto(w27)),
-     'el detalle recuerda qué se respondió, con la observación');
-  w27.document.getElementById('a-nue').onclick();
-  m=modal();
-  ok(m.querySelector('input[name=pn]:checked').value==='comparar','y el cuadro sale con esa respuesta marcada');
-  m.querySelector('#cancel').onclick();
-  w27.go('detalle',2); w27.document.getElementById('a-nue').onclick();
-  ok(modal().querySelector('input[name=pn]:checked').value==='otro','«cambio de proveedor» marca «con otro proveedor»');
-  modal().querySelector('#cancel').onclick();
-  w27.go('alertas');
-  fila=[...w27.document.querySelectorAll('.alert-row')].find(r=>/FIAS-FAP-2026-002/.test(r.textContent)&&/Vence en/.test(r.textContent));
-  ok(fila && /no continúa/.test(fila.textContent) && fila.querySelector('.go').textContent==='Abrir',
-     'lo que el área dijo que no continúa no pide preparar un proceso nuevo',fila&&fila.textContent);
-
-  // Sin el archivo, o sin señal, todo lo demás funciona igual.
-  for(const caso of [undefined,'falla']){
-    w27=await listo(nuevoDom(base,{rol:'ac',user:'Ana Pérez'},{decisiones:caso}));
-    w27.go('detalle',0);
-    ok(w27.eval('DEC.estado')===(caso?'falla':'sin') && ids()[0]==='a-nue' && !/consulta de continuidad/.test(texto(w27)),
-       (caso?'sin señal':'sin el archivo de decisiones')+': el botón está igual y no se inventa ninguna respuesta');
-  }
 }
 
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));

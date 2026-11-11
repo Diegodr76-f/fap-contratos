@@ -177,18 +177,15 @@ Lo que el CLM ya sabe no se escribe dos veces. Hay dos puertas:
   número, la fecha de suscripción, el vencimiento, el monto vigente (con adendas), el objeto y el
   proveedor ya puestos. Sube al primer lugar de las acciones cuando el contrato está por vencer, pero
   se ofrece siempre: la campaña 2027 prepara en septiembre los contratos que vencen el 31 de diciembre.
-  Solo para servicios recurrentes firmados como «Nuevo»: la lista de categorías recurrentes es
-  cerrada (combustible, mantenimiento, arrendamiento, internet, radiofrecuencia, limpieza y
-  prestación de servicios profesionales), así que una consultoría, una compra o el hospedaje de
-  un taller nunca ofrecen renovar.
+  Solo para servicios recurrentes firmados como «Nuevo». Recurrente es lo que deciden las fechas:
+  dura más de 30 días y termina en diciembre o enero, o dura un año entero. Una consultoría o una
+  adquisición nunca lo es, y el hospedaje de un taller de tres días tampoco.
 - **«Proceso nuevo en La Mágica»**, en un contrato que ya es una renovación (el FIAS renueva una
   sola vez): el servicio continúa por un proceso administrativo nuevo. La AC elige en un cuadro si
   sigue **con el mismo proveedor** (selección directa por excepción) o va por **comparación de
   precios**, y La Mágica abre el expediente con el tipo de proceso, el objeto, el área, el nombre
   del proveedor y el día en que arranca el servicio. El presupuesto no viaja —el del año siguiente
-  lo fija el PAG—: el monto vigente queda a la vista, de referencia. Si el robot publica lo que la
-  AC respondió en la consulta de continuidad (`crm/decisiones_export.json`), el cuadro sale con esa
-  respuesta marcada.
+  lo fija el PAG—: el monto vigente queda a la vista, de referencia.
 
 **Cómo viajan los datos.** El CLM y La Mágica son del mismo sitio y comparten el almacenamiento del
 navegador. El CLM deja los datos en un buzón (`fap_precarga`) con los nombres del catálogo

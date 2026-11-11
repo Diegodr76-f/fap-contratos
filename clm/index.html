@@ -278,8 +278,6 @@
   .provaviso.r{background:var(--redbg);color:var(--red)}
   .provaviso.a{background:var(--amberbg);color:var(--amber)}
   .provaviso small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
-  .decaviso{border-radius:11px;padding:9px 13px;margin:10px 0 4px;font-size:12.5px;line-height:1.5;background:var(--tint);color:var(--ink)}
-  .decaviso .obs{color:var(--muted)}
   .histcal{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line2);font-size:12.5px}
   .histcal:last-child{border-bottom:0}
   .histcal .bar{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
@@ -536,16 +534,33 @@ function isConsultoria(c){const s=(norm(c.cat)+" "+norm(c.tipo)+" "+norm(c.detal
    nuevo. Y solo se renueva un servicio RECURRENTE. c.tipo es "tipo de contrato"
    del Excel (columna obligatoria); c.cat es la categoría del proceso.
 
-   La lista es BLANCA a propósito. Antes era negra —«todo menos consultoría y
-   equipos»— y cada categoría que nacía en el Excel salía renovable sin que nadie
-   lo decidiera: así se ofreció renovar el hospedaje de un taller de tres días
-   («Servicios logísticos»). Ahora una categoría que no está aquí NO se renueva, y
-   el botón dice cuál es. Añadir una es decidir que ese servicio continúa de un año
-   al otro: va en las tres listas (aquí, renovaciones/index.html y
-   scripts/plan_renovaciones.py), y probar_clm.js comprueba que digan lo mismo. */
-const RECURRENTES=["Combustible","Mantenimiento","Arrendamiento","Internet","Radiofrecuencia","Servicio de limpieza","Prestación de servicios profesionales"];
-const RECURRENTES_K=RECURRENTES.map(x=>plano(x).trim());
-function esRecurrente(c){return RECURRENTES_K.includes(plano(c&&c.cat).replace(/\s+/g," ").trim());}
+   Qué es «recurrente» lo dicen las FECHAS, no una lista de categorías. Un
+   servicio que continúa de un año al otro corre con el ciclo del año: termina en
+   diciembre o en enero (el cierre), o dura un año entero. Y dura más de 30 días:
+   lo que dura menos va por orden, es puntual. Con una lista de categorías se
+   equivocó dos veces —una consultoría y luego «Servicios logísticos», el
+   hospedaje de un taller de tres días, salieron renovables— y cada categoría
+   nueva del Excel había que clasificarla a mano. Por fechas, el taller se cae
+   solo: tres días, en noviembre.
+   La naturaleza sí se mira en un caso: una consultoría o una adquisición es un
+   producto que se entrega, no un servicio que continúa, aunque termine en enero
+   (FIAS-FAP-2026-165: consultoría que vence el 25 de enero).
+   La misma regla está en renovaciones/index.html y scripts/plan_renovaciones.py;
+   probar_clm.js comprueba que digan lo mismo. */
+const DIAS_PUNTUAL=30, DIAS_ANIO=360;
+function porNaturalezaPuntual(c){return /consultor|adquisici/.test(plano(c&&c.cat));}
+function diasContrato(c){
+  const a=c&&(c.inicio||c.firma),b=c&&c.fin;
+  if(!a||!b)return 0;
+  const d=Math.round((Date.parse(b+"T00:00:00Z")-Date.parse(a+"T00:00:00Z"))/86400000)+1;
+  return isFinite(d)&&d>0?d:0;
+}
+function cierraConElAnio(c){const m=Number(String(c&&c.fin||"").slice(5,7));return m===12||m===1;}
+function esRecurrente(c){
+  if(!c||porNaturalezaPuntual(c))return false;
+  const d=diasContrato(c);
+  return d>DIAS_PUNTUAL&&(cierraConElAnio(c)||d>=DIAS_ANIO);
+}
 function esRenovable(c){return c.tipo==="Nuevo"&&esRecurrente(c);}
 /* El servicio sigue, pero el contrato ya gastó su única renovación: su
    continuación es un proceso administrativo nuevo (ver «Proceso nuevo en La
@@ -555,9 +570,11 @@ function motivoNoRenovable(c){
   if(!esRecurrente(c)){
     const k=plano(c.cat);
     if(/consultor/.test(k))return "Es una consultoría, no un servicio recurrente: no admite renovación.";
-    if(/adquisici/.test(k))return "Es una adquisición de equipos, no un servicio recurrente: no admite renovación.";
-    if(!String(c.cat||"").trim())return "Falta la categoría en el Excel maestro: sin saber qué servicio es no se puede ofrecer la renovación.";
-    return `«${c.cat}» es un servicio puntual, no uno recurrente: no admite renovación.`;
+    if(/adquisici/.test(k))return "Es una adquisición, no un servicio recurrente: no admite renovación.";
+    if(!c.fin||!(c.inicio||c.firma))return "Faltan las fechas de inicio o de finalización en el Excel maestro: sin ellas no se sabe si el servicio continúa.";
+    const d=diasContrato(c);
+    if(d<=DIAS_PUNTUAL)return `Dura ${d} día${d===1?"":"s"}: es un servicio puntual, no uno que continúe de un año al otro. No admite renovación.`;
+    return `Termina el ${fdate(c.fin)} y dura ${d} días: no va con el ciclo del año (no cierra en diciembre o enero, ni dura un año). No admite renovación.`;
   }
   if(c.tipo&&c.tipo!=="Nuevo")return "Ya es una renovación — el FIAS permite renovar una sola vez. Su continuación va por «Proceso nuevo en La Mágica».";
   // Sin el dato no se sabe: mejor decirlo que adivinar (y de paso apunta a
@@ -981,12 +998,10 @@ function indexaRegistro(filas){
   return p;
 }
 // La red, sola: se lanza junto con la base y no espera la frase de acceso.
-function pedirRegistro(){return pedirSecundario(REG_URL);}
-// Un archivo secundario del robot: puede no existir (404 → "sin") y no frena.
-function pedirSecundario(url){
+function pedirRegistro(){
   const ctl=window.AbortController?new AbortController():null;
   const reloj=setTimeout(()=>{if(ctl)ctl.abort();},8000);
-  return fetch(url,{cache:"no-store",signal:ctl?ctl.signal:undefined})
+  return fetch(REG_URL,{cache:"no-store",signal:ctl?ctl.signal:undefined})
     .then(async r=>{
       if(r.status===404)return {estado:"sin"};
       if(!r.ok)throw new Error("HTTP "+r.status);
@@ -1006,49 +1021,10 @@ async function abrirRegistro(pedido){
     liberarCalificacionesRetiradas();
   }catch(e){REG={estado:"falla",porNro:{},generado:null};}
 }
-/* ---- Lo que cada AC respondió en la consulta de continuidad ----
-   En septiembre cada AC dijo, contrato por contrato, qué pasa el año siguiente
-   (renovaciones/index.html): renovar, contratar directo al mismo proveedor,
-   comparar precios, cambiar de proveedor o no continuar. Las respuestas caen en un
-   Excel y el robot las publica, cifradas y aparte, en crm/decisiones_export.json.
-   Es OPCIONAL de punta a punta: sin el archivo (404) o sin señal, el CLM ofrece lo
-   mismo —la regla de qué se renueva no depende de esto— y solo deja de recordarle
-   a la AC lo que respondió. De cada fila se publica el n.º de contrato, la
-   decisión, la observación y la fecha. */
-const DEC_URL='../crm/decisiones_export.json';
-let DEC={estado:"cargando",porNro:{}};
-const DECISIONES={renovar:"renovar con el mismo proveedor",cambiar:"proceso nuevo, con otro proveedor",
-  directa:"contratación directa con el mismo proveedor",comparar:"comparación de precios",terminar:"el servicio no continúa"};
-function indexaDecisiones(filas){
-  const p={};
-  (Array.isArray(filas)?filas:[]).forEach(r=>{
-    if(!r||!r.nro||!DECISIONES[r.decision])return;
-    const nro=String(r.nro).trim(),d={decision:r.decision,obs:r.obs||"",fecha:r.fecha||null};
-    // Si una AC respondió dos veces, vale la última.
-    if(!p[nro]||String(d.fecha||"")>=String(p[nro].fecha||""))p[nro]=d;
-  });
-  return p;
-}
-async function abrirDecisiones(pedido){
-  try{
-    const r=await pedido;
-    if(r.estado!=="ok"){DEC={estado:r.estado,porNro:{}};return;}
-    const data=await fapMaybe(r.env);
-    if(!Array.isArray(data))throw new Error("formato");
-    DEC={estado:"ok",porNro:indexaDecisiones(data)};
-  }catch(e){DEC={estado:"falla",porNro:{}};}
-}
-function decisionDe(c){return (c&&DEC.porNro[c.nro])||null;}
-function decisionHTML(c){
-  const d=decisionDe(c);if(!d)return "";
-  return `<div class="decaviso">📋 En la consulta de continuidad${d.fecha?" ("+fdate(String(d.fecha).slice(0,10))+")":""} se respondió: <b>${esc(DECISIONES[d.decision])}</b>.${d.obs?` <span class="obs">«${esc(d.obs)}»</span>`:""}</div>`;
-}
 /* Qué le toca a un contrato que se acerca al vencimiento, en una frase: la usan
    las dos alertas de vencimiento. No promete una renovación que no aplica, ni un
    proceso nuevo para algo que no continúa (el hospedaje de un taller). */
 function queSigue(c,urge){
-  const d=decisionDe(c);
-  if(d&&d.decision==="terminar")return "el área respondió que el servicio no continúa: termínalo al vencer";
   if(esRenovable(c))return urge?"decide renovación o terminación ya":"ventana de renovación abierta";
   if(vaPorProcesoNuevo(c))return urge?"no se renueva — prepara el proceso nuevo ya":"no se renueva — va por proceso nuevo";
   return esRecurrente(c)?"no se renueva sin el «Tipo de contrato» en el Excel maestro":"no se renueva: es un servicio puntual";
@@ -1181,7 +1157,7 @@ function alertList(){
     else if(s.key==="aviso"){
       // A la AC, la alerta de un contrato que continúa por proceso nuevo la lleva
       // directo a abrirlo; a los demás, al contrato.
-      const dec=decisionDe(c),nue=SES&&SES.rol==="ac"&&vaPorProcesoNuevo(c)&&!(dec&&dec.decision==="terminar");
+      const nue=SES&&SES.rol==="ac"&&vaPorProcesoNuevo(c);
       const acc=nue?{act:"Proceso nuevo",fn:"nue"}:{act:"Abrir",fn:"open"};
       if(d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,true)}`,i,...acc});
       else out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,false)}`,i,...acc});
@@ -1740,7 +1716,6 @@ function vDetalle(){
             <span class="badge ${s.b}">${esc(s.label)}</span>
           </div>
           ${avisoProv}
-          ${done?"":decisionHTML(c)}
           <div class="linkbar">
             <span style="color:var(--navy)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></span>
             <div style="flex:1"><div style="font-size:12.5px;font-weight:700">Contrato firmado</div><div style="font-size:11.5px;color:var(--muted)">${c.link?"Documento en el repositorio institucional":"Sin vínculo registrado en la base"}</div></div>
@@ -2647,17 +2622,13 @@ function procesoNuevoEnMagica(c){
   // Ya se abrió: La Mágica tiene el expediente y no lo duplica. Se va directo.
   const ya=ov(c).sucesor;
   if(ya&&MODOS_NUEVO[ya.modo]){abrirProcesoNuevo(c,ya.modo);return;}
-  const ops=opcionesProcesoNuevo(c),dec=decisionDe(c),q=ultimaCalifProv(c);
-  // Lo que la AC respondió en la consulta sale marcado; si no, la primera.
-  const sug=dec&&({directa:"mismo",comparar:"comparar",cambiar:"otro"})[dec.decision];
-  const ini=ops.some(x=>x.v===sug)?sug:ops[0].v;
+  const ops=opcionesProcesoNuevo(c),q=ultimaCalifProv(c),ini=ops[0].v;
   const renov=esRenovable(c);
   const o=openModal(`
     <h2>Proceso nuevo para continuar el servicio</h2>
     <p class="sub">${renov?`<b>${esc(c.nro)}</b> todavía se puede renovar con el mismo proveedor («Renovar en La Mágica»). Esto es para cuando <b>no</b> se va a renovar.`
       :`<b>${esc(c.nro)}</b> ya es una renovación y el FIAS permite una sola: para que el servicio siga hace falta un <b>proceso administrativo nuevo</b>.`}</p>
     <div class="note" style="margin-bottom:13px"><b>${esc(trunc(c.detalle,150))}</b><br>${esc(c.area||"")} · ${esc(c.proveedor||"—")}<br>Monto vigente ${money(montoDe(c))} · ${esc(vigenciaText(c))}</div>
-    ${dec?`<div class="note" style="margin-bottom:13px;background:var(--tint)">En la consulta de continuidad se respondió: <b>${esc(DECISIONES[dec.decision])}</b>.${dec.obs?` «${esc(dec.obs)}»`:""}${dec.decision==="terminar"?" Si eso cambió y el servicio sí continúa, sigue adelante.":""}</div>`:""}
     <div class="frow"><label>¿Cómo se va a contratar?</label>
       <div class="radios">${ops.map(op=>`<label class="radio ${op.v===ini?"sel":""}"><input type="radio" name="pn" value="${op.v}" ${op.v===ini?"checked":""}><span><span class="rt">${esc(op.t)}</span><span class="rd">${esc(op.d)}</span></span></label>`).join("")}</div>
     </div>
@@ -3172,7 +3143,6 @@ function vFrame(src,notice){
 loadCLM();
 async function boot(){
   const pedido=pedirRegistro();   // en paralelo con la base: no la espera ni la frena
-  const pedidoDec=pedirSecundario(DEC_URL);
   try{
     // Con señal mala el fetch puede quedarse colgado minutos sin fallar. A los 20 s
     // se abandona y se entra con la copia embebida, diciéndolo en la píldora.
@@ -3206,14 +3176,14 @@ async function boot(){
   // El registro de calificaciones se espera un momento, no más: con señal floja la
   // primera pantalla no puede quedarse esperando un archivo secundario. Si llega
   // tarde, se repinta —salvo que la AC ya esté escribiendo o tenga algo abierto—.
-  const reg=abrirRegistro(pedido),dec=abrirDecisiones(pedidoDec);
-  await Promise.race([Promise.all([reg,dec]),new Promise(r=>setTimeout(r,1500))]);
-  const tarde=REG.estado==="cargando"||DEC.estado==="cargando";
+  const reg=abrirRegistro(pedido);
+  await Promise.race([reg,new Promise(r=>setTimeout(r,1500))]);
+  const tarde=REG.estado==="cargando";
   const h=leerHash();
   if(h){ST.view=h.view;if(h.cur!=null)ST.cur=h.cur;else if(h.view==="detalle")ST.view="contratos";if(h.prov!=null)ST.prov=h.prov;}
   render();
   reg.then(()=>reintentarEnvios());   // lo que quedó sin enviar en este navegador
-  if(tarde)Promise.all([reg,dec]).then(()=>{
+  if(tarde)reg.then(()=>{
     const a=document.activeElement;
     if(!SES||document.querySelector(".overlay")||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||["magica","crmx","calificacion"].includes(ST.view))return;
     render();

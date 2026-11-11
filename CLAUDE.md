@@ -351,16 +351,19 @@ hechas para eso que conviene reutilizar en vez de rehacer:
   ya gastó la suya. Cualquier botón o alerta que hable de vencimiento y renovación
   pasa por `esRenovable()`, no solo por `statusLive()`; la frase de las alertas sale
   de `queSigue()`.
-- **Los servicios recurrentes son una lista BLANCA** (`RECURRENTES`), no negra. Se
-  equivocó dos veces por el mismo lado: primero «Renovar» se ofrecía a una
-  consultoría puntual, y se arregló excluyéndola por nombre (`NO_RECURRENTES`);
-  después nació en el Excel «Servicios logísticos» —el hospedaje de un taller de
-  tres días— y, como nadie la había excluido, salió renovable y en primer lugar.
-  Hoy una categoría que no está en la lista **no se renueva** y el botón dice cuál
-  es. Añadir una es decidir que ese servicio continúa de un año al otro, y va en
-  los tres sitios (CLM, `renovaciones/index.html`, `plan_renovaciones.py`): la
-  sección 19 de `probar_clm.js` comprueba que digan lo mismo. «Mantenimiento
-  infraestructura» no es «Mantenimiento»: se compara la categoría entera.
+- **Qué es un servicio recurrente lo dicen las fechas, no la categoría**
+  (`esRecurrente()`). Recurrente es lo que corre con el ciclo del año: **termina en
+  diciembre o en enero, o dura un año entero** (`DIAS_ANIO`, 360), y **dura más de
+  30 días** (`DIAS_PUNTUAL`: lo que dura menos va por orden). Con listas de
+  categorías se equivocó dos veces —una consultoría, y luego «Servicios
+  logísticos», el hospedaje de un taller de tres días, salieron renovables— y cada
+  categoría nueva del Excel había que clasificarla a mano. La naturaleza se mira en
+  un solo caso: una **consultoría o una adquisición** nunca es recurrente, aunque
+  termine en enero (la 165 vence el 25 de enero). Con las fechas de 2026 da el mismo
+  reparto que la consulta: 44 renovables, 86 por proceso nuevo, 3 puntuales. La
+  regla está en tres sitios (CLM, `renovaciones/index.html`,
+  `plan_renovaciones.py`) y la sección 19 de `probar_clm.js` les pasa los mismos
+  casos a las tres.
 
 - **La tabla del listado tiene que caber, y «Abrir» no puede esconderse.** Llegó a
   nueve columnas: con las fechas y el estado sin partirse, en una pantalla de 1366 la
@@ -485,22 +488,15 @@ abre ese proceso con lo que el CLM tiene delante; el buzón va con
   vuelve directo al expediente, que La Mágica no duplica. No se confunde con la
   renovación del mismo contrato (`ren:`), que es otro expediente.
 
-### Lo que cada AC respondió en la consulta
+### Las respuestas de la consulta no pasan por el robot
 
-`renovaciones/index.html` le pregunta a cada AC, contrato por contrato, qué pasa
-el año siguiente. Las respuestas caen en un Excel aparte («Respuestas
-renovación») y el robot las publica en `crm/decisiones_export.json`, cifradas con
-`DATA_KEY` y **aparte**, como el Registro de Calificaciones. Dos caminos, los dos
-opcionales: el secreto `RESPUESTAS_URL` con el enlace a ese libro, o su hoja
-copiada dentro del Excel maestro. La hoja se reconoce por sus columnas («nro» y
-«decision»), no por su nombre. Se publica n.º de contrato, decisión, observación
-y fecha: ni la AC ni el proveedor.
-
-En el CLM, `decisionDe(c)` es la única fuente. Sirve para tres cosas y nada más:
-el detalle recuerda qué se respondió, el cuadro del proceso nuevo sale con esa
-opción marcada, y la alerta de lo que «no continúa» deja de pedir un proceso
-nuevo. **La regla de qué se renueva no depende de esto**: sin el archivo, o sin
-señal, el botón está igual. Sección 27 de `probar_clm.js` y 5 de `probar_robot.py`.
+Lo que cada AC respondió en septiembre (`renovaciones/index.html`, el Excel
+«Respuestas renovación») es una foto fija: no cambia. Lo que cambia es el Excel
+maestro, y eso es lo único que lee el robot. Por eso el CLM no usa las respuestas:
+qué se renueva y qué va por proceso nuevo sale de la hoja `2026` (tipo y fechas), y
+el cuadro del proceso nuevo empieza en «con el mismo proveedor», que es lo que
+respondieron 74 de 84. Las respuestas se cruzan con los contratos fuera del sitio,
+en la hoja de seguimiento.
 
 ## El puente con la carpeta del expediente
 

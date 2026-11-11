@@ -31,9 +31,6 @@ jobs:
           # Opcional. Otra frase, solo para el Generador de Instrumentos: sin ella
           # los datos de los proveedores (RUC, cédula) ni se leen.
           PROVEEDORES_KEY: ${{ secrets.PROVEEDORES_KEY }}
-          # Opcional. El enlace al Excel donde caen las respuestas de la consulta de
-          # continuidad («Respuestas renovación»), si es un libro aparte del maestro.
-          RESPUESTAS_URL: ${{ secrets.RESPUESTAS_URL }}
         run: python scripts/actualizar_datos.py
 
       - name: Publicar cambios (solo si hay datos nuevos)
@@ -43,8 +40,6 @@ jobs:
           git add crm/contratos_export.json
           # Solo existe cuando el Excel tiene la hoja «Registro de Calificaciones».
           [ -f crm/calificaciones_export.json ] && git add crm/calificaciones_export.json || true
-          # Solo existe cuando hay respuestas de la consulta de continuidad.
-          [ -f crm/decisiones_export.json ] && git add crm/decisiones_export.json || true
           # Solo existe cuando está el secreto PROVEEDORES_KEY.
           [ -f instrumentos/proveedores_export.json ] && git add instrumentos/proveedores_export.json || true
           git diff --cached --quiet || git commit -m "Actualización automática de contratos"

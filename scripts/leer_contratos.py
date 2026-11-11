@@ -22,7 +22,7 @@ Tres reglas, y las tres son la política de datos del repositorio:
     solo lo usa el Generador de Instrumentos.
 
 Qué se renueva y qué va por proceso nuevo se decide con la misma regla que el
-CLM (es_recurrente(), en plan_renovaciones.py): no se reinventa aquí.
+CLM (es_recurrente(), en plan_renovaciones.py, por fechas): no se reinventa aquí.
 """
 import argparse, base64, datetime, json, os, subprocess, sys, unicodedata
 from collections import Counter
@@ -38,11 +38,7 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(RAIZ, "scripts"))
 from plan_renovaciones import es_recurrente  # noqa: E402  la única fuente de la regla
 
-ARCHIVOS = {"contratos": "crm/contratos_export.json", "calificaciones": "crm/calificaciones_export.json",
-            "decisiones": "crm/decisiones_export.json"}
-DECISIONES = {"renovar": "renovar con el mismo proveedor", "cambiar": "proceso nuevo, otro proveedor",
-              "directa": "contratación directa, mismo proveedor", "comparar": "comparación de precios",
-              "terminar": "no continúa"}
+ARCHIVOS = {"contratos": "crm/contratos_export.json", "calificaciones": "crm/calificaciones_export.json"}
 
 
 def plano(s):
@@ -82,8 +78,15 @@ def situacion(c, hoy):
     return "vencido" if d < 0 else "por vencer (≤90 d)" if d <= 90 else "vigente"
 
 
+def dia(iso):
+    try:
+        return datetime.date.fromisoformat(str(iso)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
 def que_sigue(c):
-    if not es_recurrente(c.get("cat")):
+    if not es_recurrente(c.get("cat"), dia(c.get("inicio")) or dia(c.get("firma")), dia(c.get("fin"))):
         return "puntual: no continúa"
     if c.get("tipo") == "Nuevo":
         return "se puede renovar"
@@ -114,17 +117,16 @@ def main():
     except Exception:
         sys.exit("La frase de DATA_KEY no abre la base: no es la del equipo, o el archivo está dañado.")
     extra = {}
-    for k in ("calificaciones", "decisiones"):
+    for k in ("calificaciones",):
         t = crudo(ARCHIVOS[k], a.fresco)
         try:
             extra[k] = abrir(t, frase)[0] if t else None
         except Exception:
             extra[k] = None
-    dec = {d["nro"]: d for d in sorted(extra["decisiones"] or [], key=lambda d: str(d.get("fecha") or ""))}
 
     if a.json:
-        json.dump({"generado": generado, "contratos": contratos, "calificaciones": extra["calificaciones"],
-                   "decisiones": extra["decisiones"]}, sys.stdout, ensure_ascii=False, indent=1)
+        json.dump({"generado": generado, "contratos": contratos, "calificaciones": extra["calificaciones"]},
+                  sys.stdout, ensure_ascii=False, indent=1)
         print()
         return
 
@@ -136,14 +138,10 @@ def main():
         for c in contratos:
             if all(p in plano(" ".join(str(c.get(k) or "") for k in campos)) for p in palabras):
                 n += 1
-                d = dec.get(c["nro"])
                 print(f"{c['nro']} · {c.get('cat')} · {c.get('tipo')} · {situacion(c, hoy)} · {que_sigue(c)}")
                 print(f"   {str(c.get('detalle') or '')[:110]}")
                 print(f"   {c.get('area')} · {c.get('proveedor')} · USD {c.get('montoTotal') or c.get('monto')} · "
                       f"{c.get('inicio')} → {c.get('fin')} · AC {c.get('ac')}")
-                if d:
-                    print(f"   consulta de continuidad: {DECISIONES.get(d['decision'], d['decision'])}"
-                          + (f" — «{d['obs']}»" if d.get("obs") else ""))
         print(f"\n{n} contrato(s)")
         return
 
@@ -155,12 +153,6 @@ def main():
         print(f"\n{titulo}")
         for k, v in cuenta.most_common():
             print(f"   {v:>4}  {k}")
-    if extra["decisiones"] is not None:
-        print("\nConsulta de continuidad")
-        for k, v in Counter(d["decision"] for d in dec.values()).most_common():
-            print(f"   {v:>4}  {DECISIONES.get(k, k)}")
-        sin = [c["nro"] for c in activos if es_recurrente(c.get("cat")) and c["nro"] not in dec]
-        print(f"   {len(sin):>4}  activos recurrentes sin respuesta" + (": " + ", ".join(sin[:12]) if sin else ""))
     if extra["calificaciones"] is not None:
         print(f"\nRegistro de Calificaciones: {len(extra['calificaciones'])} fila(s)")
 
