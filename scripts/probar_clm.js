@@ -80,6 +80,13 @@ function nuevoDom(lista,ses,op){
           return Promise.resolve(op.registro?{ok:true,status:200,json:()=>Promise.resolve(JSON.parse(JSON.stringify(op.registro)))}
                                             :{ok:false,status:404,json:()=>Promise.reject(new Error('404'))});
         }
+        // Lo que las ACs respondieron en la consulta de continuidad: op.decisiones
+        // (una lista) si se da; si no, 404, que es lo normal mientras nadie lo publique.
+        if(/decisiones_export/.test(String(u))){
+          if(op.decisiones==='falla')return Promise.reject(new Error('sin red'));
+          return Promise.resolve(op.decisiones?{ok:true,status:200,json:()=>Promise.resolve(JSON.parse(JSON.stringify(op.decisiones)))}
+                                              :{ok:false,status:404,json:()=>Promise.reject(new Error('404'))});
+        }
         // El flujo de calificaciones: sin red, salvo que una prueba lo sustituya. Así
         // nada de lo que se hace con el modal sale de verdad.
         if(/powerplatform/.test(String(u)))return Promise.reject(new Error('sin red'));
@@ -96,7 +103,7 @@ function listo(w){
   return new Promise((res,rej)=>{
     let n=0;
     (function esperar(){
-      let hay=0; try{ hay=w.eval('CONTRACTS.length') && w.eval('REG.estado')!=='cargando'; }catch(e){}
+      let hay=0; try{ hay=w.eval('CONTRACTS.length') && w.eval('REG.estado')!=='cargando' && w.eval('DEC.estado')!=='cargando'; }catch(e){}
       if(hay) return res(w);
       if(++n>80) return rej(new Error('el CLM no cargó la base'));
       setTimeout(esperar,10);
@@ -477,6 +484,39 @@ seccion('19 · No todo lo que vence se renueva');
      'la alerta de la consultoría por vencer dice que no se renueva',filas.find(t=>/FIAS-FAP-2026-001/.test(t)));
   ok(!filas.some(t=>/FIAS-FAP-2026-001/.test(t)&&/ventana de renovación abierta/.test(t)),
      'y ya no dice «ventana de renovación abierta»');
+
+  // «Servicios logísticos»: el hospedaje de un taller de tres días, firmado como
+  // Nuevo y por vencer. Con la lista negra de antes salía renovable —nadie lo
+  // había excluido—, con «Renovar en La Mágica» en primer lugar.
+  const base19b=contratos();
+  Object.assign(base19b[0],{cat:'Servicios logísticos',detalle:'Hospedaje, alimentación y uso de instalaciones para el taller',fin:enDiez,tipo:'Nuevo',plazo:3});
+  Object.assign(base19b[1],{cat:'Mantenimiento infraestructura',fin:enDiez,tipo:'Nuevo'});
+  Object.assign(base19b[2],{cat:'Una categoría que todavía no existe',fin:enDiez,tipo:'Nuevo'});
+  Object.assign(base19b[3],{cat:'  servicio de LIMPIEZA ',fin:enDiez,tipo:'Nuevo'});
+  const w19b=await listo(nuevoDom(base19b,{rol:'ac',user:'Ana Pérez'}));
+  const tv=()=>w19b.document.getElementById('view').textContent;
+  w19b.go('detalle',0);
+  btn=w19b.document.getElementById('a-ren');
+  ok(btn.disabled && !btn.onclick,'un servicio logístico por vencer NO ofrece renovar');
+  ok(/«Servicios logísticos» es un servicio puntual/.test(tv()),'y dice por qué, con el nombre de la categoría',tv().slice(0,400));
+  ok(!w19b.document.getElementById('a-nue'),'ni un proceso nuevo: un taller no continúa');
+  w19b.go('detalle',2);
+  ok(w19b.document.getElementById('a-ren').disabled && !w19b.document.getElementById('a-nue'),
+     'una categoría que nadie ha clasificado no se renueva: la lista es blanca, no negra');
+  ok(w19b.esRenovable(base19b[1])===false,'«Mantenimiento infraestructura» (un arreglo puntual) no es «Mantenimiento»');
+  ok(w19b.esRenovable(base19b[3])===true,'pero mayúsculas y espacios de más en la categoría no cambian nada');
+  w19b.go('alertas');
+  const fila186=[...w19b.document.querySelectorAll('.alert-row')].map(r=>r.textContent).find(t=>/FIAS-FAP-2026-001/.test(t))||'';
+  ok(/servicio puntual/.test(fila186) && !/renovación|proceso nuevo/.test(fila186),
+     'su alerta de vencimiento no habla de renovar ni de proceso nuevo',fila186);
+
+  // La misma lista, en los tres sitios donde vive la regla.
+  const lista=src=>{const m=/RECURRENTES\s*=\s*[\[{]([^\]}]*)[\]}]/.exec(src);return m?m[1].split(',').map(x=>x.trim().replace(/^['"]|['"]$/g,'')).filter(Boolean).sort().join(' | '):'';};
+  const enCLM=lista(HTML), enRen=lista(fs.readFileSync(path.join(RAIZ,'renovaciones','index.html'),'utf8')),
+        enPlan=lista(fs.readFileSync(path.join(RAIZ,'scripts','plan_renovaciones.py'),'utf8'));
+  ok(enCLM && enCLM===enRen && enCLM===enPlan,'el CLM, la consulta de renovaciones y el plan tienen la misma lista de servicios recurrentes',
+     [enCLM,enRen,enPlan].join('  ≠  '));
+  ok(!/NO_RECURRENTES/.test(HTML+fs.readFileSync(path.join(RAIZ,'renovaciones','index.html'),'utf8')),'y ninguna conserva la lista negra');
 
   // El caso normal — Nuevo y recurrente — sigue igual que en la sección 18.
   ok(w19.esRenovable(base19[4])===true,'un contrato Nuevo y recurrente sigue siendo renovable',JSON.stringify(base19[4].tipo));
@@ -883,8 +923,8 @@ seccion('23 · El Registro de Calificaciones compartido');
   ok(!u.alertList().some(a=>a.fn==='pcal'),'ni la Unidad la suya');
   u.go('proveedores');
   ok(/No pude leer el Registro/.test(texto(u)),'y el pool lo dice');
-  ok(/const reg=abrirRegistro\(pedido\);\s*await Promise\.race\(\[reg,new Promise\(r=>setTimeout\(r,1500\)\)\]\)/.test(HTML),
-     'la primera pantalla espera al registro como mucho un segundo y medio');
+  ok(/const reg=abrirRegistro\(pedido\),dec=abrirDecisiones\(pedidoDec\);\s*await Promise\.race\(\[Promise\.all\(\[reg,dec\]\),new Promise\(r=>setTimeout\(r,1500\)\)\]\)/.test(HTML),
+     'la primera pantalla espera al registro (y a las decisiones) como mucho un segundo y medio');
 }
 
 // ---------------------------------------------------------------- 24
@@ -1117,6 +1157,148 @@ seccion('26 · Lo calificado con el formulario de antes no se envía solo');
   m=w.document.querySelector('.overlay'); m.querySelector('#rev').onclick(); m.querySelector('#conf').onclick(); await pausa(40);
   ok(posts.length===1 && posts[0].via==='nueva' && posts[0].enviadoPor==='Ana Pérez' && posts[0].rolEnvio==='ac',
      'una calificación nueva viaja con via «nueva», quién la envió y su rol');
+}
+
+// ---------------------------------------------------------------- 27
+seccion('27 · El servicio que no se puede renovar continúa por proceso nuevo');
+{
+  // De 126 contratos consultados para 2027, 84 ya eran una renovación: el FIAS
+  // renueva una sola vez, así que continúan por proceso administrativo nuevo, y 74
+  // con el mismo proveedor. El CLM tenía el objeto, el área y el proveedor delante
+  // y lo único que ofrecía era un botón apagado.
+  const enVeinte=new Date(Date.now()+20*86400000).toISOString().slice(0,10);
+  const base=contratos();
+  Object.assign(base[0],{tipo:'Renovación',fin:enVeinte,montoTotal:5600,adenda:'Sí',proveedor:'Talleres del Oriente Cía. Ltda.',
+    detalle:'Mantenimiento preventivo y correctivo de vehículos',area:'Reserva de Producción de Fauna Chimborazo'});
+  Object.assign(base[1],{tipo:'Renovación',cat:'Combustible',fin:enVeinte,proveedor:'Gasolinera El Cóndor'});
+  Object.assign(base[2],{tipo:'Nuevo',fin:enVeinte});                       // renovable
+  Object.assign(base[3],{tipo:'Renovación',fin:'2030-12-31'});              // lejos del vencimiento
+  Object.assign(base[4],{tipo:'Renovación',fin:enVeinte,ac:'María Guamán'});
+  let w27=await listo(nuevoDom(base,{rol:'ac',user:'Ana Pérez'}));
+  const bz=()=>JSON.parse(w27.localStorage.getItem('fap_precarga')||'null');
+  const src=()=>{const f=w27.document.getElementById('toolframe');return f?f.getAttribute('src'):'';};
+  const ids=()=>[...w27.document.querySelectorAll('.act .actbtn')].map(b=>b.id);
+  const modal=()=>w27.document.querySelector('.overlay');
+
+  w27.go('detalle',0);
+  ok(ids()[0]==='a-nue','ya renovado y por vencer: «Proceso nuevo en La Mágica» es la primera acción',ids().join(','));
+  ok(w27.document.getElementById('a-ren').disabled && /una sola vez/.test(texto(w27)),'«Renovar» sigue apagado y dice por qué');
+  w27.document.getElementById('a-nue').onclick();
+  let m=modal();
+  ok(!!m && /proceso administrativo nuevo/.test(m.textContent) && /FIAS-FAP-2026-001/.test(m.textContent),'se abre el cuadro, que explica por qué no es una renovación');
+  let ops=[...m.querySelectorAll('input[name=pn]')];
+  ok(ops.map(x=>x.value).join(',')==='mismo,comparar' && ops[0].checked,'dos caminos: con el mismo proveedor (marcado) o comparación de precios',ops.map(x=>x.value).join(','));
+  ok(/Talleres del Oriente/.test(m.querySelector('.radio').textContent),'el primero nombra al proveedor del contrato');
+  ok(/el área y el proveedor ya puestos/.test(m.querySelector('#pnViaja').textContent) && /presupuesto no viaja/.test(m.textContent),
+     'dice qué viaja, y que el presupuesto no');
+  ok(bz()===null,'abrir el cuadro todavía no manda nada');
+  m.querySelector('#okPN').onclick();
+  let b=bz();
+  ok(b && b.id==='nue:FIAS-FAP-2026-001' && b.via==='nuevo','al confirmar deja los datos en el buzón, como proceso nuevo',JSON.stringify(b&&{id:b.id,via:b.via}));
+  ok(b.datos.tipo_proceso==='Selección directa por excepción' && b.datos.proveedor==='Talleres del Oriente Cía. Ltda.'
+     && b.datos.objeto==='Mantenimiento preventivo y correctivo de vehículos' && b.datos.area==='Reserva de Producción de Fauna Chimborazo',
+     'selección directa por excepción, con objeto, área y proveedor',JSON.stringify(b.datos));
+  ok(b.datos.contratoNro==='FIAS-FAP-2026-001' && b.datos.fechaFin===enVeinte && b.datos.montoTotal===5600 && b.datos.bienServicio==='Servicio',
+     'más el contrato que continúa, su vencimiento, el monto vigente (de referencia) y que es un servicio');
+  ok(!('presupuesto' in b.datos) && !('fechaContrato' in b.datos),'no manda presupuesto ni los campos de una renovación');
+  ok(w27.eval('ST.view')==='magica' && /generador\/index\.html#precarga=nue%3AFIAS-FAP-2026-001$/.test(src()),'y abre La Mágica con solo el número en el enlace',src());
+  ok(!/Talleres|5600|Chimborazo/.test(src()),'ningún dato del contrato viaja en la URL');
+  ok(/Proceso nuevo abierto en La Mágica \(mismo proveedor\)/.test(w27.eval('CLM.log[0].txt')),'queda en la bitácora');
+
+  // La segunda vez no pregunta: La Mágica ya tiene el expediente y no lo duplica.
+  w27.localStorage.removeItem('fap_precarga');
+  const enLog=w27.eval('CLM.log.length');
+  w27.go('detalle',0);
+  ok(/Abierto el/.test(w27.document.getElementById('a-nue').textContent),'el botón recuerda que ya se abrió');
+  w27.document.getElementById('a-nue').onclick();
+  ok(!modal() && bz().id==='nue:FIAS-FAP-2026-001' && w27.eval('CLM.log.length')===enLog,'y vuelve directo al expediente, sin otro cuadro ni otra línea en la bitácora');
+
+  // Combustible: bien o servicio según cómo se contrate. No se marca.
+  w27.go('detalle',1);
+  w27.document.getElementById('a-nue').onclick();
+  m=modal(); m.querySelector('input[value=comparar]').checked=true; m.querySelector('input[value=comparar]').onchange();
+  ok(m._sucio===false,'elegir una opción no hace que cerrar pregunte «¿cerrar sin terminar?»');
+  ok(!/proveedor ya puestos/.test(m.querySelector('#pnViaja').textContent),'y el cuadro deja de decir que el proveedor viaja');
+  m.querySelector('#okPN').onclick();
+  b=bz();
+  ok(b.datos.tipo_proceso==='Comparación de precios' && b.datos.proveedor==='','por comparación de precios el proveedor vigente no viaja',JSON.stringify(b.datos));
+  ok(b.datos.bienServicio==='','y en combustible no se marca si es bien o servicio');
+
+  // Un contrato renovable: primero «Renovar»; el proceso nuevo queda para quien cambia de proveedor.
+  w27.go('detalle',2);
+  ok(ids()[0]==='a-ren' && ids().indexOf('a-nue')>ids().indexOf('a-ren'),'en un contrato renovable, «Renovar» va primero y el proceso nuevo detrás',ids().join(','));
+  ok(/solo si no vas a renovar/.test(w27.document.getElementById('a-nue').textContent),'y dice para qué es');
+  w27.document.getElementById('a-nue').onclick();
+  m=modal(); ops=[...m.querySelectorAll('input[name=pn]')];
+  ok(ops.map(x=>x.value).join(',')==='otro,comparar' && /todavía se puede renovar/.test(m.textContent),
+     'no ofrece «con el mismo proveedor»: para eso está la renovación',ops.map(x=>x.value).join(','));
+  m.querySelector('#okPN').onclick();
+  ok(bz().datos.proveedor==='' && bz().datos.tipo_proceso==='Selección directa por excepción','con otro proveedor: selección directa, sin copiar al actual');
+
+  w27.go('detalle',3);
+  ok(ids().indexOf('a-nue')>0,'lejos del vencimiento se ofrece igual, pero no en primer lugar',ids().join(','));
+  w27.eval("ov(CONTRACTS[3]).terminado=true"); w27.go('detalle',3);
+  ok(!w27.document.getElementById('a-nue'),'un contrato terminado ya no lo ofrece');
+
+  // La alerta de vencimiento lleva a la AC directo al cuadro.
+  w27.eval("delete CLM.overlay['FIAS-FAP-2026-002']"); w27.go('alertas');
+  let fila=[...w27.document.querySelectorAll('.alert-row')].find(r=>/FIAS-FAP-2026-002/.test(r.textContent)&&/Vence en/.test(r.textContent));
+  ok(fila && /no se renueva — prepara el proceso nuevo ya/.test(fila.textContent) && fila.querySelector('.go').textContent==='Proceso nuevo',
+     'la alerta de un contrato ya renovado ofrece «Proceso nuevo»',fila&&fila.textContent);
+  fila.querySelector('.go').onclick(); await pausa(120);
+  ok(!!modal() && /FIAS-FAP-2026-002/.test(modal().textContent),'y abre el cuadro de ese contrato');
+  modal().querySelector('#cancel').onclick();
+  ok(!modal() && !w27.eval("ov(CONTRACTS[1]).sucesor"),'cancelar no deja nada marcado');
+  // A la Unidad Operativa, que ve todo el portafolio, la alerta la lleva al contrato.
+  const wUO=await listo(nuevoDom(base,{rol:'uo',user:'Unidad Operativa'}));
+  wUO.go('alertas');
+  fila=[...wUO.document.querySelectorAll('.alert-row')].find(r=>/FIAS-FAP-2026-001/.test(r.textContent)&&/Vence en/.test(r.textContent));
+  ok(fila && fila.querySelector('.go').textContent==='Abrir','a la Unidad Operativa la misma alerta le dice «Abrir»');
+
+  // Un proveedor no elegible: no se prohíbe, pero no pasa sin que la AC lo vea.
+  const reg=[{nro:'FIAS-FAP-2026-005',score:42,fecha:'2026-10-01',aportes:[15,12,2,13]}];
+  const conMalo=contratos();
+  Object.assign(conMalo[0],{tipo:'Renovación',fin:enVeinte,proveedor:'Mal Servicio S.A.'});
+  Object.assign(conMalo[4],{proveedor:'Mal Servicio S.A.',cerrado:true,fin:'2026-09-30'});
+  w27=await listo(nuevoDom(conMalo,{rol:'ac',user:'Ana Pérez'},{registro:reg}));
+  w27.go('detalle',0); w27.document.getElementById('a-nue').onclick();
+  m=modal();
+  ok(/no elegible/.test(m.querySelector('#pnProv').textContent),'con el mismo proveedor calificado como no elegible, el cuadro lo advierte',m.querySelector('#pnProv').textContent);
+  m.querySelector('input[value=comparar]').checked=true; m.querySelector('input[value=comparar]').onchange();
+  ok(m.querySelector('#pnProv').textContent==='','y la advertencia se va al elegir comparación de precios');
+  ok(w27._confirmas===0,'sin un confirm() de por medio');
+
+  // ---- Lo que la AC respondió en la consulta, si el robot lo publica
+  const dec=[{nro:'FIAS-FAP-2026-001',decision:'comparar',obs:'El administrador quiere cambiar de taller',fecha:'2026-09-10T13:29:02.091Z'},
+             {nro:'FIAS-FAP-2026-002',decision:'terminar',fecha:'2026-09-11T10:00:00.000Z'},
+             {nro:'FIAS-FAP-2026-003',decision:'cambiar',fecha:'2026-09-11T10:00:00.000Z'},
+             {nro:'FIAS-FAP-2026-004',decision:'una que no existe',fecha:'2026-09-11T10:00:00.000Z'},
+             {nro:'FIAS-FAP-2026-001',decision:'directa',fecha:'2026-09-09T08:00:00.000Z'}];
+  w27=await listo(nuevoDom(base,{rol:'ac',user:'Ana Pérez'},{decisiones:dec}));
+  ok(w27.eval('DEC.estado')==='ok' && w27.decisionDe(base[0]).decision==='comparar','si respondió dos veces, vale la última',JSON.stringify(w27.decisionDe(base[0])));
+  ok(w27.decisionDe(base[3])===null,'una decisión que no se entiende no se usa');
+  w27.go('detalle',0);
+  ok(/consulta de continuidad/.test(texto(w27)) && /comparación de precios/.test(texto(w27)) && /cambiar de taller/.test(texto(w27)),
+     'el detalle recuerda qué se respondió, con la observación');
+  w27.document.getElementById('a-nue').onclick();
+  m=modal();
+  ok(m.querySelector('input[name=pn]:checked').value==='comparar','y el cuadro sale con esa respuesta marcada');
+  m.querySelector('#cancel').onclick();
+  w27.go('detalle',2); w27.document.getElementById('a-nue').onclick();
+  ok(modal().querySelector('input[name=pn]:checked').value==='otro','«cambio de proveedor» marca «con otro proveedor»');
+  modal().querySelector('#cancel').onclick();
+  w27.go('alertas');
+  fila=[...w27.document.querySelectorAll('.alert-row')].find(r=>/FIAS-FAP-2026-002/.test(r.textContent)&&/Vence en/.test(r.textContent));
+  ok(fila && /no continúa/.test(fila.textContent) && fila.querySelector('.go').textContent==='Abrir',
+     'lo que el área dijo que no continúa no pide preparar un proceso nuevo',fila&&fila.textContent);
+
+  // Sin el archivo, o sin señal, todo lo demás funciona igual.
+  for(const caso of [undefined,'falla']){
+    w27=await listo(nuevoDom(base,{rol:'ac',user:'Ana Pérez'},{decisiones:caso}));
+    w27.go('detalle',0);
+    ok(w27.eval('DEC.estado')===(caso?'falla':'sin') && ids()[0]==='a-nue' && !/consulta de continuidad/.test(texto(w27)),
+       (caso?'sin señal':'sin el archivo de decisiones')+': el botón está igual y no se inventa ninguna respuesta');
+  }
 }
 
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));

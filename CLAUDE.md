@@ -345,14 +345,22 @@ hechas para eso que conviene reutilizar en vez de rehacer:
 - **Estilos del celular en las media queries, no en `style=""`**: un estilo en línea
   le gana a la media query (así quedaban dos columnas de 150 px en el teléfono).
 - **Que un contrato venza no lo hace renovable.** `esRenovable(c)` (junto a
-  `isConsultoria`) es la única fuente: `c.tipo==="Nuevo"` y `c.cat` fuera de
-  `NO_RECURRENTES` (Consultoría, Adquisición de equipos de campo) — la misma
-  regla de `scripts/plan_renovaciones.py` y `renovaciones/index.html`, no la
-  reinventes. El FIAS renueva una sola vez: un contrato con `tipo!=="Nuevo"`
-  ya gastó la suya. «Renovar en La Mágica» se probó una vez solo contra
-  vencido/por vencer y ofrecía renovar una consultoría puntual — cualquier
-  botón o alerta que hable de vencimiento y renovación junta pasa por
-  `esRenovable()`, no solo por `statusLive()`.
+  `isConsultoria`) es la única fuente: `c.tipo==="Nuevo"` y `esRecurrente(c)`
+  — la misma regla de `scripts/plan_renovaciones.py` y `renovaciones/index.html`, no
+  la reinventes. El FIAS renueva una sola vez: un contrato con `tipo!=="Nuevo"`
+  ya gastó la suya. Cualquier botón o alerta que hable de vencimiento y renovación
+  pasa por `esRenovable()`, no solo por `statusLive()`; la frase de las alertas sale
+  de `queSigue()`.
+- **Los servicios recurrentes son una lista BLANCA** (`RECURRENTES`), no negra. Se
+  equivocó dos veces por el mismo lado: primero «Renovar» se ofrecía a una
+  consultoría puntual, y se arregló excluyéndola por nombre (`NO_RECURRENTES`);
+  después nació en el Excel «Servicios logísticos» —el hospedaje de un taller de
+  tres días— y, como nadie la había excluido, salió renovable y en primer lugar.
+  Hoy una categoría que no está en la lista **no se renueva** y el botón dice cuál
+  es. Añadir una es decidir que ese servicio continúa de un año al otro, y va en
+  los tres sitios (CLM, `renovaciones/index.html`, `plan_renovaciones.py`): la
+  sección 19 de `probar_clm.js` comprueba que digan lo mismo. «Mantenimiento
+  infraestructura» no es «Mantenimiento»: se compara la categoría entera.
 
 - **La tabla del listado tiene que caber, y «Abrir» no puede esconderse.** Llegó a
   nueve columnas: con las fechas y el estado sin partirse, en una pantalla de 1366 la
@@ -445,6 +453,54 @@ mismo almacenamiento— y abre La Mágica con `#precarga=sol:<id>` o
   exigiendo. El aviso de lo traído usa el rótulo del campo en pantalla.
 
 Lo prueban la sección 18 de `probar_clm.js` y la 25 de `probar_generador.js`.
+
+### El proceso nuevo de un servicio que continúa
+
+Un contrato que ya es una renovación no se renueva otra vez, pero el servicio
+sigue: de 126 contratos consultados para 2027, 84 estaban así y 74 continuaban con
+el mismo proveedor. **«Proceso nuevo en La Mágica»** (`procesoNuevoEnMagica()`)
+abre ese proceso con lo que el CLM tiene delante; el buzón va con
+`#precarga=nue:<n.º>` y `via:"nuevo"`.
+
+- **Cuándo se ofrece.** A todo servicio recurrente en ejecución con el tipo
+  conocido. Si ya es una renovación (`vaPorProcesoNuevo()`) es SU camino y, por
+  vencer, va primero; en uno renovable queda detrás de «Renovar», para quien
+  cambia de proveedor. Lo puntual no lo ofrece: un taller no continúa.
+- **La vía la elige la AC, en un cuadro.** «Con el mismo proveedor» (selección
+  directa por excepción) o «Comparación de precios»; en un contrato renovable, la
+  primera es «Con otro proveedor» — con el mismo, se renueva. Viaja como
+  `tipo_proceso`, y La Mágica solo acepta esas dos (`VIAS_SUCESOR`): la compra
+  directa la elige allá si el monto no pasa del límite.
+- **Qué viaja y qué no.** Objeto, área, el nombre del proveedor (solo con «el
+  mismo») y el vencimiento, del que La Mágica saca el inicio de un servicio
+  continuo: el día siguiente. «Servicio» se marca salvo en combustible, que según
+  cómo se contrate es bien o servicio (`bienServicioSeguro()`). **No viaja el
+  presupuesto** —el del período nuevo lo fija el PAG y la base es el consumo, no lo
+  contratado; va de referencia en una nota—, ni la causal, ni la fecha de fin, ni
+  el RUC (que el CLM no tiene).
+- **Las notas de lo traído son pocas.** Solo lo que se supuso (el inicio) o lo que
+  la AC creería que viene y no viene (presupuesto, RUC). Lo que falta por llenar ya
+  lo dice el aviso ámbar de `requisitos()`: repetirlo arriba es ruido.
+- **La segunda vez no pregunta.** `ov(c).sucesor` recuerda que se abrió; el botón
+  vuelve directo al expediente, que La Mágica no duplica. No se confunde con la
+  renovación del mismo contrato (`ren:`), que es otro expediente.
+
+### Lo que cada AC respondió en la consulta
+
+`renovaciones/index.html` le pregunta a cada AC, contrato por contrato, qué pasa
+el año siguiente. Las respuestas caen en un Excel aparte («Respuestas
+renovación») y el robot las publica en `crm/decisiones_export.json`, cifradas con
+`DATA_KEY` y **aparte**, como el Registro de Calificaciones. Dos caminos, los dos
+opcionales: el secreto `RESPUESTAS_URL` con el enlace a ese libro, o su hoja
+copiada dentro del Excel maestro. La hoja se reconoce por sus columnas («nro» y
+«decision»), no por su nombre. Se publica n.º de contrato, decisión, observación
+y fecha: ni la AC ni el proveedor.
+
+En el CLM, `decisionDe(c)` es la única fuente. Sirve para tres cosas y nada más:
+el detalle recuerda qué se respondió, el cuadro del proceso nuevo sale con esa
+opción marcada, y la alerta de lo que «no continúa» deja de pedir un proceso
+nuevo. **La regla de qué se renueva no depende de esto**: sin el archivo, o sin
+señal, el botón está igual. Sección 27 de `probar_clm.js` y 5 de `probar_robot.py`.
 
 ## El puente con la carpeta del expediente
 
@@ -625,6 +681,12 @@ Secciones 19, 20, 21 y 22 de `probar_instrumentos.js`.
 diario (`scripts/actualizar_datos.py`); no se edita a mano. El detalle contrato por
 contrato tampoco va en los documentos del repositorio — vive en el anexo que genera
 `scripts/plan_renovaciones.py` fuera de aquí.
+
+**Para leer la base desde una terminal** —una persona o una sesión de Claude, sin
+que nadie suba el Excel—: `python3 scripts/leer_contratos.py` (resumen),
+`--buscar <texto>`, `--json`, y `--fresco` para traer antes lo último que publicó
+el robot. La frase va en la variable de entorno `DATA_KEY` y nunca como
+argumento; nada se escribe en disco. Los proveedores (RUC) no los lee.
 
 ## Los flujos de Power Automate
 

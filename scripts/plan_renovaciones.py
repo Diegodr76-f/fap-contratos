@@ -31,9 +31,20 @@ from openpyxl.utils import get_column_letter
 # ---------------------------------------------------------------- parámetros
 HOY = datetime.date(2026, 9, 1)
 
-# Objetos que no son servicio recurrente: nunca admiten renovación y quedan
-# fuera de esta campaña (van por su propio proceso, con TdR).
-NO_RECURRENTES = {"Consultoría", "Adquisición de equipos de campo"}
+# Los servicios recurrentes: los únicos que entran en esta campaña. Lo demás
+# —una consultoría, una compra de equipos, el hospedaje de un taller— es puntual:
+# nunca admite renovación y va por su propio proceso.
+# La lista es BLANCA, la misma del CLM y de renovaciones/index.html (lo comprueba
+# probar_clm.js). Antes era negra y cada categoría nueva del Excel entraba sola.
+RECURRENTES = {"Combustible", "Mantenimiento", "Arrendamiento", "Internet", "Radiofrecuencia", "Servicio de limpieza", "Prestación de servicios profesionales"}
+RECURRENTES_K = None
+
+
+def es_recurrente(cat):
+    global RECURRENTES_K
+    if RECURRENTES_K is None:
+        RECURRENTES_K = {norm(x) for x in RECURRENTES}
+    return norm(cat) in RECURRENTES_K
 
 RENOVACION = "Renovación"
 NUEVO = "Nuevo proceso"
@@ -115,7 +126,7 @@ def clasificar(filas):
         if d.get("Estado de Gestión") != "Activo":
             continue
         cat = d["CATEGORIA DEL PROCESO/ BIEN O SERVICIO"]
-        recurrente = cat not in NO_RECURRENTES
+        recurrente = es_recurrente(cat)
         renovable = d["TIPO DE CONTRATO"] == "Nuevo" and recurrente
         fin = fecha(d["FECHA DE FINALIZACIÓN"])
         inicio27 = fin + datetime.timedelta(days=1) if fin else None

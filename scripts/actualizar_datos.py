@@ -11,6 +11,12 @@ Y, solo si existe el secreto PROVEEDORES_KEY, los datos de los proveedores (hoja
 "Proveedores" y columna RUC de "2026") -> instrumentos/proveedores_export.json,
 cifrado con ESA frase, que no es la del registro. Lo lee solo el Generador de
 Instrumentos, que usa una sola persona; las ACs no tienen esa frase.
+
+Y, si las hay, las respuestas de la consulta de continuidad (qué dijo cada AC
+que pasa con su contrato el año siguiente) -> crm/decisiones_export.json, cifrado
+con DATA_KEY. Se buscan en el propio Excel maestro —una hoja con las columnas
+«nro» y «decision»— o, con el secreto RESPUESTAS_URL, en el libro aparte donde
+caen. Opcional como lo demás: sin ellas se publica exactamente lo de siempre.
 """
 import os, re, json, base64, datetime, sys
 import requests, openpyxl
@@ -34,6 +40,10 @@ if not DATA_KEY:
 # cédula de una persona natural no es para ellas (ver leer_proveedores()).
 PROVEEDORES_KEY = os.environ.get("PROVEEDORES_KEY", "").strip()
 
+# El enlace al Excel donde caen las respuestas de la consulta de continuidad
+# («Respuestas renovación»), cuando es un libro aparte del maestro. Opcional.
+RESPUESTAS_URL = os.environ.get("RESPUESTAS_URL", "").strip()
+
 ITER = 250000
 
 def cifrar(plaintext_bytes, passphrase):
@@ -48,9 +58,11 @@ def cifrar(plaintext_bytes, passphrase):
     return {"fap_enc": 1, "kdf": "PBKDF2-SHA256", "iter": ITER,
             "salt": b(salt), "iv": b(iv), "ct": b(ct)}
 
-# Forzar descarga directa en links de OneDrive/SharePoint
-if "download=1" not in URL:
-    URL += ("&" if "?" in URL else "?") + "download=1"
+def descarga_directa(url):
+    """Forzar descarga directa en links de OneDrive/SharePoint."""
+    return url if "download=1" in url else url + ("&" if "?" in url else "?") + "download=1"
+
+URL = descarga_directa(URL)
 
 r = requests.get(URL, timeout=120, allow_redirects=True)
 r.raise_for_status()
@@ -380,6 +392,98 @@ def leer_proveedores(wb, ws_contratos):
         print(f"AVISO: {choques} proveedor(es) aparecen con dos RUC distintos: se publica el primero.")
     return lista
 
+# ---------------------------------------------------------------------------
+# Las respuestas de la consulta de continuidad. En septiembre cada AC responde,
+# contrato por contrato, qué pasa el año siguiente (renovaciones/index.html):
+# renovar, contratar directo al mismo proveedor, comparar precios, cambiar de
+# proveedor o no continuar. Con eso el CLM le recuerda qué respondió cuando abre
+# el proceso nuevo en La Mágica, y deja de pedirle preparar lo que no continúa.
+#
+# Viven en un Excel aparte («Respuestas renovación»), así que hay dos caminos y
+# los dos son opcionales: el secreto RESPUESTAS_URL con el enlace a ese libro, o
+# copiar su hoja dentro del Excel maestro. La hoja no se busca por su nombre
+# —en el libro de respuestas se llama «Hoja1»— sino por sus columnas: «nro» y
+# «decision». De cada fila se publica el n.º de contrato, la decisión (como una
+# de cinco claves), la observación y la fecha: ni la AC ni el proveedor.
+# Si el enlace falla, se avisa y lo demás se publica igual.
+# ---------------------------------------------------------------------------
+def decision_de(texto, continua):
+    """La respuesta, como una de las cinco claves del CLM, o None si no se entiende."""
+    t = plano(texto)
+    if t in ("renovar", "cambiar", "directa", "comparar", "terminar"):
+        return t
+    if t.startswith("no continua") or plano(continua) == "no":
+        return "terminar"
+    for clave, inicio in (("directa", "contratacion directa"), ("comparar", "comparacion"),
+                          ("renovar", "renovacion"), ("cambiar", "proceso nuevo")):
+        if t.startswith(inicio):
+            return clave
+    return None
+
+def momento(v):
+    """La fecha de una respuesta: llega como texto ISO con hora, o como fecha de Excel."""
+    if isinstance(v, (datetime.datetime, datetime.date)):
+        return v.strftime("%Y-%m-%dT%H:%M:%S") if isinstance(v, datetime.datetime) else v.strftime("%Y-%m-%d")
+    t = str(v or "").strip()
+    return t if re.match(r"\d{4}-\d{2}-\d{2}", t) else None
+
+def leer_decisiones(libros):
+    """Las respuestas [{nro, decision, obs?, fecha?}] de la primera hoja que tenga
+    las columnas «nro» y «decision», o None si ningún libro la tiene."""
+    for libro in libros:
+        for hoja in libro.worksheets:
+            enc = None
+            for i, row in enumerate(hoja.iter_rows(min_row=1, max_row=8, values_only=True), 1):
+                celdas = [plano(c) for c in row]
+                if "nro" in celdas and "decision" in celdas:
+                    enc = (i, celdas)
+                    break
+            if enc is None:
+                continue
+            i, celdas = enc
+            cn, cd = celdas.index("nro"), celdas.index("decision")
+            cc = columna(celdas, "continua")
+            co = columna(celdas, "observ")
+            cf = columna(celdas, "respondido", "fecha")
+            filas, malas = [], 0
+            for row in hoja.iter_rows(min_row=i + 1, values_only=True):
+                nro = limpio(celda(row, cn))
+                if not nro or "FIAS" not in nro.upper():
+                    continue
+                dec = decision_de(celda(row, cd), celda(row, cc))
+                if dec is None:
+                    malas += 1
+                    continue
+                d = {"nro": nro, "decision": dec}
+                obs = limpio(celda(row, co))
+                if obs:
+                    d["obs"] = obs
+                f = momento(celda(row, cf))
+                if f:
+                    d["fecha"] = f
+                filas.append(d)
+            if malas:
+                print(f"AVISO: {malas} respuesta(s) de la consulta de continuidad con una decisión "
+                      "que no se entiende: no se publican.")
+            return filas
+    return None
+
+libros_decisiones = [wb]
+if RESPUESTAS_URL:
+    try:
+        rr = requests.get(descarga_directa(RESPUESTAS_URL), timeout=120, allow_redirects=True)
+        rr.raise_for_status()
+        if not rr.content.startswith(b"PK"):
+            raise ValueError("lo descargado no es un Excel")
+        with open("/tmp/respuestas.xlsx", "wb") as f:
+            f.write(rr.content)
+        # Primero el libro de respuestas: si el maestro tuviera una copia vieja, manda el original.
+        libros_decisiones.insert(0, openpyxl.load_workbook("/tmp/respuestas.xlsx", data_only=True))
+    except Exception as e:
+        print(f"AVISO: no pude leer el Excel de respuestas (RESPUESTAS_URL): {type(e).__name__}. "
+              "Lo demás se publica igual.")
+decisiones = leer_decisiones(libros_decisiones)
+
 proveedores = None
 if PROVEEDORES_KEY and PROVEEDORES_KEY == DATA_KEY:
     print("AVISO: PROVEEDORES_KEY es igual a DATA_KEY, la frase que tienen todas las ACs. "
@@ -456,6 +560,13 @@ if calificaciones is not None:
     with open("crm/calificaciones_export.json", "w", encoding="utf-8") as f:
         json.dump(sobre_c, f, ensure_ascii=False)
 
+# Igual las decisiones: aparte, cifradas con la frase del registro, y solo si las hay.
+if decisiones is not None:
+    sobre_d = cifrar(json.dumps(decisiones, ensure_ascii=False).encode("utf-8"), DATA_KEY)
+    sobre_d["generado"] = LEIDO
+    with open("crm/decisiones_export.json", "w", encoding="utf-8") as f:
+        json.dump(sobre_d, f, ensure_ascii=False)
+
 faltan = [k for k in ("fcierre", "liquidado", "saldo") if C.get(k) is None]
 if faltan:
     print("AVISO: no encontré en la hoja 2026 las columnas de liquidación:", ", ".join(faltan))
@@ -469,6 +580,8 @@ print(f"OK: {len(out)} contratos publicados (cifrados), "
 
 if calificaciones is not None:
     print(f"    Registro de Calificaciones: {len(calificaciones)} fila(s) publicadas.")
+if decisiones is not None:
+    print(f"    Consulta de continuidad: {len(decisiones)} respuesta(s) publicadas.")
 if proveedores is not None:
     print(f"    Proveedores: {len(proveedores)} publicados, "
           f"{sum(1 for p in proveedores if p.get('identificacion'))} con cédula o RUC "

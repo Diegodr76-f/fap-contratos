@@ -177,11 +177,23 @@ Lo que el CLM ya sabe no se escribe dos veces. Hay dos puertas:
   número, la fecha de suscripción, el vencimiento, el monto vigente (con adendas), el objeto y el
   proveedor ya puestos. Sube al primer lugar de las acciones cuando el contrato está por vencer, pero
   se ofrece siempre: la campaña 2027 prepara en septiembre los contratos que vencen el 31 de diciembre.
+  Solo para servicios recurrentes firmados como «Nuevo»: la lista de categorías recurrentes es
+  cerrada (combustible, mantenimiento, arrendamiento, internet, radiofrecuencia, limpieza y
+  prestación de servicios profesionales), así que una consultoría, una compra o el hospedaje de
+  un taller nunca ofrecen renovar.
+- **«Proceso nuevo en La Mágica»**, en un contrato que ya es una renovación (el FIAS renueva una
+  sola vez): el servicio continúa por un proceso administrativo nuevo. La AC elige en un cuadro si
+  sigue **con el mismo proveedor** (selección directa por excepción) o va por **comparación de
+  precios**, y La Mágica abre el expediente con el tipo de proceso, el objeto, el área, el nombre
+  del proveedor y el día en que arranca el servicio. El presupuesto no viaja —el del año siguiente
+  lo fija el PAG—: el monto vigente queda a la vista, de referencia. Si el robot publica lo que la
+  AC respondió en la consulta de continuidad (`crm/decisiones_export.json`), el cuadro sale con esa
+  respuesta marcada.
 
 **Cómo viajan los datos.** El CLM y La Mágica son del mismo sitio y comparten el almacenamiento del
 navegador. El CLM deja los datos en un buzón (`fap_precarga`) con los nombres del catálogo
 (`contratoNro`, `fechaContrato`, `fechaFin`, `montoTotal`, `objeto`, `proveedor`, `area`…) y abre La
-Mágica con `#precarga=ren:FIAS-FAP-2026-089` o `#precarga=sol:<id>`. **La URL lleva solo el
+Mágica con `#precarga=ren:FIAS-FAP-2026-089`, `#precarga=nue:FIAS-FAP-2026-007` o `#precarga=sol:<id>`. **La URL lleva solo el
 identificador**, nunca los datos: una URL queda en el historial. La Mágica los pasa a sus campos,
 vacía el buzón y limpia el enlace, así que recargar no vuelve a precargar.
 

@@ -207,8 +207,16 @@ var LS_RESP  = 'fap_ren27_respuestas';
 var ORDEN = 'urgencia';   // 'urgencia' | 'tipo'
 var FILTRO = '';          // '', 'p1', 'p2', 'p3'
 
-// Objetos que no son servicio recurrente: van por su propio proceso.
-var NO_RECURRENTES = ['Consultoría', 'Adquisición de equipos de campo'];
+// Los servicios recurrentes: los únicos que entran en esta consulta. La lista
+// es BLANCA, la misma del CLM y de scripts/plan_renovaciones.py. Antes era negra
+// («todo menos consultoría y equipos») y una categoría nueva del Excel —el
+// hospedaje de un taller, «Servicios logísticos»— entraba como renovable.
+var RECURRENTES = ['Combustible', 'Mantenimiento', 'Arrendamiento', 'Internet', 'Radiofrecuencia', 'Servicio de limpieza', 'Prestación de servicios profesionales'];
+function claveCat(s){
+  return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+var RECURRENTES_K = RECURRENTES.map(claveCat);
+function esRecurrente(c){ return RECURRENTES_K.indexOf(claveCat(c && c.cat)) !== -1; }
 
 var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
              'septiembre','octubre','noviembre','diciembre'];
@@ -309,7 +317,7 @@ function cargarResp(){ try{ R = JSON.parse(localStorage.getItem(LS_RESP)||'{}')|
 function guardarResp(){ try{ localStorage.setItem(LS_RESP, JSON.stringify(R)); }catch(e){ toast('No se pudo guardar en este navegador.'); } }
 
 function esRenovable(c){
-  return c.tipo === 'Nuevo' && NO_RECURRENTES.indexOf(c.cat) === -1;
+  return c.tipo === 'Nuevo' && esRecurrente(c);
 }
 function montoTotal(c){
   var t = Number(c.montoTotal), m = Number(c.monto)||0;
@@ -686,7 +694,7 @@ document.getElementById('cambiar').addEventListener('click', function(){
   var datos = esCifrado(crudo) ? await abrir(crudo) : crudo;
 
   CONTRATOS = datos.filter(function(c){
-    return !c.cerrado && c.ac && NO_RECURRENTES.indexOf(c.cat) === -1;
+    return !c.cerrado && c.ac && esRecurrente(c);
   });
 
   try{

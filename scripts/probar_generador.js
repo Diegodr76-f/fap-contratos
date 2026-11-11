@@ -768,6 +768,64 @@ seccion('25 · Lo que viene del CLM no se vuelve a teclear');
   ok(wp.D().areaId==='' && wp.cur().precarga.notas.some(n=>/elígela arriba/.test(n)),
      'con dos candidatas no se elige: se le pide a la AC',wp.D().areaId);
 
+  // --- Proceso nuevo: el contrato ya es una renovación y no se renueva otra vez
+  // (el FIAS permite una sola). El servicio sigue, con el mismo proveedor, por
+  // selección directa por excepción — 74 de los 84 contratos así en la consulta
+  // de 2027. El CLM manda lo que sabe; la AC no vuelve a teclearlo.
+  const buzonNue={id:'nue:FIAS-FAP-2026-007',via:'nuevo',desde:'CLM',datos:{
+    tipo_proceso:'Selección directa por excepción',contratoNro:'FIAS-FAP-2026-007',
+    objeto:'Mantenimiento preventivo y correctivo de los vehículos del área',proveedor:'Talleres del Oriente Cía. Ltda.',
+    area:'Reserva de Producción de Fauna Chimborazo',fechaFin:'2026-12-31',montoTotal:5600,bienServicio:'Servicio'}};
+  wp=nuevoDom(conBuzon(buzonNue),'#precarga=nue%3AFIAS-FAP-2026-007');
+  dp=wp.D();
+  ok(wp.ST.exps.length===1 && /^Proceso nuevo FIAS-FAP-2026-007/.test(wp.cur().nombre),
+     'el proceso nuevo abre su expediente, con el contrato que continúa en el nombre',wp.cur().nombre);
+  ok(dp.tipoProceso==='Selección directa por excepción','con la vía que la AC eligió en el CLM',dp.tipoProceso);
+  ok(wp.esRenov()===false && !dp.contratoAnterior,'NO es una renovación: ni la vía ni los campos del contrato vigente');
+  ok(dp.provs[0].razon==='Talleres del Oriente Cía. Ltda.' && /Mantenimiento preventivo/.test(dp.objeto)
+     && dp.bienServicio==='Servicio' && dp.areaId==='a2','proveedor, objeto, servicio y área puestos');
+  ok(dp.tipoPlazo==='continuo' && dp.ejecDesde==='2027-01-01' && !dp.ejecHasta,
+     'servicio continuo que arranca al día siguiente del vencimiento; cuándo termina no se inventa',[dp.tipoPlazo,dp.ejecDesde,dp.ejecHasta].join(' | '));
+  ok(!dp.presupuesto,'el presupuesto NO se copia del contrato vigente: lo fija el PAG',dp.presupuesto);
+  const notasN=wp.cur().precarga.notas.join(' ¶ ');
+  ok(/USD 5\.600,00/.test(notasN) && /PAG/.test(notasN),'pero el monto vigente se le deja a la vista, como referencia',notasN);
+  ok(!dp.causal,'la causal no se elige por ella (el aviso de lo que falta se la pide, abajo)');
+  ok(wp.cur().precarga.notas.length<=4,'y las notas son pocas: solo lo que se supuso o no viene',wp.cur().precarga.notas.length);
+  ok(!dp.provs[0].ruc && /RUC/.test(notasN),'del proveedor viaja solo el nombre (el CLM no tiene su RUC), y se dice');
+  const faltaN=wp.faltan(0).map(x=>x.label);
+  ok(!faltaN.some(l=>/Tipo de proceso|Objeto del proceso|Bien o servicio|Área protegida/.test(l)),'el aviso no pide lo que se trajo',faltaN.join(' | '));
+  ok(faltaN.indexOf('Causal de excepción')>=0 && faltaN.indexOf('Presupuesto referencial (USD)')>=0
+     && faltaN.indexOf('Fechas de ejecución (inicio y fin)')>=0 && wp.m1Done()===false,
+     'y lo demás se sigue exigiendo: causal, presupuesto y fin de la ejecución',faltaN.join(' | '));
+  wp.D().ejecHasta='2027-12-31';
+  ok(wp.diasEjecucion()===365 && wp.motivoContrato()==='plazo','con la fecha de fin, un año de servicio va por contrato',wp.diasEjecucion()+' · '+wp.motivoContrato());
+  const tx=wp.document.getElementById('app').textContent;
+  ok(/Traído del CLM/.test(tx) && /Tipo de proceso/.test(tx) && /Razón social \(solo el nombre\)/.test(tx),
+     'el aviso de lo traído usa los rótulos de los campos');
+  ok(wp.localStorage.getItem('fap_precarga')===null && wp.cur().origen==='nue:FIAS-FAP-2026-007','buzón vacío y expediente atado al contrato');
+  // Pulsar otra vez en el CLM no crea otro
+  const guardadoN=wp.localStorage.getItem('fap_v3');
+  wp=nuevoDom(win=>{win.localStorage.setItem('fap_v3',guardadoN);win.localStorage.setItem('fap_precarga',JSON.stringify(buzonNue));},'#precarga=nue%3AFIAS-FAP-2026-007');
+  ok(wp.ST.exps.length===1 && wp.localStorage.getItem('fap_precarga')===null,'volver a pulsar en el CLM abre el mismo expediente');
+  // Y no se confunde con la renovación del mismo contrato, que es otro expediente
+  wp=nuevoDom(win=>{win.localStorage.setItem('fap_v3',guardadoN);
+    win.localStorage.setItem('fap_precarga',JSON.stringify(Object.assign({},buzonRen,{id:'ren:FIAS-FAP-2026-007',datos:Object.assign({},buzonRen.datos,{contratoNro:'FIAS-FAP-2026-007'})})));},
+    '#precarga=ren%3AFIAS-FAP-2026-007');
+  ok(wp.ST.exps.length===2,'un proceso nuevo no se toma por la renovación del mismo contrato',wp.ST.exps.length);
+
+  // Comparación de precios: el proveedor vigente no viaja; se invita a tres.
+  wp=nuevoDom(conBuzon({id:'nue:FIAS-FAP-2026-011',via:'nuevo',desde:'CLM',datos:Object.assign({},buzonNue.datos,
+    {tipo_proceso:'Comparación de precios',contratoNro:'FIAS-FAP-2026-011',proveedor:'',bienServicio:''})}),'#precarga=nue%3AFIAS-FAP-2026-011');
+  dp=wp.D();
+  ok(dp.tipoProceso==='Comparación de precios' && wp.nInv()===3 && !dp.provs[0].razon,
+     'por comparación de precios: tres invitaciones, y ningún proveedor copiado',dp.tipoProceso+' · '+dp.provs[0].razon);
+  ok(wp.cur().precarga.notas.some(n=>/3 proveedores/.test(n)),'y se le dice que el del contrato vigente no se copió');
+  ok(!dp.bienServicio,'sin certeza de si es bien o servicio (combustible), no se marca',dp.bienServicio);
+  // Una vía que el CLM no ofrece no entra: la elige la AC.
+  wp=nuevoDom(conBuzon({id:'nue:FIAS-FAP-2026-012',via:'nuevo',desde:'CLM',datos:Object.assign({},buzonNue.datos,
+    {tipo_proceso:'Renovación',contratoNro:'FIAS-FAP-2026-012'})}),'#precarga=nue%3AFIAS-FAP-2026-012');
+  ok(!wp.D().tipoProceso,'un proceso nuevo nunca entra como «Renovación», venga lo que venga en el buzón',wp.D().tipoProceso);
+
   // --- Sin enlace, La Mágica arranca como siempre
   wp=nuevoDom(conBuzon(buzonRen));
   ok(wp.ST.exps.length===0 && wp.localStorage.getItem('fap_precarga')!==null,'sin #precarga no se toca nada, aunque haya un buzón');
