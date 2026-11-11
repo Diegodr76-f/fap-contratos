@@ -207,8 +207,25 @@ var LS_RESP  = 'fap_ren27_respuestas';
 var ORDEN = 'urgencia';   // 'urgencia' | 'tipo'
 var FILTRO = '';          // '', 'p1', 'p2', 'p3'
 
-// Objetos que no son servicio recurrente: van por su propio proceso.
-var NO_RECURRENTES = ['Consultoría', 'Adquisición de equipos de campo'];
+// Qué es un servicio recurrente lo dicen las FECHAS: termina con el ciclo del
+// año (diciembre o enero) o dura un año, y dura más de 30 días. Una consultoría
+// o una adquisición nunca lo es. La misma regla que el CLM y que
+// scripts/plan_renovaciones.py (probar_clm.js comprueba que coincidan).
+var DIAS_PUNTUAL = 30, DIAS_ANIO = 360;
+function claveCat(s){
+  return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+function diasContrato(c){
+  var a = c && (c.inicio || c.firma), b = c && c.fin;
+  if(!a || !b) return 0;
+  var d = Math.round((Date.parse(b+'T00:00:00Z') - Date.parse(a+'T00:00:00Z'))/86400000) + 1;
+  return isFinite(d) && d > 0 ? d : 0;
+}
+function esRecurrente(c){
+  if(!c || /consultor|adquisici/.test(claveCat(c.cat))) return false;
+  var d = diasContrato(c), m = Number(String(c.fin||'').slice(5,7));
+  return d > DIAS_PUNTUAL && (m === 12 || m === 1 || d >= DIAS_ANIO);
+}
 
 var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
              'septiembre','octubre','noviembre','diciembre'];
@@ -309,7 +326,7 @@ function cargarResp(){ try{ R = JSON.parse(localStorage.getItem(LS_RESP)||'{}')|
 function guardarResp(){ try{ localStorage.setItem(LS_RESP, JSON.stringify(R)); }catch(e){ toast('No se pudo guardar en este navegador.'); } }
 
 function esRenovable(c){
-  return c.tipo === 'Nuevo' && NO_RECURRENTES.indexOf(c.cat) === -1;
+  return c.tipo === 'Nuevo' && esRecurrente(c);
 }
 function montoTotal(c){
   var t = Number(c.montoTotal), m = Number(c.monto)||0;
@@ -686,7 +703,7 @@ document.getElementById('cambiar').addEventListener('click', function(){
   var datos = esCifrado(crudo) ? await abrir(crudo) : crudo;
 
   CONTRATOS = datos.filter(function(c){
-    return !c.cerrado && c.ac && NO_RECURRENTES.indexOf(c.cat) === -1;
+    return !c.cerrado && c.ac && esRecurrente(c);
   });
 
   try{

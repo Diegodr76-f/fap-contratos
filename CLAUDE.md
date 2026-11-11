@@ -345,14 +345,25 @@ hechas para eso que conviene reutilizar en vez de rehacer:
 - **Estilos del celular en las media queries, no en `style=""`**: un estilo en línea
   le gana a la media query (así quedaban dos columnas de 150 px en el teléfono).
 - **Que un contrato venza no lo hace renovable.** `esRenovable(c)` (junto a
-  `isConsultoria`) es la única fuente: `c.tipo==="Nuevo"` y `c.cat` fuera de
-  `NO_RECURRENTES` (Consultoría, Adquisición de equipos de campo) — la misma
-  regla de `scripts/plan_renovaciones.py` y `renovaciones/index.html`, no la
-  reinventes. El FIAS renueva una sola vez: un contrato con `tipo!=="Nuevo"`
-  ya gastó la suya. «Renovar en La Mágica» se probó una vez solo contra
-  vencido/por vencer y ofrecía renovar una consultoría puntual — cualquier
-  botón o alerta que hable de vencimiento y renovación junta pasa por
-  `esRenovable()`, no solo por `statusLive()`.
+  `isConsultoria`) es la única fuente: `c.tipo==="Nuevo"` y `esRecurrente(c)`
+  — la misma regla de `scripts/plan_renovaciones.py` y `renovaciones/index.html`, no
+  la reinventes. El FIAS renueva una sola vez: un contrato con `tipo!=="Nuevo"`
+  ya gastó la suya. Cualquier botón o alerta que hable de vencimiento y renovación
+  pasa por `esRenovable()`, no solo por `statusLive()`; la frase de las alertas sale
+  de `queSigue()`.
+- **Qué es un servicio recurrente lo dicen las fechas, no la categoría**
+  (`esRecurrente()`). Recurrente es lo que corre con el ciclo del año: **termina en
+  diciembre o en enero, o dura un año entero** (`DIAS_ANIO`, 360), y **dura más de
+  30 días** (`DIAS_PUNTUAL`: lo que dura menos va por orden). Con listas de
+  categorías se equivocó dos veces —una consultoría, y luego «Servicios
+  logísticos», el hospedaje de un taller de tres días, salieron renovables— y cada
+  categoría nueva del Excel había que clasificarla a mano. La naturaleza se mira en
+  un solo caso: una **consultoría o una adquisición** nunca es recurrente, aunque
+  termine en enero (la 165 vence el 25 de enero). Con las fechas de 2026 da el mismo
+  reparto que la consulta: 44 renovables, 86 por proceso nuevo, 3 puntuales. La
+  regla está en tres sitios (CLM, `renovaciones/index.html`,
+  `plan_renovaciones.py`) y la sección 19 de `probar_clm.js` les pasa los mismos
+  casos a las tres.
 
 - **La tabla del listado tiene que caber, y «Abrir» no puede esconderse.** Llegó a
   nueve columnas: con las fechas y el estado sin partirse, en una pantalla de 1366 la
@@ -445,6 +456,47 @@ mismo almacenamiento— y abre La Mágica con `#precarga=sol:<id>` o
   exigiendo. El aviso de lo traído usa el rótulo del campo en pantalla.
 
 Lo prueban la sección 18 de `probar_clm.js` y la 25 de `probar_generador.js`.
+
+### El proceso nuevo de un servicio que continúa
+
+Un contrato que ya es una renovación no se renueva otra vez, pero el servicio
+sigue: de 126 contratos consultados para 2027, 84 estaban así y 74 continuaban con
+el mismo proveedor. **«Proceso nuevo en La Mágica»** (`procesoNuevoEnMagica()`)
+abre ese proceso con lo que el CLM tiene delante; el buzón va con
+`#precarga=nue:<n.º>` y `via:"nuevo"`.
+
+- **Cuándo se ofrece.** A todo servicio recurrente en ejecución con el tipo
+  conocido. Si ya es una renovación (`vaPorProcesoNuevo()`) es SU camino y, por
+  vencer, va primero; en uno renovable queda detrás de «Renovar», para quien
+  cambia de proveedor. Lo puntual no lo ofrece: un taller no continúa.
+- **La vía la elige la AC, en un cuadro.** «Con el mismo proveedor» (selección
+  directa por excepción) o «Comparación de precios»; en un contrato renovable, la
+  primera es «Con otro proveedor» — con el mismo, se renueva. Viaja como
+  `tipo_proceso`, y La Mágica solo acepta esas dos (`VIAS_SUCESOR`): la compra
+  directa la elige allá si el monto no pasa del límite.
+- **Qué viaja y qué no.** Objeto, área, el nombre del proveedor (solo con «el
+  mismo») y el vencimiento, del que La Mágica saca el inicio de un servicio
+  continuo: el día siguiente. «Servicio» se marca salvo en combustible, que según
+  cómo se contrate es bien o servicio (`bienServicioSeguro()`). **No viaja el
+  presupuesto** —el del período nuevo lo fija el PAG y la base es el consumo, no lo
+  contratado; va de referencia en una nota—, ni la causal, ni la fecha de fin, ni
+  el RUC (que el CLM no tiene).
+- **Las notas de lo traído son pocas.** Solo lo que se supuso (el inicio) o lo que
+  la AC creería que viene y no viene (presupuesto, RUC). Lo que falta por llenar ya
+  lo dice el aviso ámbar de `requisitos()`: repetirlo arriba es ruido.
+- **La segunda vez no pregunta.** `ov(c).sucesor` recuerda que se abrió; el botón
+  vuelve directo al expediente, que La Mágica no duplica. No se confunde con la
+  renovación del mismo contrato (`ren:`), que es otro expediente.
+
+### Las respuestas de la consulta no pasan por el robot
+
+Lo que cada AC respondió en septiembre (`renovaciones/index.html`, el Excel
+«Respuestas renovación») es una foto fija: no cambia. Lo que cambia es el Excel
+maestro, y eso es lo único que lee el robot. Por eso el CLM no usa las respuestas:
+qué se renueva y qué va por proceso nuevo sale de la hoja `2026` (tipo y fechas), y
+el cuadro del proceso nuevo empieza en «con el mismo proveedor», que es lo que
+respondieron 74 de 84. Las respuestas se cruzan con los contratos fuera del sitio,
+en la hoja de seguimiento.
 
 ## El puente con la carpeta del expediente
 
@@ -625,6 +677,12 @@ Secciones 19, 20, 21 y 22 de `probar_instrumentos.js`.
 diario (`scripts/actualizar_datos.py`); no se edita a mano. El detalle contrato por
 contrato tampoco va en los documentos del repositorio — vive en el anexo que genera
 `scripts/plan_renovaciones.py` fuera de aquí.
+
+**Para leer la base desde una terminal** —una persona o una sesión de Claude, sin
+que nadie suba el Excel—: `python3 scripts/leer_contratos.py` (resumen),
+`--buscar <texto>`, `--json`, y `--fresco` para traer antes lo último que publicó
+el robot. La frase va en la variable de entorno `DATA_KEY` y nunca como
+argumento; nada se escribe en disco. Los proveedores (RUC) no los lee.
 
 ## Los flujos de Power Automate
 

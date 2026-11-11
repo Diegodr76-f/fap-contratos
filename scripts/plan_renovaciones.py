@@ -31,9 +31,22 @@ from openpyxl.utils import get_column_letter
 # ---------------------------------------------------------------- parámetros
 HOY = datetime.date(2026, 9, 1)
 
-# Objetos que no son servicio recurrente: nunca admiten renovación y quedan
-# fuera de esta campaña (van por su propio proceso, con TdR).
-NO_RECURRENTES = {"Consultoría", "Adquisición de equipos de campo"}
+# Qué es un servicio recurrente —el único que entra en esta campaña— lo dicen las
+# FECHAS, no la categoría: termina con el ciclo del año (diciembre o enero) o dura
+# un año entero, y dura más de 30 días (lo que dura menos va por orden: es
+# puntual). Una consultoría o una adquisición nunca lo es: es un producto que se
+# entrega, aunque termine en enero. La misma regla que el CLM y que
+# renovaciones/index.html (probar_clm.js comprueba que coincidan).
+DIAS_PUNTUAL, DIAS_ANIO = 30, 360
+
+
+def es_recurrente(cat, inicio, fin):
+    if re.search(r"consultor|adquisici", norm(cat)):
+        return False
+    if not inicio or not fin:
+        return False
+    dias = (fin - inicio).days + 1
+    return dias > DIAS_PUNTUAL and (fin.month in (12, 1) or dias >= DIAS_ANIO)
 
 RENOVACION = "Renovación"
 NUEVO = "Nuevo proceso"
@@ -115,9 +128,9 @@ def clasificar(filas):
         if d.get("Estado de Gestión") != "Activo":
             continue
         cat = d["CATEGORIA DEL PROCESO/ BIEN O SERVICIO"]
-        recurrente = cat not in NO_RECURRENTES
-        renovable = d["TIPO DE CONTRATO"] == "Nuevo" and recurrente
         fin = fecha(d["FECHA DE FINALIZACIÓN"])
+        recurrente = es_recurrente(cat, fecha(d.get("Fecha de inicio")) or fecha(d.get("FECHA DE FIRMA")), fin)
+        renovable = d["TIPO DE CONTRATO"] == "Nuevo" and recurrente
         inicio27 = fin + datetime.timedelta(days=1) if fin else None
         reg = {
             "nro": d["Nro. DE CONTRATO"],
@@ -430,7 +443,7 @@ def escribir_xlsx(universo, fuera, destino):
         ("Sucesor arranca el 1 de febrero de 2027", gc["1-feb"], gm["1-feb"]),
         ("Sucesor arranca después de febrero de 2027", gc["posterior"], gm["posterior"]),
         ("", None, None),
-        ("Fuera de esta campaña: objeto no recurrente", len(fuera), sum(x["monto"] for x in fuera)),
+        ("Fuera de esta campaña: no es un servicio recurrente", len(fuera), sum(x["monto"] for x in fuera)),
     ]
     _cab(ws, 4, ["Concepto", "N.º", "Monto 2026 (USD)"], [62, 10, 20])
     for i, (t, n, m) in enumerate(filas, start=5):

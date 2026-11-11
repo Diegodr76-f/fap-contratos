@@ -3048,8 +3048,12 @@ function delArea(i){var list=areasList();if(list.length<=1){toast('Debe quedar a
 // que se va a renovar. Para que no los vuelva a teclear aquí, los deja en un
 // buzón del navegador —el CLM y La Mágica son del mismo sitio y comparten
 // localStorage— y abre La Mágica con #precarga=<id>. La URL lleva solo el
-// identificador (ren:<n.º de contrato> o sol:<id de la solicitud>), nunca los
-// datos: una URL queda en el historial y en los registros.
+// identificador (ren:<n.º de contrato>, sol:<id de la solicitud> o
+// nue:<n.º de contrato>), nunca los datos: una URL queda en el historial y en
+// los registros.
+// «nue:» es el proceso nuevo que continúa un contrato que ya no se puede
+// renovar (el FIAS renueva una sola vez): mismo servicio y, casi siempre, mismo
+// proveedor, pero por selección directa por excepción o comparación de precios.
 // El buzón habla con los nombres del catálogo (contratoNro, fechaContrato,
 // fechaFin, montoTotal, proveedor, objeto, area…) y aquí se pasan a los campos
 // internos, que en la renovación se llaman distinto (ver dataDef).
@@ -3096,6 +3100,14 @@ function expDePrecarga(id){
 function recorta(s,n){ s=String(s==null?'':s).replace(/\s+/g,' ').trim(); return s.length>n?s.slice(0,n-1).trim()+'…':s; }
 function fechaISOoVacio(v){ return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):''; }
 function montoOVacio(v){ var n=num(v); return n>0?String(Math.round(n*100)/100):''; }
+function diaSiguienteISO(iso){
+  if(!fechaISOoVacio(iso)) return '';
+  var p=iso.split('-'), f=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]+1));
+  return isNaN(f.getTime())?'':f.toISOString().slice(0,10);
+}
+// Las dos vías con las que el CLM abre un proceso nuevo. La compra directa no
+// viaja: la AC la elige aquí si el monto no pasa del límite.
+var VIAS_SUCESOR=['Selección directa por excepción','Comparación de precios'];
 function aplicarPrecarga(){
   var m=String(location.hash||'').match(/[#&]precarga=([^&]+)/);
   if(!m) return;
@@ -3113,9 +3125,11 @@ function aplicarPrecarga(){
     toast('No llegaron los datos desde el CLM. Vuelve a pulsar el botón allá, o crea el proceso con + Nuevo proceso.');
     return;
   }
-  var x=buzon.datos||{}, renov=buzon.via==='renovacion';
+  var x=buzon.datos||{}, renov=buzon.via==='renovacion', sucesor=buzon.via==='nuevo';
   newExp(renov
     ? ('Renovación '+(x.contratoNro||'')+(x.objeto?' · '+recorta(x.objeto,40):'')).trim()
+    : sucesor
+    ? ('Proceso nuevo '+(x.contratoNro||'')+(x.objeto?' · '+recorta(x.objeto,40):'')).trim()
     : (recorta(x.objeto,60)||('Proceso '+(ST.exps.length+1))));
   var c=cur(), d=c.data, traidos=[], notas=[];
   // Cada rótulo es el del campo en pantalla, para que la AC lo encuentre.
@@ -3128,6 +3142,31 @@ function aplicarPrecarga(){
     pon('montoAnterior',montoOVacio(x.montoTotal),'Monto contratado (USD)');
     pon('objeto',x.objeto,'Objeto del contrato');
     if(String(x.proveedor||'').trim()){ d.provs[0].razon=String(x.proveedor).trim(); traidos.push('Razón social'); }
+  }else if(sucesor){
+    // El servicio de un contrato que ya no se puede renovar, por proceso nuevo.
+    // Entra lo que el CLM sabe con certeza; lo demás se avisa y lo pone la AC.
+    var nro=String(x.contratoNro||'').trim(), ref='contrato vigente'+(nro?' ('+nro+')':'');
+    if(VIAS_SUCESOR.indexOf(x.tipo_proceso)>=0){ d.tipoProceso=x.tipo_proceso; traidos.push('Tipo de proceso'); }
+    if(x.bienServicio==='Bien'||x.bienServicio==='Servicio') pon('bienServicio',x.bienServicio,'¿Bien o servicio?');
+    pon('objeto',x.objeto,'Objeto del proceso');
+    // Pocas notas y cortas: lo que falta por llenar ya lo dice el aviso ámbar
+    // de abajo (la causal, la fecha de fin). Aquí va solo lo que se SUPUSO o lo
+    // que la AC podría creer que viene y no viene.
+    if(String(x.objeto||'').trim()) notas.push('Revisa el objeto: viene tal como está escrito en el '+ref+'.');
+    var provNuevo=String(x.proveedor||'').trim();
+    if(provNuevo){ d.provs[0].razon=provNuevo; traidos.push('Razón social (solo el nombre)');
+      notas.push('Del proveedor viene solo el nombre: indica cómo se le trata. Su RUC va con la oferta, en el Momento 2.'); }
+    else notas.push(d.tipoProceso==='Comparación de precios'
+      ? 'Es comparación de precios: registra los 3 proveedores a invitar. El del contrato vigente no se copió; si lo vas a invitar, escríbelo.'
+      : 'Escribe el proveedor a invitar: el del contrato vigente no se copió.');
+    // Un servicio recurrente es continuo, y su sucesor arranca al día siguiente
+    // del vencimiento. Hasta cuándo va no se sabe: lo escribe la AC.
+    var arranca=diaSiguienteISO(x.fechaFin);
+    if(arranca){ d.tipoPlazo='continuo'; d.ejecDesde=arranca; traidos.push('La ejecución empieza el');
+      notas.push('Puse como inicio el '+fechaLarga(arranca)+', el día siguiente al vencimiento del contrato vigente. Cámbialo si el servicio arranca otro día.'); }
+    // El presupuesto NO viaja: el del nuevo período lo fija el PAG, y la base es
+    // el consumo ejecutado, no lo contratado. Lo contratado va de referencia.
+    if(num(x.montoTotal)>0) notas.push('El presupuesto no viene puesto: lo fija el PAG. De referencia, el contrato vigente fue por '+money(num(x.montoTotal))+', adendas incluidas.');
   }else{
     pon('objeto',x.objeto,'Objeto del proceso');
     if(x.bienServicio==='Bien'||x.bienServicio==='Servicio') pon('bienServicio',x.bienServicio,'¿Bien o servicio?');

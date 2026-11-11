@@ -531,15 +531,52 @@ function isConsultoria(c){const s=(norm(c.cat)+" "+norm(c.tipo)+" "+norm(c.detal
    (scripts/plan_renovaciones.py, renovaciones/index.html — no la reinventes aquí).
    El FIAS permite renovar UNA SOLA VEZ, así que un contrato que ya es una
    renovación (tipo !== "Nuevo") agotó su cupo: va por proceso administrativo
-   nuevo. Y un objeto que no es servicio recurrente —consultoría, adquisición de
-   equipos— nunca se renueva, así venza: es un estudio o una compra puntual,
-   no algo que continúe. c.tipo es "tipo de contrato" del Excel (columna
-   obligatoria); c.cat es la categoría del proceso. */
-const NO_RECURRENTES=["Consultoría","Adquisición de equipos de campo"];
-function esRenovable(c){return c.tipo==="Nuevo"&&!NO_RECURRENTES.includes(c.cat);}
+   nuevo. Y solo se renueva un servicio RECURRENTE. c.tipo es "tipo de contrato"
+   del Excel (columna obligatoria); c.cat es la categoría del proceso.
+
+   Qué es «recurrente» lo dicen las FECHAS, no una lista de categorías. Un
+   servicio que continúa de un año al otro corre con el ciclo del año: termina en
+   diciembre o en enero (el cierre), o dura un año entero. Y dura más de 30 días:
+   lo que dura menos va por orden, es puntual. Con una lista de categorías se
+   equivocó dos veces —una consultoría y luego «Servicios logísticos», el
+   hospedaje de un taller de tres días, salieron renovables— y cada categoría
+   nueva del Excel había que clasificarla a mano. Por fechas, el taller se cae
+   solo: tres días, en noviembre.
+   La naturaleza sí se mira en un caso: una consultoría o una adquisición es un
+   producto que se entrega, no un servicio que continúa, aunque termine en enero
+   (FIAS-FAP-2026-165: consultoría que vence el 25 de enero).
+   La misma regla está en renovaciones/index.html y scripts/plan_renovaciones.py;
+   probar_clm.js comprueba que digan lo mismo. */
+const DIAS_PUNTUAL=30, DIAS_ANIO=360;
+function porNaturalezaPuntual(c){return /consultor|adquisici/.test(plano(c&&c.cat));}
+function diasContrato(c){
+  const a=c&&(c.inicio||c.firma),b=c&&c.fin;
+  if(!a||!b)return 0;
+  const d=Math.round((Date.parse(b+"T00:00:00Z")-Date.parse(a+"T00:00:00Z"))/86400000)+1;
+  return isFinite(d)&&d>0?d:0;
+}
+function cierraConElAnio(c){const m=Number(String(c&&c.fin||"").slice(5,7));return m===12||m===1;}
+function esRecurrente(c){
+  if(!c||porNaturalezaPuntual(c))return false;
+  const d=diasContrato(c);
+  return d>DIAS_PUNTUAL&&(cierraConElAnio(c)||d>=DIAS_ANIO);
+}
+function esRenovable(c){return c.tipo==="Nuevo"&&esRecurrente(c);}
+/* El servicio sigue, pero el contrato ya gastó su única renovación: su
+   continuación es un proceso administrativo nuevo (ver «Proceso nuevo en La
+   Mágica»). Sin el dato del tipo no se sabe, y no se adivina. */
+function vaPorProcesoNuevo(c){return esRecurrente(c)&&!!c.tipo&&c.tipo!=="Nuevo";}
 function motivoNoRenovable(c){
-  if(NO_RECURRENTES.includes(c.cat))return `Es ${c.cat==="Consultoría"?"una consultoría":"una adquisición de equipos"}, no un servicio recurrente: no admite renovación.`;
-  if(c.tipo&&c.tipo!=="Nuevo")return "Ya es una renovación — el FIAS permite renovar una sola vez. Va por proceso administrativo nuevo.";
+  if(!esRecurrente(c)){
+    const k=plano(c.cat);
+    if(/consultor/.test(k))return "Es una consultoría, no un servicio recurrente: no admite renovación.";
+    if(/adquisici/.test(k))return "Es una adquisición, no un servicio recurrente: no admite renovación.";
+    if(!c.fin||!(c.inicio||c.firma))return "Faltan las fechas de inicio o de finalización en el Excel maestro: sin ellas no se sabe si el servicio continúa.";
+    const d=diasContrato(c);
+    if(d<=DIAS_PUNTUAL)return `Dura ${d} día${d===1?"":"s"}: es un servicio puntual, no uno que continúe de un año al otro. No admite renovación.`;
+    return `Termina el ${fdate(c.fin)} y dura ${d} días: no va con el ciclo del año (no cierra en diciembre o enero, ni dura un año). No admite renovación.`;
+  }
+  if(c.tipo&&c.tipo!=="Nuevo")return "Ya es una renovación — el FIAS permite renovar una sola vez. Su continuación va por «Proceso nuevo en La Mágica».";
   // Sin el dato no se sabe: mejor decirlo que adivinar (y de paso apunta a
   // dónde se corrige, igual que la carpeta interna del expediente).
   return `Falta el «Tipo de contrato» en el Excel maestro: sin saber si es Nuevo no se puede ofrecer la renovación.`;
@@ -984,6 +1021,14 @@ async function abrirRegistro(pedido){
     liberarCalificacionesRetiradas();
   }catch(e){REG={estado:"falla",porNro:{},generado:null};}
 }
+/* Qué le toca a un contrato que se acerca al vencimiento, en una frase: la usan
+   las dos alertas de vencimiento. No promete una renovación que no aplica, ni un
+   proceso nuevo para algo que no continúa (el hospedaje de un taller). */
+function queSigue(c,urge){
+  if(esRenovable(c))return urge?"decide renovación o terminación ya":"ventana de renovación abierta";
+  if(vaPorProcesoNuevo(c))return urge?"no se renueva — prepara el proceso nuevo ya":"no se renueva — va por proceso nuevo";
+  return esRecurrente(c)?"no se renueva sin el «Tipo de contrato» en el Excel maestro":"no se renueva: es un servicio puntual";
+}
 /* Qué decir de dónde salen las calificaciones, según el estado del registro. */
 function notaRegistro(corta){
   if(REG.estado==="ok")return corta?"Calificaciones del Registro compartido y de este navegador."
@@ -1109,8 +1154,14 @@ function alertList(){
     const i=CONTRACTS.indexOf(c);
     const o=ov(c),s=statusLive(c),d=diasRestantes(c);
     if(s.key==="vencido")out.push({sev:0,icon:"⛔",col:"var(--red)",bg:"var(--redbg)",t:`Vencido hace ${Math.abs(d)}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${c.area||""}`,i,act:"Terminar",fn:"ter"});
-    else if(s.key==="aviso"&&d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${esRenovable(c)?"decide renovación o terminación ya":"no se renueva — prepara el proceso nuevo ya"}`,i,act:"Abrir",fn:"open"});
-    else if(s.key==="aviso")out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${esRenovable(c)?"ventana de renovación abierta":"no se renueva — va por proceso nuevo"}`,i,act:"Abrir",fn:"open"});
+    else if(s.key==="aviso"){
+      // A la AC, la alerta de un contrato que continúa por proceso nuevo la lleva
+      // directo a abrirlo; a los demás, al contrato.
+      const nue=SES&&SES.rol==="ac"&&vaPorProcesoNuevo(c);
+      const acc=nue?{act:"Proceso nuevo",fn:"nue"}:{act:"Abrir",fn:"open"};
+      if(d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,true)}`,i,...acc});
+      else out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,false)}`,i,...acc});
+    }
     if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
     // Quien califica es la AC del contrato: a ella, una alerta por contrato. A la
     // Unidad Operativa, que ve el portafolio entero, una sola agregada (abajo).
@@ -1231,6 +1282,7 @@ function bindAlertRows(){
     const i=+b.dataset.i;const c=CONTRACTS[i];
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
     else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
+    else if(fn==="nue"){go("detalle",i);setTimeout(()=>procesoNuevoEnMagica(c),80);}
     else if(fn==="env"){go("detalle",i);setTimeout(()=>modalEnvioUO(c,ov(c).pendienteEnvio),80);}
     else go("detalle",i);
   });
@@ -1634,6 +1686,20 @@ function vDetalle(){
   // que «Calificar proveedor» dice «Disponible al terminar». Que se esconda
   // sería más confuso justo cuando el contrato está por vencer, que es
   // cuando la AC lo busca.
+  // «Proceso nuevo»: el servicio continúa, pero no por renovación. Es EL camino
+  // del contrato que ya gastó la suya (tocaNuevo) y entonces, por vencer, va
+  // primero. En uno renovable queda detrás de «Renovar», para la AC que decidió
+  // cambiar de proveedor. Lo puntual (un taller, una compra) no lo ofrece.
+  const puedeNuevo=!done&&esRecurrente(c)&&!!c.tipo;
+  const tocaNuevo=puedeNuevo&&!puedeRenovar;
+  const urgeNuevo=tocaNuevo&&(s.key==="aviso"||s.key==="vencido");
+  const yaNuevo=o.sucesor||null;
+  const nuevoBtn=!puedeNuevo?"":`<button class="actbtn" id="a-nue">
+              <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M12 12v6M9 15h6"/></svg></span>
+              <span><span class="at">Proceso nuevo en La Mágica</span><span class="ad">${yaNuevo?`Abierto el ${fdate(String(yaNuevo.en).slice(0,10))} · vuelve a su expediente`
+                :tocaNuevo?(urgeNuevo?`<b style="color:var(--amber)">${esc(vigenciaText(c))}</b> · `:"")+"el servicio continúa con un proceso nuevo: objeto, área y proveedor ya puestos"
+                :"solo si no vas a renovar: otro proveedor o comparación de precios"}</span></span>
+            </button>`;
   const renovBtn=done?"":`<button class="actbtn" id="a-ren" ${puedeRenovar?"":"disabled"}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
               <span><span class="at">Renovar en La Mágica</span><span class="ad">${puedeRenovar?(urgeRenov?`<b style="color:var(--amber)">${esc(vigenciaText(c))}</b> · `:"")+"abre la renovación con n.º, fechas, monto y proveedor ya puestos":esc(motivoNoRenovable(c))}</span></span>
@@ -1712,7 +1778,7 @@ function vDetalle(){
           <p class="ptitle">Acciones del ciclo de vida</p>
           <p class="psub">Generan el borrador oficial en Word y dejan rastro en la bitácora.</p>
           <div class="act">
-            ${urgeRenov?renovBtn:""}
+            ${urgeRenov?renovBtn:""}${urgeNuevo?nuevoBtn:""}
             <button class="actbtn" id="a-mod" ${done?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
               <span><span class="at">Modificar contrato</span><span class="ad">Adenda o aumento de monto · informe FAP-2026-11</span></span>
@@ -1721,7 +1787,7 @@ function vDetalle(){
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
               <span><span class="at">Terminar contrato</span><span class="ad">Acta de terminación FAP-2026-12 · escoger causal</span></span>
             </button>
-            ${urgeRenov?"":renovBtn}
+            ${urgeRenov?"":renovBtn}${urgeNuevo?"":nuevoBtn}
             <button class="actbtn" id="a-cal" ${(!done||cal||!puedeCalificar(c))?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7Z"/></svg></span>
               <span><span class="at">Calificar proveedor</span><span class="ad">${done?(cal?(anteriorSinConfirmar(c)?"Hay una calificación anterior sin confirmar":"Calificación registrada ✓"):puedeCalificar(c)?"FO-AD-ABC-017 · 13 criterios":esc(quienCalifica(c))):"Disponible al terminar"}</span></span>
@@ -1762,6 +1828,7 @@ function vDetalle(){
   $("#a-nota").onclick=()=>modalNota(c);
   const re=$("#a-reabrir");if(re)re.onclick=()=>reabrirContrato(c);
   const rn=$("#a-ren");if(rn&&puedeRenovar)rn.onclick=()=>renovarEnMagica(c);
+  const nu=$("#a-nue");if(nu)nu.onclick=()=>procesoNuevoEnMagica(c);
 }
 /* Deshacer una terminación hecha por error. Terminar era un camino sin vuelta:
    un clic en el contrato equivocado lo dejaba «Terminado» para siempre en este
@@ -2474,7 +2541,8 @@ function modalEnvioUO(c,ctx){
    Lo que el CLM ya sabe no se vuelve a teclear en La Mágica. Los datos van a un
    buzón del navegador (fap_precarga: mismo sitio, mismo localStorage) y La Mágica
    se abre con #precarga=<id>, donde id es «sol:<solicitud>» o «ren:<n.º de
-   contrato>». La URL no lleva datos, solo ese identificador: queda en el
+   contrato>» o «nue:<n.º de contrato>» (el proceso nuevo que continúa un
+   contrato que ya no se puede renovar). La URL no lleva datos, solo ese identificador: queda en el
    historial. El buzón usa los nombres del catálogo (contratoNro, fechaContrato,
    fechaFin, montoTotal…); La Mágica los pasa a sus campos y borra el buzón.
    Pulsar otra vez abre el mismo expediente: La Mágica no duplica. */
@@ -2503,6 +2571,84 @@ function renovarEnMagica(c){
   if(q&&!q.elegible&&!confirm(`${c.proveedor} está calificado como NO ELEGIBLE: ${puntos(q.score)}/100 · ${q.sem}${q.fecha?", el "+fdate(q.fecha):""} (contrato ${q.nro}).\n\n${q.t.cons}\n\n¿Abrir la renovación de todos modos?`))return;
   logAdd("🔁","Renovación abierta en La Mágica con los datos del contrato",c.nro);
   aLaMagica("ren:"+c.nro,"renovacion",datosRenovacion(c));
+}
+
+/* ---- Proceso nuevo para un servicio que continúa ----
+   Un contrato que ya es una renovación no se renueva otra vez: el mismo servicio,
+   y casi siempre el mismo proveedor, siguen el año siguiente por un proceso
+   administrativo nuevo. De 126 contratos consultados para 2027, 84 estaban así, y
+   74 seguían con el mismo proveedor. Sin esto la AC volvía a teclear en La Mágica
+   el objeto, el área y el proveedor de un contrato que el CLM tiene delante.
+
+   Viaja lo que el CLM sabe con certeza y nada más:
+    · el tipo de proceso, que elige la AC aquí (no se deduce);
+    · objeto, área y —solo si sigue el mismo— el nombre del proveedor;
+    · el vencimiento, del que La Mágica saca el día en que arranca el servicio;
+    · «Servicio», cuando la categoría no deja duda (el combustible la deja).
+   No viaja el presupuesto: el monto del año que viene lo fija el PAG y la base es
+   el consumo ejecutado, no el contrato vigente; va como referencia, en una nota.
+   Tampoco la causal ni el RUC (que el CLM no tiene: ver «El RUC no llega al CLM»). */
+const MODOS_NUEVO={
+  mismo:{tipo:"Selección directa por excepción",log:"mismo proveedor"},
+  otro:{tipo:"Selección directa por excepción",log:"otro proveedor"},
+  comparar:{tipo:"Comparación de precios",log:"comparación de precios"}
+};
+// Bien o servicio: todas las categorías recurrentes son servicios salvo el
+// combustible, que según cómo se contrate es lo uno o lo otro — ese lo marca la AC.
+function bienServicioSeguro(c){return esRecurrente(c)&&!/combustible/.test(plano(c.cat))?"Servicio":"";}
+function opcionesProcesoNuevo(c){
+  const ops=[];
+  if(!esRenovable(c))ops.push({v:"mismo",t:`Con el mismo proveedor — ${c.proveedor||"sin nombre en la base"}`,
+    d:"Selección directa por excepción: una invitación y el informe de justificación, que sostiene por qué es el mismo (proveedor calificado, recurrencia del servicio)."});
+  else ops.push({v:"otro",t:"Con otro proveedor, elegido directamente",
+    d:"Selección directa por excepción: una invitación, con su causal. El proveedor lo escribes en La Mágica."});
+  ops.push({v:"comparar",t:"Comparación de precios",
+    d:"Se invita a 3 proveedores y califica la Comisión. Los proveedores los escribes en La Mágica."});
+  return ops;
+}
+function datosProcesoNuevo(c,modo){
+  return {tipo_proceso:MODOS_NUEVO[modo].tipo,contratoNro:c.nro,objeto:c.detalle||"",
+    proveedor:modo==="mismo"?(c.proveedor||""):"",area:c.area||"",areaOriginal:c.areaOriginal||"",
+    fechaFin:c.fin||"",montoTotal:montoDe(c)||"",bienServicio:bienServicioSeguro(c)};
+}
+function abrirProcesoNuevo(c,modo){
+  const o=ov(c),primera=!o.sucesor;
+  if(primera){o.sucesor={modo,en:new Date().toISOString()};saveCLM();
+    logAdd("🆕",`Proceso nuevo abierto en La Mágica (${MODOS_NUEVO[modo].log}) con los datos del contrato`,c.nro);}
+  aLaMagica("nue:"+c.nro,"nuevo",datosProcesoNuevo(c,modo));
+}
+function procesoNuevoEnMagica(c){
+  if(!c||c.cerrado||ov(c).terminado||!esRecurrente(c)||!c.tipo)return;
+  // Ya se abrió: La Mágica tiene el expediente y no lo duplica. Se va directo.
+  const ya=ov(c).sucesor;
+  if(ya&&MODOS_NUEVO[ya.modo]){abrirProcesoNuevo(c,ya.modo);return;}
+  const ops=opcionesProcesoNuevo(c),q=ultimaCalifProv(c),ini=ops[0].v;
+  const renov=esRenovable(c);
+  const o=openModal(`
+    <h2>Proceso nuevo para continuar el servicio</h2>
+    <p class="sub">${renov?`<b>${esc(c.nro)}</b> todavía se puede renovar con el mismo proveedor («Renovar en La Mágica»). Esto es para cuando <b>no</b> se va a renovar.`
+      :`<b>${esc(c.nro)}</b> ya es una renovación y el FIAS permite una sola: para que el servicio siga hace falta un <b>proceso administrativo nuevo</b>.`}</p>
+    <div class="note" style="margin-bottom:13px"><b>${esc(trunc(c.detalle,150))}</b><br>${esc(c.area||"")} · ${esc(c.proveedor||"—")}<br>Monto vigente ${money(montoDe(c))} · ${esc(vigenciaText(c))}</div>
+    <div class="frow"><label>¿Cómo se va a contratar?</label>
+      <div class="radios">${ops.map(op=>`<label class="radio ${op.v===ini?"sel":""}"><input type="radio" name="pn" value="${op.v}" ${op.v===ini?"checked":""}><span><span class="rt">${esc(op.t)}</span><span class="rd">${esc(op.d)}</span></span></label>`).join("")}</div>
+    </div>
+    <div id="pnProv"></div>
+    <div class="note" id="pnViaja"></div>
+    <div class="modal-foot"><button class="btn line" id="cancel">Cancelar</button><button class="btn" id="okPN">Abrir en La Mágica</button></div>`);
+  const modo=()=>(o.querySelector("input[name=pn]:checked")||{}).value||ini;
+  // Contratar otra vez a un proveedor no elegible no se prohíbe —decide la AC—,
+  // pero no pasa sin que lo vea, igual que al renovar.
+  const pinta=()=>{
+    o.querySelector("#pnViaja").innerHTML=`La Mágica abre un proceso con el tipo, el objeto${modo()==="mismo"?", el área y el proveedor":" y el área"} ya puestos, y el día en que arranca el servicio. El <b>presupuesto no viaja</b>: el del año que viene lo fija el PAG.`;
+    o.querySelector("#pnProv").innerHTML=(modo()==="mismo"&&q&&!q.elegible)
+    ?`<div class="provaviso r" style="margin:0 0 13px">⛔ <b>${esc(c.proveedor)}</b> está calificado como <b>no elegible</b>: ${puntos(q.score)}/100 · ${esc(q.sem)}${q.fecha?" ("+fdate(q.fecha)+")":""} en el contrato ${esc(q.nro)}. ${esc(q.t.cons)}</div>`:"";};
+  o.querySelectorAll("input[name=pn]").forEach(r=>r.onchange=()=>{
+    o.querySelectorAll(".radio").forEach(l=>l.classList.remove("sel"));r.closest(".radio").classList.add("sel");
+    o._sucio=false;   // elegir entre dos opciones no es «haber escrito»: cerrar no pregunta
+    pinta();});
+  pinta();
+  o.querySelector("#cancel").onclick=()=>closeModal(o);
+  o.querySelector("#okPN").onclick=()=>{const m=modo();closeModal(o);abrirProcesoNuevo(c,m);};
 }
 
 /* ================= VISTA: SOLICITUDES (intake precontractual) ================= */
