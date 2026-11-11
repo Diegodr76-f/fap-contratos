@@ -249,6 +249,18 @@ los dos extremos — del 1 de enero al 31 de diciembre son 365). En continuo, el
 número calculado se guarda igualmente en `d.plazo` para que plantillas y
 comprobaciones lean siempre del mismo sitio; `diasEjecucion()` es la autoridad.
 
+**Por contrato, el proceso tiene tres momentos y el tercero es el envío.** La parte de
+la AC termina al mandar el expediente a la Unidad Operativa, que elabora el contrato; la
+recepción y la entrega vienen después, con el contrato firmado, y su cierre es el acta de
+terminación del CLM. Antes un proceso por contrato mostraba cuatro momentos y dejaba el
+informe de satisfacción o el acta de entrega como pendientes que no le tocaban a la AC.
+`vaPorContratoUO()` decide (no es renovación, no es desierto, `esContrato()`) y
+`nMomentos()` da 3 o 4: nada debe suponer cuatro —stepper, progreso, Documentos y Mis
+procesos cuelgan de ahí—. En `documents()` se quitan recepción y entrega, la orden queda
+«No aplica» y entra la tarjeta «Contrato», que lleva al envío; `requisitos(2)` pide solo
+el envío, y `marcarEnviadoUO()` registra el cierre, como en la renovación. Sección 33 de
+`probar_generador.js`.
+
 No confundir con la **garantía técnica** del bien, que vive en el Momento 3
 (`garantiaAplica`, `garantiaMeses`): esa no obliga a contrato, una orden de
 compra puede llevarla.

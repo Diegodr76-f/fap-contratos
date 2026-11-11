@@ -532,7 +532,7 @@ seccion('21 · Ningún documento se marca LISTO con un hueco dentro');
     const w7=nuevoDom(); base(w7); w7.newExp(nombre); llena(w7.D(), w7);
     if(despues) despues(w7);
     w7.save();
-    ok(w7.doneArr().every(Boolean), nombre+': los cuatro momentos se cierran con lo que la app exige',
+    ok(w7.doneArr().every(Boolean), nombre+': sus '+w7.nMomentos()+' momentos se cierran con lo que la app exige',
        w7.doneArr().join('·'));
     const datos=w7.buildTemplateData(extra||{});
     w7.documents().filter(x=>x.tpl&&x.ready).forEach(doc=>{
@@ -576,6 +576,16 @@ seccion('21 · Ningún documento se marca LISTO con un hueco dentro');
       items:[{desc:'Mantenimiento',unidad:'Servicio',cantidad:'1',punit:'1000'}]});
     d.provs[0]={razon:'Talleres del Oriente',ruc:'1791234567001',dir:'Napo y Quito',tel:'02',monto:'1150',fof:'2026-09-15',genero:'E'};
   }, {invitado:'Talleres del Oriente'});
+  // Por contrato: tres momentos, y el tercero se cierra con el envío.
+  revisa('Selección directa por contrato', d=>{
+    Object.assign(d,{areaId:'a1',tipoProceso:'Selección directa por excepción',bienServicio:'Servicio',
+      fechaInicio:'2026-11-10',numero:'6',objeto:'Mantenimiento preventivo y correctivo de vehículos',
+      tipoPlazo:'continuo',ejecDesde:'2027-01-01',ejecHasta:'2027-12-31',plazo:'365',presupuesto:'6000',
+      causal:'Único proveedor cerca del AP',partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura mensual',
+      fechaInvitacion:'2026-11-11',fechaLimite:'2026-11-18',fechaAdj:'2026-11-20',adjudicado:'Talleres del Oriente',
+      items:[{desc:'Mantenimiento mensual',unidad:'Mes',cantidad:'12',punit:'434.7826087'}]});
+    d.provs[0]={razon:'Talleres del Oriente',ruc:'1791234567001',dir:'Napo y Quito',tel:'02',monto:'6000',fof:'2026-11-15',genero:'E'};
+  }, {invitado:'Talleres del Oriente'}, w7=>{ w7.cur().enviadoUO={fecha:new Date().toISOString(),archivos:3,por:'AC'}; });
   revisa('Compra directa', d=>{
     Object.assign(d,{areaId:'a1',tipoProceso:'Compra directa',bienServicio:'Bien',tipoBien:'Bien de control',
       fechaInicio:'2026-09-10',numero:'5',objeto:'Insumos de oficina',plazo:'10',presupuesto:'500',
@@ -1346,6 +1356,74 @@ seccion('32 · Texto largo: cada línea, un párrafo de Word');
   const fm=fuente('generador/index.html'), fi=fuente('instrumentos/index.html');
   ok(!!fm && fm===fi,'partirParrafosXml es la misma, letra por letra, en La Mágica y en el Generador de Instrumentos');
 })().then(()=>{
-  console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
+  seccion('33 · Lo que va por contrato termina en el envío a la Unidad Operativa');
+// La recepción y la entrega de un contrato vienen después, con el contrato
+// firmado, y no las hace La Mágica. Un proceso por contrato mostraba cuatro
+// momentos y dejaba el «Informe de satisfacción» o el «Acta de entrega» como
+// pendientes que no le tocaban a la AC.
+{
+  const arma=(extra)=>{
+    const w8=nuevoDom();
+    w8.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',maeGenero:'M',apGenero:'M',lugar:'El Coca'}];
+    w8.ST.cfg.ac='Lcda. Ana Torres'; w8.ST.cfg.acCorreo='atorres@fias.org.ec';
+    w8.newExp('Mantenimiento 2027'); const d=w8.D();
+    Object.assign(d,{areaId:'a1',tipoProceso:'Comparación de precios',bienServicio:'Bien',tipoBien:'Activo fijo',
+      fechaInicio:'2026-11-10',numero:'8',objeto:'Mantenimiento',plazo:'20',presupuesto:'6000',
+      partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',formaPago:'Factura',
+      fechaInvitacion:'2026-11-11',fechaLimite:'2026-11-18',fechaAdj:'2026-11-20',adjudicado:'Proveedor A',presencialVirtual:'presencial',
+      items:[{desc:'Repuestos',unidad:'Juego',cantidad:'2',punit:'2608.6956522'}]},extra||{});
+    d.provs[0]={razon:'Proveedor A',ruc:'1',dir:'x',tel:'',monto:'6000',fof:'2026-11-15',genero:'E'};
+    w8.save(); return w8;
+  };
+  // Por orden (20 días): todo como antes.
+  let w8=arma();
+  ok(w8.vaPorContratoUO()===false && w8.nMomentos()===4,'por orden siguen siendo cuatro momentos');
+  ok(w8.momentosNombres().join(',')==='Apertura,Adjudicación,Recepción,Entrega','con Recepción y Entrega');
+  ok(w8.documents().map(x=>x.id).join(',')==='inicio,invit,acta,orden,recep,entrega','y sus documentos de siempre');
+
+  // Por contrato (más de 30 días): tres momentos.
+  w8=arma({plazo:'45'});
+  ok(w8.vaPorContratoUO()===true && w8.nMomentos()===3,'con 45 días de plazo va por contrato: tres momentos');
+  ok(w8.momentosNombres().join(',')==='Apertura,Adjudicación,Contrato · U. Operativa','el tercero es el envío a la Unidad Operativa',w8.momentosNombres().join(','));
+  const docs=w8.documents();
+  ok(docs.map(x=>x.id).join(',')==='inicio,invit,acta,orden,contratoUO','sin recepción ni entrega',docs.map(x=>x.id).join(','));
+  ok(docs.find(x=>x.id==='orden').noAplica===true,'la orden se muestra como «No aplica», no como bloqueada');
+  const ctr=docs.find(x=>x.id==='contratoUO');
+  ok(ctr.m===3 && !ctr.tpl && /Unidad Operativa/.test(ctr.note),'el documento del Momento 3 es el contrato, que hace la Unidad');
+  ok(w8.m1Done() && w8.m2Done() && !w8.m3Done(),'los dos primeros cierran; el tercero espera el envío');
+  ok(w8.faltan(2).map(x=>x.label).join('|')==='Enviar el expediente a la Unidad Operativa','y lo único que pide es enviar',w8.faltan(2).map(x=>x.label).join('|'));
+  ok(!w8.faltan(2).some(x=>/recepción|Garantía técnica|jefe de área/i.test(x.label)),'ni fecha de recepción, ni garantía técnica, ni datos de la entrega');
+  ok(w8.docsObligatorios().map(x=>x.id).join(',')==='inicio,invit,acta','para enviar se exigen los de los momentos 1 y 2, no la orden',w8.docsObligatorios().map(x=>x.id).join(','));
+  w8.ST.nav='captura'; w8.ST.step=2; w8.render();
+  let txt=w8.document.getElementById('app').textContent;
+  ok(/Contrato \(Unidad Operativa\)/.test(txt) && /Ir a Enviar a la Unidad Operativa/.test(txt),'la captura del Momento 3 lleva a enviar');
+  ok(/Paso 3 de 3/.test(txt) && /0 de 3 momentos|2 de 3 momentos/.test(txt),'el paso a paso y el progreso cuentan tres',(txt.match(/\d de \d momentos/)||[''])[0]);
+  ok(w8.document.querySelectorAll('.pasos .paso').length===3,'el stepper tiene tres botones');
+  ok(/Ir a Documentos/.test(txt),'y desde el tercero se va a Documentos');
+  w8.ST.nav='documentos'; w8.render(); txt=w8.document.getElementById('app').textContent;
+  ok(/Lo hace la U\.O\./.test(txt) && /Contrato.*Enviar a la Unidad Operativa →/.test(txt) && !/Contrato[^·]*Bloqueado/.test(txt),
+     'en Documentos, la tarjeta del contrato lleva al envío en vez de decir «Bloqueado»');
+
+  // Si estaba en el Momento 4 y el plazo lo pasa a contrato, no queda en un momento que no existe.
+  w8=arma(); w8.ST.nav='captura'; w8.ST.step=3; w8.render();
+  w8.D().plazo='60'; w8.save(); w8.render();
+  ok(w8.ST.step===2,'si estaba en el Momento 4 y pasa a contrato, cae en el 3',w8.ST.step);
+
+  // Enviar cierra el expediente, como en la renovación.
+  w8=arma({plazo:'45'});
+  w8.cur().generated={inicio:true,invit:true,acta:true}; w8.save();
+  w8.URL.createObjectURL=()=>'blob:prueba'; w8.URL.revokeObjectURL=()=>{};   // el cierre baja su .json
+  w8.marcarEnviadoUO(3);
+  ok(w8.m3Done() && w8.doneArr().length===3 && w8.doneArr().every(Boolean),'enviado, los tres momentos quedan cerrados');
+  ok(w8.cur().cierreRegistrado===true,'y el cierre queda en el Historial al salir hacia la Unidad');
+  const r=w8.resumenExp(w8.cur());
+  ok(r.momento===3 && r.etapa==='Contrato · U. Operativa' && r.faltanDatos===0,'Mis procesos lo muestra en su último momento, sin datos pendientes',JSON.stringify({m:r.momento,e:r.etapa,f:r.faltanDatos}));
+
+  // Un proceso desierto no llega a contrato.
+  w8=arma({plazo:'45',desierto:true,adjudicado:''});
+  ok(w8.vaPorContratoUO()===false,'un proceso desierto no va a la Unidad: no hay contrato');
+}
+
+console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
   process.exit(fallos?1:0);
 });
