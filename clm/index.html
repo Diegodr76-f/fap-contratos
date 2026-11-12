@@ -581,6 +581,13 @@ function motivoNoRenovable(c){
   // dónde se corrige, igual que la carpeta interna del expediente).
   return `Falta el «Tipo de contrato» en el Excel maestro: sin saber si es Nuevo no se puede ofrecer la renovación.`;
 }
+/* El año del PAG que nombra el informe de adenda. Estaba escrito «2026» en la
+   plantilla: una adenda de 2027 habría salido citando el PAG del año anterior.
+   Es el de la reprogramación si se dio su fecha; si no, el del contrato. */
+function anioPAG(c,isoReprog){
+  const a=String(isoReprog||"").match(/^(20\d\d)-/)||String(c&&c.nro||"").match(/(20\d\d)/)||String(c&&c.inicio||"").match(/^(20\d\d)/);
+  return a?a[1]:String(new Date().getFullYear());
+}
 function montoEnLetras(n){
   n=Number(n)||0;
   const ent=Math.floor(n), cent=Math.round((n-ent)*100);
@@ -2102,6 +2109,7 @@ function modalModificar(c){
         ac:c.ac||"",area:c.area||"",siglas:$("#siglas",o).value.trim()||M("siglas del área"),
         fecha:longDate(todayISO()),fechaContrato:longDate(c.firma),
         fechaReprog:$("#fechaReprog",o).value?longDate($("#fechaReprog",o).value):M("fecha de reprogramación PAG"),
+        anio:anioPAG(c,$("#fechaReprog",o).value),
         partida:$("#partida",o).value.trim()||M("código de partida"),
         lineaNombre:$("#lineaNombre",o).value.trim()||M("nombre de la línea PAG"),
         montoOriginal:money(montoOriginal).replace("$",""),montoOriginalLetras:montoEnLetras(montoOriginal),
@@ -2707,7 +2715,7 @@ function modalNuevaSolicitud(){
     <h2>Nueva solicitud de contratación</h2>
     <p class="sub">Fase de intake. Con plazo y garantías, la regla oficial decide la vía del proceso.</p>
     <div class="frow"><label>Área protegida</label><select id="sArea">${areas.map(a=>`<option ${SES.rol==="area"&&SES.user===a?"selected":""}>${esc(a)}</option>`).join("")}</select></div>
-    <div class="frow"><label>Objeto de la contratación</label><input id="sObj" placeholder="Ej.: Servicio de mantenimiento de senderos 2026"></div>
+    <div class="frow"><label>Objeto de la contratación</label><input id="sObj" placeholder="Ej.: Servicio de mantenimiento de senderos"></div>
     <div class="frow2">
       <div class="frow"><label>Tipo</label><select id="sTipo"><option value="servicio">Servicio</option><option value="bien">Bien</option></select></div>
       <div class="frow"><label>Presupuesto referencial (USD)</label><input id="sMonto" type="number" min="0" step="0.01" placeholder="0.00"></div>

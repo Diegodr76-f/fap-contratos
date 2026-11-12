@@ -2340,6 +2340,14 @@
       "ejemplo": "",
       "tipo": "repetible",
       "origen": ""
+    },
+    {
+      "id": "pfap2027anio01",
+      "grupo": "Proceso",
+      "nombre": "anio",
+      "descripcion": "Año del proceso o del contrato, para que ningún documento lo lleve escrito a mano. En La Mágica es el de la fecha de inicio (el mismo del código del expediente); en el informe de adenda, el del PAG: el de la reprogramación o, si no se da, el del contrato.",
+      "ejemplo": "2027",
+      "tipo": "texto"
     }
   ]
 }

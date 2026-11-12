@@ -281,6 +281,38 @@ try:
     wb["Proveedores"].title = " PROVEEDORES"
     salida, con, reg = correr(wb, tmp)
     ok(reg == [], "los nombres de las hojas se reconocen sin importar mayúsculas ni espacios de más")
+
+    # ------------------------------------------------------------ 5
+    seccion("5 · El cambio de año: la hoja «2027» también se lee")
+    def fila(anio, i, nro=None):
+        return [i, nro or f"FIAS-FAP-{anio}-{i:03d}", f"Servicio {anio} {i}", "Parque Nacional Cotopaxi", "Mantenimiento",
+                2000 + i, datetime.datetime(anio, 1, 1), datetime.datetime(anio, 1, 20), datetime.datetime(anio, 12, 31),
+                "Nuevo", "Servitec S.A.", 364, "No", "N/A", "N/A", "N/A", 2000 + i, "Ana Pérez", "ana@fias.org.ec",
+                "Activo", None, None, None, 80 + i]
+    wb = libro()
+    h = wb.create_sheet("2027"); h.append(["CONTROL DE CONTRATOS 2027"])
+    # Las columnas en otro orden: se buscan por su rótulo, no por su posición.
+    orden = list(range(len(ENCABEZADO_2026))); orden[2], orden[3] = orden[3], orden[2]
+    h.append([ENCABEZADO_2026[j] for j in orden])
+    for i in (1, 2, 3):
+        f = fila(2027, i); h.append([f[j] for j in orden])
+    f = fila(2027, 9, "FIAS-FAP-2026-005"); h.append([f[j] for j in orden])       # repetido de la hoja 2026
+    v = wb.create_sheet("2025"); v.append(["CONTROL 2025"]); v.append(ENCABEZADO_2026); v.append(fila(2025, 1))
+    salida, con, _ = correr(wb, tmp)
+    ok(con is not None and len(con) == 15, "se publican los 12 de «2026» y los 3 de «2027»", len(con or []))
+    ok(con[:12] == base, "los de 2026 salen exactamente igual que antes, y primero")
+    ok([c["nro"] for c in con[12:]] == ["FIAS-FAP-2027-001", "FIAS-FAP-2027-002", "FIAS-FAP-2027-003"]
+       and con[12]["detalle"] == "Servicio 2027 1" and con[12]["area"] == "Parque Nacional Cotopaxi" and con[12]["fin"] == "2027-12-31",
+       "los de 2027 se leen por el rótulo de cada columna, aunque estén en otro orden", con[12] if len(con) > 12 else None)
+    ok(all(set(c) == LLAVES_DE_SIEMPRE for c in con), "con las mismas llaves de siempre")
+    ok(sum(1 for c in con if c["nro"] == "FIAS-FAP-2026-005") == 1 and con[4]["detalle"] == "Servicio 5",
+       "un número repetido en las dos hojas se publica una vez: manda la primera")
+    ok(not any("2025" in c["nro"] for c in con), "las hojas de años anteriores no se leen")
+    ok("«2026» 12, «2027» 3" in salida, "y el robot dice cuántos salieron de cada hoja", salida.strip().splitlines()[-3:])
+    wb = libro(); h = wb.create_sheet("2027"); h.append(["x"]); h.append(["Nro. DE CONTRATO", "Detalle"]); h.append(["FIAS-FAP-2027-001", "x"])
+    salida, con, _ = correr(wb, tmp)
+    ok(con == base and "no se leen sus contratos" in salida,
+       "una hoja «2027» a medio armar no tumba la publicación: se avisa y sale lo de siempre")
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 

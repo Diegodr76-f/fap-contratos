@@ -249,7 +249,10 @@ function toISO(v){
 }
 function parseWorkbook(ab){
   const wb=XLSX.read(ab,{type:"array",cellDates:true});
-  let sheet = wb.Sheets["2026"] || wb.Sheets[wb.SheetNames.find(n=>/2026/.test(n))] || wb.Sheets[wb.SheetNames[0]];
+  /* Las hojas de contratos: «2026» y las de los años siguientes, si ya existen. En
+     enero conviven los contratos de 2026 que vencen el 31 con los nuevos de 2027. */
+  const deAnio=wb.SheetNames.filter(n=>/^\s*20\d\d\s*$/.test(n)&&Number(n)>=2026).sort();
+  const hojas=deAnio.length?deAnio.map(n=>wb.Sheets[n]):[wb.Sheets[wb.SheetNames.find(n=>/2026/.test(n))]||wb.Sheets[wb.SheetNames[0]]];
   /* hoja Export: links y estado por nro de contrato */
   const expMap={};
   const expSheet=wb.Sheets["Export"]||wb.Sheets[wb.SheetNames.find(n=>/export/i.test(n))];
@@ -269,13 +272,15 @@ function parseWorkbook(ab){
       }
     }
   }
+  const out=[],vistos=new Set();
+  hojas.forEach((sheet,nh)=>{
   const rows=XLSX.utils.sheet_to_json(sheet,{header:1,raw:true,defval:null});
   // find header row: contains "detalle del contrato"
   let hidx=-1;
   for(let i=0;i<Math.min(rows.length,15);i++){
     if(rows[i].some(c=>norm(c).includes("detalle del contrato"))){ hidx=i; break; }
   }
-  if(hidx<0) throw new Error("No se encontr\u00f3 la fila de encabezados (DETALLE DEL CONTRATO).");
+  if(hidx<0){ if(nh===0) throw new Error("No se encontr\u00f3 la fila de encabezados (DETALLE DEL CONTRATO)."); return; }
   const hdr=rows[hidx].map(norm);
   const col={};
   for(const key in HEADER_MAP){
@@ -286,13 +291,14 @@ function parseWorkbook(ab){
   }
   /* columnas de estado: cualquier encabezado que contenga "estado" (p. ej. col. U semáforo y col. W estado de cierre) */
   const estadoCols=hdr.map((h,j)=>h.includes("estado")?j:-1).filter(j=>j>=0);
-  const out=[];
   for(let i=hidx+1;i<rows.length;i++){
     const r=rows[i];
     const correo=col.correo!=null?r[col.correo]:null;
     const nro=col.nro!=null?r[col.nro]:null;
     if(!correo||String(correo).indexOf("@")<0) continue;
     if(!nro||String(nro).toUpperCase().indexOf("FIAS")<0) continue;
+    if(vistos.has(String(nro).trim())) continue;   // repetido en dos hojas: manda la primera
+    vistos.add(String(nro).trim());
     const ex=expMap[String(nro).trim()]||{};
     const mtRaw=col.montoTotal!=null?r[col.montoTotal]:null;
     const mt=(mtRaw!=null&&mtRaw!==""&&!isNaN(Number(mtRaw)))?Number(mtRaw):null;
@@ -320,6 +326,7 @@ function parseWorkbook(ab){
       link:(col.link!=null&&r[col.link])?String(r[col.link]).trim():(ex.link||null)
     });
   }
+  });
   return out;
 }
 /* acepta tanto el formato interno como el de la hoja Export (Power Automate) */
@@ -979,6 +986,7 @@ function modalModificar(c){
         fecha:longDate(todayISO()),
         fechaContrato:longDate(c.firma),
         fechaReprog:$("#fechaReprog",o).value?longDate($("#fechaReprog",o).value):M("fecha de reprogramación PAG"),
+        anio:anioPAG(c,$("#fechaReprog",o).value),
         partida:$("#partida",o).value.trim()||M("código de partida"),
         lineaNombre:$("#lineaNombre",o).value.trim()||M("nombre de la línea PAG"),
         montoOriginal:money(montoOriginal).replace("$",""),
@@ -1396,6 +1404,13 @@ function signBlock(c){
     <div><div class="line"></div>Asesoría Legal FAP<br>Revisión</div>
   </div>`;
 }
+/* El año del PAG que nombra el informe de adenda. Estaba escrito «2026» en la
+   plantilla: una adenda de 2027 habría salido citando el PAG del año anterior.
+   Es el de la reprogramación si se dio su fecha; si no, el del contrato. */
+function anioPAG(c,isoReprog){
+  const a=String(isoReprog||"").match(/^(20\d\d)-/)||String(c&&c.nro||"").match(/(20\d\d)/)||String(c&&c.inicio||"").match(/^(20\d\d)/);
+  return a?a[1]:String(new Date().getFullYear());
+}
 function informeModificacionDoc(c,x,titulo){
   if(x.v==="monto"){
     const montoOriginal=c.monto, montoAumento=x.inc, montoTotal=montoOriginal+montoAumento;
@@ -1410,11 +1425,11 @@ function informeModificacionDoc(c,x,titulo){
       <p>Solicitar y justificar el aumento del monto del contrato suscrito entre el Fondo de Inversión Ambiental Sostenible (FIAS) y ${esc(c.proveedor||"—")}, para el: "${esc(c.detalle)}".</p>
       <h2 class="cl">ANTECEDENTES</h2>
       <p>El ${fdate(c.firma)} el FIAS y ${esc(c.proveedor||"—")}, suscribieron el contrato ${esc(c.nro)}, denominado <b>"${esc(nombreCtr).toUpperCase()}"</b>.</p>
-      <p>Mediante reprogramación presupuestaria interna al Plan Anual de Gastos PAG 2026 del ${esc(c.area||"área protegida")} (${manual("siglas del área")}) aprobada el ${manual("fecha de reprogramación")} se aumentó en USD ${money(montoAumento).replace("$","")} (${montoEnLetras(montoAumento)}) la línea presupuestaria ${manual("código de partida")} denominada "${manual("nombre de la línea PAG")}"; la cual, fondea el contrato ${esc(c.nro)}.</p>
+      <p>Mediante reprogramación presupuestaria interna al Plan Anual de Gastos PAG ${esc(anioPAG(c))} del ${esc(c.area||"área protegida")} (${manual("siglas del área")}) aprobada el ${manual("fecha de reprogramación")} se aumentó en USD ${money(montoAumento).replace("$","")} (${montoEnLetras(montoAumento)}) la línea presupuestaria ${manual("código de partida")} denominada "${manual("nombre de la línea PAG")}"; la cual, fondea el contrato ${esc(c.nro)}.</p>
       <p>Mediante comunicación de fecha ${manual("fecha de la comunicación")}, la administración del/la ${esc(c.area||"área protegida")} dejó constancia de la necesidad de incrementar el valor del contrato ${esc(c.nro)} por un monto de USD ${money(montoAumento).replace("$","")} (${montoEnLetras(montoAumento)}) incluidos impuestos, debido a que el presupuesto contemplado inicialmente resulta insuficiente para cubrir las necesidades previstas para la adecuada ejecución del objeto contractual.</p>
       <h2 class="cl">ANÁLISIS</h2>
       <ul>
-        <li>Para el desarrollo de las actividades institucionales y el cumplimiento de la planificación correspondiente al ejercicio fiscal 2026, se requiere garantizar la continuidad de la prestación del servicio contratado, a fin de atender las necesidades operativas del/la ${esc(c.area||"área protegida")} y asegurar el cumplimiento oportuno de las actividades programadas.</li>
+        <li>Para el desarrollo de las actividades institucionales y el cumplimiento de la planificación correspondiente al ejercicio fiscal ${esc(anioPAG(c))}, se requiere garantizar la continuidad de la prestación del servicio contratado, a fin de atender las necesidades operativas del/la ${esc(c.area||"área protegida")} y asegurar el cumplimiento oportuno de las actividades programadas.</li>
         <li>Actualmente, el contrato ${esc(c.nro)} contempla un monto de USD ${money(montoOriginal).replace("$","")} (${montoEnLetras(montoOriginal)}) incluido impuestos, ante lo cual, se requiere aumentar el monto inicial del contrato en USD ${money(montoAumento).replace("$","")}, resultando en un valor total de USD ${money(montoTotal).replace("$","")} (${montoEnLetras(montoTotal)}) incluidos impuestos.</li>
         <li>Este aumento permitirá garantizar la continuidad de la prestación del servicio contratado y el cumplimiento eficiente de las actividades programadas. Cabe indicar que el aumento del monto total del contrato no implica la incorporación de nuevos servicios ni de servicios complementarios a los descritos en el instrumento jurídico ${esc(c.nro)}.</li>
         <li>Este ajuste permitirá garantizar la continuidad de la prestación del servicio contratado y el cumplimiento eficiente de las actividades programadas. La Cláusula Cuarta/Novena "MONTO TOTAL DEL CONTRATO Y FORMA DE PAGO" estipula lo siguiente:<br>

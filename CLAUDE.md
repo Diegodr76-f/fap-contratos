@@ -696,6 +696,30 @@ que nadie suba el Excel—: `python3 scripts/leer_contratos.py` (resumen),
 el robot. La frase va en la variable de entorno `DATA_KEY` y nunca como
 argumento; nada se escribe en disco. Los proveedores (RUC) no los lee.
 
+## El cambio de año
+
+Lo que se revisó en noviembre de 2026 para que enero no rompa nada, y la regla que queda:
+**ningún año va escrito a mano**, ni en el código ni en el texto de una plantilla.
+
+- **El robot lee «2026» y las hojas de los años siguientes** que existan en el Excel maestro
+  (`ANIO_BASE`, `mapear()`, `leer_contratos()`). Leía solo «2026»: los contratos de 2027
+  habrían quedado fuera del CLM sin aviso, y los de 2026 que vencen el 31 de enero tienen que
+  seguir. Cada hoja busca sus columnas por rótulo; una hoja a medio armar se salta avisando;
+  un número repetido en dos hojas se publica una vez. Las de años anteriores no se leen. La
+  carga manual del CRM (`parseWorkbook()`) hace lo mismo. Sección 5 de `probar_robot.py`.
+- **`{anio}`** (catálogo, grupo Proceso) reemplaza el «2026» que cuatro órdenes llevaban en
+  su número («Orden de compra FIAS-FAP-2026-{siglas}-XXX») y el informe de adenda en «PAG
+  2026» y «ejercicio fiscal 2026». En La Mágica es el año de la fecha de inicio, el mismo del
+  código; en la adenda, `anioPAG()`: el de la reprogramación o, sin esa fecha, el del
+  contrato. **Hay que importarlo al sistema.** El «Código: FAP-2026-NN» del encabezado de
+  cada formato NO se tocó: es el código del formato, y lo cambia quien los emite.
+- **Las alertas no comparan contra fechas fijas.** Mis procesos marcaba en rojo lo que
+  arrancaba antes del 1 de enero de 2027; ahora, lo que arranca en 60 días o menos
+  (`isoEnDias()`). `CALIFICA_DESDE` sí es fija, a propósito.
+- **Quedan atadas a 2027 por diseño**, y habrá que rehacerlas para la campaña siguiente:
+  `renovaciones/index.html` y `scripts/plan_renovaciones.py` (prioridades, cortes y `HOY`),
+  el calendario del Planificador y el período de la matriz de `bienes/`.
+
 ## Los flujos de Power Automate
 
 Dos URLs con firma dentro de `generador/index.html`: `FLOW_DOCS_URL` (envío de
