@@ -2,8 +2,7 @@
 """
 Robot de actualización del CRM de Contratos FAP.
 Descarga el Excel maestro desde OneDrive (link secreto EXCEL_URL),
-lee la hoja "2026" —y las de los años siguientes, si existen— + la hoja "Export"
-y regenera crm/contratos_export.json.
+lee la hoja "2026" + la hoja "Export" y regenera crm/contratos_export.json.
 
 Y, si existe, la hoja "Registro de Calificaciones" -> crm/calificaciones_export.json
 (cifrado). Es opcional: sin ella se publica exactamente lo de siempre.
@@ -67,17 +66,8 @@ with open("/tmp/master.xlsx", "wb") as f:
     f.write(r.content)
 
 wb = openpyxl.load_workbook("/tmp/master.xlsx", data_only=True)
-# Las hojas de contratos: «2026» y, desde enero, las de los años siguientes
-# («2027», «2028»…) si ya existen. Hasta 2026 el robot leía solo «2026»: los
-# contratos firmados en 2027 habrían quedado fuera del CLM sin que nada avisara,
-# y los de 2026 que vencen el 31 de enero tienen que seguir estando. Las hojas de
-# años anteriores no se leen (tienen otro formato y ya no se gestionan).
-# Sin una hoja nueva se publica exactamente lo mismo que antes.
-ANIO_BASE = 2026
-ws = wb[str(ANIO_BASE)]
-hdr = []
-C = {}
-estado_cols = []
+ws = wb["2026"]
+hdr = [str(c.value or "").strip().lower() for c in ws[2]]
 
 def col(*aliases):
     for a in aliases:
@@ -86,40 +76,32 @@ def col(*aliases):
                 return j
     return None
 
-def mapear(hoja):
-    """Deja en hdr, C y estado_cols las columnas de esa hoja, buscadas por su rótulo."""
-    global hdr, C, estado_cols
-    hdr = [str(c.value or "").strip().lower() for c in hoja[2]]
-    C = dict(
-        nro=col("nro. de contrato"), detalle=col("detalle del contrato"),
-        area=col("área protegida"), cat=col("categoria del proceso"),
-        monto=col("monto (incluido iva)"), inicio=col("fecha de inicio"),
-        firma=col("fecha de firma"), fin=col("fecha de finalización"),
-        tipo=col("tipo de contrato"), proveedor=col("nombre del proveedor"),
-        plazo=col("plazo"), adenda=col("tiene adenda"),
-        tipoAdenda=col("tipo de adenda"), modificacion=col("modificación", "modificacion"),
-        firmaAdenda=col("fecha de firma2"),
-        ac=col("administrador/a de contrato"), correo=col("correo electrónico ac"),
-        montoTotal=col("valor o plazo total"),
-        # Liquidación de los contratos cerrados (hoja "2026")
-        fcierre=col("fecha de cierre"),
-        liquidado=col("valor liquidado"),
-        saldo=col("saldo no ejecutado", "saldo"),
-        # El puente con el expediente. El número de contrato se asigna al final, así
-        # que nada lo ata a la carpeta donde se elaboró: esa correspondencia solo la
-        # sabe quien la vivió, y estas dos columnas son donde se escribe.
-        #  · carpeta        -> "Numero de carpeta interna" en la hoja 2026
-        #  · codigoProceso  -> el código del expediente de la AC (RPFCH-2026-007)
-        carpeta=col("numero de carpeta", "número de carpeta", "n.º de carpeta",
-                    "carpeta interna", "carpeta"),
-        codigoProceso=col("codigoproceso", "código del proceso", "codigo del proceso"),
-    )
-    estado_cols = [j for j, h in enumerate(hdr) if "estado" in h and "gesti" in h] \
-                  or [j for j, h in enumerate(hdr) if "estado" in h]
-
-OBLIGATORIAS = ("nro", "detalle", "area", "cat", "monto", "inicio", "firma", "fin", "tipo", "proveedor",
-                "plazo", "adenda", "tipoAdenda", "modificacion", "firmaAdenda", "ac", "correo", "montoTotal")
-mapear(ws)
+C = dict(
+    nro=col("nro. de contrato"), detalle=col("detalle del contrato"),
+    area=col("área protegida"), cat=col("categoria del proceso"),
+    monto=col("monto (incluido iva)"), inicio=col("fecha de inicio"),
+    firma=col("fecha de firma"), fin=col("fecha de finalización"),
+    tipo=col("tipo de contrato"), proveedor=col("nombre del proveedor"),
+    plazo=col("plazo"), adenda=col("tiene adenda"),
+    tipoAdenda=col("tipo de adenda"), modificacion=col("modificación", "modificacion"),
+    firmaAdenda=col("fecha de firma2"),
+    ac=col("administrador/a de contrato"), correo=col("correo electrónico ac"),
+    montoTotal=col("valor o plazo total"),
+    # Liquidación de los contratos cerrados (hoja "2026")
+    fcierre=col("fecha de cierre"),
+    liquidado=col("valor liquidado"),
+    saldo=col("saldo no ejecutado", "saldo"),
+    # El puente con el expediente. El número de contrato se asigna al final, así
+    # que nada lo ata a la carpeta donde se elaboró: esa correspondencia solo la
+    # sabe quien la vivió, y estas dos columnas son donde se escribe.
+    #  · carpeta        -> "Numero de carpeta interna" en la hoja 2026
+    #  · codigoProceso  -> el código del expediente de la AC (RPFCH-2026-007)
+    carpeta=col("numero de carpeta", "número de carpeta", "n.º de carpeta",
+                "carpeta interna", "carpeta"),
+    codigoProceso=col("codigoproceso", "código del proceso", "codigo del proceso"),
+)
+estado_cols = [j for j, h in enumerate(hdr) if "estado" in h and "gesti" in h] \
+              or [j for j, h in enumerate(hdr) if "estado" in h]
 
 # Links y estado desde la hoja Export, cruzados por nro de contrato
 exp = {}
@@ -405,66 +387,45 @@ if PROVEEDORES_KEY and PROVEEDORES_KEY == DATA_KEY:
 elif PROVEEDORES_KEY:
     proveedores = leer_proveedores(wb, ws)
 
-def leer_contratos(hoja):
-    """Los contratos de una hoja, con las columnas que mapear() dejó en C."""
-    filas = []
-    for row in hoja.iter_rows(min_row=3, values_only=True):
-        correo, nro = row[C["correo"]], row[C["nro"]]
-        if not correo or "@" not in str(correo):
-            continue
-        if not nro or "FIAS" not in str(nro).upper():
-            continue
-        nro = str(nro).strip()
-        e = exp.get(nro, {})
-        plazo = row[C["plazo"]]
-        if isinstance(plazo, (datetime.date, datetime.datetime)):
-            plazo = iso(plazo)
-        d = dict(
-            nro=nro,
-            detalle=row[C["detalle"]] or "",
-            area=row[C["area"]] or "",
-            cat=row[C["cat"]] or "",
-            monto=num(row[C["monto"]]) or 0,
-            montoTotal=num(row[C["montoTotal"]]),
-            cerrado=any("cerrad" in str(row[j] or "").lower() for j in estado_cols)
-                    or "cerrad" in e.get("estado", "").lower(),
-            inicio=iso(row[C["inicio"]]), firma=iso(row[C["firma"]]), fin=iso(row[C["fin"]]),
-            tipo=row[C["tipo"]] or "",
-            proveedor=str(row[C["proveedor"]] or "").strip(),
-            plazo=plazo,
-            adenda=row[C["adenda"]] or "",
-            tipoAdenda=(str(row[C["tipoAdenda"]] or "").strip() or None),
-            modificacion=(str(row[C["modificacion"]] or "").strip() or None),
-            firmaAdenda=iso(row[C["firmaAdenda"]]),
-            ac=str(row[C["ac"]] or "").strip(),
-            correo=str(correo).strip(),
-            link=e.get("link"),
-            fcierre=iso(val(row, "fcierre")),
-            liquidado=num2(val(row, "liquidado")),
-            saldo=num2(val(row, "saldo")),
-            carpeta=texto(val(row, "carpeta")),
-            codigoProceso=texto(val(row, "codigoProceso")),
-        )
-        filas.append(d)
-    return filas
-
-out = leer_contratos(ws)
-por_hoja = {str(ANIO_BASE): len(out)}
-vistos = {c["nro"] for c in out}
-siguientes = sorted(n for n in wb.sheetnames if n.strip().isdigit() and len(n.strip()) == 4 and int(n) > ANIO_BASE)
-for nombre in siguientes:
-    mapear(wb[nombre])
-    faltan_cols = [k for k in OBLIGATORIAS if C.get(k) is None]
-    if faltan_cols:
-        print(f"AVISO: la hoja «{nombre.strip()}» no tiene en su fila 2 las columnas de la hoja «{ANIO_BASE}» "
-              f"({', '.join(faltan_cols)}): no se leen sus contratos.")
+out = []
+for row in ws.iter_rows(min_row=3, values_only=True):
+    correo, nro = row[C["correo"]], row[C["nro"]]
+    if not correo or "@" not in str(correo):
         continue
-    # Un número repetido en dos hojas se publica una vez: manda la primera.
-    nuevos = [c for c in leer_contratos(wb[nombre]) if c["nro"] not in vistos]
-    vistos.update(c["nro"] for c in nuevos)
-    out.extend(nuevos)
-    por_hoja[nombre.strip()] = len(nuevos)
-mapear(ws)   # lo que sigue (avisos de columnas) habla de la hoja base
+    if not nro or "FIAS" not in str(nro).upper():
+        continue
+    nro = str(nro).strip()
+    e = exp.get(nro, {})
+    plazo = row[C["plazo"]]
+    if isinstance(plazo, (datetime.date, datetime.datetime)):
+        plazo = iso(plazo)
+    d = dict(
+        nro=nro,
+        detalle=row[C["detalle"]] or "",
+        area=row[C["area"]] or "",
+        cat=row[C["cat"]] or "",
+        monto=num(row[C["monto"]]) or 0,
+        montoTotal=num(row[C["montoTotal"]]),
+        cerrado=any("cerrad" in str(row[j] or "").lower() for j in estado_cols)
+                or "cerrad" in e.get("estado", "").lower(),
+        inicio=iso(row[C["inicio"]]), firma=iso(row[C["firma"]]), fin=iso(row[C["fin"]]),
+        tipo=row[C["tipo"]] or "",
+        proveedor=str(row[C["proveedor"]] or "").strip(),
+        plazo=plazo,
+        adenda=row[C["adenda"]] or "",
+        tipoAdenda=(str(row[C["tipoAdenda"]] or "").strip() or None),
+        modificacion=(str(row[C["modificacion"]] or "").strip() or None),
+        firmaAdenda=iso(row[C["firmaAdenda"]]),
+        ac=str(row[C["ac"]] or "").strip(),
+        correo=str(correo).strip(),
+        link=e.get("link"),
+        fcierre=iso(val(row, "fcierre")),
+        liquidado=num2(val(row, "liquidado")),
+        saldo=num2(val(row, "saldo")),
+        carpeta=texto(val(row, "carpeta")),
+        codigoProceso=texto(val(row, "codigoProceso")),
+    )
+    out.append(d)
 
 if len(out) < 10:
     sys.exit(f"ERROR: solo se leyeron {len(out)} contratos; algo cambió en el Excel. "
@@ -500,8 +461,6 @@ if faltan:
     print("AVISO: no encontré en la hoja 2026 las columnas de liquidación:", ", ".join(faltan))
     print("       Encabezados disponibles (fila 2):", [h for h in hdr if h])
 
-if len(por_hoja) > 1:
-    print("    Por hoja: " + ", ".join(f"«{k}» {v}" for k, v in por_hoja.items()) + ".")
 print(f"OK: {len(out)} contratos publicados (cifrados), "
       f"{sum(1 for c in out if c['link'])} con link, "
       f"{sum(1 for c in out if c['cerrado'])} cerrados, "

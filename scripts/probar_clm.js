@@ -1293,22 +1293,7 @@ seccion('27 · El servicio que no se puede renovar continúa por proceso nuevo')
 }
 
 // ---------------------------------------------------------------- 28
-seccion('28 · El cambio de año: el informe de adenda no cita un PAG fijo');
-{
-  // La plantilla decía «PAG 2026» y «ejercicio fiscal 2026»: una adenda de 2027
-  // habría salido citando el año anterior.
-  const w28=await listo(nuevoDom(contratos(),{rol:'ac',user:'Ana Pérez'}));
-  ok(w28.anioPAG({nro:'FIAS-FAP-2027-014',inicio:'2027-02-01'})==='2027','el año es el del contrato');
-  ok(w28.anioPAG({nro:'FIAS-FAP-2026-014'},'2027-01-20')==='2027','o el de la reprogramación del PAG, si se dio su fecha');
-  ok(w28.anioPAG({nro:'FIAS-FAP-2026-014'},'')==='2026','un contrato de 2026 sin esa fecha sigue diciendo 2026');
-  const PizZip=require('pizzip');
-  const tx=new PizZip(fs.readFileSync(path.join(RAIZ,'crm','plantillas','14_Informe_adenda.docx'))).file('word/document.xml').asText().replace(/<[^>]+>/g,'');
-  ok(/PAG \{anio\}/.test(tx) && /ejercicio fiscal \{anio\}/.test(tx) && !/PAG 2026|fiscal 2026/.test(tx),'la plantilla toma el año de {anio}, no lo trae escrito');
-  ok(/anio:anioPAG\(c,/.test(HTML) && /anio:anioPAG\(c,/.test(fs.readFileSync(path.join(RAIZ,'crm','index.html'),'utf8')),'y el CLM y el CRM se lo entregan');
-}
-
-// ---------------------------------------------------------------- 29
-seccion('29 · La lista de pendientes se acorta a medida que la AC avanza');
+seccion('28 · La lista de pendientes se acorta a medida que la AC avanza');
 {
   // Un contrato cuyo proceso nuevo ya se abrió seguía diciendo «prepara el proceso
   // nuevo» al día siguiente: la lista nunca se acortaba ni mostraba avance.

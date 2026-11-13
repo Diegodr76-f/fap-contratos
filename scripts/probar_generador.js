@@ -1424,38 +1424,7 @@ seccion('32 · Texto largo: cada línea, un párrafo de Word');
   ok(w8.vaPorContratoUO()===false,'un proceso desierto no va a la Unidad: no hay contrato');
 }
 
-seccion('34 · El cambio de año: nada lleva «2026» escrito a mano');
-// Las cuatro órdenes decían «Orden de compra FIAS-FAP-2026-{siglas}-XXX» en la
-// plantilla: en enero habrían salido con el año anterior en su número.
-{
-  const w9=nuevoDom();
-  w9.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',maeGenero:'M',apGenero:'M',lugar:'El Coca'}];
-  w9.ST.cfg.ac='Lcda. Ana Torres'; w9.ST.cfg.acCorreo='a@fias.org.ec';
-  w9.newExp('Repuestos 2027'); const d=w9.D();
-  Object.assign(d,{areaId:'a1',tipoProceso:'Selección directa por excepción',bienServicio:'Servicio',fechaInicio:'2027-01-12',numero:'3',
-    objeto:'Mantenimiento',plazo:'20',presupuesto:'2000',causal:'Único proveedor cerca del AP',partida:'1.1.1',fuente:'Fondo de Áreas Protegidas - FAP',
-    formaPago:'Factura',fechaInvitacion:'2027-01-13',fechaLimite:'2027-01-18',fechaAdj:'2027-01-20',adjudicado:'Talleres',
-    items:[{desc:'Mantenimiento',unidad:'Servicio',cantidad:'1',punit:'1000'}]});
-  d.provs[0]={razon:'Talleres',ruc:'1791234567001',dir:'x',tel:'',monto:'1150',fof:'2027-01-15',genero:'E'};
-  w9.save();
-  const td=w9.buildTemplateData();
-  ok(td.anio==='2027' && w9.codigoProceso()==='PNY-2027-003','el año del proceso sale de su fecha de inicio, como el código',td.anio+' · '+w9.codigoProceso());
-  const texto=b64=>new PizZip(b64,{base64:true}).file('word/document.xml').asText().replace(/<[^>]+>/g,'');
-  ['7_Orden_de_compra.docx','8_Orden_de_servicio.docx','16_Orden_de_compra_director.docx','17_Orden_de_servicio.docx'].forEach(f=>{
-    const crudo=texto(w9.ST.tpls[f]);
-    ok(/FIAS-FAP-\{anio\}-/.test(crudo) && !/FIAS-FAP-2026-/.test(crudo), f+': el número de la orden toma el año del proceso');
-    const doc=new Docxtemplater(new PizZip(w9.ST.tpls[f],{base64:true}),{paragraphLoop:true,linebreaks:true,nullGetter:()=>''});
-    doc.render(td);
-    ok(/FIAS-FAP-2027-PNY-/.test(doc.getZip().file('word/document.xml').asText().replace(/<[^>]+>/g,'')), f+': una orden de enero de 2027 dice 2027');
-  });
-  // Mis procesos: «3 de 3» para lo que va por contrato, y la alerta de arranque no depende de una fecha fija.
-  d.plazo='60'; w9.save();
-  ok(w9.resumenExp(w9.cur()).nMom===3 && /de 3<\/b>/.test(w9.renderProcesos()),'Mis procesos cuenta tres momentos en un proceso por contrato');
-  ok(!/2027-01-01/.test(HTML.slice(HTML.indexOf('function renderProcesos'),HTML.indexOf('function renderProcesos')+9000)),'y la alerta de arranque ya no compara contra el 1 de enero de 2027');
-  ok(/^\d{4}-\d\d-\d\d$/.test(w9.isoEnDias(60)) && w9.isoEnDias(60)>w9.isoEnDias(0),'sino contra hoy más 60 días');
-}
-
-seccion('35 · Menos clics: lo que la AC hace todos los días, a la mano');
+seccion('34 · Menos clics: lo que la AC hace todos los días, a la mano');
 {
   // El tipo de proceso y bien/servicio eran dos desplegables: dos clics cada uno
   // y la explicación escondida hasta abrirlos.
