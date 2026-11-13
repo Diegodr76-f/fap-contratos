@@ -87,7 +87,9 @@
     .side-foot{margin-left:0;border:0;padding:6px 10px;flex:0 0 auto}
     .side-foot .n,.side-foot .r{display:none}
     .topbar{position:static;height:auto;flex-wrap:wrap;padding:10px 14px;gap:8px}
-    .topbar h1{font-size:15.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* El título entero y la píldora recortada, no al revés: se leía «Pa…». */
+    .topbar h1{font-size:15.5px;flex:0 0 auto;white-space:nowrap}
+    .topbar .srcpill{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .gsearch{order:3;width:100%;margin-left:0}
     .content{padding:14px 12px 60px}
   }
@@ -124,7 +126,14 @@
   .catchip{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
   .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px}
   @media(max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}}
-  @media(max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  /* En el teléfono, primero lo que hay que atender y después las cifras, en
+     tres columnas compactas: seis fichas ocupaban la primera pantalla entera. */
+  @media(max-width:560px){
+    .kpis{grid-template-columns:repeat(3,1fr);gap:8px}
+    .kpi{padding:10px 11px}.kpi-n{font-size:19px}.kpi-l{font-size:10.5px;margin-top:4px;line-height:1.25}
+    .panelv{display:flex;flex-direction:column}
+    .panelv>*{order:3}.panelv>.atencion{order:1}.panelv>.kpis{order:2}
+  }
   .kpi{background:#fff;border:1px solid var(--line2);border-radius:13px;padding:14px 16px;cursor:pointer;transition:box-shadow .15s}
   .kpi:hover{box-shadow:0 10px 26px rgba(11,21,63,.08)}
   .kpi-n{font-size:24px;font-weight:700;line-height:1}
@@ -195,7 +204,16 @@
   .back{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--navy);margin-bottom:14px}
   .back:hover{text-decoration:underline}
   .detail{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;align-items:start}
-  @media(max-width:920px){.detail{grid-template-columns:1fr}}
+  /* En una columna, las acciones van justo después de los datos del contrato y
+     antes de la línea de tiempo: en el teléfono quedaban al final, tras dos
+     pantallas, y es a lo que se entra. */
+  @media(max-width:920px){
+    .detail{display:flex;flex-direction:column;gap:14px;align-items:stretch}
+    .detail>div:first-child{display:contents}
+    .detail>div:first-child>*{order:3;margin-top:0!important}
+    .detail>div:first-child>*:first-child{order:1}
+    .detail>div:last-child{order:2}
+  }
   .h-title{font-size:19px;font-weight:700;margin:0 0 2px;line-height:1.3}
   .dl{display:grid;grid-template-columns:1fr 1fr;gap:13px 20px;margin-top:8px}
   .dl .k{font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
@@ -360,6 +378,9 @@
   .alert-row .at{font-size:13px;font-weight:700}
   .alert-row .ad{font-size:11.5px;color:var(--muted)}
   .alert-row .go{margin-left:auto;flex:0 0 auto}
+  .alert-row.encurso{background:var(--bg);border-style:dashed}
+  .alert-row.encurso .at{color:var(--muted);font-weight:600}
+  .charts.c2.solo{grid-template-columns:1fr}
 
   /* login */
   .login-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px;background:linear-gradient(160deg,#F4F6FB 0%,#E8EDFB 100%)}
@@ -745,7 +766,7 @@ function render(){
   if(!SES){renderLogin();return;}
   const app=$("#app");
   const nav=(id,label,icon,badge)=>`<button class="navitem ${ST.view===id||(id==='contratos'&&ST.view==='detalle')||(id==='proveedores'&&ST.view==='proveedor')?"on":""}" data-go="${id}">${icon}<span>${label}</span>${badge?`<span class="nbadge">${badge}</span>`:""}</button>`;
-  const nAlerts=alertList().length;
+  const nAlerts=alertasPendientes().length;   // lo que está en curso no cuenta como pendiente
   const I={
     panel:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
     pipe:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h7"/></svg>',
@@ -1152,6 +1173,16 @@ function semChip(q,sm,corto){return q?`<span class="semaforo${sm?" sm":""}" styl
 function abrirProv(clave){ST.prov=clave;go("proveedor");}
 
 /* ================= ALERTAS (motor de reglas) ================= */
+/* Lo que la AC ya abrió en La Mágica desde este contrato: el proceso nuevo
+   (ov.sucesor) o la renovación (ov.renov). Solo dice que se abrió —el avance vive
+   en La Mágica—, pero basta para no volver a pedírselo. */
+function enCurso(c){
+  const o=ov(c);
+  if(o.sucesor&&o.sucesor.en)return {que:"Proceso nuevo",en:o.sucesor.en,fn:"nue"};
+  if(o.renov&&o.renov.en)return {que:"Renovación",en:o.renov.en,fn:"ren"};
+  return null;
+}
+function alertasPendientes(){return alertList().filter(a=>!a.encurso);}
 function alertList(){
   const out=[];
   // Sin el registro a mano (no se pudo leer, o todavía no llega), las alertas de
@@ -1166,7 +1197,13 @@ function alertList(){
       // directo a abrirlo; a los demás, al contrato.
       const nue=SES&&SES.rol==="ac"&&vaPorProcesoNuevo(c);
       const acc=nue?{act:"Proceso nuevo",fn:"nue"}:{act:"Abrir",fn:"open"};
-      if(d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,true)}`,i,...acc});
+      // Lo que la AC ya abrió en La Mágica deja de pedirse: pasa al final de la
+      // lista como «en curso», con un clic para volver a su expediente. Antes el
+      // contrato seguía diciendo «prepara el proceso nuevo» al día siguiente de
+      // haberlo abierto, y la lista nunca se acortaba.
+      const curso=enCurso(c);
+      if(curso)out.push({sev:3,encurso:true,icon:"📝",col:"var(--navy)",bg:"var(--tint)",t:`${curso.que} en curso — ${c.nro}`,d:`${trunc(c.detalle,90)} · ${curso.que==="Renovación"?"abierta":"abierto"} en La Mágica el ${fdate(String(curso.en).slice(0,10))} · vence en ${d} día${d===1?"":"s"}`,i,act:"Continuar",fn:curso.fn});
+      else if(d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,true)}`,i,...acc});
       else out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,false)}`,i,...acc});
     }
     if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
@@ -1216,9 +1253,12 @@ function vPanel(){
   const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]).slice(0,7).map(([label,value])=>({label,value,tip:`<b>${esc(label)}</b><br>${money(value)} · ${mine.filter(c=>(c.cat||"—")===label).length} contrato(s)`}));
   // Primero lo que hay que hacer y después la analítica: la AC abre el CLM para
   // saber qué le toca hoy, y eso estaba debajo de dos gráficos.
-  const todas=alertList(),nAlertas=todas.length,alerts=todas.slice(0,6);
+  // Sin actividad que mostrar, lo que hay que atender ocupa todo el ancho y
+  // enseña más filas: media pantalla decía «Aún no hay actividad registrada».
+  const todas=alertList(),pend=todas.filter(a=>!a.encurso).length,curso=todas.length-pend;
+  const hayLog=CLM.log.length>0,alerts=todas.slice(0,hayLog?6:8);
   $("#view").innerHTML=`
-  <div class="up">
+  <div class="up panelv">
     <div class="kpis">
       <div class="kpi" data-go2="contratos"><div class="kpi-n">${mine.length}</div><div class="kpi-l">Contratos en el portafolio</div></div>
       <div class="kpi" data-go2="reportes"><div class="kpi-n" style="color:var(--navy)">${moneyShort(montoVivo)}</div><div class="kpi-l">Valor vigente gestionado</div></div>
@@ -1227,18 +1267,18 @@ function vPanel(){
       <div class="kpi" data-f="ven"><div class="kpi-n" style="color:var(--red)">${n.ven}</div><div class="kpi-l">Vencidos</div></div>
       <div class="kpi" data-go2="solicitudes"><div class="kpi-n" style="color:var(--violet)">${sols}</div><div class="kpi-l">Solicitudes abiertas</div></div>
     </div>
-    <div class="charts c2">
+    <div class="charts c2 atencion${hayLog?"":" solo"}">
       <div class="panel">
         <p class="ptitle">Requiere atención</p>
-        <p class="psub">Lo más urgente de tus contratos · <a href="#/alertas" data-go3="alertas">ver todas (${nAlertas})</a></p>
+        <p class="psub">${todas.length?`<b>${pend}</b> pendiente${pend===1?"":"s"}${curso?` · <b>${curso}</b> en curso en La Mágica`:""}${todas.length>alerts.length?` · <a href="#/alertas" data-go3="alertas">ver las ${todas.length}</a>`:""}`:"Lo más urgente de tus contratos"}</p>
         ${alerts.length?alerts.map(a=>alertRowHTML(a)).join(""):`<div class="empty">Sin pendientes. Todo el portafolio bajo control ✅</div>`}
       </div>
-      <div class="panel">
+      ${hayLog?`<div class="panel">
         <p class="ptitle">Actividad reciente</p>
         <p class="psub">Lo registrado en este navegador · <a href="#/actividad" data-go3="actividad">ver todo</a></p>
         ${CLM.log.length?`<ul class="tl">${CLM.log.slice(0,6).map(l=>`<li><div class="t">${esc(l.icon)} ${esc(l.txt)}</div><div class="s">${esc(l.user)} · ${new Date(l.ts).toLocaleString("es-EC",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</div></li>`).join("")}</ul>`
-        :`<div class="empty" style="padding:26px 10px">Aún no hay actividad registrada.<br>Cada acción que hagas aquí queda anotada<br>(en este navegador, no se comparte).</div>`}
-      </div>
+        :""}
+      </div>`:""}
     </div>
     <div class="panel" style="margin-bottom:14px">
       <p class="ptitle">Estado del portafolio</p>
@@ -1268,7 +1308,7 @@ function vPanel(){
   bindAlertRows();
 }
 function alertRowHTML(a){
-  return `<div class="alert-row">
+  return `<div class="alert-row${a.encurso?" encurso":""}">
     <div class="aic" style="background:${a.bg}">${a.icon}</div>
     <div style="min-width:0"><div class="at">${esc(a.t)}</div><div class="ad">${esc(a.d)}</div></div>
     <button class="btn sm ${a.sev===0?"danger":"line"} go" data-i="${a.i==null?"":a.i}" data-fn="${a.fn}">${esc(a.act)}</button>
@@ -1290,6 +1330,7 @@ function bindAlertRows(){
     if(fn==="ter"){go("detalle",i);setTimeout(()=>modalTerminar(c),80);}
     else if(fn==="cal"){go("detalle",i);setTimeout(()=>modalCalificar(c),80);}
     else if(fn==="nue"){go("detalle",i);setTimeout(()=>procesoNuevoEnMagica(c),80);}
+    else if(fn==="ren"){renovarEnMagica(c);}
     else if(fn==="env"){go("detalle",i);setTimeout(()=>modalEnvioUO(c,ov(c).pendienteEnvio),80);}
     else go("detalle",i);
   });
@@ -1709,7 +1750,7 @@ function vDetalle(){
             </button>`;
   const renovBtn=done?"":`<button class="actbtn" id="a-ren" ${puedeRenovar?"":"disabled"}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
-              <span><span class="at">Renovar en La Mágica</span><span class="ad">${puedeRenovar?(urgeRenov?`<b style="color:var(--amber)">${esc(vigenciaText(c))}</b> · `:"")+"abre la renovación con n.º, fechas, monto y proveedor ya puestos":esc(motivoNoRenovable(c))}</span></span>
+              <span><span class="at">Renovar en La Mágica</span><span class="ad">${puedeRenovar&&o.renov?`Abierta el ${fdate(String(o.renov.en).slice(0,10))} · vuelve a su expediente`:puedeRenovar?(urgeRenov?`<b style="color:var(--amber)">${esc(vigenciaText(c))}</b> · `:"")+"abre la renovación con n.º, fechas, monto y proveedor ya puestos":esc(motivoNoRenovable(c))}</span></span>
             </button>`;
   $("#view").innerHTML=`<div class="up">
     <button class="back" id="back">← Volver ${VOLVER_A[ST.from]||"al repositorio"}</button>
@@ -2575,9 +2616,11 @@ function renovarEnMagica(c){
   // Renovar a un proveedor calificado como no elegible no se prohíbe —la decisión
   // es de la AC—, pero no puede pasar sin que lo vea (estilo CPARS: el desempeño
   // pasado pesa en la siguiente contratación).
-  const q=ultimaCalifProv(c);
-  if(q&&!q.elegible&&!confirm(`${c.proveedor} está calificado como NO ELEGIBLE: ${puntos(q.score)}/100 · ${q.sem}${q.fecha?", el "+fdate(q.fecha):""} (contrato ${q.nro}).\n\n${q.t.cons}\n\n¿Abrir la renovación de todos modos?`))return;
-  logAdd("🔁","Renovación abierta en La Mágica con los datos del contrato",c.nro);
+  const q=ultimaCalifProv(c),o=ov(c);
+  if(!o.renov&&q&&!q.elegible&&!confirm(`${c.proveedor} está calificado como NO ELEGIBLE: ${puntos(q.score)}/100 · ${q.sem}${q.fecha?", el "+fdate(q.fecha):""} (contrato ${q.nro}).\n\n${q.t.cons}\n\n¿Abrir la renovación de todos modos?`))return;
+  // La primera vez queda anotado; después el botón y la alerta vuelven directo.
+  if(!o.renov){o.renov={en:new Date().toISOString()};saveCLM();
+    logAdd("🔁","Renovación abierta en La Mágica con los datos del contrato",c.nro);}
   aLaMagica("ren:"+c.nro,"renovacion",datosRenovacion(c));
 }
 

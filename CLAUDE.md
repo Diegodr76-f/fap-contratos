@@ -326,6 +326,17 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   letras y el total de la tabla, y si no cuadran el papel firmado se contradice. Por eso es un
   requisito del momento de los precios y frena los documentos que imprimen la tabla.
 
+- **Menos clics** (recorrido de noviembre de 2026, sección 35 de las pruebas). Lo que quedó:
+  una elección entre pocas opciones va en tarjetas de un toque con su explicación a la vista
+  (`fOpciones()`, que guarda por `onField()` igual que un desplegable), no en un `<select>`;
+  el menú va en el orden del trabajo —Mis procesos, Captura, Documentos y, si
+  `requiereUnidadOperativa()`, «Enviar a la U.O.»— y después lo que se configura una vez;
+  con expedientes guardados La Mágica abre en Mis procesos, no en la Guía; lo que falta en
+  un momento se lista en fila (`.faltas`), no en columna; y en el teléfono el expediente
+  activo es una fila (`.expbox`) y las cifras de Mis procesos tres columnas. **Un botón con
+  `all:unset` en línea le gana a la hoja de estilos**: para cambiarle el `display` en una
+  media query hace falta `!important`.
+
 ### Probarla
 
 ```bash
@@ -389,6 +400,15 @@ hechas para eso que conviene reutilizar en vez de rehacer:
   anchos y `probar_clm.js` solo puede vigilar la estructura. Y un elemento con
   `all:unset` vuelve a `content-box`: si lleva `width:calc(100% - …)` más relleno, se
   pasa (así se cortaba la barra lateral) — ponle `box-sizing:border-box`.
+
+- **La lista de pendientes refleja el avance.** Lo que la AC ya abrió en La Mágica desde un
+  contrato —el proceso nuevo (`ov(c).sucesor`) o la renovación (`ov(c).renov`)— deja de
+  pedirse: `enCurso(c)` lo pasa al final de la lista como «en curso», con «Continuar», y
+  `alertasPendientes()` (la cifra del menú y del panel) no lo cuenta. Sin actividad
+  registrada, «Requiere atención» ocupa todo el ancho del panel.
+- **En el teléfono, primero lo que se viene a hacer.** En el detalle, las acciones van antes
+  de la línea de tiempo (`.detail>div:first-child{display:contents}` y `order`); en el
+  panel, lo pendiente antes de las cifras (`.panelv`), que pasan a tres columnas. Sección 29.
 
 Todo esto lo vigila `scripts/probar_clm.js` (cómo correrlo, al final de la sección
 siguiente). Si añades comportamiento al CLM, añade la comprobación.

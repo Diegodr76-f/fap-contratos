@@ -35,6 +35,23 @@
   .app-nav{flex:0 0 220px;background:#fff;border-right:1px solid #E3E6F0;padding:16px 12px;display:flex;flex-direction:column;gap:4px}
   .nav-lista{display:flex;flex-direction:column;gap:4px}
   .nav-hueco{flex:1}
+  .nav-sep{height:1px;background:#EAEDF5;margin:8px 6px}
+  .faltas{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 8px;font-size:13px;color:#8A5210;line-height:1.4}
+  .faltas li{background:#fff;border:1px solid #EBD9B4;border-radius:99px;padding:3px 11px}
+  .faltas li a{text-decoration:none!important}
+  /* Opciones que se eligen de un toque: cada una dice cuándo se usa. */
+  .opciones{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px}
+  .opcion{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:12px 14px;border:1.5px solid #E3E6F0;border-radius:11px;background:#fff;min-width:0}
+  .opcion:hover{border-color:#00249C}
+  .opcion:focus-visible{outline:2px solid #00249C;outline-offset:2px}
+  .opcion b{font-size:14.5px;color:#0B153F;line-height:1.25}
+  .opcion span{font-size:12.5px;color:#7A8090;line-height:1.35}
+  .opcion.on{border-color:#00249C;background:#EEF1FB}
+  .opcion.on b{color:#00249C}
+  .opciones.falta .opcion:not(.on){border-color:#E5C98A;background:#FFFCF5}
+  .tarjetas-proc{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+  .tarjetas-proc .card{padding:14px 20px;flex:0 0 auto;min-width:130px}
+
   .app-main{flex:1;min-width:0;overflow:auto}
   .app-pag{max-width:1080px;margin:0 auto;padding:26px 32px 80px}
   .cap-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start}
@@ -57,7 +74,19 @@
     .app-cuerpo{flex-direction:column}
     .app-main{flex:0 0 auto;overflow:visible}
     .app-nav{flex:0 0 auto;border-right:none;border-bottom:1px solid #E3E6F0;padding:8px 12px}
-    .nav-titulo,.nav-hueco{display:none}
+    .nav-titulo,.nav-hueco,.nav-sep{display:none}
+    /* En el teléfono el expediente activo es una sola fila, y las cifras de Mis
+       procesos tres columnas: entre los dos escondían la lista. */
+    .expbox{display:flex;align-items:center;gap:8px;padding:8px!important;margin-top:6px}
+    /* !important: estos botones llevan all:unset en línea, que le gana a la hoja. */
+    .expbox .expbox-tit,.expbox .expbox-ver{display:none!important}
+    .expbox select{margin:0!important;flex:1 1 0;min-width:0;width:auto}
+    .expbox .expbox-nuevo{flex:0 0 auto;padding:8px 11px!important;white-space:nowrap}
+    .expbox.en-procesos{display:none}
+    .tarjetas-proc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+    .tarjetas-proc .card{min-width:0;padding:9px 10px}
+    .tarjetas-proc .card div:first-child{font-size:9.5px!important;letter-spacing:.2px!important}
+    .tarjetas-proc .card div:last-child{font-size:20px!important}
     .nav-lista{flex-direction:row;overflow-x:auto;padding-bottom:4px}
     .nav-lista .navbtn{flex:0 0 auto;padding:8px 10px}
     .app-pag{padding:18px 16px 60px}
@@ -344,6 +373,8 @@ var TIPO_PROCESO_OPC=[
   {value:'Renovación',label:'Renovación — de un contrato vigente'}];
 var CLAUSULA_RENOV=['Sí, el contrato vigente la contempla','No, el contrato vigente no la contempla'];
 var BIEN_SERVICIO=['Bien','Servicio'];
+var BIEN_SERVICIO_OPC=[{value:'Bien',label:'Bien — algo que se compra y se entrega'},
+                       {value:'Servicio',label:'Servicio — algo que se presta'}];
 var SI_NO=['Sí','No'];
 var FUENTE=['Fondo de Áreas Protegidas - FAP','Subcuenta Ecuador Azul','Subcuenta Amazonía Norte','Lundin Gold','PlusPetrol'];
 // Las unidades de una compra del FAP: botas por par, víveres por saco o
@@ -1255,10 +1286,16 @@ function headerArea(){
 function render(){
   var done=doneArr(),md=done.filter(Boolean).length;
   var app=document.getElementById('app');
-  var navDef=[{id:'procesos',n:'\u2261',label:'Mis procesos'},{id:'guia',n:'1',label:'Guía'},{id:'plantillas',n:'2',label:'Plantillas'},{id:'captura',n:'3',label:'Captura'},{id:'documentos',n:'4',label:'Documentos'},{id:'historial',n:'H',label:'Historial'},{id:'datos',n:'i',label:'Hoja de Datos'}];
+  // Primero el trabajo de todos los días, en su orden —procesos, captura,
+  // documentos y, cuando toca, el envío—; después lo que se configura una vez.
+  // Antes Guía y Plantillas iban delante con los números 1 y 2, como si fueran
+  // pasos, y al envío solo se llegaba desde un cartel de Documentos.
+  var navDef=[{id:'procesos',n:'\u2261',label:'Mis procesos'},{id:'captura',n:'1',label:'Captura'},{id:'documentos',n:'2',label:'Documentos'}];
+  if(cur() && requiereUnidadOperativa()) navDef.push({id:'unidad',n:'3',label:'Enviar a la U.O.'});
+  navDef.push({sep:true},{id:'historial',n:'H',label:'Historial'},{id:'datos',n:'i',label:'Hoja de Datos'},{id:'plantillas',n:'P',label:'Plantillas'},{id:'guia',n:'?',label:'Guía'});
   var loaded=Object.keys(ST.tpls).length;
   var enEspera=ST.exps.filter(function(e){return withExp(e.id,enEsperaPAG);}).length;
-  var sidebar=navDef.map(function(it){var a=ST.nav===it.id;var badge=(it.id==='plantillas'&&loaded<TPL_SLOTS.length)?"<span style='margin-left:auto;font-size:10px;font-weight:700;color:#B4690E;background:#FBF1E1;padding:2px 7px;border-radius:99px'>"+loaded+"/"+TPL_SLOTS.length+"</span>":(it.id==='datos'?("<span id='badge_datos' title='Datos por llenar en la Hoja de Datos' style='margin-left:auto;font-size:10px;font-weight:700;color:#B4690E;background:#FBF1E1;padding:2px 7px;border-radius:99px"+(faltanDeDatos().length?'':';display:none')+"'>"+faltanDeDatos().length+"</span>"):(it.id==='procesos'&&ST.exps.length)?"<span style='margin-left:auto;font-size:10px;font-weight:700;color:"+(enEspera?'#B4690E':'#00249C')+";background:"+(enEspera?'#FBF1E1':'#EEF1FB')+";padding:2px 7px;border-radius:99px'>"+ST.exps.length+(enEspera?' · '+enEspera+' PAG':'')+"</span>":"");return "<button class='navbtn' onclick=\"go('"+it.id+"')\" style='background:"+(a?'#EEF1FB':'transparent')+"'><span style='width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;background:"+(a?'#00249C':'#EEF1FB')+";color:"+(a?'#fff':'#7A8090')+"'>"+it.n+"</span><span style='font-weight:600;font-size:14.5px;color:"+(a?'#00249C':'#3A4050')+"'>"+it.label+"</span>"+badge+"</button>";}).join('');
+  var sidebar=navDef.map(function(it){if(it.sep)return "<div class='nav-sep'></div>";var a=ST.nav===it.id;var badge=(it.id==='plantillas'&&loaded<TPL_SLOTS.length)?"<span style='margin-left:auto;font-size:10px;font-weight:700;color:#B4690E;background:#FBF1E1;padding:2px 7px;border-radius:99px'>"+loaded+"/"+TPL_SLOTS.length+"</span>":(it.id==='datos'?("<span id='badge_datos' title='Datos por llenar en la Hoja de Datos' style='margin-left:auto;font-size:10px;font-weight:700;color:#B4690E;background:#FBF1E1;padding:2px 7px;border-radius:99px"+(faltanDeDatos().length?'':';display:none')+"'>"+faltanDeDatos().length+"</span>"):(it.id==='unidad'&&cur()&&cur().enviadoUO)?"<span style='margin-left:auto;font-size:10px;font-weight:700;color:#1E7A4D;background:#E7F4EC;padding:2px 7px;border-radius:99px'>✓</span>":(it.id==='procesos'&&ST.exps.length)?"<span style='margin-left:auto;font-size:10px;font-weight:700;color:"+(enEspera?'#B4690E':'#00249C')+";background:"+(enEspera?'#FBF1E1':'#EEF1FB')+";padding:2px 7px;border-radius:99px'>"+ST.exps.length+(enEspera?' · '+enEspera+' PAG':'')+"</span>":"");return "<button class='navbtn' onclick=\"go('"+it.id+"')\" style='background:"+(a?'#EEF1FB':'transparent')+"'><span style='width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;background:"+(a?'#00249C':'#EEF1FB')+";color:"+(a?'#fff':'#7A8090')+"'>"+it.n+"</span><span style='font-weight:600;font-size:14.5px;color:"+(a?'#00249C':'#3A4050')+"'>"+it.label+"</span>"+badge+"</button>";}).join('');
 
   var body='';
   if(!cur() && ST.nav!=='datos' && ST.nav!=='plantillas' && ST.nav!=='guia' && ST.nav!=='historial' && ST.nav!=='procesos'){ body=renderInicio(); }
@@ -1291,11 +1328,13 @@ function render(){
 
 function renderExpBox(){
   var opts=ST.exps.map(function(e){return "<option value='"+e.id+"' "+(e.id===ST.curId?'selected':'')+">"+esc(e.nombre)+"</option>";}).join('');
-  return "<div style='background:#F7F8FC;border:1px solid #EAEDF5;border-radius:11px;padding:12px'>"
-   +"<div style='font-size:11px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px'>Expediente activo</div>"
-   +(ST.exps.length?("<select id='expsel' class='inp' style='padding:7px 9px;font-size:13px;margin-bottom:8px' onchange='switchExp(this.value)'>"+opts+"</select>"):"<div style='font-size:12.5px;color:#7A8090;margin-bottom:8px'>Sin expedientes aún.</div>")
-   +"<button onclick='crearExp()' style='all:unset;cursor:pointer;display:block;text-align:center;background:#00249C;color:#fff;font-weight:700;font-size:12.5px;padding:8px;border-radius:8px'>+ Nuevo proceso</button>"
-   +(ST.exps.length?"<button onclick=\"go('procesos')\" style='all:unset;cursor:pointer;display:block;text-align:center;color:#00249C;font-weight:700;font-size:12px;padding:7px 0 0;margin-top:4px;width:100%'>Ver mis "+ST.exps.length+" proceso"+(ST.exps.length===1?'':'s')+" →</button>":"")
+  // En Mis procesos, en el teléfono, el recuadro sobra: la lista y «+ Nuevo
+  // proceso» están justo debajo.
+  return "<div class='expbox"+(ST.nav==='procesos'?' en-procesos':'')+"' style='background:#F7F8FC;border:1px solid #EAEDF5;border-radius:11px;padding:12px'>"
+   +"<div class='expbox-tit' style='font-size:11px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px'>Expediente activo</div>"
+   +(ST.exps.length?("<select id='expsel' class='inp' aria-label='Expediente activo' style='padding:7px 9px;font-size:13px;margin-bottom:8px' onchange='switchExp(this.value)'>"+opts+"</select>"):"<div class='expbox-tit' style='font-size:12.5px;color:#7A8090;margin-bottom:8px'>Sin expedientes aún.</div>")
+   +"<button class='expbox-nuevo' onclick='crearExp()' style='all:unset;cursor:pointer;display:block;text-align:center;background:#00249C;color:#fff;font-weight:700;font-size:12.5px;padding:8px;border-radius:8px'>+ Nuevo proceso</button>"
+   +(ST.exps.length?"<button class='expbox-ver' onclick=\"go('procesos')\" style='all:unset;cursor:pointer;display:block;text-align:center;color:#00249C;font-weight:700;font-size:12px;padding:7px 0 0;margin-top:4px;width:100%'>Ver mis "+ST.exps.length+" proceso"+(ST.exps.length===1?'':'s')+" →</button>":"")
    +"</div>";
 }
 function switchExp(id){ST.curId=id;ST.step=0;ITEM_BORRADO=null;save();render();}
@@ -1411,6 +1450,8 @@ function refrescarFaltas(){
   var av=document.getElementById('aviso_momento'); if(av) av.innerHTML=avisoMomento();
   var els=document.querySelectorAll('[data-falta]');
   for(var i=0;i<els.length;i++){ var on=!!f[els[i].getAttribute('data-falta')]; els[i].style.borderColor=on?'#E5C98A':''; els[i].style.background=on?'#FFFCF5':''; }
+  var ops=document.querySelectorAll('[data-opc]');
+  for(var o2=0;o2<ops.length;o2++) ops[o2].classList.toggle('falta',!!f[ops[o2].getAttribute('data-opc')]);
   var dots=document.querySelectorAll('[data-dot]');
   for(var j=0;j<dots.length;j++) dots[j].style.display=f[dots[j].getAttribute('data-dot')]?'':'none';
   // Las celdas del detalle se marcan por sí mismas: todas las que falten, no
@@ -1435,6 +1476,23 @@ function irACampo(campo){
 
 //---- campos ----
 function fSelect(key,label,arr,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';var opts="<option value=''>— elige —</option>"+arr.map(function(x){var val=x.value!==undefined?x.value:x;var lab=x.label!==undefined?x.label:x;return "<option value=\""+esc(val)+"\" "+(v===val?'selected':'')+">"+esc(lab)+"</option>";}).join('');var re=o.reender?' data-re="1"':'';return "<div><label class='fl'>"+label+marcaFalta(key)+"</label><select class='inp' data-k='"+key+"'"+re+" onchange='onField(this)'"+bordeFalta(key)+">"+opts+"</select>"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
+// Una elección entre pocas opciones, como tarjetas: un toque en vez de abrir un
+// desplegable, y cada opción con su explicación a la vista. Guarda lo mismo que
+// guardaba el desplegable (pasa por onField).
+function fOpciones(key,label,arr,o){
+  o=o||{}; var d=D(), v=key in d?d[key]:'';
+  var falta=faltaCampo(key);
+  return "<div style='grid-column:1/-1'><label class='fl'>"+label+marcaFalta(key)+"</label>"
+   +"<div class='opciones"+(falta?' falta':'')+"' data-opc='"+key+"'>"
+   +arr.map(function(x){
+      var val=x.value!==undefined?x.value:x, lab=String(x.label!==undefined?x.label:x), i=lab.indexOf(' — ');
+      var tit=i>0?lab.slice(0,i):lab, sub=i>0?lab.slice(i+3):(x.sub||'');
+      sub=sub?sub.charAt(0).toUpperCase()+sub.slice(1):'';
+      return "<button type='button' class='opcion"+(v===val?' on':'')+"' data-k='"+key+"' data-v=\""+esc(val)+"\" aria-pressed='"+(v===val)+"' onclick='onOpcion(this)'><b>"+esc(tit)+"</b>"+(sub?"<span>"+esc(sub)+"</span>":"")+"</button>";
+    }).join('')
+   +"</div>"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";
+}
+function onOpcion(el){ onField({dataset:{k:el.dataset.k,re:'1'},value:el.dataset.v}); }
 function fText(key,label,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';var t=o.type||'text';return "<div><label class='fl'>"+label+marcaFalta(key)+"</label><input class='inp' type='"+t+"' data-k='"+key+"' value=\""+esc(v)+"\" placeholder=\""+esc(o.ph||'')+"\" oninput='onField(this)'"+bordeFalta(key)+">"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
 var AYUDA_LARGO='Cada línea sale como un párrafo en el documento.';
 /* Lo que antes era una nota escrita en la plantilla —«(Detallar información técnica,
@@ -1546,7 +1604,7 @@ function avisoMomento(){
       : (x.nav
         ? "<a href='#' onclick=\""+(x.nav==='m1'?'setStep(0)':"go('"+x.nav+"')")+";return false\" style='color:#8A5210;font-weight:700;text-decoration:underline'>"+texto+" \u2192</a>"
         : "<span style='font-weight:700'>"+texto+"</span>");
-    return "<li style='margin:0 0 5px'>"+enlace+"</li>";
+    return "<li>"+enlace+"</li>";
   }).join('');
   return "<div class='card' style='margin-bottom:16px;border:1.5px solid #E5C98A;background:#FBF1E1;padding:13px 16px'>"
    +"<div style='display:flex;gap:11px;align-items:flex-start'>"
@@ -1554,7 +1612,9 @@ function avisoMomento(){
    +"<div style='min-width:0'>"
    +"<div style='font-weight:700;font-size:14.5px;color:#8A5210'>"+(n===1?'Falta 1 dato':'Faltan '+n+' datos')+" en este momento</div>"
    +"<div style='font-size:12.5px;color:#8A5210;opacity:.85;line-height:1.45;margin:2px 0 8px'>Sin "+(n===1?'ese dato':'esos datos')+" los documentos de este momento no se pueden generar. Toca uno para ir al campo.</div>"
-   +"<ul style='margin:0;padding-left:18px;font-size:13px;color:#8A5210;line-height:1.5'>"+filas+"</ul>"
+   // En fila, no en columna: trece pendientes de un proceso recién abierto
+   // empujaban el formulario una pantalla entera hacia abajo.
+   +"<ul class='faltas'>"+filas+"</ul>"
    +"</div></div></div>";
 }
 function renderCaptura(){
@@ -1589,7 +1649,7 @@ function capM1(){
     if(!d.areaId) return s;
   }
   s+=block('1 · Tipo de proceso','Gobierna todo el formulario y los documentos disponibles.',
-    "<div class='gridf'>"+fSelect('tipoProceso','Tipo de proceso',TIPO_PROCESO_OPC,{reender:true})+fSelect('bienServicio','¿Bien o servicio?',BIEN_SERVICIO,{reender:true})
+    "<div class='gridf'>"+fOpciones('tipoProceso','Tipo de proceso',TIPO_PROCESO_OPC)+fOpciones('bienServicio','¿Bien o servicio?',BIEN_SERVICIO_OPC)
     +fSelect('tipoBien','Tipo de bien',TIPO_BIEN,{show:esBien,reender:true,help:'El acta de cierre del bien se genera al entregarlo al área (Momento 4). Un bien = una entrega = un acta.'})
     +fSelect('profesional','¿Servicio profesional / consultoría?',SI_NO,{show:esServ,reender:true,help:'Si es Sí, se maneja por contrato.'})+"</div>");
   if(!d.tipoProceso) return s;
@@ -1697,8 +1757,8 @@ function capRen1(){
     if(!d.areaId) return s;
   }
   s+=block('1 · Tipo de proceso','La renovación es su propia vía: no lleva invitación ni adjudicación, y el contrato lo elabora la Unidad Operativa.',
-    "<div class='gridf'>"+fSelect('tipoProceso','Tipo de proceso',TIPO_PROCESO_OPC,{reender:true})
-    +fSelect('bienServicio','¿Bien o servicio?',BIEN_SERVICIO,{reender:true,help:'Casi siempre Servicio: la renovación aplica a servicios recurrentes.'})+"</div>");
+    "<div class='gridf'>"+fOpciones('tipoProceso','Tipo de proceso',TIPO_PROCESO_OPC)
+    +fOpciones('bienServicio','¿Bien o servicio?',BIEN_SERVICIO_OPC,{help:'Casi siempre Servicio: la renovación aplica a servicios recurrentes.'})+"</div>");
   s+=block('2 · El contrato que se renueva','Los datos del contrato vigente. Salen del Sistema de Alertas o del propio contrato.',
     "<div class='gridf'>"+fText('contratoAnterior','Número del contrato vigente',{ph:'FIAS-FAP-'+(new Date().getFullYear()-1)+'-000'})
     +fText('fechaSuscripcionAnt','Fecha de suscripción',{type:'date'})
@@ -2897,7 +2957,7 @@ function renderProcesos(){
 
   var head="<div style='display:flex;align-items:end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:6px'>"
    +"<div><h1 style='font-size:28px;color:#0B153F;margin:0 0 4px'>Mis procesos</h1>"
-   +"<p style='font-size:15px;color:#6B7180;margin:0;max-width:660px;line-height:1.5'>Un renglón por expediente, ordenados por la fecha en que arranca el servicio. Lo que arranca el 1 de enero va primero: desde ese día el servicio se presta y cada día sin contrato suscrito es retroactividad.</p></div>"
+   +"<p style='font-size:15px;color:#6B7180;margin:0;max-width:660px;line-height:1.5'>Un renglón por expediente. Primero lo que arranca antes: desde ese día el servicio se presta, y cada día sin contrato suscrito es retroactividad.</p></div>"
    +"<button onclick='crearExp()' style='all:unset;cursor:pointer;flex:0 0 auto;background:#00249C;color:#fff;font-weight:700;font-size:14px;padding:11px 18px;border-radius:10px'>+ Nuevo proceso</button></div>";
 
   if(!ST.exps.length){
@@ -2910,9 +2970,9 @@ function renderProcesos(){
   var nEnv=rows.filter(function(r){return r.enviado;}).length;
   var nList=rows.filter(function(r){return !r.enviado&&r.requiereUO&&r.pendientes===0;}).length;
   function tarjeta(label,valor,color){
-    return "<div class='card' style='padding:14px 20px;flex:0 0 auto;min-width:130px'><div style='font-size:11.5px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.5px'>"+label+"</div><div style='font-size:26px;font-weight:700;color:"+color+"'>"+valor+"</div></div>";
+    return "<div class='card'><div style='font-size:11.5px;font-weight:700;color:#9AA0B2;text-transform:uppercase;letter-spacing:.5px'>"+label+"</div><div style='font-size:26px;font-weight:700;color:"+color+"'>"+valor+"</div></div>";
   }
-  var tarjetas="<div style='display:flex;gap:12px;flex-wrap:wrap;margin:16px 0'>"
+  var tarjetas="<div class='tarjetas-proc'>"
    +tarjeta('Expedientes',rows.length,'#00249C')
    +tarjeta('Renovaciones',nRen,'#1E7A4D')
    +tarjeta('Procesos nuevos',rows.length-nRen,'#B4690E')
@@ -3256,6 +3316,9 @@ function precargaVista(){ var c=cur(); if(c&&c.precarga){ c.precarga.visto=true;
 
 //===================== INIT =====================
 load();
+// Quien ya tiene expedientes entra a verlos: la Guía es para la primera vez.
+// Antes La Mágica abría siempre en la Guía y había que salir de ella cada día.
+if(ST.exps.length) ST.nav='procesos';
 aplicarPrecarga();
 render();
 fetchTemplatesFromFolder();
