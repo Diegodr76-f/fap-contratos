@@ -1044,8 +1044,8 @@ seccion('28 · Compra directa: hasta USD 1.000, con IVA');
   wc.ST.nav='captura'; wc.ST.step=0; wc.render();
   let html=wc.document.getElementById('app').innerHTML;
   ok(/La compra directa llega hasta USD 1\.000,00/.test(html) && /Pasar a comparación de precios/.test(html),'el cartel lo explica junto al presupuesto y ofrece cambiar de vía en un clic');
-  ok([...wc.document.querySelectorAll("select[data-k='tipoProceso'] option")].some(o=>/Compra directa — 1 proveedor, hasta USD 1\.000/.test(o.textContent)),
-     'el desplegable ya lo dice al elegir: «Compra directa — 1 proveedor, hasta USD 1.000»');
+  ok([...wc.document.querySelectorAll(".opcion[data-k='tipoProceso']")].some(o=>/Compra directa/.test(o.textContent)&&/1 proveedor, hasta USD 1\.000/.test(o.textContent)),
+     'la opción ya lo dice al elegir: «Compra directa · 1 proveedor, hasta USD 1.000»');
   // Al escribir el presupuesto el cartel aparece y desaparece solo
   const pres=wc.document.querySelector("[data-k='presupuesto']");
   pres.value='900'; wc.onField(pres);
@@ -1422,6 +1422,51 @@ seccion('32 · Texto largo: cada línea, un párrafo de Word');
   // Un proceso desierto no llega a contrato.
   w8=arma({plazo:'45',desierto:true,adjudicado:''});
   ok(w8.vaPorContratoUO()===false,'un proceso desierto no va a la Unidad: no hay contrato');
+}
+
+seccion('34 · Menos clics: lo que la AC hace todos los días, a la mano');
+{
+  // El tipo de proceso y bien/servicio eran dos desplegables: dos clics cada uno
+  // y la explicación escondida hasta abrirlos.
+  let wa=nuevoDom();
+  ok(wa.ST.nav==='guia','sin expedientes, La Mágica abre en la Guía');
+  wa.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',maeGenero:'M',apGenero:'M',lugar:'El Coca'}];
+  wa.ST.cfg.ac='Lcda. Ana Torres'; wa.ST.cfg.acCorreo='a@fias.org.ec';
+  wa.crearExp();
+  const ops=k=>[...wa.document.querySelectorAll(".opcion[data-k='"+k+"']")];
+  ok(ops('tipoProceso').length===4 && ops('bienServicio').length===2 && !wa.document.querySelector("select[data-k='tipoProceso']"),
+     'el tipo de proceso y bien/servicio son tarjetas, no desplegables',ops('tipoProceso').length+' · '+ops('bienServicio').length);
+  ok(ops('tipoProceso').every(o=>o.querySelector('b')&&o.querySelector('span')),'cada tarjeta dice cuándo se usa, sin abrir nada');
+  ok(wa.document.querySelector("[data-opc='tipoProceso']").classList.contains('falta'),'sin elegir, las tarjetas van marcadas como pendientes');
+  ops('tipoProceso').find(o=>/Selección directa/.test(o.textContent)).onclick();
+  ok(wa.D().tipoProceso==='Selección directa por excepción','un toque elige la vía',wa.D().tipoProceso);
+  ok(ops('tipoProceso').filter(o=>o.classList.contains('on')).length===1 && !wa.document.querySelector("[data-opc='tipoProceso']").classList.contains('falta'),
+     'la elegida queda resaltada y deja de marcarse');
+  ops('bienServicio').find(o=>/^Servicio/.test(o.textContent)).onclick();
+  ok(wa.D().bienServicio==='Servicio' && /Causal de excepción/.test(wa.document.getElementById('app').textContent),'y el formulario se arma con lo que esa vía pide');
+  // Cambiar de vía con documentos ya generados sigue avisando, como con el desplegable.
+  wa.cur().generated={inicio:true}; wa.save();
+  ops('tipoProceso').find(o=>/Comparación/.test(o.textContent)).onclick();
+  ok(wa.D().tipoProceso==='Comparación de precios' && !wa.cur().generated.inicio,'cambiar de vía reinicia los documentos generados, igual que antes');
+
+  // El aviso de lo que falta va en fila: no empuja el formulario una pantalla.
+  ok(wa.document.querySelectorAll('#aviso_momento ul.faltas li').length>=8,'lo que falta se lista en fila, cada dato con su enlace');
+
+  // El menú: primero el trabajo diario; el envío aparece cuando toca.
+  const menu=()=>[...wa.document.querySelectorAll('.nav-lista .navbtn')].map(b=>b.textContent.replace(/\s+/g,' ').trim());
+  ok(/^≡Mis procesos/.test(menu()[0]) && /Captura/.test(menu()[1]) && /Documentos/.test(menu()[2]),'el menú empieza por Mis procesos, Captura y Documentos',menu().join(' | '));
+  ok(menu().findIndex(t=>/Guía/.test(t))>menu().findIndex(t=>/Hoja de Datos/.test(t)) && menu().findIndex(t=>/Hoja de Datos/.test(t))>2,'y lo que se configura una vez va después');
+  ok(!menu().some(t=>/Enviar a la U\.O\./.test(t)),'un proceso por orden no muestra «Enviar a la U.O.»');
+  Object.assign(wa.D(),{plazo:'60',tipoPlazo:'entrega'}); wa.save(); wa.render();
+  ok(menu().some(t=>/^3Enviar a la U\.O\./.test(t)),'uno que va por contrato sí, como paso 3',menu().join(' | '));
+  [...wa.document.querySelectorAll('.nav-lista .navbtn')].find(b=>/Enviar a la U\.O\./.test(b.textContent)).onclick();
+  ok(wa.ST.nav==='unidad' && /lista de verificación/i.test(wa.document.getElementById('app').textContent),'y lleva al envío en un clic');
+
+  // Quien ya tiene expedientes entra a verlos.
+  const guardado=wa.localStorage.getItem('fap_v3');
+  wa=nuevoDom(win=>win.localStorage.setItem('fap_v3',guardado));
+  ok(wa.ST.nav==='procesos' && /Mis procesos/.test(wa.document.querySelector('h1').textContent),'con expedientes guardados, La Mágica abre en Mis procesos y no en la Guía');
+  ok(!/1 de enero/.test(wa.document.getElementById('app').textContent),'y su texto ya no habla de una fecha fija');
 }
 
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
