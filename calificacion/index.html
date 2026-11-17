@@ -203,7 +203,16 @@ const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const esc = s => (s==null?"":String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = (p='id')=>p+Math.random().toString(36).slice(2,8);
-const num = v => { const n = parseFloat(String(v==null?'':v).replace(/[^\d.,-]/g,'').replace(/\.(?=\d{3}\b)/g,'').replace(',','.')); return isFinite(n)?n:0; };
+/* Un número tecleado. Con punto y coma a la vez, el que va último es el decimal:
+   «12.500,00» y «12,500.00» son doce mil quinientos. Con uno solo, como en Ecuador:
+   «45.000» son miles y «12,5» lleva decimales; varias comas son de miles. */
+const num = v => {
+  let s = String(v==null?'':v).replace(/[^\d.,-]/g,'');
+  if(s.includes('.') && s.includes(',')){ const dec = s.lastIndexOf('.')>s.lastIndexOf(',') ? '.' : ','; s = s.split(dec==='.'?',':'.').join('').replace(dec,'.'); }
+  else if((s.match(/,/g)||[]).length>1) s = s.replace(/,/g,'');
+  else s = s.replace(/\.(?=\d{3}\b)/g,'').replace(',','.');
+  const n = parseFloat(s); return isFinite(n)?n:0;
+};
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const r2 = n => Math.round(n*100)/100;
 const fUSD = n => '$'+(num(n)).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -458,6 +467,15 @@ function promedioCriterio(o,c){ const vs=votantes().map(m=>notaMiembro(o,c,m.id)
 /* total técnico de un miembro (suma de sus notas en todos los criterios) */
 function tecnicoMiembro(o,mid){ return critList().reduce((a,c)=>{ const v=notaMiembro(o,c,mid); return a+(v==null?0:v); },0); }
 
+/* Orden de prelación: primero las que pasan; entre ellas, el menor precio (Cumple / No
+   cumple) o el mayor puntaje total (por puntos). Una oferta sin precio va al final. */
+/* «A y B», «A, B y C»: las ofertas empatadas, para el cartel y el acta. */
+function nombresEmpate(R){ const n=R.empatados.map(o=>esc(o.nombre||'(sin nombre)')); return n.length>1 ? n.slice(0,-1).join(', ')+' y '+n[n.length-1] : n.join(''); }
+function ordenOfertas(a,b){
+  if(a._pasa!==b._pasa) return a._pasa?-1:1;
+  return S.tipo==='cumple' ? (num(a.precio)||1e15)-(num(b.precio)||1e15) : b._total-a._total;
+}
+
 /* --------------------------------- engine -------------------------------- */
 function compute(){
   const ofs = S.oferentes||[];
@@ -487,7 +505,7 @@ function compute(){
     o._sobrepasa = presup>0 && p>0 && p>presup;
     // 3) causa por la que NO pasa (en orden de prelación de motivos)
     if(o.descal)            o._motivo = (o.descalMotivo||'').trim() || 'Rechazada por decisión de la Comisión';
-    else if(!tecOk)         o._motivo = S.tipo==='puntos' ? (!o._docOk ? 'No cumple la entrega de documentos' : 'No alcanza el umbral técnico (75)')
+    else if(!tecOk)         o._motivo = S.tipo==='puntos' ? (!o._docOk ? 'No cumple la entrega de documentos' : `No alcanza el umbral técnico (${fNum(num(S.umbralTecnico))})`)
                                         : (!o._legalOk ? 'No cumple requisitos legales' : 'No cumple requisitos técnicos');
     else if(o._sobrepasa)   o._motivo = 'Supera el presupuesto referencial';
     o._pasa = !o.descal && tecOk && !o._sobrepasa;
@@ -516,9 +534,12 @@ function compute(){
     else { unico._pasa=false; unico._motivo='Oferta única — pendiente de pronunciamiento de la Comisión'; unicoPendiente=true; }
   }
   const passers = ofs.filter(o=>o._pasa);
-  const ranked = [...passers].sort((a,b)=> S.tipo==='cumple' ? num(a.precio)-num(b.precio) : b._total-a._total);
+  const ranked = [...passers].sort(ordenOfertas);
   ranked.forEach((o,i)=>o._rank=i+1);
-  return { pmin, pesoEco, winner:ranked[0]||null, ranked, nPass:passers.length, nTot:ofs.length, presup,
+  // Empate en el primer lugar: las bases no dicen cómo se desempata, así que la
+  // herramienta no elige — antes ganaba la oferta que se había escrito primero.
+  const empatados = ranked.length>1 && ordenOfertas(ranked[0],ranked[1])===0 ? ranked.filter(o=>ordenOfertas(o,ranked[0])===0) : [];
+  return { pmin, pesoEco, winner:empatados.length?null:(ranked[0]||null), empatados, ranked, nPass:passers.length, nTot:ofs.length, presup,
     esUnica, unico, unicoPendiente, unicoRechazadaPorConveniencia };
 }
 
@@ -1004,7 +1025,19 @@ function renderResultados(){
       </div>
     </div>`;
   }
-  if(R.winner){
+  const empateTxt = nombresEmpate(R);
+  if(R.empatados.length){
+    const e=R.empatados[0];
+    winnerBanner=`
+    <div class="winner" style="background:var(--amberbg);border-color:#E9D2A0">
+      <div class="medal" style="background:var(--amber)">=</div>
+      <div style="flex:1;min-width:0">
+        <div class="wt" style="color:#8A5210">Empate en el primer lugar — la Comisión debe resolver</div>
+        <div class="wn">${empateTxt}</div>
+        <div class="ws">${S.tipo==='puntos' ? `Obtienen <b>${fNum(e._total)} / ${fNum(puntosTotales())}</b> puntos` : `Cumplen todos los requisitos con el mismo precio, <b>${fUSD(e.precio)}</b>`}. La herramienta no recomienda a ninguna: el desempate lo decide la Comisión y se deja constar en el acta.</div>
+      </div>
+    </div>`;
+  } else if(R.winner){
     const w=R.winner;
     winnerBanner=`
     <div class="winner">
@@ -1049,10 +1082,7 @@ function renderResultados(){
 }
 function tablaResultados(R){
   const ofs=S.oferentes||[];
-  const ordered=[...ofs].sort((a,b)=>{
-    if(a._pasa!==b._pasa) return a._pasa?-1:1;
-    return S.tipo==='cumple' ? (num(a.precio)||1e15)-(num(b.precio)||1e15) : b._total-a._total;
-  });
+  const ordered=[...ofs].sort(ordenOfertas);
   const totMax=puntosTotales();
   let h='<div class="tablewrap"><table class="rz"><thead><tr><th>#</th><th>Oferente</th>';
   if(S.tipo==='puntos') h+=`<th>Técnico</th><th>Umbral</th><th>Económico</th><th>Total</th><th style="width:130px">Ranking</th>`;
@@ -1187,6 +1217,10 @@ function renderActa(R){
   const notaUnica = R.esUnica ? `<p style="font-size:12.5px"><i>Propuesta única presentada: se recibió una sola oferta. Conforme a las bases, la Comisión se pronuncia expresamente sobre su conveniencia a los intereses institucionales ${R.unico&&R.unico.unicaOk===true?'y la declara <b>conveniente</b>':R.unico&&R.unico.unicaOk===false?'y la declara <b>no conveniente</b>':'(pronunciamiento pendiente)'}.</i></p>` : '';
   const adj = w
     ? `${notaUnica}<p style="font-size:12.5px"><b>☑ Recomienda la adjudicación</b> a favor de <b>${esc(w.nombre||'')}</b> con RUC ${esc(w.ruc||'____________')}, por un valor total de <b>${esc(numeroALetras(w.precio))}</b>, por ${S.tipo==='puntos'?`obtener el mayor puntaje total (${fNum(w._total)} de ${fNum(totMax)} puntos)`:'cumplir las condiciones solicitadas y ofertar el precio más bajo'}.</p>
+       <p style="font-size:12.5px">☐ Declara desierto el procedimiento.</p>`
+    : R.empatados.length
+    ? `${notaUnica}<p style="font-size:12.5px">☐ Recomienda la adjudicación a favor de ____________________.</p>
+       <p style="font-size:12.5px"><i>Las ofertas de ${nombresEmpate(R)} quedaron empatadas en el primer lugar${S.tipo==='puntos'?` con ${fNum(R.empatados[0]._total)} puntos`:` con un precio de ${esc(numeroALetras(R.empatados[0].precio))}`}. La Comisión resuelve el desempate.</i></p>
        <p style="font-size:12.5px">☐ Declara desierto el procedimiento.</p>`
     : `${notaUnica}<p style="font-size:12.5px">☐ Recomienda la adjudicación a favor de ____________________.</p>
        <p style="font-size:12.5px"><b>☑ Declara desierto</b> el procedimiento debido a que ${R.unicoRechazadaPorConveniencia?'la propuesta única presentada fue declarada no conveniente para los intereses institucionales':R.unicoPendiente?'la propuesta única presentada se encuentra pendiente de pronunciamiento':(ofs.length?'ninguna de las ofertas se ajusta a lo solicitado':'no se presentaron ofertas')}.</p>`;
@@ -1483,7 +1517,7 @@ function toCSV(){
   if(S.tipo==='puntos'){ critList().forEach(c=>H.push(c.nombre)); H.push('Tecnico','Umbral','Economico','Total'); }
   else{ gateList().forEach(r=>H.push(r.nombre)); H.push('Legal','Tecnico','Estado'); }
   rows.push(H);
-  const ordered=[...(S.oferentes||[])].sort((a,b)=>{ if(a._pasa!==b._pasa)return a._pasa?-1:1; return S.tipo==='cumple'?(num(a.precio)||1e15)-(num(b.precio)||1e15):b._total-a._total; });
+  const ordered=[...(S.oferentes||[])].sort(ordenOfertas);
   ordered.forEach(o=>{
     const row=[o._rank||'', o.nombre||'', o.ruc||'', num(o.precio)||''];
     if(S.tipo==='puntos'){ critList().forEach(c=>row.push(o.scores[c.id]==null?'':clamp(num(o.scores[c.id]),0,num(c.max)))); row.push(o._tec, o._pasa?'Pasa':'No pasa', o._pasa?o._eco:'', o._total); }

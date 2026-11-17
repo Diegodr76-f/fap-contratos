@@ -462,7 +462,7 @@ function manualIf(val, label){ return (val&&String(val).trim())?esc(val):manual(
 function manualDocx(txt){ return `«COMPLETAR: ${txt}»`; }
 const esc=s=> (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function fdate(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); const M=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]; return `${+d} ${M[+m-1]} ${y}`; }
-function longDate(iso){ if(!iso) iso=new Date().toISOString().slice(0,10); const [y,m,d]=iso.split("-"); const M=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]; return `${+d} de ${M[+m-1]} de ${y}`; }
+function longDate(iso){ if(!iso) iso=todayISO(); const [y,m,d]=iso.split("-"); const M=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]; return `${+d} de ${M[+m-1]} de ${y}`; }
 function todayISO(){ const t=new Date(); const p=n=>String(n).padStart(2,"0"); return t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate()); }
 /* vigencia calculada desde HOY */
 function diasRestantes(c){ if(!c.fin) return null; const t=new Date(todayISO()+"T00:00:00"); const f=new Date(c.fin+"T00:00:00"); return Math.round((f-t)/86400000); }

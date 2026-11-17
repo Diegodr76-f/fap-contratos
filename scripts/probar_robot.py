@@ -281,6 +281,23 @@ try:
     wb["Proveedores"].title = " PROVEEDORES"
     salida, con, reg = correr(wb, tmp)
     ok(reg == [], "los nombres de las hojas se reconocen sin importar mayúsculas ni espacios de más")
+
+    # ------------------------------------------------------------ 5
+    seccion("5 · Una fecha escrita a mano se lee, y lo que no se puede leer se avisa")
+    wb = libro(); h = wb["2026"]
+    h["I3"] = "31/12/2026"      # fecha de fin escrita como texto (fila 3 = contrato 001)
+    h["G4"] = "5-1-2026"        # fecha de inicio con guiones y sin ceros
+    h["I5"] = "fin de año"      # esto no es una fecha
+    h["F6"] = "doce mil"        # ni esto un monto
+    salida, con, _ = correr(wb, tmp)
+    ok(con is not None and con[0]["fin"] == "2026-12-31", "«31/12/2026» se publica como 2026-12-31", con and con[0]["fin"])
+    ok(con is not None and con[1]["inicio"] == "2026-01-05", "«5-1-2026» se publica como 2026-01-05", con and con[1]["inicio"])
+    ok("«Fecha de finalización» no se pudo leer en 1 fila(s)" in salida and "(filas 5)" in salida,
+       "la fecha ilegible se avisa con su fila del Excel", salida.strip().splitlines()[:3])
+    ok("«Monto (incluido IVA)» no se pudo leer en 1 fila(s)" in salida and "(filas 6)" in salida, "y el monto ilegible también")
+    ok("fin de año" not in salida and "doce mil" not in salida, "el aviso no copia el contenido de la celda (el registro del robot es público)")
+    salida, _, _ = correr(libro(), tmp)
+    ok("no se pudo leer" not in salida, "con un Excel bien escrito no hay avisos")
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
