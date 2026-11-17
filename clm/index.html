@@ -533,7 +533,7 @@ const money=n=>(n==null||n==="")?"—":"$"+Number(n).toLocaleString("es-EC",{min
 const money0=n=>"$"+Math.round(Number(n)||0).toLocaleString("es-EC");
 function moneyShort(n){n=Number(n)||0;if(n>=1e6)return "$"+(n/1e6).toFixed(1).replace(".0","")+" M";if(n>=1e3)return "$"+Math.round(n/1e3)+" k";return "$"+Math.round(n);}
 function fdate(iso){if(!iso)return "—";const [y,m,d]=String(iso).split("-");const M=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];return `${+d} ${M[+m-1]} ${y}`;}
-function longDate(iso){if(!iso)iso=new Date().toISOString().slice(0,10);const [y,m,d]=String(iso).split("-");const M=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];return `${+d} de ${M[+m-1]} de ${y}`;}
+function longDate(iso){if(!iso)iso=todayISO();const [y,m,d]=String(iso).split("-");const M=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];return `${+d} de ${M[+m-1]} de ${y}`;}
 function todayISO(){const t=new Date();const p=n=>String(n).padStart(2,"0");return t.getFullYear()+"-"+p(t.getMonth()+1)+"-"+p(t.getDate());}
 function diasRestantes(c){if(!c.fin)return null;const t=new Date(todayISO()+"T00:00:00");const f=new Date(c.fin+"T00:00:00");return Math.round((f-t)/86400000);}
 function montoDe(c){return (c.montoTotal!=null&&c.montoTotal>0)?c.montoTotal:(c.monto||0);}

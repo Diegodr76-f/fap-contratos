@@ -394,7 +394,8 @@
    ========================================================================= */
 
 var LLAVE = "fap_planificador_v1";
-var HOY = new Date().toISOString().slice(0,10);
+// La fecha de hoy en Ecuador. toISOString() da la de Greenwich: desde las 19h00 ya es mañana.
+var HOY = (function(t){ var p=function(n){return String(n).padStart(2,'0');}; return t.getFullYear()+'-'+p(t.getMonth()+1)+'-'+p(t.getDate()); })(new Date());
 var MES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 
 /* ------------------------------------------------------------- utilería */

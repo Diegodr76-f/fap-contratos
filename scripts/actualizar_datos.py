@@ -119,6 +119,13 @@ def iso(v):
         m = re.match(r"(\d{4})-(\d{2})-(\d{2})", v.strip())
         if m:
             return m.group(0)
+        # Una fecha escrita a mano, que Excel guarda como texto: 31/12/2026 o 31-12-2026.
+        m = re.fullmatch(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", v.strip())
+        if m:
+            try:
+                return datetime.date(int(m[3]), int(m[2]), int(m[1])).isoformat()
+            except ValueError:
+                return None
     return None
 
 def num(v):
@@ -388,7 +395,16 @@ elif PROVEEDORES_KEY:
     proveedores = leer_proveedores(wb, ws)
 
 out = []
-for row in ws.iter_rows(min_row=3, values_only=True):
+# Celdas con algo escrito que no se pudo leer como fecha o como monto. Antes se
+# publicaban vacías sin avisar, y un contrato sin fecha de fin no da alerta de
+# vencimiento. El aviso dice la fila del Excel, nunca el dato.
+ilegibles = {}
+def leida(valor, crudo, columna, fila):
+    if valor is None and crudo is not None and str(crudo).strip():
+        ilegibles.setdefault(columna, []).append(fila)
+    return valor
+
+for fila, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
     correo, nro = row[C["correo"]], row[C["nro"]]
     if not correo or "@" not in str(correo):
         continue
@@ -404,11 +420,13 @@ for row in ws.iter_rows(min_row=3, values_only=True):
         detalle=row[C["detalle"]] or "",
         area=row[C["area"]] or "",
         cat=row[C["cat"]] or "",
-        monto=num(row[C["monto"]]) or 0,
+        monto=leida(num(row[C["monto"]]), row[C["monto"]], "Monto (incluido IVA)", fila) or 0,
         montoTotal=num(row[C["montoTotal"]]),
         cerrado=any("cerrad" in str(row[j] or "").lower() for j in estado_cols)
                 or "cerrad" in e.get("estado", "").lower(),
-        inicio=iso(row[C["inicio"]]), firma=iso(row[C["firma"]]), fin=iso(row[C["fin"]]),
+        inicio=leida(iso(row[C["inicio"]]), row[C["inicio"]], "Fecha de inicio", fila),
+        firma=leida(iso(row[C["firma"]]), row[C["firma"]], "Fecha de firma", fila),
+        fin=leida(iso(row[C["fin"]]), row[C["fin"]], "Fecha de finalización", fila),
         tipo=row[C["tipo"]] or "",
         proveedor=str(row[C["proveedor"]] or "").strip(),
         plazo=plazo,
@@ -455,6 +473,10 @@ if calificaciones is not None:
     sobre_c["generado"] = LEIDO
     with open("crm/calificaciones_export.json", "w", encoding="utf-8") as f:
         json.dump(sobre_c, f, ensure_ascii=False)
+
+for columna, filas in ilegibles.items():
+    print(f"AVISO: «{columna}» no se pudo leer en {len(filas)} fila(s) de la hoja 2026 "
+          f"(filas {', '.join(map(str, filas))}): se publica vacía. Escríbela como fecha o número de Excel.")
 
 faltan = [k for k in ("fcierre", "liquidado", "saldo") if C.get(k) is None]
 if faltan:
