@@ -378,6 +378,14 @@
   .alert-row .at{font-size:13px;font-weight:700}
   .alert-row .ad{font-size:11.5px;color:var(--muted)}
   .alert-row .go{margin-left:auto;flex:0 0 auto}
+  .modchip{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:6px;white-space:nowrap;background:var(--tint);color:var(--navy)}
+  .modchip.mayor{background:var(--amberbg);color:#8A5E06}
+  .modchip.plazo{background:#EFE6FA;color:var(--violet)}
+  .modchip.revisar{background:var(--redbg);color:var(--red)}
+  .subchips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px;padding-left:2px}
+  .subchips .chip{font-size:12px;padding:6px 11px}
+  .mod-resumen{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+  @media(max-width:860px){.mod-resumen{grid-template-columns:repeat(2,1fr)}}
   .alert-row.encurso{background:var(--bg);border-style:dashed}
   .alert-row.encurso .at{color:var(--muted);font-weight:600}
   .charts.c2.solo{grid-template-columns:1fr}
@@ -544,6 +552,35 @@ function liqDe(c){
 }
 function tieneAdenda(c){return norm(c.adenda).startsWith("s");}
 function montoAdenda(c){const d=montoDe(c)-(c.monto||0);return d>0.009?d:0;}
+/* Contrato MODIFICADO: el que ya cambió su monto o su plazo después de firmado, sea
+   cual sea el instrumento. La palabra «adenda» no sirve para nombrarlos a todos:
+   un aumento de menos del 25 % no va con adenda sino con un acta de aumento de
+   valor (la misma regla de modalModificar). Se detecta con lo que trae el Excel:
+   «Tiene adenda» en «Sí», o un valor total mayor que el monto original.
+   La clase dice cómo se formalizó, para poder filtrar por ella. */
+const MOD_UMBRAL=25;   // % del monto original desde el cual el aumento ya no es un acta
+function esModificado(c){return tieneAdenda(c)||montoAdenda(c)>0;}
+function pctAumento(c){return c.monto>0?montoAdenda(c)/c.monto*100:0;}
+function claseModificacion(c){
+  if(!esModificado(c))return "";
+  if(montoAdenda(c)>0)return pctAumento(c)>=MOD_UMBRAL?"mayor":"menor";
+  // El Excel dice «aumento de valor» pero el valor total no cambió: o falta
+  // actualizar «Valor o plazo total», o no hubo aumento. Se separa para revisarlo
+  // en vez de mezclarlo con los cambios de plazo.
+  if(/aument|valor/i.test(c.tipoAdenda||""))return "revisar";
+  return "plazo";   // sin aumento de monto: plazo, o una corrección que el Excel llama «Otro»
+}
+const MOD_CLASES={menor:{t:"Aumento de monto · acta (menos del 25 %)",c:"Aumento de monto, menos del 25 %"},
+  mayor:{t:"Aumento de monto · 25 % o más",c:"Aumento de monto, 25 % o más"},
+  plazo:{t:"Plazo u otro cambio",c:"Plazo u otro cambio"},
+  revisar:{t:"El Excel dice aumento de valor, pero el valor vigente no cambió: revisar",c:"Aumento sin monto registrado"}};
+function fpct(n){return (Math.round(n*10)/10).toLocaleString("es-EC",{minimumFractionDigits:1,maximumFractionDigits:1})+" %";}
+/* La etiqueta corta de la lista: «Modificado +4,2 %» o «Modificado · plazo». */
+function modChip(c){
+  const k=claseModificacion(c);if(!k)return "";
+  const txt=k==="revisar"?"Modificado · revisar monto":k==="plazo"?"Modificado · "+(/plazo/i.test(c.tipoAdenda||"")?"plazo":"otro cambio"):`Modificado +${fpct(pctAumento(c))}`;
+  return `<span class="modchip ${k}" title="${esc(MOD_CLASES[k].t)}">✏️ ${esc(txt)}</span>`;
+}
 function manualDocx(txt){return `«COMPLETAR: ${txt}»`;}
 function trunc(s,n){s=String(s==null?"":s);return s.length>n?s.slice(0,n-1).trimEnd()+"…":s;}
 function cleanNro(n){return String(n).replace(/[^0-9A-Za-z]+/g,"_").replace(/^_|_$/g,"");}
@@ -706,7 +743,7 @@ function mySolicitudes(){
 /* ================= ROUTER ================= */
 // En pantalla angosta (celular) el listado de 8 columnas no se puede leer: se
 // arranca en tarjetas. La AC puede cambiarlo igual con el botón de siempre.
-let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:(window.innerWidth&&window.innerWidth<700)?"cards":"table",repQ:"",sinCarpeta:false,from:null,fromY:0,prov:null,provQ:"",provFiltro:"all",provSort:"monto"};
+let ST={view:"panel",cur:null,q:"",filter:"all",catFilter:"all",areaFilter:"all",sort:"recientes",viewMode:(window.innerWidth&&window.innerWidth<700)?"cards":"table",repQ:"",sinCarpeta:false,modif:"",from:null,fromY:0,prov:null,provQ:"",provFiltro:"all",provSort:"monto"};
 const VIEWS={panel:"Panel de control",pipeline:"Etapas del ciclo de vida",contratos:"Repositorio de contratos",solicitudes:"Solicitudes precontractuales",alertas:"Alertas y renovaciones",reportes:"Reportes y analítica",mapa:"Mapa de áreas protegidas",actividad:"Bitácora de actividad",proveedores:"Proveedores",proveedor:"Ficha del proveedor",calificacion:"Calificador de ofertas · selección",magica:"La Mágica · documentos precontractuales",crmx:"CRM clásico",detalle:"Detalle del contrato"};
 /* El enlace del detalle lleva el NÚMERO del contrato, no su posición en la lista.
    La posición cambia cada mañana, cuando el robot rehace la base desde el Excel:
@@ -1290,7 +1327,7 @@ function vPanel(){
       </div>
       <div class="panel">
         <p class="ptitle">Valor por categoría</p>
-        <p class="psub">Monto total vigente (incl. adendas) · top ${cats.length}</p>
+        <p class="psub">Monto total vigente (con modificaciones) · top ${cats.length}</p>
         ${barChartH(cats,v=>moneyShort(v))}
       </div>
     </div>
@@ -1393,6 +1430,7 @@ function filteredContracts(){
     if(ST.catFilter!=="all"&&(c.cat||"—")!==ST.catFilter)return false;
     if(ST.areaFilter!=="all"&&(c.area||"—")!==ST.areaFilter)return false;
     if(ST.sinCarpeta&&c.carpeta)return false;
+    if(ST.modif){const k=claseModificacion(c);if(ST.modif==="si"?!k:k!==ST.modif)return false;}
     // La carpeta y el código del proceso entran a la búsqueda para que sirva en
     // las dos direcciones: del objeto a la carpeta, y del número de carpeta al
     // contrato — que es el camino que antes se hacía a ojo. Sin tildes y con
@@ -1418,6 +1456,9 @@ function vContratos(){
   // antes de empezar sería un cartel rojo permanente que no dice nada.
   const sinCarp=mine.filter(c=>!c.carpeta).length, conCarp=mine.length-sinCarp;
   if(!sinCarp)ST.sinCarpeta=false;   // sin nada que filtrar, no dejar la lista vacía
+  const nMod=mine.filter(esModificado).length;
+  const nClase={menor:0,mayor:0,plazo:0,revisar:0};mine.forEach(c=>{const k=claseModificacion(c);if(k)nClase[k]++;});
+  if(!nMod)ST.modif="";
   const list=filteredContracts();
   const cats=[...new Set(mine.map(c=>c.cat||"—"))].sort((a,b)=>a.localeCompare(b));
   const areas=[...new Set(mine.map(c=>c.area||"—"))].sort((a,b)=>a.localeCompare(b));
@@ -1444,8 +1485,13 @@ function vContratos(){
     </div>
     <div class="chips">
       ${[["all","Todos"],["vig","Vigentes"],["avi","Por vencer"],["ven","Vencidos"],["ter","Terminados"]].map(([k,l])=>`<button class="chip ${ST.filter===k?"on":""}" data-f="${k}">${l}</button>`).join("")}
+      ${nMod?`<button class="chip ${ST.modif?"on":""}" id="chipModif" title="Contratos cuyo monto o plazo cambió después de firmados">✏️ Modificados · ${nMod}</button>`:""}
       ${(conCarp&&sinCarp)?`<button class="chip ${ST.sinCarpeta?"on":""}" id="chipSinCarp" title="Contratos cuya carpeta interna todavía no está registrada en el Excel maestro">📁 Sin carpeta · ${sinCarp}</button>`:""}
     </div>
+    ${ST.modif?`<div class="subchips" id="subModif">
+      <button class="chip ${ST.modif==="si"?"on":""}" data-m="si">Todos · ${nMod}</button>
+      ${Object.keys(MOD_CLASES).filter(k=>nClase[k]).map(k=>`<button class="chip ${ST.modif===k?"on":""}" data-m="${k}">${esc(MOD_CLASES[k].c)} · ${nClase[k]}</button>`).join("")}
+    </div>`:""}
     ${cats.length>1?`<div class="chips" style="margin:10px 0 4px">
       <button class="chip ${ST.catFilter==="all"?"on":""}" data-c="all">Todas las categorías</button>
       ${cats.map(k=>{const col=catColor(k),on=ST.catFilter===k;
@@ -1462,6 +1508,8 @@ function vContratos(){
   $("#sortSel").onchange=e=>{ST.sort=e.target.value;vContratos();};
   const ca=$("#clearArea",$("#view"));if(ca)ca.onclick=()=>{ST.areaFilter="all";vContratos();};
   const csc=$("#chipSinCarp",$("#view"));if(csc)csc.onclick=()=>{ST.sinCarpeta=!ST.sinCarpeta;vContratos();};
+  const cmo=$("#chipModif",$("#view"));if(cmo)cmo.onclick=()=>{ST.modif=ST.modif?"":"si";vContratos();};
+  $("#view").querySelectorAll("#subModif .chip").forEach(b=>b.onclick=()=>{ST.modif=b.dataset.m;vContratos();});
   $("#view").querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{ST.filter=b.dataset.f;vContratos();});
   $("#view").querySelectorAll(".chip[data-c]").forEach(b=>b.onclick=()=>{ST.catFilter=(ST.catFilter===b.dataset.c)?"all":b.dataset.c;vContratos();});
   $("#view").querySelectorAll(".viewtog button").forEach(b=>b.onclick=()=>{ST.viewMode=b.dataset.v;vContratos();});
@@ -1470,7 +1518,7 @@ function vContratos(){
 function bindRows(){
   $("#view").querySelectorAll("[data-open]").forEach(el=>el.onclick=ev=>{if(ev.target.closest("a"))return;go("detalle",+el.dataset.open);});
   const lf=$("#limpiarFiltros");
-  if(lf)lf.onclick=()=>{ST.q="";ST.filter="all";ST.catFilter="all";ST.areaFilter="all";ST.sinCarpeta=false;vContratos();};
+  if(lf)lf.onclick=()=>{ST.q="";ST.filter="all";ST.catFilter="all";ST.areaFilter="all";ST.sinCarpeta=false;ST.modif="";vContratos();};
 }
 /* Abrir el contrato firmado es lo que más se hace: desde la lista, a un clic. */
 function firmadoHTML(c){return c.link?`<a class="signed" href="${esc(c.link)}" target="_blank" rel="noopener" title="Abrir el contrato firmado">📄 Abrir</a>`:"";}
@@ -1483,6 +1531,7 @@ function filtrosActivos(){
   if(ST.catFilter!=="all")f.push("la categoría");
   if(ST.areaFilter!=="all")f.push("el área");
   if(ST.sinCarpeta)f.push("«sin carpeta»");
+  if(ST.modif)f.push("«modificados»");
   return f;
 }
 function emptyHTML(){
@@ -1498,6 +1547,7 @@ function cardsHTML(list){
     return `<div class="cc ${s.cls}" data-open="${i}">
       <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${esc(c.nro)}${c.carpeta?` <span style="font-size:11px;color:var(--muted)">📁 ${esc(c.carpeta)}</span>`:""}</span><span class="badge ${s.b}">${esc(s.label)}</span></div>
       <div class="cc-title">${esc(c.detalle)}</div>
+      ${esModificado(c)?`<div style="margin:2px 0 4px">${modChip(c).replace("margin-left:6px","")}</div>`:""}
       <div class="cc-area">${esc(c.area||"")}</div>
       <div class="cc-meta"><span>Proveedor · <b>${esc(c.proveedor||"—")}</b></span></div>
       <div class="cc-meta" style="margin-top:5px"><span>Monto · <b>${money(montoDe(c))}</b></span><span>·</span><span><b>${esc(vigenciaText(c))}</b></span></div>
@@ -1513,7 +1563,7 @@ function tableHTML(list){
     <tbody>${list.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c),L=ter?liqDe(c):null;
       return `<tr data-open="${i}">
         <td class="td-nro">${esc(c.nro)}${c.carpeta?`<div style="font-size:11px;font-weight:700;color:var(--muted)">📁 carpeta ${esc(c.carpeta)}</div>`:""}</td>
-        <td class="td-obj">${esc(c.detalle)}<div class="oc">${catChip(c.cat)}</div><div class="oa">${esc(c.area||"")}</div></td>
+        <td class="td-obj">${esc(c.detalle)}<div class="oc">${catChip(c.cat)}${modChip(c)}</div><div class="oa">${esc(c.area||"")}</div></td>
         <td class="td-area">${esc(c.area||"—")}</td>
         <td>${esc(c.proveedor||"—")}</td>
         <td style="white-space:nowrap">${money(montoDe(c))}</td>
@@ -1662,7 +1712,7 @@ function vProveedor(){
           </div>
           <div class="dl" style="margin-top:14px">
             <div><div class="k">Contratos</div><div class="v">${p.contratos.length} · ${p.activos} activo${p.activos===1?"":"s"}</div></div>
-            <div><div class="k">Monto contratado (incl. adendas)</div><div class="v">${money(p.monto)}</div></div>
+            <div><div class="k">Monto contratado (con modificaciones)</div><div class="v">${money(p.monto)}</div></div>
             <div><div class="k">Calificaciones</div><div class="v">${p.califs.length?`${p.califs.length} · promedio ${puntos(p.promedio)}/100`:"Ninguna todavía"}</div></div>
             <div><div class="k">Por calificar</div><div class="v" style="${p.porCalificar?"color:var(--teal)":""}">${p.porCalificar?`${p.porCalificar} contrato${p.porCalificar===1?"":"s"}${SES.rol!=="uo"&&tuyos!==p.porCalificar?` · ${tuyos} tuyo${tuyos===1?"":"s"}`:""}`:"Nada pendiente"}</div></div>
             <div class="full"><div class="k">Áreas protegidas</div><div class="v" style="line-height:1.5">${esc(p.areas.join(" · ")||"—")}</div></div>
@@ -1787,7 +1837,7 @@ function vDetalle(){
             <div><div class="k">Firma</div><div class="v">${fdate(c.firma)}</div></div>
             <div><div class="k">Fin</div><div class="v">${fdate(c.fin)}</div></div>
             <div><div class="k">Vigencia (hoy)</div><div class="v" style="color:${s.cls==="r"?"var(--red)":s.cls==="a"?"var(--amber)":"var(--ink)"}">${esc(vigenciaText(c))}</div></div>
-            ${tieneAdenda(c)?`<div class="full"><div class="k">Adenda registrada</div><div class="v" style="line-height:1.5">${esc(c.tipoAdenda||"Adenda")}${montoAdenda(c)?` · <b style="color:var(--navy)">+${money(montoAdenda(c))}</b>`:""}${c.firmaAdenda?` · firmada el ${fdate(c.firmaAdenda)}`:""}${c.modificacion?`<div style="font-size:12px;color:var(--muted)">${esc(c.modificacion)}</div>`:""}</div></div>`:""}
+            ${tieneAdenda(c)?`<div class="full"><div class="k">Modificación registrada</div><div class="v" style="line-height:1.5">${esc(c.tipoAdenda||"Modificación")}${montoAdenda(c)?` · <b style="color:var(--navy)">+${money(montoAdenda(c))} (${fpct(pctAumento(c))})</b>`:""}${c.firmaAdenda?` · firmada el ${fdate(c.firmaAdenda)}`:""}${c.modificacion?`<div style="font-size:12px;color:var(--muted)">${esc(c.modificacion)}</div>`:""}</div></div>`:""}
             ${o.terminado?`<div class="full"><div class="k">Terminación</div><div class="v" style="color:var(--navy)">${esc(o.causal||"")} · ${fdate(o.fter)}</div></div>`:""}
             ${cal?`<div class="full"><div class="k">Calificación del proveedor</div><div class="v">${puntos(cal.score)}/100 · ${esc(cal.sem)}</div></div>`:""}
           </div>
@@ -1822,7 +1872,7 @@ function vDetalle(){
             ${urgeRenov?renovBtn:""}${urgeNuevo?nuevoBtn:""}
             <button class="actbtn" id="a-mod" ${done?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
-              <span><span class="at">Modificar contrato</span><span class="ad">Adenda o aumento de monto · informe FAP-2026-11</span></span>
+              <span><span class="at">Modificar contrato</span><span class="ad">Aumento de monto o de plazo · informe FAP-2026-11</span></span>
             </button>
             <button class="actbtn" id="a-ter" ${done?"disabled":""}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
@@ -1903,7 +1953,7 @@ function contractTimeline(c){
   const o=ov(c),ev=[];
   if(c.firma)ev.push({d:c.firma,t:"✍️ Contrato firmado",s:longDate(c.firma)});
   if(c.inicio)ev.push({d:c.inicio,t:"▶️ Inicio de la ejecución",s:longDate(c.inicio)});
-  if(tieneAdenda(c)&&c.firmaAdenda)ev.push({d:c.firmaAdenda,t:"📎 Adenda firmada — "+(c.tipoAdenda||"modificación"),s:longDate(c.firmaAdenda)+(montoAdenda(c)?" · +"+money(montoAdenda(c)):"")});
+  if(esModificado(c)&&c.firmaAdenda)ev.push({d:c.firmaAdenda,t:"✏️ Modificación firmada — "+(c.tipoAdenda||"modificación"),s:longDate(c.firmaAdenda)+(montoAdenda(c)?" · +"+money(montoAdenda(c)):"")});
   CLM.log.filter(l=>l.ref===c.nro).forEach(l=>ev.push({d:l.ts.slice(0,10),t:l.icon+" "+l.txt,s:l.user+" · "+new Date(l.ts).toLocaleDateString("es-EC")}));
   if(c.fcierre)ev.push({d:c.fcierre,t:"⚫ Contrato cerrado y liquidado",s:longDate(c.fcierre)+(c.liquidado!=null?" · liquidado "+money(c.liquidado):"")});
   if(!o.terminado&&!c.cerrado&&c.fin)ev.push({d:c.fin,t:"🏁 Fin de vigencia "+(diasRestantes(c)>=0?"(previsto)":"(vencido)"),s:longDate(c.fin)});
@@ -2082,7 +2132,7 @@ function modalModificar(c){
     </div>
     <div id="montoRow">
       <div class="frow"><label>Valor del incremento (USD, incl. IVA)</label><input id="inc" type="number" min="0" step="0.01" placeholder="0.00">
-        <div style="font-size:11.5px;color:var(--muted);margin-top:5px">Monto original: <b>${money(c.monto)}</b>${montoDe(c)!==c.monto?` · vigente con adendas: <b>${money(montoDe(c))}</b>`:""}</div></div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:5px">Monto original: <b>${money(c.monto)}</b>${montoDe(c)!==c.monto?` · vigente con modificaciones: <b>${money(montoDe(c))}</b>`:""}</div></div>
       <div class="secdiv">Datos para el informe (FAP-2026-11)</div>
       <div class="frow2"><div class="frow"><label>RUC del proveedor</label><input id="rucM" placeholder="N.º de RUC"></div>
       <div class="frow"><label>Siglas del área</label><input id="siglas" placeholder="Ej.: PNC"></div></div>
@@ -2806,6 +2856,12 @@ function vReportes(){
   }
   const total=mine.reduce((a,c)=>a+montoDe(c),0);
   const porCat=agg(c=>c.cat),porArea=agg(c=>c.area),porAC=agg(c=>c.ac);
+  // Contratos modificados: cuántos, cuánto se aumentó y cómo se formalizó cada uno.
+  const mods=mine.filter(esModificado).sort((a,b)=>(b.firmaAdenda||"").localeCompare(a.firmaAdenda||"")||pctAumento(b)-pctAumento(a));
+  const modClase={menor:[],mayor:[],plazo:[],revisar:[]};mods.forEach(c=>modClase[claseModificacion(c)].push(c));
+  const modAumento=mods.reduce((a,c)=>a+montoAdenda(c),0),modBase=mods.reduce((a,c)=>a+(c.monto||0),0);
+  const modPorCat={};mods.forEach(c=>{const k=c.cat||"—";(modPorCat[k]||(modPorCat[k]={n:0,t:0}));modPorCat[k].n++;modPorCat[k].t+=montoAdenda(c);});
+  const modCatFilas=Object.entries(modPorCat).sort((a,b)=>b[1].n-a[1].n||b[1].t-a[1].t);
   const tbl=(rows,label)=>`<div class="tablewrap"><table class="list" style="min-width:0">
     <thead><tr><th>${label}</th><th style="text-align:right">Contratos</th><th style="text-align:right">Monto</th><th style="text-align:right">% del total</th></tr></thead>
     <tbody>${rows.map(([k,v])=>`<tr style="cursor:default"><td style="font-weight:600">${esc(k)}</td><td style="text-align:right">${v.n}</td><td style="text-align:right;white-space:nowrap">${money(v.monto)}</td><td style="text-align:right">${total?(v.monto/total*100).toFixed(1):0}%</td></tr>`).join("")}</tbody></table></div>`;
@@ -2820,20 +2876,49 @@ function vReportes(){
       <div class="panel"><p class="ptitle">Monto por área protegida</p><p class="psub">top 10 de ${porArea.length} áreas</p>
         ${barChartH(porArea.slice(0,10).map(([label,v])=>({label,value:v.monto,tip:`<b>${esc(label)}</b><br>${v.n} contrato(s) · ${money(v.monto)}`})),v=>moneyShort(v))}</div>
     </div>
+    <div class="panel" id="repMod" style="margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div><p class="ptitle">Contratos modificados</p>
+        <p class="psub">Los que cambiaron su monto o su plazo después de firmados. Un aumento de menos del 25 % del monto original se formaliza con acta de aumento de valor; desde el 25 %, con instrumento modificatorio.</p></div>
+        ${mods.length?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn line sm" id="modVer">Ver en Contratos →</button><button class="btn line sm" id="modCsv">⬇ CSV de modificados</button></div>`:""}
+      </div>
+      ${mods.length?`
+      <div class="mod-resumen">
+        <div class="kpi" style="cursor:default"><div class="kpi-n" style="color:var(--navy)">${mods.length}</div><div class="kpi-l">Contratos modificados · ${mine.length?(mods.length/mine.length*100).toFixed(1):0} % del portafolio</div></div>
+        <div class="kpi" style="cursor:default"><div class="kpi-n">${money(modAumento)}</div><div class="kpi-l">Aumento total de monto${modBase?` · +${fpct(modAumento/modBase*100)} sobre ${moneyShort(modBase)}`:""}</div></div>
+        <div class="kpi" style="cursor:default"><div class="kpi-n">${modClase.menor.length}</div><div class="kpi-l">Con acta de aumento de valor (menos del 25 %)</div></div>
+        <div class="kpi" style="cursor:default"><div class="kpi-n" style="color:var(--amber)">${modClase.mayor.length}</div><div class="kpi-l">Aumento de 25 % o más${modClase.plazo.length?` · ${modClase.plazo.length} de plazo u otro`:""}${modClase.revisar.length?` · ${modClase.revisar.length} por revisar`:""}</div></div>
+      </div>
+      <div class="tablewrap"><table class="list" style="min-width:0">
+        <thead><tr><th>Contrato</th><th>Objeto</th><th>Cómo se formalizó</th><th style="text-align:right">Monto original</th><th style="text-align:right">Monto vigente</th><th style="text-align:right">Aumento</th><th>Firma</th></tr></thead>
+        <tbody>${mods.slice(0,25).map(c=>{const i=CONTRACTS.indexOf(c),k=claseModificacion(c);
+          return `<tr data-open="${i}"><td class="td-nro">${esc(c.nro)}</td><td class="td-obj">${esc(trunc(c.detalle,90))}<div class="oa" style="display:block">${esc(c.area||"")}</div></td>
+          <td><span class="modchip ${k}" style="margin:0">${esc(MOD_CLASES[k].c)}</span>${c.tipoAdenda&&(k==="plazo"||k==="revisar")?`<div style="font-size:11px;color:${k==="revisar"?"var(--red)":"var(--muted)"}">${esc(c.tipoAdenda)}${k==="revisar"?" · monto vigente sin cambio":""}</div>`:""}</td>
+          <td style="text-align:right;white-space:nowrap">${money(c.monto)}</td><td style="text-align:right;white-space:nowrap">${money(montoDe(c))}</td>
+          <td style="text-align:right;white-space:nowrap">${montoAdenda(c)?`<b>+${money(montoAdenda(c))}</b><div style="font-size:11px;color:var(--muted)">${fpct(pctAumento(c))}</div>`:"—"}</td>
+          <td style="white-space:nowrap">${c.firmaAdenda?fdate(c.firmaAdenda):"—"}</td></tr>`;}).join("")}</tbody></table></div>
+      ${mods.length>25?`<p class="psub" style="margin:8px 2px 0">Se muestran los 25 más recientes de ${mods.length}. «Ver en Contratos» o el CSV traen todos.</p>`:""}
+      ${modCatFilas.length>1?`<p class="psub" style="margin:12px 2px 0"><b>Por categoría:</b> ${modCatFilas.map(([k,v])=>`${esc(k)} · ${v.n}${v.t?` (+${moneyShort(v.t)})`:""}`).join(" · ")}</p>`:""}`
+      :`<div class="empty" style="padding:24px 10px">Ningún contrato del portafolio se ha modificado.</div>`}
+    </div>
     <div class="charts eq">
       <div><p class="ptitle" style="margin:6px 0 8px">Resumen por categoría</p>${tbl(porCat,"Categoría")}</div>
       <div><p class="ptitle" style="margin:6px 0 8px">Resumen por AC</p>${tbl(porAC.slice(0,15),"Administradora")}</div>
     </div>
   </div>`;
-  $("#expCsv").onclick=()=>{
+  const csv=(lista,nombre,aviso)=>{
     const BOM="\uFEFF";
-    const head=["Nro","Objeto","Area","Categoria","Proveedor","AC","Monto original","Monto vigente","Inicio","Firma","Fin","Estado","Adenda","Calificacion"];
-    const rows=mine.map(c=>{const q=calificacionDe(c);return [c.nro,c.detalle,c.area,c.cat,c.proveedor,c.ac,c.monto,montoDe(c),c.inicio,c.firma,c.fin,statusLive(c).label,tieneAdenda(c)?(c.tipoAdenda||"Sí"):"No",q?q.score.toFixed(2):""].map(v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`).join(";");});
+    const head=["Nro","Objeto","Area","Categoria","Proveedor","AC","Monto original","Monto vigente","Aumento (USD)","Aumento (%)","Modificado","Como se formalizo","Tipo de modificacion","Fecha de firma de la modificacion","Inicio","Firma","Fin","Estado","Calificacion"];
+    const rows=lista.map(c=>{const q=calificacionDe(c),k=claseModificacion(c);return [c.nro,c.detalle,c.area,c.cat,c.proveedor,c.ac,c.monto,montoDe(c),montoAdenda(c)||"",montoAdenda(c)?pctAumento(c).toFixed(1):"",k?"Sí":"No",k?MOD_CLASES[k].c:"",k?(c.tipoAdenda||""):"",k?(c.firmaAdenda||""):"",c.inicio,c.firma,c.fin,statusLive(c).label,q?q.score.toFixed(2):""].map(v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`).join(";");});
     const blob=new Blob([BOM+[head.join(";")].concat(rows).join("\r\n")],{type:"text/csv;charset=utf-8"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Portafolio_CLM_FAP_"+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
-    logAdd("⬇️","Exportación CSV del portafolio");
-    toast("CSV del portafolio exportado");
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nombre+todayISO()+".csv";a.click();URL.revokeObjectURL(a.href);
+    logAdd("⬇️",aviso);
+    toast(aviso);
   };
+  $("#expCsv").onclick=()=>csv(mine,"Portafolio_CLM_FAP_","CSV del portafolio exportado");
+  const mc=$("#modCsv");if(mc)mc.onclick=()=>csv(mods,"Contratos_modificados_FAP_","CSV de contratos modificados exportado");
+  const mv=$("#modVer");if(mv)mv.onclick=()=>{ST.modif="si";ST.filter="all";ST.catFilter="all";ST.areaFilter="all";ST.q="";go("contratos");};
+  $("#view").querySelectorAll("#repMod tr[data-open]").forEach(r=>r.onclick=()=>{ST.from="reportes";ST.fromY=window.scrollY;go("detalle",+r.dataset.open);});
 }
 
 /* ================= GEOGRAFÍA DE LAS ÁREAS PROTEGIDAS =================
