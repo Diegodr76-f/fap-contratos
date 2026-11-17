@@ -1292,6 +1292,59 @@ seccion('27 · El servicio que no se puede renovar continúa por proceso nuevo')
 
 }
 
+// ---------------------------------------------------------------- 28
+seccion('28 · La lista de pendientes se acorta a medida que la AC avanza');
+{
+  // Un contrato cuyo proceso nuevo ya se abrió seguía diciendo «prepara el proceso
+  // nuevo» al día siguiente: la lista nunca se acortaba ni mostraba avance.
+  const enVeinte=new Date(Date.now()+20*86400000).toISOString().slice(0,10);
+  const base=contratos();
+  Object.assign(base[0],{tipo:'Renovación',...anual(enVeinte)});
+  Object.assign(base[1],{tipo:'Renovación',...anual(enVeinte)});
+  Object.assign(base[2],{tipo:'Nuevo',...anual(enVeinte)});
+  const w29=await listo(nuevoDom(base,{rol:'ac',user:'Ana Pérez'}));
+  const badge=()=>{const b=[...w29.document.querySelectorAll('.navitem')].find(x=>/Alertas/.test(x.textContent)).querySelector('.nbadge');return b?b.textContent:'';};
+  ok(w29.alertasPendientes().length===3 && badge()==='3','tres contratos por vencer: tres pendientes',badge());
+  // Sin actividad, lo que hay que atender ocupa todo el ancho.
+  ok(w29.document.querySelector('.atencion.solo') && !/Actividad reciente/.test(texto(w29)),'sin actividad registrada, el panel no gasta media pantalla en decirlo');
+  ok(/3 pendientes/.test(texto(w29)),'y dice cuántos pendientes hay');
+
+  // Abre el proceso nuevo del primero.
+  w29.go('detalle',0); w29.document.getElementById('a-nue').onclick();
+  w29.document.querySelector('.overlay #okPN').onclick();
+  w29.go('panel');
+  ok(w29.alertasPendientes().length===2 && badge()==='2','al abrirlo en La Mágica deja de contar como pendiente',badge());
+  let filas=[...w29.document.querySelectorAll('.alert-row')];
+  let f1=filas.find(r=>/FIAS-FAP-2026-001/.test(r.textContent));
+  ok(f1 && f1.classList.contains('encurso') && /Proceso nuevo en curso/.test(f1.textContent) && f1.querySelector('.go').textContent==='Continuar',
+     'pasa a «en curso», con un botón para continuar',f1&&f1.textContent);
+  ok(filas.indexOf(f1)===filas.filter(r=>!/Actividad/.test(r.textContent)).length-1,'y baja al final de la lista: primero lo que falta');
+  ok(/2 pendientes · 1 en curso en La Mágica/.test(texto(w29)),'el panel resume el avance');
+  ok(/Actividad reciente/.test(texto(w29)),'y con actividad registrada vuelve la columna de actividad');
+  w29.localStorage.removeItem('fap_precarga');
+  f1.querySelector('.go').onclick(); await pausa(120);
+  ok(!w29.document.querySelector('.overlay') && JSON.parse(w29.localStorage.getItem('fap_precarga')).id==='nue:FIAS-FAP-2026-001',
+     '«Continuar» vuelve directo al expediente, sin preguntar otra vez');
+
+  // La renovación también se recuerda.
+  w29.go('detalle',2); w29.document.getElementById('a-ren').onclick();
+  ok(!!w29.eval("ov(CONTRACTS[2]).renov"),'renovar deja anotado que se abrió');
+  w29.go('detalle',2);
+  ok(/Abierta el/.test(w29.document.getElementById('a-ren').textContent),'el botón lo dice');
+  const nLog=w29.eval('CLM.log.length');
+  w29.document.getElementById('a-ren').onclick();
+  ok(w29.eval('CLM.log.length')===nLog,'y volver a entrar no repite la línea en la bitácora');
+  w29.go('alertas');
+  const f3=[...w29.document.querySelectorAll('.alert-row')].find(r=>/FIAS-FAP-2026-003/.test(r.textContent));
+  ok(f3 && /Renovación en curso/.test(f3.textContent) && badge()==='1','su alerta pasa a «Renovación en curso» y queda un solo pendiente',badge());
+  w29.localStorage.removeItem('fap_precarga'); f3.querySelector('.go').onclick();
+  ok(JSON.parse(w29.localStorage.getItem('fap_precarga')).id==='ren:FIAS-FAP-2026-003','y «Continuar» abre la renovación');
+
+  // En el teléfono: las acciones antes de la línea de tiempo, lo pendiente antes de las cifras.
+  ok(/\.detail>div:first-child\{display:contents\}/.test(HTML) && /\.detail>div:last-child\{order:2\}/.test(HTML),'en una columna, las acciones van antes de la línea de tiempo');
+  ok(/\.panelv>\.atencion\{order:1\}\.panelv>\.kpis\{order:2\}/.test(HTML),'y en el panel, lo pendiente va antes de las cifras');
+}
+
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
 process.exit(fallos?1:0);
 
