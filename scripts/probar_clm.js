@@ -1395,25 +1395,25 @@ seccion('29 · Los contratos modificados se encuentran y se cuentan');
   ok(/Modificación registrada/.test(texto(w29)) && /\+\$150,00 \(15,0 %\)/.test(texto(w29)) && !/dena/i.test(w29.document.querySelector('.detail').textContent.replace(/Modificar contrato.*?FAP-2026-11/s,'')),
      'el detalle dice «Modificación registrada», con el aumento y su porcentaje, sin «adenda»');
 
-  // reportes
+  // reportes: solo cifras, al final y sin tocar lo de antes
   w29.go('reportes');
   const rep=w29.document.getElementById('repMod');
-  ok(!!rep && /Contratos modificados/.test(rep.textContent),'Reportes tiene la sección «Contratos modificados»');
-  ok(/4Contratos modificados/.test(rep.querySelector('.mod-resumen').textContent.replace(/\s+/g,'').replace(/·.*/,'')) || /4/.test(rep.querySelector('.mod-resumen .kpi-n').textContent),'con cuántos son');
-  ok(/\$530,00/.test(rep.textContent),'y cuánto se aumentó en total (150 + 300 + 80)',(rep.querySelectorAll('.kpi-n')[1]||{}).textContent);
-  ok(rep.querySelectorAll('tbody tr').length===4,'la tabla lista los cuatro');
+  ok(!!rep && /Contratos modificados por categoría/.test(rep.textContent),'Reportes tiene la tabla «Contratos modificados por categoría»');
+  const secciones=[...w29.document.querySelectorAll('#view .ptitle')].map(x=>x.textContent);
+  ok(secciones[secciones.length-1]==='Contratos modificados por categoría' && secciones[0]==='Monto por categoría','va al final: lo de antes queda arriba, igual',secciones.join(' | '));
+  const filasRep=[...rep.querySelectorAll('tbody tr')].map(r=>[...r.children].map(td=>td.textContent.trim()));
+  ok(filasRep.length===2 && filasRep[0][0]==='Mantenimiento' && filasRep[0][1]==='4' && filasRep[0][2]==='$530,00',
+     'por categoría: cuántos y el monto (150 + 300 + 80; el de plazo suma 0)',JSON.stringify(filasRep));
+  ok(filasRep[1][0]==='Total' && filasRep[1][1]==='4' && filasRep[1][2]==='$530,00','con una fila de total');
+  ok(!rep.querySelector('.kpi') && !rep.querySelector('button'),'solo la tabla: sin cifras grandes ni botones');
   ok(!/dena/i.test(rep.textContent),'sin la palabra «adenda»');
-  rep.querySelector('#modVer').onclick();
-  ok(w29.eval('ST.view')==='contratos' && w29.eval('ST.modif')==='si','«Ver en Contratos» abre la lista ya filtrada');
-  // CSV
-  w29.go('reportes');
+  // el CSV del portafolio sigue trayendo las columnas de modificación
   let bytes='';w29.URL.createObjectURL=b=>{bytes=b;return 'blob:x';};w29.URL.revokeObjectURL=()=>{};
   w29.HTMLAnchorElement.prototype.click=function(){};
-  w29.document.getElementById('modCsv').onclick();
+  w29.document.getElementById('expCsv').onclick();
   const txt=await new Promise(r=>{const fr=new (w29.FileReader)();fr.onload=()=>r(fr.result);fr.readAsText(bytes);});
   const lin=txt.split(/\r\n/);
-  ok(lin.length===5 && /Como se formalizo/.test(lin[0]) && !/dena/i.test(lin[0]),'el CSV de modificados trae solo los cuatro, con columna «Como se formalizo»');
-  ok(/"150";"15\.0"/.test(lin[1]) || /150/.test(lin[1]),'y el aumento en USD y en %');
+  ok(lin.length===6 && /Modificado/.test(lin[0]) && /Como se formalizo/.test(lin[0]) && !/dena/i.test(lin[0]),'el CSV del portafolio trae las columnas Modificado y Cómo se formalizó');
 
   // sin ningún modificado, nada de esto estorba
   const w29b=await listo(nuevoDom(contratos(),{rol:'ac',user:'Ana Pérez'}));
