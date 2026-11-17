@@ -413,6 +413,22 @@ hechas para eso que conviene reutilizar en vez de rehacer:
 Todo esto lo vigila `scripts/probar_clm.js` (cómo correrlo, al final de la sección
 siguiente). Si añades comportamiento al CLM, añade la comprobación.
 
+### Contratos modificados
+
+**No se les llama «adenda».** Un aumento de menos del 25 % del monto original se formaliza
+con acta de aumento de valor, no con adenda (la regla de `modalModificar`); desde el 25 %,
+con instrumento modificatorio. Por eso la marca, el filtro y el reporte dicen **modificado**.
+`esModificado(c)` es la única fuente: «Tiene adenda» en «Sí» en el Excel, o un valor total
+mayor que el monto original (el Excel no siempre marca lo uno aunque pase lo otro).
+`claseModificacion(c)` dice cómo se formalizó —`menor`, `mayor` (`MOD_UMBRAL`, 25 % sobre el
+monto ORIGINAL, el 25 % justo ya es `mayor`), `plazo`, o `revisar` cuando el Excel dice
+«aumento de valor» y el valor vigente no cambió (falta actualizar «Valor o plazo total»)—.
+Está en **Contratos** (chip «Modificados» con subfiltros por clase, y la marca `modChip()` en
+lista y tarjetas) y en **Reportes** (sección «Contratos modificados»: cuántos, aumento total,
+tabla de los 25 más recientes, «Ver en Contratos» y CSV propio). El CSV del portafolio trae las
+columnas Modificado, Aumento y Cómo se formalizó. Sección 29 de `probar_clm.js`. Con los datos
+de noviembre de 2026: 28 modificados (9 menos del 25 %, 16 de 25 % o más, 3 de plazo u otro).
+
 ### El pool de proveedores
 
 La alerta «Proveedor sin calificar» pedía todo lo terminado de cualquier año, y a la

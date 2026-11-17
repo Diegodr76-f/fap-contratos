@@ -1345,6 +1345,84 @@ seccion('28 · La lista de pendientes se acorta a medida que la AC avanza');
   ok(/\.panelv>\.atencion\{order:1\}\.panelv>\.kpis\{order:2\}/.test(HTML),'y en el panel, lo pendiente va antes de las cifras');
 }
 
+// ---------------------------------------------------------------- 29
+seccion('29 · Los contratos modificados se encuentran y se cuentan');
+{
+  // «Adenda» no nombra a todos: un aumento de menos del 25 % va con acta de aumento
+  // de valor. Por eso la marca, el filtro y el reporte dicen «modificado».
+  const base=contratos();
+  Object.assign(base[0],{adenda:'Sí',tipoAdenda:'Aumento del valor de contrato',monto:1000,montoTotal:1150,firmaAdenda:'2026-09-29'});   // +15 %: acta
+  Object.assign(base[1],{adenda:'Sí',tipoAdenda:'Aumento del valor de contrato',monto:1000,montoTotal:1300,firmaAdenda:'2026-10-05'});   // +30 %: modificatorio
+  Object.assign(base[2],{adenda:'Sí',tipoAdenda:'Extensión de plazo',monto:1150,montoTotal:1150,firmaAdenda:'2026-08-01'});               // solo plazo
+  Object.assign(base[3],{adenda:'No',monto:1000,montoTotal:1080});                                                                        // el Excel no lo marca, pero el valor creció
+  const w29=await listo(nuevoDom(base,{rol:'ac',user:'Ana Pérez'}));
+  ok(w29.claseModificacion(base[0])==='menor' && w29.claseModificacion(base[1])==='mayor' && w29.claseModificacion(base[2])==='plazo',
+     'se clasifican: menos del 25 %, 25 % o más, y plazo',[0,1,2].map(i=>w29.claseModificacion(base[i])).join(','));
+  ok(w29.claseModificacion({monto:1000,montoTotal:1250,adenda:'Sí'})==='mayor' && w29.claseModificacion({monto:1000,montoTotal:1249.99,adenda:'Sí'})==='menor','el 25 % justo ya es del segundo grupo, como en el cuadro de modificar');
+  ok(w29.claseModificacion({monto:7384,montoTotal:7384,adenda:'Sí',tipoAdenda:'Aumento del valor de contrato'})==='revisar'
+     && w29.claseModificacion({monto:7384,montoTotal:7384,adenda:'Sí',tipoAdenda:'Otro'})==='plazo',
+     'un «aumento de valor» sin monto distinto se separa para revisarlo; «Otro» sigue siendo plazo u otro');
+  ok(w29.esModificado(base[3]) && !w29.esModificado(base[4]),'un valor total mayor que el original cuenta aunque el Excel no diga «Sí»; uno sin cambios no');
+  ok(Math.abs(w29.pctAumento(base[1])-30)<1e-9,'el porcentaje es sobre el monto ORIGINAL');
+
+  w29.go('contratos');
+  const chip=w29.document.getElementById('chipModif');
+  ok(chip && /Modificados · 4/.test(chip.textContent),'el repositorio tiene el filtro «Modificados» con su cuenta',chip&&chip.textContent);
+  ok(!/dena/i.test(w29.document.querySelector('.chips').textContent),'y no usa la palabra «adenda»');
+  ok(w29.document.querySelectorAll('tr[data-open]').length===5,'sin filtrar salen los cinco');
+  chip.onclick();
+  let filas=[...w29.document.querySelectorAll('tr[data-open]')];
+  ok(filas.length===4 && !filas.some(r=>/FIAS-FAP-2026-005/.test(r.textContent)),'al activarlo salen solo los cuatro modificados');
+  const marcas=filas.map(r=>(r.querySelector('.modchip')||{}).textContent||'').join(' | ');
+  ok(/\+15,0 %/.test(marcas) && /\+30,0 %/.test(marcas) && /\+8,0 %/.test(marcas) && /Modificado · plazo/.test(marcas),
+     'cada uno lleva su marca: el porcentaje, o «plazo»',marcas);
+  const sub=[...w29.document.querySelectorAll('#subModif .chip')].map(b=>b.textContent.replace(/\s+/g,' '));
+  ok(sub.length===4 && /menos del 25 %.*· 2/.test(sub[1]) && /25 % o más.*· 1/.test(sub[2]) && /Plazo.*· 1/.test(sub[3]),'aparecen los subfiltros por cómo se formalizó, con su cuenta',sub.join(' | '));
+  [...w29.document.querySelectorAll('#subModif .chip')][2].onclick();
+  filas=[...w29.document.querySelectorAll('tr[data-open]')];
+  ok(filas.length===1 && /FIAS-FAP-2026-002/.test(filas[0].textContent),'«25 % o más» deja solo ese contrato');
+  w29.document.getElementById('chipModif').onclick();
+  ok(w29.document.querySelectorAll('tr[data-open]').length===5,'volver a pulsar el filtro lo apaga');
+  // sin resultados lo dice
+  w29.eval("ST.modif='si';ST.q='zzzz'"); w29.go('contratos');
+  ok(/«modificados»/.test(w29.document.getElementById('listbody').textContent),'si un filtro olvidado vacía la lista, el aviso nombra «modificados»');
+  w29.eval("ST.q='';ST.modif=''");
+
+  // tarjetas y detalle
+  w29.eval("ST.viewMode='cards'"); w29.go('contratos');
+  ok(w29.document.querySelectorAll('.cc .modchip').length===4,'las tarjetas también llevan la marca');
+  w29.go('detalle',0);
+  ok(/Modificación registrada/.test(texto(w29)) && /\+\$150,00 \(15,0 %\)/.test(texto(w29)) && !/dena/i.test(w29.document.querySelector('.detail').textContent.replace(/Modificar contrato.*?FAP-2026-11/s,'')),
+     'el detalle dice «Modificación registrada», con el aumento y su porcentaje, sin «adenda»');
+
+  // reportes
+  w29.go('reportes');
+  const rep=w29.document.getElementById('repMod');
+  ok(!!rep && /Contratos modificados/.test(rep.textContent),'Reportes tiene la sección «Contratos modificados»');
+  ok(/4Contratos modificados/.test(rep.querySelector('.mod-resumen').textContent.replace(/\s+/g,'').replace(/·.*/,'')) || /4/.test(rep.querySelector('.mod-resumen .kpi-n').textContent),'con cuántos son');
+  ok(/\$530,00/.test(rep.textContent),'y cuánto se aumentó en total (150 + 300 + 80)',(rep.querySelectorAll('.kpi-n')[1]||{}).textContent);
+  ok(rep.querySelectorAll('tbody tr').length===4,'la tabla lista los cuatro');
+  ok(!/dena/i.test(rep.textContent),'sin la palabra «adenda»');
+  rep.querySelector('#modVer').onclick();
+  ok(w29.eval('ST.view')==='contratos' && w29.eval('ST.modif')==='si','«Ver en Contratos» abre la lista ya filtrada');
+  // CSV
+  w29.go('reportes');
+  let bytes='';w29.URL.createObjectURL=b=>{bytes=b;return 'blob:x';};w29.URL.revokeObjectURL=()=>{};
+  w29.HTMLAnchorElement.prototype.click=function(){};
+  w29.document.getElementById('modCsv').onclick();
+  const txt=await new Promise(r=>{const fr=new (w29.FileReader)();fr.onload=()=>r(fr.result);fr.readAsText(bytes);});
+  const lin=txt.split(/\r\n/);
+  ok(lin.length===5 && /Como se formalizo/.test(lin[0]) && !/dena/i.test(lin[0]),'el CSV de modificados trae solo los cuatro, con columna «Como se formalizo»');
+  ok(/"150";"15\.0"/.test(lin[1]) || /150/.test(lin[1]),'y el aumento en USD y en %');
+
+  // sin ningún modificado, nada de esto estorba
+  const w29b=await listo(nuevoDom(contratos(),{rol:'ac',user:'Ana Pérez'}));
+  w29b.go('contratos');
+  ok(!w29b.document.getElementById('chipModif'),'sin contratos modificados no aparece el filtro');
+  w29b.go('reportes');
+  ok(/Ningún contrato del portafolio se ha modificado/.test(w29b.document.getElementById('repMod').textContent),'y Reportes lo dice en vez de mostrar una tabla vacía');
+}
+
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
 process.exit(fallos?1:0);
 
