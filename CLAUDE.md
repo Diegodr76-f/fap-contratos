@@ -424,8 +424,10 @@ mayor que el monto original (el Excel no siempre marca lo uno aunque pase lo otr
 monto ORIGINAL, el 25 % justo ya es `mayor`), `plazo`, o `revisar` cuando el Excel dice
 «aumento de valor» y el valor vigente no cambió (falta actualizar «Valor o plazo total»)—.
 Está en **Contratos** (chip «Modificados» con subfiltros por clase, y la marca `modChip()` en
-lista y tarjetas) y en **Reportes** (sección «Contratos modificados»: cuántos, aumento total,
-tabla de los 25 más recientes, «Ver en Contratos» y CSV propio). El CSV del portafolio trae las
+lista y tarjetas) y en **Reportes**, al final y sin tocar lo de antes: la tabla «Contratos modificados por
+categoría», solo cifras (cuántos y el monto de las modificaciones, con total; activos y
+finiquitados juntos). Se probó un panel con cifras grandes y lista, arriba, y se descartó:
+el reporte es para contar, el análisis se hace después. El CSV del portafolio trae las
 columnas Modificado, Aumento y Cómo se formalizó. Sección 29 de `probar_clm.js`. Con los datos
 de noviembre de 2026: 28 modificados (9 menos del 25 %, 16 de 25 % o más, 3 de plazo u otro).
 
