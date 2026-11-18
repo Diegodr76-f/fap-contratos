@@ -1423,6 +1423,69 @@ seccion('29 · Los contratos modificados se encuentran y se cuentan');
   ok(/Ningún contrato del portafolio se ha modificado/.test(w29b.document.getElementById('repMod').textContent),'y Reportes lo dice en vez de mostrar una tabla vacía');
 }
 
+// ---------------------------------------------------------------- 30
+seccion('30 · Se lee, se maneja con el teclado y funciona sin Google (auditoría de diseño)');
+{
+  // Contraste: los colores que se usan como LETRA llegan a 4,5:1 sobre blanco y
+  // sobre su propio fondo de insignia. El ámbar de relleno daba 2,9 como letra.
+  const raiz=HTML.match(/:root\{([^}]*)\}/)[1], tok=n=>(raiz.match(new RegExp('--'+n+':(#[0-9A-Fa-f]{6})'))||[])[1];
+  const lum=h=>{const c=[1,3,5].map(i=>parseInt(h.substr(i,2),16)/255).map(v=>v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4);return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];};
+  const contraste=(a,b)=>{const [x,y]=[lum(a),lum(b)].sort((p,q)=>q-p);return (x+0.05)/(y+0.05);};
+  const pares=[['muted','#FFFFFF'],['muted','bg'],['muted','tint'],['green-t','greenbg'],['amber-t','amberbg'],['red','redbg'],['teal-t','#FFFFFF'],['navy2','#FFFFFF']];
+  const flojos=pares.filter(([f,b])=>contraste(tok(f),b[0]==='#'?b:tok(b))<4.5).map(p=>p.join(' sobre '));
+  ok(!flojos.length,'cada color de letra pasa 4,5:1 sobre su fondo',flojos.join(', '));
+  ok(!/(^|[^-\w])color:var\(--(amber|green|teal|muted2)\)/.test(HTML),'y nadie usa el color de relleno como letra');
+  ok(!/fonts\.(googleapis|gstatic)\.com/.test(HTML) && /url\(\.\.\/instrumentos\/fuentes\/titillium-400\.woff2\)/.test(HTML),
+     'la letra sale del repositorio (la de Instrumentos), no de Google');
+
+  const w30=await listo(nuevoDom(contratos(),{rol:'ac',user:'Ana Pérez'},{confirma:false}));
+  // El número del contrato es un enlace: la fila se abre con Tab y Enter.
+  w30.go('contratos');
+  const enl=w30.document.querySelector('#listbody tr[data-open] a.nrolink');
+  ok(!!enl && enl.getAttribute('href')==='#/detalle/'+encodeURIComponent(enl.textContent),'el n.º de cada fila enlaza a su detalle',enl&&enl.outerHTML);
+  enl.dispatchEvent(new w30.MouseEvent('click',{bubbles:true,cancelable:true,ctrlKey:true}));
+  ok(w30.eval('ST.view')==='contratos','con Ctrl el clic es del navegador (otra pestaña): esta no se mueve');
+  const clic=new w30.MouseEvent('click',{bubbles:true,cancelable:true});
+  enl.dispatchEvent(clic);
+  ok(w30.eval('ST.view')==='detalle' && w30.eval('CONTRACTS[ST.cur].nro')===enl.textContent && clic.defaultPrevented,
+     'el clic normal lo resuelve la fila (para que «Volver» sepa de dónde se vino)');
+  w30.go('proveedores');
+  ok(/^#\/proveedor\//.test(w30.document.querySelector('#provbody [data-prov] a.nrolink').getAttribute('href')),'el proveedor también es un enlace');
+  // Las cifras del panel son botones; los de las alertas, sin rojo de «peligro».
+  w30.go('panel');
+  ok(w30.document.querySelectorAll('#view .kpis button.kpi').length===6 && !w30.document.querySelector('#view .kpis div.kpi'),'las seis cifras del panel son botones');
+  ok(!w30.document.querySelector('.alert-row .btn.danger'),'terminar un vencido no se pinta como acción peligrosa');
+  // Los formularios son <dialog>, con nombre, y Escape sigue preguntando una sola vez.
+  w30.modalNota(w30.eval('CONTRACTS[0]'));
+  const d=w30.document.querySelector('.overlay');
+  ok(d.tagName==='DIALOG' && d.hasAttribute('open') && w30.document.getElementById(d.getAttribute('aria-labelledby')).textContent==='Añadir nota',
+     'el formulario es un <dialog> abierto, con el título como nombre');
+  d.querySelector('#ntxt').value='x';d.querySelector('#ntxt').dispatchEvent(new w30.Event('input',{bubbles:true}));
+  const esc=new w30.KeyboardEvent('keydown',{key:'Escape',cancelable:true});
+  w30.document.dispatchEvent(esc);
+  ok(d.isConnected && w30._confirmas===1 && esc.defaultPrevented,'Escape pregunta, y frena el «cancel» del navegador para no preguntar dos veces');
+  w30.closeModal(d.querySelector('#cancel'));
+  ok(!d.isConnected,'y «Cancelar» lo cierra');
+  // Cada rótulo de un formulario está unido a su campo.
+  w30.modalModificar(w30.eval('CONTRACTS[0]'));
+  const m=w30.document.querySelector('.overlay');
+  const sueltos=[...m.querySelectorAll('.frow>label')].filter(l=>{const f=l.nextElementSibling;return f&&/^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName)&&(!f.id||l.htmlFor!==f.id);});
+  ok(m.querySelectorAll('.frow>label[for]').length>3 && !sueltos.length,'cada rótulo del formulario nombra a su campo',sueltos.map(l=>l.textContent).join(' | '));
+  w30.closeModal(m);
+}
+
+// ---------------------------------------------------------------- 31
+seccion('31 · El monto en letras se escribe como en un documento que se firma');
+{
+  const w31=await listo(nuevoDom());
+  const L=n=>w31.montoEnLetras(n).replace(' dólares de los Estados Unidos de América','');
+  const casos=[[41250,'Cuarenta y un mil doscientos cincuenta con 00/100'],[21000,'Veintiún mil con 00/100'],[101000,'Ciento un mil con 00/100'],
+    [21000000,'Veintiún millones con 00/100'],[1022,'Mil veintidós con 00/100'],[1026,'Mil veintiséis con 00/100'],[21,'Veintiuno con 00/100'],
+    [1150.07,'Mil ciento cincuenta con 07/100'],[1.999,'Dos con 00/100'],[100,'Cien con 00/100']];
+  const malos=casos.filter(([n,t])=>L(n)!==t).map(([n,t])=>`${n}: «${L(n)}» y no «${t}»`);
+  ok(!malos.length,'«un mil» delante de mil y millones, tildes del 21 al 29 y centavos sin «100/100»',malos.join(' · '));
+}
+
 console.log('\n'+(fallos?`✗ ${fallos} de ${pruebas} comprobaciones fallaron`:`✓ ${pruebas} comprobaciones, todo bien`));
 process.exit(fallos?1:0);
 

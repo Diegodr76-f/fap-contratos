@@ -418,6 +418,23 @@ hechas para eso que conviene reutilizar en vez de rehacer:
   de la línea de tiempo (`.detail>div:first-child{display:contents}` y `order`); en el
   panel, lo pendiente antes de las cifras (`.panelv`), que pasan a tres columnas. Sección 28.
 
+Lo que dejó la auditoría de diseño de noviembre de 2026 (secciones 30 y 31):
+
+- **Un color de estado como letra usa su versión oscura** (`--green-t`, `--amber-t`,
+  `--teal-t`); `--green`, `--amber`, `--teal` y `--muted2` son para rellenos, puntos y
+  bordes. El ámbar como letra daba 2,9:1. La prueba recalcula el contraste de los tokens.
+- **Los formularios son `<dialog>` con `showModal()`** (`openModal()`): Tab no se escapa,
+  Esc y el «atrás» del celular preguntan si hay algo escrito, y el foco vuelve al botón.
+  El foco entra al título, no a un campo (en el celular abriría el teclado). Se cierran
+  con `closeModal()`, nunca con `.remove()` a secas, y los rótulos se unen solos a su campo.
+- **Lo que se abre con un clic también se abre con el teclado**: el n.º del contrato y el
+  nombre del proveedor son enlaces (`nroLink()`, `provLink()`), y la fila decide con
+  `clicFila()`; las cifras del panel son `<button>`.
+- **La letra es la de `instrumentos/fuentes/`**: el CLM no pide nada a Google. No muevas
+  esa carpeta sin cambiar los `@font-face` del CLM.
+- **En el teléfono cada fila de filtros es una sola fila que se desliza** (`.chips`): en
+  doce renglones, el primer contrato quedaba fuera de la pantalla.
+
 Todo esto lo vigila `scripts/probar_clm.js` (cómo correrlo, al final de la sección
 siguiente). Si añades comportamiento al CLM, añade la comprobación.
 
