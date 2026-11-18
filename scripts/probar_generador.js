@@ -1378,7 +1378,7 @@ seccion('32 · Texto largo: cada línea, un párrafo de Word');
   ok(['marcarFormato','barraFormato','aplicarFormato','teclaFormato','teclaBarraFormato'].every(n=>{ const a=fuenteDe('generador/index.html',n); return !!a && a===fuenteDe('instrumentos/index.html',n); }),
      'la barra de formato y marcarFormato son las mismas en las dos herramientas');
 
-})().then(()=>{
+})().then(async()=>{
   seccion('33 · Lo que va por contrato termina en el envío a la Unidad Operativa');
 // La recepción y la entrega de un contrato vienen después, con el contrato
 // firmado, y no las hace La Mágica. Un proceso por contrato mostraba cuatro
@@ -1490,6 +1490,46 @@ seccion('34 · Menos clics: lo que la AC hace todos los días, a la mano');
   wa=nuevoDom(win=>win.localStorage.setItem('fap_v3',guardado));
   ok(wa.ST.nav==='procesos' && /Mis procesos/.test(wa.document.querySelector('h1').textContent),'con expedientes guardados, La Mágica abre en Mis procesos y no en la Guía');
   ok(!/1 de enero/.test(wa.document.getElementById('app').textContent),'y su texto ya no habla de una fecha fija');
+}
+
+seccion('35 · Lo que dejó la auditoría de diseño y de código (noviembre de 2026)');
+{
+  const w35=nuevoDom();
+  // El monto en letras va impreso en órdenes, contratos e invitaciones que se firman.
+  const L=n=>{const m=w35.montoEnLetras(n);return m.slice(m.indexOf('(')+1,m.indexOf(' dólares'));};
+  const casos=[[41250,'Cuarenta y un mil doscientos cincuenta con 00/100'],[21000,'Veintiún mil con 00/100'],[101000,'Ciento un mil con 00/100'],
+    [21000000,'Veintiún millones con 00/100'],[1022,'Mil veintidós con 00/100'],[1026,'Mil veintiséis con 00/100'],[21,'Veintiuno con 00/100'],
+    [1150.07,'Mil ciento cincuenta con 07/100'],[1.999,'Dos con 00/100'],[100,'Cien con 00/100']];
+  const malos=casos.filter(([n,t])=>L(n)!==t).map(([n,t])=>n+': «'+L(n)+'» y no «'+t+'»');
+  ok(!malos.length,'«un mil» delante de mil y millones, tildes del 21 al 29 y centavos sin «100/100»',malos.join(' · '));
+  ok(w35.montoEnLetras(1150).indexOf('USD 1.150,00 (Mil ciento cincuenta con 00/100')===0,'y el formato de La Mágica no cambia: cifra y letras');
+  // El motor de Word: primero la copia del repositorio, el CDN solo de respaldo, y sin bloquear.
+  const cab=HTML.slice(0,HTML.indexOf('</head>'));
+  ok(!/<script[^>]+src=/.test(cab) && cab.indexOf("'../clm/vendor/pizzip.min.js','https://cdn.jsdelivr.net")>0,
+     'el motor sale de clm/vendor/ (con el CDN de respaldo) y no frena la primera pantalla');
+  ok(/media="print" onload="this.media='all'"/.test(cab),'la hoja de Google Fonts tampoco frena la primera pantalla');
+  w35.PizZip=undefined; w35.ST.nav='plantillas'; w35.render();
+  ok(!!w35.document.querySelector('[data-sin-motor]') && !/descarga este HTML/i.test(w35.document.getElementById('app').textContent),
+     'sin motor se dice que revise la señal, no «descarga este HTML»');
+  // Cada rótulo nombra a su campo.
+  w35.ST.cfg.areas=[{id:'a1',ap:'Parque Nacional Yasuní',siglas:'PNY',ciudad:'Quito',mae:'J. Andrade',maeCargo:'Jefe',lugar:'El Coca'}];
+  w35.crearExp(); w35.D().tipoProceso='Comparación de precios'; w35.D().bienServicio='Servicio'; w35.render();
+  const doc=w35.document, sueltos=[...doc.querySelectorAll('label.fl')].filter(l=>{let f=l.nextElementSibling;if(f&&f.classList.contains('barra-formato'))f=f.nextElementSibling;return f&&/^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName)&&(!f.id||l.htmlFor!==f.id);});
+  ok(doc.querySelectorAll('label.fl[for]').length>8 && !sueltos.length,'en la captura cada rótulo nombra a su campo',sueltos.map(l=>l.textContent).join(' | '));
+  // El cierre va a la cola ANTES de enviarse: con el envío colgado y la pestaña cerrada, no se pierde.
+  const w35b=nuevoDom();
+  w35b.fetch=()=>new Promise(()=>{});   // señal colgada: nunca responde
+  w35b.localStorage.removeItem('fap_pendientes');
+  w35b.enviarRegistro({id:'cierre-1'});
+  ok(w35b.loadPendientes().length===1 && w35b.loadPendientes()[0].id==='cierre-1','con el envío colgado, el cierre ya está en la cola');
+  w35b.enviarRegistro({id:'cierre-2'});
+  ok(w35b.loadPendientes().length===2,'y un segundo cierre durante el envío también');
+  const w35c=nuevoDom(); let resolver; w35c.fetch=()=>new Promise(r=>{resolver=r;});
+  w35c.localStorage.removeItem('fap_pendientes');
+  w35c.enviarRegistro({id:'ok-1'}); w35c.enviarRegistro({id:'ok-2'});
+  resolver({ok:true}); await new Promise(r=>setTimeout(r,20));
+  ok(w35c.loadPendientes().map(x=>x.id).join()==='ok-2','lo que llegó sale de la cola y lo encolado durante el envío se queda',JSON.stringify(w35c.loadPendientes()));
+  ok(/button:focus-visible,a:focus-visible\{outline:[^}]*!important/.test(HTML),'los botones con all:unset tienen anillo de foco');
 }
 
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));

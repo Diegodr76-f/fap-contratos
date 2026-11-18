@@ -345,6 +345,19 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   `all:unset` en línea le gana a la hoja de estilos**: para cambiarle el `display` en una
   media query hace falta `!important`.
 
+- **Lo que dejó la auditoría de noviembre de 2026** (sección 35 de las pruebas):
+  - **El motor de Word sale de `clm/vendor/`**, el mismo del CLM, y el CDN queda de respaldo
+    para la copia exportada abierta desde el disco. Se carga sin frenar la primera pantalla y
+    `exportBuild()` quita sus etiquetas `data-motor`. No vuelvas a poner un `<script src>` del
+    CDN en el `<head>`: en una red que lo bloquea no salía ningún Word, y el aviso decía
+    «descarga este HTML». Hoy dice que revise la señal (`avisoSinMotor()`).
+  - **Letra que se lee**: los grises de letra son `#5F6576` (o `#6B7180` sobre blanco) y el
+    ámbar `#8A5210`. `#9AA0B2`, `#7A8090` y `#B4690E` daban 2,6 a 4,2:1 y ya no van como letra.
+  - **Cada `label.fl` se une sola a su campo** (`unirRotulos()`, al final de `render()`), y
+    los botones con `all:unset` tienen anillo de foco con `!important`.
+  - **El cierre va a la cola antes de enviarse** (`enviarRegistro()`): con la señal colgada,
+    la AC cerraba la pestaña antes del fallo y el cierre no llegaba nunca al registro central.
+
 ### Probarla
 
 ```bash
