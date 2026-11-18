@@ -1492,6 +1492,17 @@ seccion('34 · Menos clics: lo que la AC hace todos los días, a la mano');
   ok(!/1 de enero/.test(wa.document.getElementById('app').textContent),'y su texto ya no habla de una fecha fija');
 }
 
+seccion('35 · El monto en letras: apócope delante de mil y millones, tildes, centavos');
+{
+  const w=nuevoDom();
+  const L=n=>{const m=/\((.*) con (\d\d)\/100/.exec(w.montoEnLetras(n));return m?m[1]+' '+m[2]:'';};
+  [[41250,'Cuarenta y un mil doscientos cincuenta 00'],[21000,'Veintiún mil 00'],[101000,'Ciento un mil 00'],
+   [21000000,'Veintiún millones 00'],[1000,'Mil 00'],[1000000,'Un millón 00'],[22,'Veintidós 00'],[23,'Veintitrés 00'],
+   [26,'Veintiséis 00'],[21,'Veintiuno 00'],[1.995,'Dos 00'],[1.999,'Dos 00'],[0.5,'Cero 50']]
+   .forEach(([n,e])=>ok(L(n)===e,n+' → «'+e+'»',L(n)));
+  ok(w.montoEnLetras(1150)==='USD 1.150,00 (Mil ciento cincuenta con 00/100 dólares de los Estados Unidos de América) incluidos impuestos','y el formato de La Mágica no cambia',w.montoEnLetras(1150));
+}
+
 console.log('\n'+(fallos?('✗ '+fallos+' fallo(s) de '+pruebas):('✓ '+pruebas+' comprobaciones, todas pasan')));
   process.exit(fallos?1:0);
 });

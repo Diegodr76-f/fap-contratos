@@ -915,10 +915,10 @@ function numeroATexto(num){
   return frase.charAt(0).toUpperCase() + frase.slice(1);
 }
 function numeroALetras(num){
-  const texto = numeroATexto(num);
+  const tot = Math.round(aNumero(num) * 100);  // en centavos: 0,999 no da «con 100/100»
+  const texto = numeroATexto(Math.floor(tot / 100));
   if(!texto) return '';
-  num = aNumero(num);
-  const cent = Math.round((num - Math.floor(num)) * 100);
+  const cent = tot % 100;
   return `${texto} con ${String(cent).padStart(2,'0')}/100 dólares de los Estados Unidos de América`;
 }
 /* Un campo "letras" no siempre es un monto: puede ser un plazo, una cantidad,

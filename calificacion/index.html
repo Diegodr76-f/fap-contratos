@@ -226,7 +226,7 @@ function enteroALetras(n){
   const C=['','ciento','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos'];
   if(n===0) return 'cero';
   const sec=x=>{ if(x===0)return''; if(x===100)return'cien'; let o=''; const c=Math.floor(x/100), r=x%100, d=Math.floor(r/10), u=r%10; if(c)o+=C[c]+' '; if(r<30)o+=U[r]; else{o+=D[d]; if(u)o+=' y '+U[u];} return o.trim(); };
-  const apoc=s=>s.replace(/uno$/,'ún'); // "veintiún mil"
+  const apoc=s=>s.replace(/veintiuno$/,'veintiún').replace(/uno$/,'un'); // «veintiún mil», «ciento un mil»
   let o='';
   const mill=Math.floor(n/1e6), miles=Math.floor((n%1e6)/1000), resto=n%1000;
   if(mill) o+=(mill===1?'un millón':apoc(sec(mill))+' millones')+' ';
@@ -238,7 +238,7 @@ function enteroALetras(n){
    América)" — cifra + letras en el mismo formato que usan las bases del FAP (mayúscula
    solo en la primera palabra, no todo el texto en mayúsculas). */
 function numeroALetras(v){
-  const n=num(v), ent=Math.floor(n), cts=Math.round((n-ent)*100);
+  const n=num(v), tot=Math.round(n*100), ent=Math.floor(tot/100), cts=tot%100;
   const letras=enteroALetras(ent)+' con '+String(cts).padStart(2,'0')+'/100 dólares de los Estados Unidos de América';
   const sentence=letras.charAt(0).toUpperCase()+letras.slice(1);
   const cifra=n.toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2});

@@ -414,8 +414,9 @@ const money=n=> (n==null||n==="")?"—":"$"+Number(n).toLocaleString("es-EC",{mi
 /* ---- Monto en letras (es-EC, uso legal) ---- */
 function montoEnLetras(n){
   n=Number(n)||0;
-  const ent=Math.floor(n), cent=Math.round((n-ent)*100);
-  const U=["","UNO","DOS","TRES","CUATRO","CINCO","SEIS","SIETE","OCHO","NUEVE","DIEZ","ONCE","DOCE","TRECE","CATORCE","QUINCE","DIECISÉIS","DIECISIETE","DIECIOCHO","DIECINUEVE","VEINTE"];
+  const tot=Math.round(n*100), ent=Math.floor(tot/100), cent=tot%100;
+  const U=["","UNO","DOS","TRES","CUATRO","CINCO","SEIS","SIETE","OCHO","NUEVE","DIEZ","ONCE","DOCE","TRECE","CATORCE","QUINCE","DIECISÉIS","DIECISIETE","DIECIOCHO","DIECINUEVE","VEINTE",
+    "VEINTIUNO","VEINTIDÓS","VEINTITRÉS","VEINTICUATRO","VEINTICINCO","VEINTISÉIS","VEINTISIETE","VEINTIOCHO","VEINTINUEVE"];
   const D=["","","VEINTE","TREINTA","CUARENTA","CINCUENTA","SESENTA","SETENTA","OCHENTA","NOVENTA"];
   const C=["","CIENTO","DOSCIENTOS","TRESCIENTOS","CUATROCIENTOS","QUINIENTOS","SEISCIENTOS","SETECIENTOS","OCHOCIENTOS","NOVECIENTOS"];
   function tres(x){
@@ -425,18 +426,18 @@ function montoEnLetras(n){
     let s="";
     const c=Math.floor(x/100), r=x%100;
     if(c>0) s+=C[c]+" ";
-    if(r<=20) s+=U[r];
+    if(r<30) s+=U[r];
     else{
       const d=Math.floor(r/10), u=r%10;
-      if(r<30) s+="VEINTI"+U[u].toLowerCase().replace(/^./,m=>m.toUpperCase());
-      else{ s+=D[d]; if(u>0) s+=" Y "+U[u]; }
+      s+=D[d]; if(u>0) s+=" Y "+U[u];
     }
     return s.trim();
   }
+  const apoc=s=>s.replace(/VEINTIUNO$/,"VEINTIÚN").replace(/UNO$/,"UN");
   function grupo(x,sing,plur){
     if(x===0) return "";
     if(x===1) return sing;
-    return tres(x)+" "+plur;
+    return apoc(tres(x))+" "+plur;
   }
   let entero;
   if(ent===0) entero="CERO";
@@ -445,7 +446,7 @@ function montoEnLetras(n){
     const mil=Math.floor(rm/1000), rc=rm%1000;
     let partes=[];
     if(mill>0) partes.push(grupo(mill,"UN MILLÓN","MILLONES"));
-    if(mil>0) partes.push(mil===1?"MIL":tres(mil)+" MIL");
+    if(mil>0) partes.push(mil===1?"MIL":apoc(tres(mil))+" MIL");
     if(rc>0) partes.push(tres(rc));
     entero=partes.join(" ").trim();
   }
