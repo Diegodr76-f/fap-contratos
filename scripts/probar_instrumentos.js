@@ -656,6 +656,39 @@ function validarConPython(b64, nombre){
     ok(d.querySelectorAll('p').length === 2 && d.querySelectorAll('p')[1].getAttribute('style') === 'text-align:justify' && d.querySelectorAll('p')[1].textContent === 'Dos. Fin.',
       'en una plantilla HTML el párrafo también se parte, con su mismo estilo', html);
     ok(d.querySelectorAll('li').length === 1 && d.querySelector('li br') && !/data-salto/.test(html), 'y en un punto de lista se queda como salto de línea, sin crear otro punto');
+
+    // Formato en el texto largo: negrita, cursiva, subrayado y listas
+    const mf = w.marcarFormato('Texto **firme** y *nota* con __clave__\n- Factura **firmada**\n1. Acta\nFirma: __________\nPrecio * 2 * 3');
+    ok(!/[*]{2}|__c/.test(mf) && /__________/.test(mf) && /Precio \* 2 \* 3/.test(mf), 'las marcas se convierten; la raya para firmar y un «*» suelto se quedan como están', JSON.stringify(mf));
+    const conPago = `<w:p><w:pPr><w:jc w:val="both"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">Forma de pago: ${w.marcarFormato('- Factura **firmada**\n- Acta')}</w:t></w:r></w:p>`;
+    const pp = (w.partirParrafosXml(conPago).match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []);
+    ok(pp.length === 3 && /Forma de pago: <\/w:t>/.test(pp[0]) && !/<w:ind/.test(pp[0]), 'una lista detrás de «Forma de pago:» empieza en su propio párrafo', pp.length);
+    ok(pp.slice(1).every(p => /<w:ind w:left="360" w:hanging="360"\/>/.test(p) && /•<\/w:t><w:tab\/>/.test(p) && /<w:jc w:val="both"\/>/.test(p)), 'cada viñeta: sangría francesa, «•» y tabulador, con el formato del párrafo');
+    ok(/<w:rPr><w:rFonts w:ascii="Calibri"\/><w:b\/><w:sz w:val="20"\/><\/w:rPr><w:t xml:space="preserve">firmada/.test(pp[1]), 'la negrita lleva la letra de la etiqueta y va en su sitio dentro del <w:rPr>');
+    ok(!/[-]/.test(pp.join('')), 'ninguna marca interna llega al documento');
+    w.ponerTipoTexto('objeto', true);
+    w.actualizarCampo('objeto', 'Servicio **integral** de *mantenimiento*\n1. Revisión __mensual__\n2. Repuestos');
+    const blobF = w.generarBlobDocx(informe, w.datosDocx(informe, E('datosForm')));
+    const b64F = await new Promise(r => { const fr = new w.FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(blobF); });
+    const xF = xmlDe(b64F);
+    ok(/<w:b\/>[\s\S]{0,200}?integral/.test(xF) && /<w:i\/>[\s\S]{0,200}?mantenimiento/.test(xF) && /<w:u w:val="single"\/>[\s\S]{0,200}?mensual/.test(xF) && /2\.<\/w:t><w:tab\/>/.test(xF) && !/[-*]{2}/.test(xF),
+      'en el Word generado salen la negrita, la cursiva, el subrayado y la lista numerada');
+    const vF = validarConPython(b64F, 'formato');
+    if(!vF.saltada) ok(vF.ok, 'validar_docx.py dice que Word abre el documento con formato', vF.salida.trim().split('\n').slice(-3).join(' | '));
+    // La barra: envuelve lo seleccionado y lo quita la segunda vez; las listas, por línea
+    w.renderContenido();
+    const ta = w.document.getElementById('f_objeto');
+    ok(!!ta.previousElementSibling && ta.previousElementSibling.getAttribute('role') === 'toolbar' && ta.previousElementSibling.querySelectorAll('[tabindex="0"]').length === 1, 'el texto largo trae su barra de formato, con una sola parada de Tab');
+    ta.value = 'uno dos\ntres'; ta.setSelectionRange(4, 7); w.aplicarFormato('f_objeto', 'b');
+    ok(ta.value === 'uno **dos**\ntres' && E('datosForm.objeto') === ta.value, 'Negrita envuelve lo seleccionado y se guarda', JSON.stringify(ta.value));
+    w.aplicarFormato('f_objeto', 'b');
+    ok(ta.value === 'uno dos\ntres', 'y la segunda vez lo quita', JSON.stringify(ta.value));
+    ta.setSelectionRange(0, ta.value.length); w.aplicarFormato('f_objeto', 'ol');
+    ok(ta.value === '1. uno dos\n2. tres', 'la lista numerada numera cada línea tocada', JSON.stringify(ta.value));
+    w.aplicarFormato('f_objeto', 'ul');
+    ok(ta.value === '- uno dos\n- tres', 'y cambiar a viñetas reemplaza los números', JSON.stringify(ta.value));
+    const hF = w.rellenarDatos('<p>{{objeto}}</p>', { objeto: 'a **b** *c*\n- d' }, false);
+    ok(/<b>b<\/b>/.test(hF) && /<i>c<\/i>/.test(hF) && /• d/.test(hF), 'en una plantilla HTML el formato sale como HTML', hF);
     ok(!a.errores.length, 'sin errores de JavaScript', a.errores.join(' | '));
   }
 
