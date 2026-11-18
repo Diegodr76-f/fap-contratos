@@ -17,13 +17,19 @@
    por eso aquí no puede figurar nada que no exista en el repositorio. */
 /* La v4 borra cualquier copia de proveedores_export.json que la v3, con su "caché
    primero", alcanzara a guardar antes de instalarse esta. */
-const CACHE = "instrumentos-v4";
+/* La v5 guarda la letra Titillium, que ahora vive en ./fuentes/ y no en Google Fonts. */
+const CACHE = "instrumentos-v5";
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icon-180.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "./fuentes/titillium-300.woff2",
+  "./fuentes/titillium-400.woff2",
+  "./fuentes/titillium-600.woff2",
+  "./fuentes/titillium-700.woff2",
+  "./fuentes/titillium-900.woff2"
 ];
 
 self.addEventListener("install", (e) => {
