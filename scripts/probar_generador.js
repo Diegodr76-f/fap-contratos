@@ -1173,13 +1173,17 @@ seccion('30 · El detalle de ítems se llena como una hoja de cálculo');
      'ya no está «Número de ítems / Aplicar», que borraba filas sin avisar al bajar el número');
   // Crear muchas filas de golpe, que solo agrega
   const caja=wt.document.getElementById('itemmas');
-  ok(!!caja && caja.value==='5','hay «+ Agregar ítems» con un número para crear varias filas de golpe');
-  wt.addItems('100');
-  ok(wt.D().items.length===101 && wt.document.activeElement===q(1,'desc'),'agregar 100 crea 100 filas y deja el cursor en la primera nueva');
-  wt.addItems('500');
+  ok(!!caja && caja.value===String(wt.D().items.length),'el número muestra cuántas filas hay');
+  wt.fijarItems('100');
+  ok(wt.D().items.length===100 && wt.document.activeElement===q(1,'desc'),'escribir 100 deja 100 filas (no suma) y el cursor en la primera nueva');
+  wt.fijarItems('500');
   ok(wt.D().items.length===300,'el tope es de 300 ítems en total');
-  wt.addItems('abc'); wt.addItems('0');
+  wt.fijarItems('abc'); wt.fijarItems('0');
   ok(wt.D().items.length===300,'un número que no sirve no hace nada');
+  wt.D().items[4].desc='Algo escrito'; wt.fijarItems('2');
+  ok(wt.D().items.length===5 && wt.D().items[4].desc==='Algo escrito','al bajar solo se quitan filas vacías del final: lo escrito no se borra');
+  wt.D().items[4].desc=''; wt.fijarItems('2');
+  ok(wt.D().items.length===2 && wt.document.getElementById('itemmas').value==='2','y sin nada escrito quedan las que se pidieron');
   wt.D().items.length=1; wt.save(); wt.render();
   // Escribir y Enter: el siguiente ítem aparece con el cursor puesto
   escribe(q(0,'desc'),'Buzos volatilizados varios');
