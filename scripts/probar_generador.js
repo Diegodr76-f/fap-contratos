@@ -1331,6 +1331,20 @@ seccion('32 · Texto largo: cada línea, un párrafo de Word');
   const zv=await generar('3_Invitacion_comparacion.docx',{invitado:'Equipos del Norte S.A.'});
   const tv=parrafos(zv.file('word/document.xml').asText()).map(txt);
   ok(tv.length===ps3.length-3 && !tv.some(t=>/Detallar|condicionesEspecificas/.test(t)),'sin condiciones, ese párrafo no sale: ni la nota ni un hueco', tv.length+' / '+ps3.length);
+  // Formato en las condiciones: negrita y viñetas llegan al Word, que sigue abriendo
+  wl.D().condicionesEspecificas='Entrega **en sitio**\n- GPS con *cargador*\n- Manual en __español__'; wl.save();
+  const zf=await generar('3_Invitacion_comparacion.docx',{invitado:'Equipos del Norte S.A.'});
+  const xf=zf.file('word/document.xml').asText(), tf=parrafos(xf).map(txt);
+  const iF=tf.findIndex(t=>/^Entrega en sitio$/.test(t));
+  ok(iF>=0 && /^•/.test(tf[iF+1]) && /GPS con cargador/.test(tf[iF+1]) && /Manual en español/.test(tf[iF+2]) && !/[-]|\*\*/.test(xf),
+     'en la invitación, las condiciones salen con su negrita y sus viñetas', tf.slice(Math.max(iF,0),iF+3).join(' ‖ '));
+  ok(/<w:b\/>[\s\S]{0,200}?en sitio/.test(xf) && /<w:i\/>[\s\S]{0,200}?cargador/.test(xf) && /<w:u w:val="single"\/>[\s\S]{0,200}?español/.test(xf),'negrita, cursiva y subrayado de verdad, no asteriscos');
+  const rutaF=require('path').join(dir,'formato.docx');
+  require('fs').writeFileSync(rutaF, zf.generate({type:'nodebuffer'}));
+  const vf=require('child_process').spawnSync('python3',[require('path').join(__dirname,'validar_docx.py'),rutaF],{encoding:'utf8'});
+  if(!vf.error) ok(vf.status===0,'validar_docx.py dice que Word abre la invitación con formato', (vf.stdout+vf.stderr).trim().split('\n').slice(-2).join(' | '));
+  wl.ST.nav='captura'; wl.ST.step=0; wl.render();
+  ok(!!wl.document.querySelector('#f_condicionesEspecificas') && wl.document.querySelector('#f_condicionesEspecificas').previousElementSibling.getAttribute('role')==='toolbar','la captura trae la barra de formato junto al texto largo');
   // En la orden, la forma de pago va sola en su párrafo
   Object.assign(wl.D(),{fechaAdj:'2026-09-20',adjudicado:'Equipos del Norte S.A.'});
   Object.assign(wl.D().provs[0],{ruc:'1791234567001',dir:'Av. Amazonas',monto:'1150',fof:'2026-09-15'});
@@ -1355,6 +1369,11 @@ seccion('32 · Texto largo: cada línea, un párrafo de Word');
     const i=t.indexOf('function partirParrafosXml('); return i<0?null:t.slice(i, t.indexOf('\n}\n',i)+2); };
   const fm=fuente('generador/index.html'), fi=fuente('instrumentos/index.html');
   ok(!!fm && fm===fi,'partirParrafosXml es la misma, letra por letra, en La Mágica y en el Generador de Instrumentos');
+  const fuenteDe=(archivo,nombre)=>{ const t=require('fs').readFileSync(require('path').join(__dirname,'..',archivo),'utf8');
+    const i=t.indexOf('function '+nombre+'('); return i<0?null:t.slice(i, t.indexOf('\n}\n',i)+2); };
+  ok(['marcarFormato','barraFormato','aplicarFormato','teclaFormato','teclaBarraFormato'].every(n=>{ const a=fuenteDe('generador/index.html',n); return !!a && a===fuenteDe('instrumentos/index.html',n); }),
+     'la barra de formato y marcarFormato son las mismas en las dos herramientas');
+
 })().then(()=>{
   seccion('33 · Lo que va por contrato termina en el envío a la Unidad Operativa');
 // La recepción y la entrega de un contrato vienen después, con el contrato

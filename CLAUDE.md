@@ -315,6 +315,14 @@ que ya está (`var`, funciones sueltas, HTML como cadenas).
   última línea de cada tramo. **`{objeto}` no es largo a propósito**: va entre comillas dentro de una
   frase en una veintena de sitios, y partirlo cortaría la frase. `partirParrafosXml()` es la misma,
   letra por letra, que la del Generador de Instrumentos (sección 32 de `probar_generador.js`).
+- **Formato en el texto largo: se guarda texto, no HTML.** La barra de esos campos (`barraFormato()`,
+  `aplicarFormato()`, Ctrl+B/I/U) escribe `**negrita**`, `*cursiva*`, `__subrayado__`, «- » y «1. » al
+  inicio de línea; `marcarFormato()` los pasa a marcas internas (U+E001…U+E009) y `partirParrafosXml()`
+  las vuelve corridas con `<w:b/>`/`<w:i/>`/`<w:u/>` (en su sitio dentro del `<w:rPr>`) y párrafos con
+  sangría francesa, «•» y tabulador. Las listas **no** son listas de Word (no tocan `numbering.xml`): una
+  viñeta a mitad de párrafo («Forma de pago: - Factura») abre párrafo propio. «__________», la raya para
+  firmar, no es subrayado. Así el formato viaja sin cambios por historial, lote, Excel pegado y
+  «Tomar datos». Las cinco funciones son las mismas en las dos herramientas (sección 32).
 - **`{condicionesEspecificas}` es la nota que salía impresa.** Las invitaciones (3 y 4) y la
   solicitud de cotización de la renovación (20) traían escrito «(Detallar información técnica,
   cronograma de actividades u otras condiciones específicas si aplica.)», y salía tal cual si la AC

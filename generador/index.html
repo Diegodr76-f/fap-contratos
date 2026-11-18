@@ -107,6 +107,13 @@
     .fila-item.cp .c-iva{grid-column:2;grid-row:3}
     .fila-item.cp .c-tot{grid-column:3/5;grid-row:3}
   }
+/* Barra del texto largo (negrita, cursiva, subrayado, listas) */
+.barra-formato{display:flex;gap:2px;align-items:center;flex-wrap:wrap;border:1px solid #D7DCEA;border-bottom:0;border-radius:7px 7px 0 0;background:#F7F9FF;padding:3px 4px}
+.barra-formato + textarea{border-top-left-radius:0!important;border-top-right-radius:0!important}
+.bf-btn{min-width:28px;min-height:28px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:transparent;color:#1A1D29;font:inherit;font-size:12.5px;cursor:pointer}
+.bf-btn:hover{background:#fff;border-color:#D7DCEA}
+.bf-sep{align-self:stretch;margin:4px;border-left:1px solid #D7DCEA}
+@media(pointer:coarse){.bf-btn{min-width:40px;min-height:40px}}
 </style>
 </head>
 <body><div id='app'></div><div id='toast' class='toast'></div>
@@ -1091,7 +1098,7 @@ function datosConParrafos(data){
   var out={},k;
   for(k in data){ if(Object.prototype.hasOwnProperty.call(data,k)) out[k]=data[k]; }
   CAMPOS_LARGOS.forEach(function(k){
-    if(typeof out[k]==='string' && /\n/.test(out[k])) out[k]=textoLargo(out[k]).replace(/\n/g,'\uE000');
+    if(typeof out[k]==='string' && out[k]) out[k]=marcarFormato(textoLargo(out[k]));
   });
   return out;
 }
@@ -1100,9 +1107,93 @@ function partirParrafosZip(zip){
   Object.keys(zip.files).forEach(function(n){
     if(!/^word\/[^\/]+\.xml$/.test(n)) return;
     var x=zip.files[n].asText();
-    if(x.indexOf('\uE000')>=0) zip.file(n, partirParrafosXml(x, numXml));
+    if(/[\uE000-\uE009]/.test(x)) zip.file(n, partirParrafosXml(x, numXml));
   });
   return zip;
+}
+/* Formato en el texto largo: lo que se escribe con la barra (o a mano) se guarda
+   como texto con marcas sencillas —**negrita**, *cursiva*, __subrayado__, «- » al
+   inicio de una línea para viñeta y «1. » para numeración— y aquí se pasan a las
+   marcas internas que entiende partirParrafosXml. Se guarda texto, no HTML: así
+   viaja igual por el historial, el lote, el Excel pegado y «Tomar datos».
+   «__________» (la raya para firmar) no es subrayado: necesita una letra dentro.
+   ES LA MISMA FUNCIÓN en generador/index.html e instrumentos/index.html. */
+function marcarFormato(texto){
+  return String(texto == null ? '' : texto).split('\n').map(function(l){
+    var pre = '', m = /^\s*[-•]\s+(.*)$/.exec(l) || /^\s*\*\s+(.*)$/.exec(l);
+    if(m){ pre = '\uE007'; l = m[1]; }
+    else if((m = /^\s*(\d{1,3}[.)])\s+(.*)$/.exec(l))){ pre = '\uE008' + m[1] + '\uE009'; l = m[2]; }
+    l = l.replace(/\*\*(?!\s)(.+?)\*\*/g, '\uE001$1\uE002')
+         .replace(/__([^_\s](?:.*?[^_\s])?)__/g, '\uE005$1\uE006')
+         .replace(/\*(?![\s*])([^*]+?)\*/g, '\uE003$1\uE004');
+    return pre + l;
+  }).join('\uE000');
+}
+/* La barra del texto largo: acciones sobre el cuadro de texto, no un editor
+   aparte. Con negrita, cursiva y subrayado envuelve lo seleccionado (o lo quita si
+   ya lo estaba); con las listas pone o quita «- » / «1. » en las líneas tocadas.
+   Al terminar lanza «input», así cada herramienta guarda como siempre. */
+var FORMATO_MARCAS = { b: '**', i: '*', u: '__' };
+function barraFormato(id){
+  // Sin focusgroup nativo, la parada única de Tab la hace teclaBarraFormato con tabindex.
+  var rov = !('focusGroup' in HTMLElement.prototype), n = 0;
+  function boton(cmd, txt, nombre){ return '<button type="button" class="bf-btn"' + (rov ? ' tabindex="' + (n++ ? -1 : 0) + '"' : '') + ' aria-label="' + nombre + '" title="' + nombre + '" onclick="aplicarFormato(\'' + id + '\',\'' + cmd + '\')">' + txt + '</button>'; }
+  return '<div class="barra-formato" role="toolbar" aria-label="Formato del texto" aria-controls="' + id + '" focusgroup="toolbar wrap" onkeydown="teclaBarraFormato(event)">'
+    + boton('b', '<b>N</b>', 'Negrita (Ctrl+B)') + boton('i', '<i>K</i>', 'Cursiva (Ctrl+I)') + boton('u', '<u>S</u>', 'Subrayado (Ctrl+U)')
+    + '<span class="bf-sep" role="separator" aria-orientation="vertical"></span>'
+    + boton('ul', '• Lista', 'Lista con viñetas') + boton('ol', '1. Lista', 'Lista numerada')
+    + '</div>';
+}
+function aplicarFormato(id, cmd){
+  var ta = document.getElementById(id); if(!ta) return;
+  var v = ta.value, s = ta.selectionStart, e = ta.selectionEnd, nuevo, selIni, selFin;
+  var m = FORMATO_MARCAS[cmd];
+  if(m){
+    if(v.slice(s - m.length, s) === m && v.slice(e, e + m.length) === m && (m !== '*' || (v.charAt(s - 2) !== '*' && v.charAt(e + 1) !== '*'))){
+      nuevo = v.slice(0, s - m.length) + v.slice(s, e) + v.slice(e + m.length); selIni = s - m.length; selFin = e - m.length;
+    } else {
+      // Cada línea por separado: una marca no cruza un salto de párrafo.
+      var dentro = v.slice(s, e).split('\n').map(function(l){ return l.replace(/^(\s*)(.*?)(\s*)$/, function(t, a, b, c){ return b ? a + m + b + m + c : t; }); }).join('\n');
+      if(s === e) dentro = m + m;
+      nuevo = v.slice(0, s) + dentro + v.slice(e); selIni = s + m.length; selFin = s === e ? selIni : s + dentro.length - m.length;
+    }
+  } else {
+    var ini = v.lastIndexOf('\n', s - 1) + 1, fin = v.indexOf('\n', Math.max(e - (e > s && v.charAt(e - 1) === '\n' ? 1 : 0), s)); if(fin < 0) fin = v.length;
+    var lineas = v.slice(ini, fin).split('\n'), re = /^\s*(?:[-•*]|\d{1,3}[.)])\s+/;
+    var patron = cmd === 'ul' ? /^\s*[-•*]\s+/ : /^\s*\d{1,3}[.)]\s+/;
+    var quitar = lineas.every(function(l){ return !l.trim() || patron.test(l); });
+    var n = 0;
+    var hechas = lineas.map(function(l){
+      if(!l.trim()) return l;
+      var limpio = l.replace(re, '');
+      return quitar ? limpio : (cmd === 'ul' ? '- ' : (++n) + '. ') + limpio;
+    }).join('\n');
+    nuevo = v.slice(0, ini) + hechas + v.slice(fin); selIni = ini; selFin = ini + hechas.length;
+  }
+  ta.value = nuevo;
+  ta.focus();
+  ta.setSelectionRange(selIni, selFin);
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+// Ctrl+B / Ctrl+I / Ctrl+U dentro del cuadro, como en Word.
+function teclaFormato(ev){
+  if(!(ev.ctrlKey || ev.metaKey) || ev.altKey || ev.shiftKey) return;
+  var cmd = { b: 'b', i: 'i', u: 'u' }[String(ev.key).toLowerCase()];
+  if(!cmd || !ev.target.id) return;
+  ev.preventDefault();
+  aplicarFormato(ev.target.id, cmd);
+}
+// Una sola parada de Tab en la barra; las flechas pasan de botón en botón (lo hace focusgroup donde existe).
+function teclaBarraFormato(ev){
+  if('focusGroup' in HTMLElement.prototype) return;
+  var bs = Array.prototype.slice.call(ev.currentTarget.querySelectorAll('.bf-btn'));
+  var i = bs.indexOf(document.activeElement), paso = { ArrowRight: 1, ArrowLeft: -1 }[ev.key];
+  if(i < 0) return;
+  var j = paso ? (i + paso + bs.length) % bs.length : ev.key === 'Home' ? 0 : ev.key === 'End' ? bs.length - 1 : -1;
+  if(j < 0) return;
+  ev.preventDefault();
+  bs.forEach(function(b, k){ b.tabIndex = k === j ? 0 : -1; });
+  bs[j].focus();
 }
 /* Texto largo: cada línea, un párrafo de Word de verdad. Quien arma los datos
    pone la marca U+E000 en vez de cada salto de línea, y aquí se parte el párrafo
@@ -1114,6 +1205,8 @@ function partirParrafosZip(zip){
    una revisión, o en un párrafo que cierra sección— queda como salto de línea.
    No se usa el salto de línea de docxtemplater para todo: en un párrafo
    justificado, Word estira la última línea de cada tramo de margen a margen.
+   Después aplica el formato de marcarFormato(): viñetas, números, negrita,
+   cursiva y subrayado.
    ES LA MISMA FUNCIÓN en generador/index.html e instrumentos/index.html, letra
    por letra: si cambias una, cambia la otra (probar_generador.js lo comprueba). */
 function partirParrafosXml(xml, numXml){
@@ -1158,6 +1251,17 @@ function partirParrafosXml(xml, numXml){
     if(pos < 0) pos = pPr.lastIndexOf('</w:pPr>');
     return pPr.slice(0, pos) + ind + pPr.slice(pos);
   }
+  // ¿Hay texto antes de la posición i dentro de su párrafo? (una viñeta solo puede abrir un párrafo)
+  function hayTextoAntes(t, i){
+    var p = Math.max(t.lastIndexOf('<w:p>', i), t.lastIndexOf('<w:p ', i));
+    return p >= 0 && /\S/.test(t.slice(p, i).replace(/<w:tab\/>/g, 'x').replace(/<[^>]+>/g, ''));
+  }
+  // Una viñeta o un número a mitad de párrafo (detrás de «Forma de pago: ») empieza un párrafo nuevo.
+  var reLista = /[\uE007\uE008]/g, mLista;
+  while((mLista = reLista.exec(xml))){
+    var k = mLista.index;
+    if(xml.charAt(k - 1) !== MARCA && hayTextoAntes(xml, k)){ xml = xml.slice(0, k) + MARCA + xml.slice(k); reLista.lastIndex = k + 2; }
+  }
   for(;;){
     var i = xml.indexOf(MARCA, desde);
     if(i < 0) break;
@@ -1188,6 +1292,55 @@ function partirParrafosXml(xml, numXml){
     var corte = '</w:t></w:r></w:p><w:p>' + pPrSig + '<w:r>' + rPr + '<w:t xml:space="preserve">';
     xml = xml.slice(0, i) + corte + xml.slice(i + 1);
     desde = i + '</w:t></w:r></w:p>'.length;
+  }
+  // Viñetas y números: el párrafo toma sangría francesa y el símbolo va delante con
+  // un tabulador. shortcut: no es una lista de Word (no se renumera sola al editar el
+  // Word); si hiciera falta, crear un <w:num> en numbering.xml.
+  var reP = /[\uE007\uE008]/g, mP;
+  while((mP = reP.exec(xml))){
+    var j = mP.index, simbolo = xml.charAt(j) === '\uE007' ? '•\uE009' : '';
+    var pIni = Math.max(xml.lastIndexOf('<w:p>', j), xml.lastIndexOf('<w:p ', j));
+    if(pIni < 0 || hayTextoAntes(xml, j)){ xml = xml.slice(0, j) + simbolo.replace('\uE009', ' ') + xml.slice(j + 1); continue; }
+    var aper = xml.slice(pIni).match(/^<w:p(?: [^>]*)?>/)[0];
+    var pPrVie = hastaCierre(xml.slice(pIni + aper.length), 'w:pPr');
+    var base = parseInt(izquierda(pPrVie) || sangriaLista(pPrVie) || '0', 10);
+    var pPrNue = ponerInd(pPrVie.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, ''), '<w:ind w:left="' + (base + 360) + '" w:hanging="360"/>');
+    xml = xml.slice(0, pIni + aper.length) + pPrNue + xml.slice(pIni + aper.length + pPrVie.length, j) + simbolo + xml.slice(j + 1);
+    reP.lastIndex = j;
+  }
+  xml = xml.replace(/\uE009/g, '</w:t><w:tab/><w:t xml:space="preserve">');
+  // Negrita, cursiva y subrayado: la corrida se corta en cada marca y el tramo
+  // marcado lleva la letra de la etiqueta más esa propiedad.
+  var ORDEN_R = ['w:rStyle','w:rFonts','w:b','w:bCs','w:i','w:iCs','w:caps','w:smallCaps','w:strike','w:dstrike','w:outline','w:shadow','w:emboss','w:imprint',
+    'w:noProof','w:snapToGrid','w:vanish','w:webHidden','w:color','w:spacing','w:w','w:kern','w:position','w:sz','w:szCs','w:highlight','w:u','w:effect',
+    'w:bdr','w:shd','w:fitText','w:vertAlign','w:rtl','w:cs','w:em','w:lang','w:eastAsianLayout','w:specVanish','w:oMath'];
+  function conPropiedad(rPr, n){
+    var el = n === 'w:u' ? '<w:u w:val="single"/>' : '<' + n + '/>';
+    rPr = rPr.replace(new RegExp('<' + n + '(?: [^>]*)?/>'), '');
+    if(!rPr || rPr === '<w:rPr/>' || rPr === '<w:rPr></w:rPr>') return '<w:rPr>' + el + '</w:rPr>';
+    var corte = rPr.indexOf('<w:rPrChange'), propio = corte < 0 ? rPr : rPr.slice(0, corte), pos = -1;
+    ORDEN_R.slice(ORDEN_R.indexOf(n) + 1).forEach(function(o){
+      var m = new RegExp('<' + o + '[ />]').exec(propio);
+      if(m && (pos < 0 || m.index < pos)) pos = m.index;
+    });
+    if(pos < 0) pos = corte < 0 ? rPr.lastIndexOf('</w:rPr>') : corte;
+    return rPr.slice(0, pos) + el + rPr.slice(pos);
+  }
+  var PROP = { '\uE001': 'w:b', '\uE003': 'w:i', '\uE005': 'w:u' }, CIERRA = { '\uE002': 'w:b', '\uE004': 'w:i', '\uE006': 'w:u' };
+  var pila = [], reF = /[\uE001-\uE006]/g, mF;
+  while((mF = reF.exec(xml))){
+    var f = mF.index, c = xml.charAt(f);
+    var rI = Math.max(xml.lastIndexOf('<w:r>', f), xml.lastIndexOf('<w:r ', f));
+    var tramo = rI >= 0 ? xml.slice(rI, f) : '';
+    var enT = rI >= 0 && tramo.indexOf('</w:r>') < 0 && Math.max(tramo.lastIndexOf('<w:t>'), tramo.lastIndexOf('<w:t ')) > tramo.lastIndexOf('</w:t>');
+    var rPrAct = enT ? hastaCierre(tramo.replace(/^<w:r(?: [^>]*)?>/, ''), 'w:rPr') : '', nuevo = null;
+    if(enT && PROP[c]){ pila.push({ n: PROP[c], rPr: rPrAct }); nuevo = conPropiedad(rPrAct, PROP[c]); }
+    else if(enT && CIERRA[c]){
+      for(var q = pila.length - 1; q >= 0; q--) if(pila[q].n === CIERRA[c]){ nuevo = pila[q].rPr; pila.splice(q, 1); break; }
+    }
+    var cambio = nuevo === null ? '' : '</w:t></w:r><w:r>' + nuevo + '<w:t xml:space="preserve">';
+    xml = xml.slice(0, f) + cambio + xml.slice(f + 1);
+    reF.lastIndex = f + cambio.length;
   }
   return xml;
 }
@@ -1490,16 +1643,16 @@ function fOpciones(key,label,arr,o){
 }
 function onOpcion(el){ onField({dataset:{k:el.dataset.k,re:'1'},value:el.dataset.v}); }
 function fText(key,label,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';var t=o.type||'text';return "<div><label class='fl'>"+label+marcaFalta(key)+"</label><input class='inp' type='"+t+"' data-k='"+key+"' value=\""+esc(v)+"\" placeholder=\""+esc(o.ph||'')+"\" oninput='onField(this)'"+bordeFalta(key)+">"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
-var AYUDA_LARGO='Cada línea sale como un párrafo en el documento.';
+var AYUDA_LARGO='Cada línea sale como un párrafo en el documento. Con la barra: negrita, cursiva, subrayado y listas.';
 /* Lo que antes era una nota escrita en la plantilla —«(Detallar información técnica,
    cronograma de actividades u otras condiciones específicas si aplica.)»— y salía
    tal cual si nadie la cambiaba en Word. Es opcional: vacío, el párrafo no sale. */
 function campoCondiciones(doc){
   return fArea('condicionesEspecificas','Información técnica, cronograma u otras condiciones (opcional)',
     {rows:4, ph:'Ej.: Alcance de los vehículos y equipos que entran en el servicio, cómo se prestará, cronograma de actividades…',
-     help:'Lo que el proveedor necesita saber y no cabe en el detalle. Cada línea sale como un párrafo en '+doc+'. Si lo dejas vacío, no sale nada.'});
+     help:'Lo que el proveedor necesita saber y no cabe en el detalle. Cada línea sale como un párrafo en '+doc+', y la barra da negrita, cursiva, subrayado y listas. Si lo dejas vacío, no sale nada.'});
 }
-function fArea(key,label,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';return "<div style='grid-column:1/-1'><label class='fl'>"+label+marcaFalta(key)+"</label><textarea class='inp' data-k='"+key+"' rows='"+(o.rows||2)+"' placeholder=\""+esc(o.ph||'')+"\" oninput='onField(this)'"+bordeFalta(key)+">"+esc(v)+"</textarea>"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
+function fArea(key,label,o){o=o||{};if(o.show===false)return '';var d=D();var v=key in d?d[key]:'';return "<div style='grid-column:1/-1'><label class='fl'>"+label+marcaFalta(key)+"</label>"+(CAMPOS_LARGOS.indexOf(key)>=0?barraFormato('f_'+key)+"<textarea class='inp' id='f_"+key+"' onkeydown='teclaFormato(event)'":"<textarea class='inp'")+" data-k='"+key+"' rows='"+(o.rows||2)+"' placeholder=\""+esc(o.ph||'')+"\" oninput='onField(this)'"+bordeFalta(key)+">"+esc(v)+"</textarea>"+(o.help?"<div class='help'>"+o.help+"</div>":"")+"</div>";}
 function fAuto(id,label,val,help){return "<div><label class='fl'>"+label+"</label><input class='inp auto' id='"+id+"' value=\""+esc(val)+"\" disabled>"+(help?"<div class='help'>"+help+"</div>":"")+"</div>";}
 
 function onField(el){

@@ -335,6 +335,13 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
    sola; el formulario no se mueve por nada que no haga la AC.
    --alto-prev lo fija ajustarAltoPreview() con el alto real de #contenido.
    En pantalla estrecha las columnas se apilan y esto no aplica. */
+/* Barra del texto largo (negrita, cursiva, subrayado, listas) */
+.barra-formato{display:flex;gap:2px;align-items:center;flex-wrap:wrap;border:1px solid var(--borde);border-bottom:0;border-radius:7px 7px 0 0;background:#F7F9FF;padding:3px 4px}
+.barra-formato + textarea{border-top-left-radius:0!important;border-top-right-radius:0!important}
+.bf-btn{min-width:28px;min-height:28px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--texto);font:inherit;font-size:12.5px;cursor:pointer}
+.bf-btn:hover{background:#fff;border-color:var(--borde)}
+.bf-sep{align-self:stretch;margin:4px;border-left:1px solid var(--borde)}
+@media(pointer:coarse){.bf-btn{min-width:40px;min-height:40px}}
 @media(min-width:901px){
   .gen-grid .col-prev{position:sticky;top:0;display:flex;flex-direction:column;max-height:var(--alto-prev,calc(100vh - 170px))}
   .gen-grid .col-prev .card{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
@@ -2407,6 +2414,90 @@ function ajustarAlturaLargo(el){
   el.style.height = 'auto';
   el.style.height = Math.min(Math.max(el.scrollHeight + 2, 64), 420) + 'px';
 }
+/* Formato en el texto largo: lo que se escribe con la barra (o a mano) se guarda
+   como texto con marcas sencillas —**negrita**, *cursiva*, __subrayado__, «- » al
+   inicio de una línea para viñeta y «1. » para numeración— y aquí se pasan a las
+   marcas internas que entiende partirParrafosXml. Se guarda texto, no HTML: así
+   viaja igual por el historial, el lote, el Excel pegado y «Tomar datos».
+   «__________» (la raya para firmar) no es subrayado: necesita una letra dentro.
+   ES LA MISMA FUNCIÓN en generador/index.html e instrumentos/index.html. */
+function marcarFormato(texto){
+  return String(texto == null ? '' : texto).split('\n').map(function(l){
+    var pre = '', m = /^\s*[-•]\s+(.*)$/.exec(l) || /^\s*\*\s+(.*)$/.exec(l);
+    if(m){ pre = '\uE007'; l = m[1]; }
+    else if((m = /^\s*(\d{1,3}[.)])\s+(.*)$/.exec(l))){ pre = '\uE008' + m[1] + '\uE009'; l = m[2]; }
+    l = l.replace(/\*\*(?!\s)(.+?)\*\*/g, '\uE001$1\uE002')
+         .replace(/__([^_\s](?:.*?[^_\s])?)__/g, '\uE005$1\uE006')
+         .replace(/\*(?![\s*])([^*]+?)\*/g, '\uE003$1\uE004');
+    return pre + l;
+  }).join('\uE000');
+}
+/* La barra del texto largo: acciones sobre el cuadro de texto, no un editor
+   aparte. Con negrita, cursiva y subrayado envuelve lo seleccionado (o lo quita si
+   ya lo estaba); con las listas pone o quita «- » / «1. » en las líneas tocadas.
+   Al terminar lanza «input», así cada herramienta guarda como siempre. */
+var FORMATO_MARCAS = { b: '**', i: '*', u: '__' };
+function barraFormato(id){
+  // Sin focusgroup nativo, la parada única de Tab la hace teclaBarraFormato con tabindex.
+  var rov = !('focusGroup' in HTMLElement.prototype), n = 0;
+  function boton(cmd, txt, nombre){ return '<button type="button" class="bf-btn"' + (rov ? ' tabindex="' + (n++ ? -1 : 0) + '"' : '') + ' aria-label="' + nombre + '" title="' + nombre + '" onclick="aplicarFormato(\'' + id + '\',\'' + cmd + '\')">' + txt + '</button>'; }
+  return '<div class="barra-formato" role="toolbar" aria-label="Formato del texto" aria-controls="' + id + '" focusgroup="toolbar wrap" onkeydown="teclaBarraFormato(event)">'
+    + boton('b', '<b>N</b>', 'Negrita (Ctrl+B)') + boton('i', '<i>K</i>', 'Cursiva (Ctrl+I)') + boton('u', '<u>S</u>', 'Subrayado (Ctrl+U)')
+    + '<span class="bf-sep" role="separator" aria-orientation="vertical"></span>'
+    + boton('ul', '• Lista', 'Lista con viñetas') + boton('ol', '1. Lista', 'Lista numerada')
+    + '</div>';
+}
+function aplicarFormato(id, cmd){
+  var ta = document.getElementById(id); if(!ta) return;
+  var v = ta.value, s = ta.selectionStart, e = ta.selectionEnd, nuevo, selIni, selFin;
+  var m = FORMATO_MARCAS[cmd];
+  if(m){
+    if(v.slice(s - m.length, s) === m && v.slice(e, e + m.length) === m && (m !== '*' || (v.charAt(s - 2) !== '*' && v.charAt(e + 1) !== '*'))){
+      nuevo = v.slice(0, s - m.length) + v.slice(s, e) + v.slice(e + m.length); selIni = s - m.length; selFin = e - m.length;
+    } else {
+      // Cada línea por separado: una marca no cruza un salto de párrafo.
+      var dentro = v.slice(s, e).split('\n').map(function(l){ return l.replace(/^(\s*)(.*?)(\s*)$/, function(t, a, b, c){ return b ? a + m + b + m + c : t; }); }).join('\n');
+      if(s === e) dentro = m + m;
+      nuevo = v.slice(0, s) + dentro + v.slice(e); selIni = s + m.length; selFin = s === e ? selIni : s + dentro.length - m.length;
+    }
+  } else {
+    var ini = v.lastIndexOf('\n', s - 1) + 1, fin = v.indexOf('\n', Math.max(e - (e > s && v.charAt(e - 1) === '\n' ? 1 : 0), s)); if(fin < 0) fin = v.length;
+    var lineas = v.slice(ini, fin).split('\n'), re = /^\s*(?:[-•*]|\d{1,3}[.)])\s+/;
+    var patron = cmd === 'ul' ? /^\s*[-•*]\s+/ : /^\s*\d{1,3}[.)]\s+/;
+    var quitar = lineas.every(function(l){ return !l.trim() || patron.test(l); });
+    var n = 0;
+    var hechas = lineas.map(function(l){
+      if(!l.trim()) return l;
+      var limpio = l.replace(re, '');
+      return quitar ? limpio : (cmd === 'ul' ? '- ' : (++n) + '. ') + limpio;
+    }).join('\n');
+    nuevo = v.slice(0, ini) + hechas + v.slice(fin); selIni = ini; selFin = ini + hechas.length;
+  }
+  ta.value = nuevo;
+  ta.focus();
+  ta.setSelectionRange(selIni, selFin);
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+// Ctrl+B / Ctrl+I / Ctrl+U dentro del cuadro, como en Word.
+function teclaFormato(ev){
+  if(!(ev.ctrlKey || ev.metaKey) || ev.altKey || ev.shiftKey) return;
+  var cmd = { b: 'b', i: 'i', u: 'u' }[String(ev.key).toLowerCase()];
+  if(!cmd || !ev.target.id) return;
+  ev.preventDefault();
+  aplicarFormato(ev.target.id, cmd);
+}
+// Una sola parada de Tab en la barra; las flechas pasan de botón en botón (lo hace focusgroup donde existe).
+function teclaBarraFormato(ev){
+  if('focusGroup' in HTMLElement.prototype) return;
+  var bs = Array.prototype.slice.call(ev.currentTarget.querySelectorAll('.bf-btn'));
+  var i = bs.indexOf(document.activeElement), paso = { ArrowRight: 1, ArrowLeft: -1 }[ev.key];
+  if(i < 0) return;
+  var j = paso ? (i + paso + bs.length) % bs.length : ev.key === 'Home' ? 0 : ev.key === 'End' ? bs.length - 1 : -1;
+  if(j < 0) return;
+  ev.preventDefault();
+  bs.forEach(function(b, k){ b.tabIndex = k === j ? 0 : -1; });
+  bs[j].focus();
+}
 /* Texto largo: cada línea, un párrafo de Word de verdad. Quien arma los datos
    pone la marca U+E000 en vez de cada salto de línea, y aquí se parte el párrafo
    donde cayó. El nuevo repite el formato del original (su <w:pPr>) y la letra de
@@ -2417,6 +2508,8 @@ function ajustarAlturaLargo(el){
    una revisión, o en un párrafo que cierra sección— queda como salto de línea.
    No se usa el salto de línea de docxtemplater para todo: en un párrafo
    justificado, Word estira la última línea de cada tramo de margen a margen.
+   Después aplica el formato de marcarFormato(): viñetas, números, negrita,
+   cursiva y subrayado.
    ES LA MISMA FUNCIÓN en generador/index.html e instrumentos/index.html, letra
    por letra: si cambias una, cambia la otra (probar_generador.js lo comprueba). */
 function partirParrafosXml(xml, numXml){
@@ -2461,6 +2554,17 @@ function partirParrafosXml(xml, numXml){
     if(pos < 0) pos = pPr.lastIndexOf('</w:pPr>');
     return pPr.slice(0, pos) + ind + pPr.slice(pos);
   }
+  // ¿Hay texto antes de la posición i dentro de su párrafo? (una viñeta solo puede abrir un párrafo)
+  function hayTextoAntes(t, i){
+    var p = Math.max(t.lastIndexOf('<w:p>', i), t.lastIndexOf('<w:p ', i));
+    return p >= 0 && /\S/.test(t.slice(p, i).replace(/<w:tab\/>/g, 'x').replace(/<[^>]+>/g, ''));
+  }
+  // Una viñeta o un número a mitad de párrafo (detrás de «Forma de pago: ») empieza un párrafo nuevo.
+  var reLista = /[\uE007\uE008]/g, mLista;
+  while((mLista = reLista.exec(xml))){
+    var k = mLista.index;
+    if(xml.charAt(k - 1) !== MARCA && hayTextoAntes(xml, k)){ xml = xml.slice(0, k) + MARCA + xml.slice(k); reLista.lastIndex = k + 2; }
+  }
   for(;;){
     var i = xml.indexOf(MARCA, desde);
     if(i < 0) break;
@@ -2491,6 +2595,55 @@ function partirParrafosXml(xml, numXml){
     var corte = '</w:t></w:r></w:p><w:p>' + pPrSig + '<w:r>' + rPr + '<w:t xml:space="preserve">';
     xml = xml.slice(0, i) + corte + xml.slice(i + 1);
     desde = i + '</w:t></w:r></w:p>'.length;
+  }
+  // Viñetas y números: el párrafo toma sangría francesa y el símbolo va delante con
+  // un tabulador. shortcut: no es una lista de Word (no se renumera sola al editar el
+  // Word); si hiciera falta, crear un <w:num> en numbering.xml.
+  var reP = /[\uE007\uE008]/g, mP;
+  while((mP = reP.exec(xml))){
+    var j = mP.index, simbolo = xml.charAt(j) === '\uE007' ? '•\uE009' : '';
+    var pIni = Math.max(xml.lastIndexOf('<w:p>', j), xml.lastIndexOf('<w:p ', j));
+    if(pIni < 0 || hayTextoAntes(xml, j)){ xml = xml.slice(0, j) + simbolo.replace('\uE009', ' ') + xml.slice(j + 1); continue; }
+    var aper = xml.slice(pIni).match(/^<w:p(?: [^>]*)?>/)[0];
+    var pPrVie = hastaCierre(xml.slice(pIni + aper.length), 'w:pPr');
+    var base = parseInt(izquierda(pPrVie) || sangriaLista(pPrVie) || '0', 10);
+    var pPrNue = ponerInd(pPrVie.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, ''), '<w:ind w:left="' + (base + 360) + '" w:hanging="360"/>');
+    xml = xml.slice(0, pIni + aper.length) + pPrNue + xml.slice(pIni + aper.length + pPrVie.length, j) + simbolo + xml.slice(j + 1);
+    reP.lastIndex = j;
+  }
+  xml = xml.replace(/\uE009/g, '</w:t><w:tab/><w:t xml:space="preserve">');
+  // Negrita, cursiva y subrayado: la corrida se corta en cada marca y el tramo
+  // marcado lleva la letra de la etiqueta más esa propiedad.
+  var ORDEN_R = ['w:rStyle','w:rFonts','w:b','w:bCs','w:i','w:iCs','w:caps','w:smallCaps','w:strike','w:dstrike','w:outline','w:shadow','w:emboss','w:imprint',
+    'w:noProof','w:snapToGrid','w:vanish','w:webHidden','w:color','w:spacing','w:w','w:kern','w:position','w:sz','w:szCs','w:highlight','w:u','w:effect',
+    'w:bdr','w:shd','w:fitText','w:vertAlign','w:rtl','w:cs','w:em','w:lang','w:eastAsianLayout','w:specVanish','w:oMath'];
+  function conPropiedad(rPr, n){
+    var el = n === 'w:u' ? '<w:u w:val="single"/>' : '<' + n + '/>';
+    rPr = rPr.replace(new RegExp('<' + n + '(?: [^>]*)?/>'), '');
+    if(!rPr || rPr === '<w:rPr/>' || rPr === '<w:rPr></w:rPr>') return '<w:rPr>' + el + '</w:rPr>';
+    var corte = rPr.indexOf('<w:rPrChange'), propio = corte < 0 ? rPr : rPr.slice(0, corte), pos = -1;
+    ORDEN_R.slice(ORDEN_R.indexOf(n) + 1).forEach(function(o){
+      var m = new RegExp('<' + o + '[ />]').exec(propio);
+      if(m && (pos < 0 || m.index < pos)) pos = m.index;
+    });
+    if(pos < 0) pos = corte < 0 ? rPr.lastIndexOf('</w:rPr>') : corte;
+    return rPr.slice(0, pos) + el + rPr.slice(pos);
+  }
+  var PROP = { '\uE001': 'w:b', '\uE003': 'w:i', '\uE005': 'w:u' }, CIERRA = { '\uE002': 'w:b', '\uE004': 'w:i', '\uE006': 'w:u' };
+  var pila = [], reF = /[\uE001-\uE006]/g, mF;
+  while((mF = reF.exec(xml))){
+    var f = mF.index, c = xml.charAt(f);
+    var rI = Math.max(xml.lastIndexOf('<w:r>', f), xml.lastIndexOf('<w:r ', f));
+    var tramo = rI >= 0 ? xml.slice(rI, f) : '';
+    var enT = rI >= 0 && tramo.indexOf('</w:r>') < 0 && Math.max(tramo.lastIndexOf('<w:t>'), tramo.lastIndexOf('<w:t ')) > tramo.lastIndexOf('</w:t>');
+    var rPrAct = enT ? hastaCierre(tramo.replace(/^<w:r(?: [^>]*)?>/, ''), 'w:rPr') : '', nuevo = null;
+    if(enT && PROP[c]){ pila.push({ n: PROP[c], rPr: rPrAct }); nuevo = conPropiedad(rPrAct, PROP[c]); }
+    else if(enT && CIERRA[c]){
+      for(var q = pila.length - 1; q >= 0; q--) if(pila[q].n === CIERRA[c]){ nuevo = pila[q].rPr; pila.splice(q, 1); break; }
+    }
+    var cambio = nuevo === null ? '' : '</w:t></w:r><w:r>' + nuevo + '<w:t xml:space="preserve">';
+    xml = xml.slice(0, f) + cambio + xml.slice(f + 1);
+    reF.lastIndex = f + cambio.length;
   }
   return xml;
 }
@@ -2834,7 +2987,7 @@ function renderGenerar(c, p){
       const astL = esRequerido(v) ? '<span class="oblig-ast" title="Obligatorio: sin este dato no se genera el documento">*</span>' : '';
       return `<div class="campo campo-largo"><label for="f_${v}">${esc(etiqueta(v))}${astL} <span class="tag-var">{{${esc(v)}}}</span>${fijos[v] ? ' <span class="tag-auto">fijo</span>' : ''}
         <button type="button" class="btn-largo" onclick="alternarLargo('${v}')" title="Volver a una casilla de una sola línea">¶ texto largo ✕</button></label>
-        <textarea class="largo" rows="3"${phL} id="f_${v}" oninput="actualizarCampo('${v}', this.value);ajustarAlturaLargo(this)">${esc(datosForm[v]||'')}</textarea>${notaL}</div>`;
+        ${barraFormato('f_' + v)}<textarea class="largo" rows="3"${phL} id="f_${v}" onkeydown="teclaFormato(event)" oninput="actualizarCampo('${v}', this.value);ajustarAlturaLargo(this)">${esc(datosForm[v]||'')}</textarea>${notaL}</div>`;
     }
     const tipo = esFecha(v) ? 'date' : (esMonto(v) ? 'number' : 'text');
     const extra = esMonto(v) ? ' step="0.01" min="0"' : '';
@@ -3268,10 +3421,13 @@ function valorDe(datos, v){
 function rellenarDatos(html, datos, preview){
   let hayLargo = false;
   // Un texto largo: cada línea parte el párrafo donde está la variable.
+  // Las marcas de formato pasan a HTML; las viñetas, como texto «• ».
+  const HTML_MARCA = { '\uE000':'<br data-salto="1">', '\uE001':'<b>', '\uE002':'</b>', '\uE003':'<i>', '\uE004':'</i>', '\uE005':'<u>', '\uE006':'</u>', '\uE007':'• ', '\uE008':'', '\uE009':' ' };
   const impreso = (v, val) => {
-    if(!esLargo(v) || !/\n/.test(val)) return esc(val);
-    hayLargo = true;
-    return textoLargo(val).split('\n').map(esc).join('<br data-salto="1">');
+    if(!esLargo(v)) return esc(val);
+    const m = marcarFormato(textoLargo(esc(val)));
+    if(m.indexOf('\uE000') >= 0) hayLargo = true;
+    return m.replace(/[\uE000-\uE009]/g, c => HTML_MARCA[c]);
   };
   const salida = html.replace(/\{\{\s*([\wáéíóúñÁÉÍÓÚÑ]+)\s*\}\}/g, (m, v) => {
     const val = valorDe(datos, v);
@@ -6208,7 +6364,7 @@ function datosDocx(p, base, enLote, marcarVacios){
     if(!val && esLetras(t) && base[origenDe(t)]) val = formatoLetras(origenDe(t), base[origenDe(t)]);
     if(esFecha(t) && val) val = fechaImpresa(val);
     if(val && esDinero(t)) val = fmtMonto(val);
-    if(val && esLargo(t)) val = textoLargo(val).replace(/\n/g, SALTO_PARRAFO);
+    if(val && esLargo(t)) val = marcarFormato(textoLargo(val));
     datos[t] = val;
   });
   est.condiciones.forEach(cn => { datos[cn.nombre] = enLote ? true : condForm[cn.nombre] !== false; });
@@ -6260,7 +6416,7 @@ function generarBlobDocx(p, datos){
   const numXml = salida.file('word/numbering.xml') ? salida.file('word/numbering.xml').asText() : '';
   Object.keys(salida.files).filter(n => /^word\/[^/]+\.xml$/.test(n)).forEach(n => {
     const x = salida.files[n].asText();
-    if(x.indexOf(SALTO_PARRAFO) >= 0) salida.file(n, partirParrafosXml(x, numXml));
+    if(/[\uE000-\uE009]/.test(x)) salida.file(n, partirParrafosXml(x, numXml));
   });
   return salida.generate({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
