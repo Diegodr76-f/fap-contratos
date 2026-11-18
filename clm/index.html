@@ -5,31 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CLM FAP · Contract Lifecycle Management · FIAS</title>
 <meta name="description" content="Plataforma única de gestión del ciclo de vida de contratos del FAP/FIAS: solicitudes, repositorio, pipeline, obligaciones, modificaciones, terminación, calificación de proveedores, reportes y bitácora.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- La fuente se pide sin bloquear: con media="print" el navegador no espera por ella
-     para pintar. En una conexión lenta de territorio, una hoja de estilos externa
-     bloqueante deja la pantalla en blanco hasta que Google responda o se rinda. -->
-<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <!-- Librerías de generación de Word alojadas en el propio repositorio (no en CDN externos):
      evita el bloqueo de redes corporativas y reduce falsos positivos de antivirus.
      Con defer se bajan sin frenar la primera pantalla: solo se usan al generar un Word. -->
 <script defer src="vendor/pizzip.min.js"></script>
 <script defer src="vendor/docxtemplater.min.js"></script>
 <style>
+  /* La misma Titillium que el Generador de Instrumentos sirve desde el repositorio:
+     sin pedirla a Google, con señal floja o sin conexión la letra no cambia. Si no
+     carga, entra la del sistema con font-display:swap, sin dejar la pantalla en blanco. */
+  @font-face{font-family:'Titillium Web';font-weight:400;font-display:swap;src:url(../instrumentos/fuentes/titillium-400.woff2) format('woff2')}
+  @font-face{font-family:'Titillium Web';font-weight:600;font-display:swap;src:url(../instrumentos/fuentes/titillium-600.woff2) format('woff2')}
+  @font-face{font-family:'Titillium Web';font-weight:700;font-display:swap;src:url(../instrumentos/fuentes/titillium-700.woff2) format('woff2')}
+  /* Verde, ámbar y turquesa sirven de relleno (puntos, barras, bordes) pero como
+     letra no llegaban a 4,5:1 —el ámbar sobre blanco daba 2,9—; el texto usa su
+     versión oscura (-t). --muted2 queda para rellenos y bordes: como letra, --muted. */
   :root{
     --navy:#00249C; --navy2:#2547C9; --ink:#0B153F; --bg:#F4F6FB; --card:#fff;
-    --line:#E3E6F0; --line2:#EAEDF5; --muted:#6B7180; --muted2:#9AA0B2;
+    --line:#E3E6F0; --line2:#EAEDF5; --muted:#5F6576; --muted2:#9AA0B2;
     --green:#1E9E5A; --greenbg:#E7F6EE; --amber:#C98A08; --amberbg:#FCF3DD;
-    --red:#D23A3A; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0E9AA7;
+    --red:#C0302F; --redbg:#FBE7E7; --tint:#EEF1FB; --violet:#6A44C9; --teal:#0E9AA7;
+    --green-t:#15703F; --amber-t:#8A5E06; --teal-t:#0B6E64;
+    accent-color:var(--navy);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%}
   body{font-family:'Titillium Web',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px}
+  ::selection{background:#D7DEF6;color:var(--ink)}
+  /* Las cifras de las tablas en columna: los montos se comparan de un vistazo. */
+  table.list td,.kpi-n{font-variant-numeric:tabular-nums}
   a{color:var(--navy);text-decoration:none}
   button{font-family:inherit}
   input,select,textarea{font-family:inherit;font-size:14px}
-  ::placeholder{color:var(--muted2)}
+  ::placeholder{color:var(--muted)}
   @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .up{animation:up .25s ease}
 
@@ -39,8 +47,8 @@
   .side-brand{display:flex;align-items:center;gap:11px;padding:16px 16px 14px;border-bottom:1px solid var(--line2)}
   .logo{width:40px;height:40px;border-radius:10px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:0 0 auto}
   .side-brand .t{font-weight:700;font-size:14px;line-height:1.15}
-  .side-brand .s{font-size:11px;color:var(--muted)}
-  .navgrp{font-size:10.5px;font-weight:700;letter-spacing:.7px;color:var(--muted2);text-transform:uppercase;padding:16px 18px 6px}
+  .side-brand .s{font-size:12px;color:var(--muted)}
+  .navgrp{font-size:11px;font-weight:700;letter-spacing:.7px;color:var(--muted);text-transform:uppercase;padding:16px 18px 6px}
   .navitem{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:11px;padding:9px 14px;margin:1px 8px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);width:calc(100% - 16px)}
   .navitem:hover{background:var(--tint);color:var(--navy)}
   .navitem.on{background:var(--navy);color:#fff}
@@ -64,7 +72,7 @@
   .gres{display:block;padding:10px 13px;border-bottom:1px solid var(--line2);cursor:pointer}
   .gres:hover{background:var(--tint)}
   .gres .a{font-size:13px;font-weight:700;color:var(--ink)}
-  .gres .b{font-size:11.5px;color:var(--muted)}
+  .gres .b{font-size:12px;color:var(--muted)}
   .content{padding:22px 24px 70px;max-width:1220px;width:100%;margin:0 auto}
   .content.full{max-width:none;padding:0;display:flex;flex-direction:column;flex:1}
 
@@ -117,32 +125,34 @@
   .ptitle{font-size:14.5px;font-weight:700;margin:0 0 3px}
   .psub{font-size:12px;color:var(--muted);margin:0 0 14px}
   .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
-  .b-g{background:var(--greenbg);color:var(--green)} .b-a{background:var(--amberbg);color:var(--amber)}
+  .b-g{background:var(--greenbg);color:var(--green-t)} .b-a{background:var(--amberbg);color:var(--amber-t)}
   .b-r{background:var(--redbg);color:var(--red)} .b-d{background:#EEF0F5;color:var(--muted)}
   .b-n{background:var(--tint);color:var(--navy)} .b-v{background:#EFE6FA;color:var(--violet)}
   .chip{all:unset;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--muted);padding:8px 13px;border:1.5px solid var(--line);border-radius:99px;background:#fff}
   .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .chips{display:flex;gap:8px;flex-wrap:wrap}
-  .catchip{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .catchip{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
   .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px}
   @media(max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}}
   /* En el teléfono, primero lo que hay que atender y después las cifras, en
      tres columnas compactas: seis fichas ocupaban la primera pantalla entera. */
   @media(max-width:560px){
     .kpis{grid-template-columns:repeat(3,1fr);gap:8px}
-    .kpi{padding:10px 11px}.kpi-n{font-size:19px}.kpi-l{font-size:10.5px;margin-top:4px;line-height:1.25}
+    .kpi{padding:10px 11px}.kpi-n{font-size:19px}.kpi-l{font-size:11px;margin-top:4px;line-height:1.25}
     .panelv{display:flex;flex-direction:column}
     .panelv>*{order:3}.panelv>.atencion{order:1}.panelv>.kpis{order:2}
   }
-  .kpi{background:#fff;border:1px solid var(--line2);border-radius:13px;padding:14px 16px;cursor:pointer;transition:box-shadow .15s}
+  .kpi{background:#fff;border:1px solid var(--line2);border-radius:13px;padding:14px 16px;cursor:pointer;transition:box-shadow .15s;font:inherit;color:inherit;text-align:left;width:100%}
+  .kpi-n,.kpi-l{display:block}
   .kpi:hover{box-shadow:0 10px 26px rgba(11,21,63,.08)}
   .kpi-n{font-size:24px;font-weight:700;line-height:1}
-  .kpi-l{font-size:11.5px;color:var(--muted);margin-top:6px;font-weight:600}
+  .kpi-l{font-size:12px;color:var(--muted);margin-top:6px;font-weight:600}
   .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 16px}
   .search{flex:1;min-width:200px;position:relative}
   .search input{width:100%;padding:10px 12px 10px 36px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
   .search input:focus{outline:none;border-color:var(--navy)}
   .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%)}
+  .toolbar select{padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
   .viewtog{display:flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
   .viewtog button{all:unset;cursor:pointer;padding:8px 12px;font-size:12.5px;font-weight:600;color:var(--muted)}
   .viewtog button.on{background:var(--navy);color:#fff}
@@ -150,7 +160,7 @@
   /* tables */
   .tablewrap{background:#fff;border:1px solid var(--line2);border-radius:14px;overflow-x:auto}
   table.list{width:100%;border-collapse:collapse;min-width:760px}
-  table.list th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted2);text-align:left;padding:12px 10px;border-bottom:1.5px solid var(--line2);background:#FAFBFE;white-space:nowrap}
+  table.list th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:left;padding:12px 10px;border-bottom:1.5px solid var(--line2);background:#FAFBFE;white-space:nowrap}
   table.list td{font-size:13px;padding:11px 10px;border-bottom:1px solid var(--line2);vertical-align:middle}
   table.list tbody tr{cursor:pointer}
   table.list tbody tr:hover{background:var(--tint)}
@@ -165,7 +175,7 @@
   @media(max-width:1280px){table.list .td-area{display:none}.td-obj .oa{display:block}}
   /* «Terminados» trae dos columnas más (liquidado, cierre): el área baja antes. */
   @media(max-width:1460px){table.list.ter .td-area{display:none}table.list.ter .td-obj .oa{display:block}}
-  .td-est .sub{font-size:11.5px;color:var(--muted);margin:2px 0 0 15px}
+  .td-est .sub{font-size:12px;color:var(--muted);margin:2px 0 0 15px}
   /* «Abrir» es lo que más se busca en la lista, así que no puede quedar fuera de
      vista: si la tabla no cabe en la pantalla, esta columna se queda fija a la derecha. */
   table.list .td-sig{position:sticky;right:0;background:#fff;box-shadow:-8px 0 8px -8px rgba(11,21,63,.22);white-space:nowrap}
@@ -179,26 +189,26 @@
   .cc{background:#fff;border:1px solid var(--line2);border-radius:14px;padding:16px;cursor:pointer;transition:box-shadow .15s,transform .15s;border-left:5px solid var(--line);position:relative}
   .cc:hover{box-shadow:0 12px 30px rgba(11,21,63,.09);transform:translateY(-2px)}
   .cc.g{border-left-color:var(--green)}.cc.a{border-left-color:var(--amber)}.cc.r{border-left-color:var(--red)}.cc.done{border-left-color:var(--muted2);opacity:.85}
-  .cc-nro{font-size:11.5px;font-weight:700;color:var(--navy)}
+  .cc-nro{font-size:12px;font-weight:700;color:var(--navy)}
   .cc-title{font-size:14px;font-weight:700;margin:7px 0 2px;line-height:1.3}
   .cc-area{font-size:12px;color:var(--muted);margin-bottom:10px}
   .cc-meta{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
   .cc-meta b{color:var(--ink)}
 
   /* pipeline */
-  .kanban{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:13px;overflow-x:auto;align-items:start}
+  .kanban{display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:13px;overflow-x:auto;align-items:start}
   @media(max-width:1100px){.kanban{grid-template-columns:repeat(5,240px)}}
   .kcol{background:#EDF0F8;border-radius:14px;padding:11px}
   .kcol-h{display:flex;align-items:center;gap:8px;padding:3px 5px 10px}
   .kcol-h .kdot{width:10px;height:10px;border-radius:50%}
   .kcol-h .kt{font-size:12.5px;font-weight:700}
   .kcol-h .kc{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted);background:#fff;padding:2px 8px;border-radius:99px}
-  .kcol-sum{font-size:11px;color:var(--muted);padding:0 5px 9px;font-weight:600}
+  .kcol-sum{font-size:12px;color:var(--muted);padding:0 5px 9px;font-weight:600}
   .kcard{background:#fff;border:1px solid var(--line2);border-radius:11px;padding:11px 12px;margin-bottom:9px;cursor:pointer;transition:box-shadow .13s}
   .kcard:hover{box-shadow:0 8px 20px rgba(11,21,63,.1)}
-  .kcard .a{font-size:11px;font-weight:700;color:var(--navy)}
+  .kcard .a{font-size:12px;font-weight:700;color:var(--navy)}
   .kcard .b{font-size:12.5px;font-weight:700;line-height:1.3;margin:3px 0 4px}
-  .kcard .c{font-size:11px;color:var(--muted)}
+  .kcard .c{font-size:12px;color:var(--muted)}
 
   /* detail */
   .back{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--navy);margin-bottom:14px}
@@ -216,21 +226,21 @@
   }
   .h-title{font-size:19px;font-weight:700;margin:0 0 2px;line-height:1.3}
   .dl{display:grid;grid-template-columns:1fr 1fr;gap:13px 20px;margin-top:8px}
-  .dl .k{font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+  .dl .k{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
   .dl .v{font-size:14px;font-weight:600}
   .dl .full{grid-column:1/-1}
   .linkbar{display:flex;align-items:center;gap:10px;background:var(--tint);border:1px solid #D7DEF6;border-radius:11px;padding:11px 13px;margin:14px 0 4px}
   .expbox{border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin:10px 0 4px}
-  .expbox .expt{font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px}
+  .expbox .expt{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px}
   .expbox .exprow{display:flex;align-items:baseline;gap:10px;padding:3px 0;font-size:13.5px}
   .expbox .exprow .k{flex:0 0 152px;color:var(--muted);font-weight:600}
   .expbox .exprow .v{font-weight:700;color:var(--ink)}
-  .expbox .exprow .v.none{font-weight:600;color:var(--muted2)}
+  .expbox .exprow .v.none{font-weight:600;color:var(--muted)}
   .phase{display:flex;align-items:center;margin:16px 0 4px;flex-wrap:wrap;row-gap:8px}
-  .step{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;color:var(--muted2)}
-  .step .d{width:24px;height:24px;border-radius:7px;background:#EEF0F5;color:var(--muted2);display:flex;align-items:center;justify-content:center;font-size:12px}
+  .step{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--muted)}
+  .step .d{width:24px;height:24px;border-radius:7px;background:#EEF0F5;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:12px}
   .step.on{color:var(--navy)}.step.on .d{background:var(--navy);color:#fff}
-  .step.past{color:var(--green)}.step.past .d{background:var(--greenbg);color:var(--green)}
+  .step.past{color:var(--green-t)}.step.past .d{background:var(--greenbg);color:var(--green-t)}
   .flow-line{flex:1;height:2px;background:var(--line2);margin:0 8px;min-width:14px}
   .act{display:flex;flex-direction:column;gap:9px}
   .actbtn{all:unset;cursor:pointer;display:flex;align-items:center;gap:11px;padding:12px 13px;border:1.5px solid var(--line);border-radius:11px;background:#fff;transition:border-color .14s,background .14s}
@@ -239,14 +249,14 @@
   .actbtn:disabled:hover{border-color:var(--line);background:#fff}
   .actbtn .ic{width:32px;height:32px;border-radius:8px;background:var(--tint);color:var(--navy);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .actbtn .at{font-size:13.5px;font-weight:700;display:block}
-  .actbtn .ad{font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
+  .actbtn .ad{font-size:12px;color:var(--muted);display:block;margin-top:1px}
   .note{font-size:12px;color:var(--muted);line-height:1.5;background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:11px 13px}
   .tl{list-style:none;margin:6px 0 0;padding:0}
   .tl li{position:relative;padding:0 0 14px 22px;border-left:2px solid var(--line2);margin-left:7px}
   .tl li:last-child{padding-bottom:2px}
   .tl li::before{content:"";position:absolute;left:-6px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--navy2);border:2px solid #fff}
   .tl .t{font-size:12.5px;font-weight:700}
-  .tl .s{font-size:11.5px;color:var(--muted)}
+  .tl .s{font-size:12px;color:var(--muted)}
 
   /* modals */
   .overlay{position:fixed;inset:0;background:rgba(11,21,63,.44);display:flex;align-items:flex-start;justify-content:center;padding:36px 18px;overflow:auto;z-index:60}
@@ -270,10 +280,10 @@
   .radio.sel{border-color:var(--navy);background:var(--tint)}
   .radio input{margin-top:2px;accent-color:var(--navy)}
   .radio .rt{font-size:13.5px;font-weight:700;display:block}
-  .radio .rd{font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
+  .radio .rd{font-size:12px;color:var(--muted);display:block;margin-top:1px}
   .routebox{border-radius:11px;padding:12px 14px;margin:6px 0 4px;font-size:13px;line-height:1.55;border:1.5px solid}
-  .route-acta{background:var(--greenbg);border-color:#BCE6CE;color:#15703F}
-  .route-adenda{background:var(--amberbg);border-color:#F0DCA6;color:#8A5E06}
+  .route-acta{background:var(--greenbg);border-color:#BCE6CE;color:var(--green-t)}
+  .route-adenda{background:var(--amberbg);border-color:#F0DCA6;color:var(--amber-t)}
   .route-block{background:var(--redbg);border-color:#F3C0C0;color:#A32020}
   .secdiv{font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.4px;margin:15px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line2)}
   .modal-foot{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
@@ -286,15 +296,15 @@
   .scorebox .lab{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
   .semaforo{font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:99px}
   .scorebtn.on{background:var(--navy)!important;color:#fff!important;border-color:var(--navy)!important}
-  .semaforo.sm{font-size:11.5px;padding:3px 9px;white-space:nowrap}
+  .semaforo.sm{font-size:12px;padding:3px 9px;white-space:nowrap}
   /* pool de proveedores */
   table.list.prov{min-width:700px}
   .td-prov{font-weight:700;min-width:220px;max-width:360px}
-  .td-prov .pc{margin-top:4px;font-size:11.5px;font-weight:600;color:var(--muted)}
-  .pendn{display:inline-block;min-width:22px;text-align:center;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:#DDF3F0;color:var(--teal)}
+  .td-prov .pc{margin-top:4px;font-size:12px;font-weight:600;color:var(--muted)}
+  .pendn{display:inline-block;min-width:22px;text-align:center;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:#DDF3F0;color:var(--teal-t)}
   .provaviso{border-radius:11px;padding:10px 13px;margin:10px 0 4px;font-size:12.5px;line-height:1.5}
   .provaviso.r{background:var(--redbg);color:var(--red)}
-  .provaviso.a{background:var(--amberbg);color:var(--amber)}
+  .provaviso.a{background:var(--amberbg);color:var(--amber-t)}
   .provaviso small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
   .histcal{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line2);font-size:12.5px}
   .histcal:last-child{border-bottom:0}
@@ -332,8 +342,8 @@
   .chart-svg{width:100%;height:auto;display:block}
   .bar{cursor:pointer}
   .bar:hover{filter:brightness(1.18)}
-  .axlbl{font-size:10px;fill:var(--muted2);font-family:'Titillium Web',sans-serif}
-  .vallbl{font-size:10.5px;font-weight:700;fill:var(--muted);font-family:'Titillium Web',sans-serif}
+  .axlbl{font-size:10px;fill:var(--muted);font-family:'Titillium Web',sans-serif}
+  .vallbl{font-size:11px;font-weight:700;fill:var(--muted);font-family:'Titillium Web',sans-serif}
   .grid-line{stroke:var(--line2);stroke-width:1}
   .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
   .legend .li{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
@@ -353,33 +363,33 @@
   .map-sede{cursor:pointer;stroke:#fff;stroke-width:1.6}
   .map-halo{fill:none;stroke:var(--ink);stroke-width:2.5;opacity:.8;pointer-events:none}
   .map-lbl{font-family:'Titillium Web',sans-serif;font-size:15px;font-weight:700;fill:var(--ink);paint-order:stroke;stroke:#FBFCFE;stroke-width:4px;stroke-linejoin:round;pointer-events:none}
-  .map-note{position:absolute;left:12px;bottom:10px;font-size:11px;font-weight:600;color:var(--muted);background:rgba(255,255,255,.82);border-radius:7px;padding:4px 9px}
+  .map-note{position:absolute;left:12px;bottom:10px;font-size:12px;font-weight:600;color:var(--muted);background:rgba(255,255,255,.82);border-radius:7px;padding:4px 9px}
   .aplist{max-height:560px;overflow-y:auto;margin:-4px -6px 0;padding:4px 6px}
   .aprow{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent}
   .aprow:hover{background:var(--tint)}
   .aprow.on{background:var(--tint);border-color:#C9D3F2}
-  .aprow .rk{flex:0 0 20px;font-size:11px;font-weight:700;color:var(--muted2);text-align:right}
+  .aprow .rk{flex:0 0 20px;font-size:11px;font-weight:700;color:var(--muted);text-align:right}
   .aprow .nm{flex:1;min-width:0;font-size:12.5px;font-weight:600;line-height:1.25}
-  .aprow .nm small{display:block;font-weight:600;color:var(--muted);font-size:11px}
+  .aprow .nm small{display:block;font-weight:600;color:var(--muted);font-size:12px}
   .aprow .vl{flex:0 0 auto;font-size:12.5px;font-weight:700;white-space:nowrap}
   .apc{display:block;width:100%;text-align:left;border:1px solid var(--line2);border-radius:11px;padding:10px 12px;margin-bottom:8px;background:#fff;cursor:pointer;border-left:4px solid var(--line)}
   .apc:hover{background:var(--tint)}
   .apc.g{border-left-color:var(--green)}.apc.a{border-left-color:var(--amber)}
   .apc.r{border-left-color:var(--red)}.apc.done{border-left-color:var(--muted2)}
-  .apc .t{font-size:11.5px;font-weight:700;color:var(--navy)}
+  .apc .t{font-size:12px;font-weight:700;color:var(--navy)}
   .apc .o{font-size:12.5px;font-weight:600;margin:3px 0 5px;line-height:1.3}
-  .apc .m{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--muted);font-weight:600}
-  .stackbar{display:flex;height:34px;border-radius:9px;overflow:hidden;gap:2px;background:var(--bg)}
-  .stackbar>div{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:#fff;min-width:0;overflow:hidden;white-space:nowrap}
+  .apc .m{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);font-weight:600}
+  .stackbar{display:flex;height:14px;border-radius:99px;overflow:hidden;gap:2px;background:var(--bg);margin-top:8px}
+  .stackbar>div{min-width:4px}
 
   /* alerts */
   .alert-row{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line2);border-radius:12px;padding:12px 15px;margin-bottom:9px}
   .alert-row .aic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .alert-row .at{font-size:13px;font-weight:700}
-  .alert-row .ad{font-size:11.5px;color:var(--muted)}
+  .alert-row .ad{font-size:12px;color:var(--muted)}
   .alert-row .go{margin-left:auto;flex:0 0 auto}
   .modchip{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:6px;white-space:nowrap;background:var(--tint);color:var(--navy)}
-  .modchip.mayor{background:var(--amberbg);color:#8A5E06}
+  .modchip.mayor{background:var(--amberbg);color:var(--amber-t)}
   .modchip.plazo{background:#EFE6FA;color:var(--violet)}
   .modchip.revisar{background:var(--redbg);color:var(--red)}
   .subchips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px;padding-left:2px}
@@ -393,8 +403,10 @@
   /* login */
   .login-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px;background:linear-gradient(160deg,#F4F6FB 0%,#E8EDFB 100%)}
   .login-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:32px 32px 28px;max-width:470px;width:100%;box-shadow:0 18px 50px rgba(11,21,63,.09)}
-  .eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--navy);background:var(--tint);padding:5px 11px;border-radius:99px;text-transform:uppercase}
-  .login-card h1{font-size:24px;font-weight:700;margin:13px 0 5px;letter-spacing:-.3px}
+  .login-brand{display:flex;align-items:center;gap:11px}
+  .login-brand .t{font-weight:700;font-size:14px;line-height:1.15}
+  .login-brand .s{font-size:12px;color:var(--muted)}
+  .login-card h1{font-size:24px;font-weight:700;margin:20px 0 5px;letter-spacing:-.3px;text-wrap:balance}
   .lead{font-size:14px;color:var(--muted);margin:0 0 20px;line-height:1.55}
   .rolegrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
   .rolebtn{all:unset;cursor:pointer;text-align:center;padding:11px 6px;border:1.5px solid var(--line);border-radius:11px;font-size:12px;font-weight:700;color:var(--muted)}
@@ -411,13 +423,47 @@
   /* Los botones llevan all:unset y con eso pierden el recuadro de foco: quien
      navega con el teclado no sabía dónde estaba. */
   .navitem:focus-visible,.btn:focus-visible,.chip:focus-visible,.actbtn:focus-visible,.rolebtn:focus-visible,
-  .iconbtn:focus-visible,.back:focus-visible,.viewtog button:focus-visible,.linkbtn:focus-visible{outline:2.5px solid var(--navy2);outline-offset:2px}
+  .iconbtn:focus-visible,.back:focus-visible,.viewtog button:focus-visible,.linkbtn:focus-visible,.kpi:focus-visible,.nrolink:focus-visible,
+  .toolbar select:focus-visible{outline:2.5px solid var(--navy2);outline-offset:2px}
   .linkbtn{all:unset;cursor:pointer;font-size:12px;font-weight:700;color:var(--navy);text-decoration:underline}
   .srcdot.old{background:var(--red)}
-  .srcpill.old{color:#8A5E06;background:var(--amberbg);border-color:#F0DCA6}
+  .srcpill.old{color:var(--amber-t);background:var(--amberbg);border-color:#F0DCA6}
   .gres.sel{background:var(--tint)}
   .signed{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--navy);padding:5px 9px;border-radius:8px;border:1.5px solid #D7DEF6;background:var(--tint);white-space:nowrap}
   .signed:hover{background:#E1E7FA}
+  /* El número del contrato (y el nombre del proveedor) es un enlace: la fila se
+     abre con el teclado, y con Ctrl/clic central en otra pestaña. */
+  .nrolink{color:inherit}
+  .nrolink:hover{text-decoration:underline;text-underline-offset:2px}
+
+  /* Los formularios son <dialog> abiertos con showModal(): la página de atrás queda
+     inerte, Tab no se escapa, Esc y el gesto «atrás» del celular lo cierran y el
+     foco vuelve al botón que lo abrió. El <dialog> ocupa toda la pantalla y hace
+     de fondo oscuro, como el .overlay de antes. */
+  dialog.overlay{max-width:none;max-height:none;width:auto;height:auto;margin:0;border:0;color:var(--ink);overscroll-behavior:contain}
+  dialog.overlay::backdrop{background:transparent;overflow:hidden;overscroll-behavior:contain}
+  .modal h2:focus{outline:none}
+  /* El aviso es un popover: así sale por encima de un formulario abierto. */
+  .toast{inset:auto auto 22px 50%;margin:0;border:0}
+
+  /* En el teléfono cada fila de filtros es UNA fila que se desliza: partidos en
+     doce renglones, el primer contrato quedaba a 750 px, fuera de la pantalla.
+     La fila llega al borde y se desvanece donde hay más (si el navegador sabe). */
+  @property --f-ini{syntax:"<length>";inherits:false;initial-value:0px}
+  @property --f-fin{syntax:"<length>";inherits:false;initial-value:0px}
+  @keyframes f-ini{to{--f-ini:28px}}
+  @keyframes f-fin{from{--f-fin:28px}}
+  @media(max-width:560px){
+    .chips,.subchips{flex-wrap:nowrap;overflow-x:auto;margin-inline:-12px;padding:3px 12px;scroll-padding-inline:28px;
+      mask:linear-gradient(#000,#000) no-clip subtract,
+        linear-gradient(to right,#000,transparent) 0 0/var(--f-ini) 100% no-repeat no-clip,
+        linear-gradient(to right,transparent,#000) 100% 0/var(--f-fin) 100% no-repeat no-clip;
+      animation:f-ini linear both,f-fin linear both;animation-timeline:scroll(self inline);animation-range:0 28px,calc(100% - 28px) 100%}
+    .chips>*,.subchips>*{flex:0 0 auto}
+    /* El gráfico se encoge con la pantalla: a 10 unidades, las etiquetas quedaban de 5 px. */
+    .axlbl{font-size:17px}.vallbl{font-size:18px}
+    .expbox .exprow .k{flex-basis:118px}
+  }
 </style>
 </head>
 <body>
@@ -639,25 +685,27 @@ function motivoNoRenovable(c){
   // dónde se corrige, igual que la carpeta interna del expediente).
   return `Falta el «Tipo de contrato» en el Excel maestro: sin saber si es Nuevo no se puede ofrecer la renovación.`;
 }
+/* Va impreso en el informe de modificación y en el acta de terminación, que se
+   firman. Se cuenta en centavos (1,995 daba «uno con 100/100»), del 21 al 29 con
+   su tilde («veintidós», no «veintidos») y, delante de «mil» y «millones», «uno»
+   se apocopa: «cuarenta y un mil», no «cuarenta y uno mil». */
 function montoEnLetras(n){
-  n=Number(n)||0;
-  const ent=Math.floor(n), cent=Math.round((n-ent)*100);
-  const U=["","UNO","DOS","TRES","CUATRO","CINCO","SEIS","SIETE","OCHO","NUEVE","DIEZ","ONCE","DOCE","TRECE","CATORCE","QUINCE","DIECISÉIS","DIECISIETE","DIECIOCHO","DIECINUEVE","VEINTE"];
+  const tot=Math.round((Number(n)||0)*100), ent=Math.floor(tot/100), cent=tot%100;
+  const U=["","UNO","DOS","TRES","CUATRO","CINCO","SEIS","SIETE","OCHO","NUEVE","DIEZ","ONCE","DOCE","TRECE","CATORCE","QUINCE","DIECISÉIS","DIECISIETE","DIECIOCHO","DIECINUEVE","VEINTE",
+    "VEINTIUNO","VEINTIDÓS","VEINTITRÉS","VEINTICUATRO","VEINTICINCO","VEINTISÉIS","VEINTISIETE","VEINTIOCHO","VEINTINUEVE"];
   const D=["","","VEINTE","TREINTA","CUARENTA","CINCUENTA","SESENTA","SETENTA","OCHENTA","NOVENTA"];
   const C=["","CIENTO","DOSCIENTOS","TRESCIENTOS","CUATROCIENTOS","QUINIENTOS","SEISCIENTOS","SETECIENTOS","OCHOCIENTOS","NOVECIENTOS"];
   function tres(x){x=Number(x);if(x===0)return "";if(x===100)return "CIEN";let s="";const c=Math.floor(x/100),r=x%100;
     if(c>0)s+=C[c]+" ";
-    if(r<=20)s+=U[r];
-    else{const d=Math.floor(r/10),u=r%10;
-      if(r<30)s+="VEINTI"+U[u].toLowerCase().replace(/^./,m=>m.toUpperCase());
-      else{s+=D[d];if(u>0)s+=" Y "+U[u];}}
+    if(r<30)s+=U[r];
+    else{const d=Math.floor(r/10),u=r%10;s+=D[d];if(u>0)s+=" Y "+U[u];}
     return s.trim();}
-  function grupo(x,sing,plur){if(x===0)return "";if(x===1)return sing;return tres(x)+" "+plur;}
+  const apoc=s=>s.replace(/VEINTIUNO$/,"VEINTIÚN").replace(/UNO$/,"UN");
   let entero;
   if(ent===0)entero="CERO";
   else{const mill=Math.floor(ent/1000000),rm=ent%1000000;const mil=Math.floor(rm/1000),rc=rm%1000;let partes=[];
-    if(mill>0)partes.push(grupo(mill,"UN MILLÓN","MILLONES"));
-    if(mil>0)partes.push(mil===1?"MIL":tres(mil)+" MIL");
+    if(mill>0)partes.push(mill===1?"UN MILLÓN":apoc(tres(mill))+" MILLONES");
+    if(mil>0)partes.push(mil===1?"MIL":apoc(tres(mil))+" MIL");
     if(rc>0)partes.push(tres(rc));
     entero=partes.join(" ").trim();}
   const bruto=`${entero} CON ${String(cent).padStart(2,"0")}/100 DÓLARES DE LOS ESTADOS UNIDOS DE AMÉRICA`;
@@ -669,7 +717,7 @@ const CAT_COLORS=[
   [/combustible/,{bg:"#FDEBD7",fg:"#9A5B10"}],
   [/mantenimiento/,{bg:"#E3EBFC",fg:"#1D48B8"}],
   [/arrenda|arriendo/,{bg:"#EFE6FA",fg:"#6B34B8"}],
-  [/consultor|profesional/,{bg:"#DDF3F0",fg:"#0E7D6F"}],
+  [/consultor|profesional/,{bg:"#DDF3F0",fg:"#0B6E64"}],
   [/limpieza/,{bg:"#E2F5E4",fg:"#1F7A34"}],
   [/internet|conectividad/,{bg:"#DDF0F9",fg:"#0B6E96"}],
   [/radio/,{bg:"#FBE3EE",fg:"#B03070"}],
@@ -930,7 +978,7 @@ function renderLogin(){
   $("#app").innerHTML=`
   <div class="login-shell">
     <div class="login-card up">
-      <span class="eyebrow">CLM · Fondo de Áreas Protegidas</span>
+      <div class="login-brand"><div class="logo">FAP</div><div><div class="t">CLM · FAP</div><div class="s">Fondo de Áreas Protegidas</div></div></div>
       <h1>Todo el ciclo del contrato, en una sola plataforma</h1>
       <p class="lead">Solicitudes, elaboración, ejecución, modificaciones, terminación, calificación y reportes — con La Mágica y el CRM integrados dentro.</p>
       <div class="rolegrid">
@@ -942,7 +990,7 @@ function renderLogin(){
       <div class="frow" id="pick-area" style="${rol0==="area"?"":"display:none"}"><label for="selarea">Área protegida</label><select class="big" id="selarea">${areas.map(a=>`<option${ult&&ult.rol==="area"&&ult.user===a?" selected":""}>${esc(a)}</option>`).join("")}</select></div>
       <div class="frow" id="pick-uo" style="${rol0==="uo"?"":"display:none"}"><label for="seluo">Nombre (para la bitácora)</label><input class="big" id="seluo" placeholder="Ej.: Diego Rodríguez" value="${esc(ult&&ult.rol==="uo"?ult.user:"Unidad Operativa")}"></div>
       <button class="btn block" id="enter">${ult?`Entrar como ${esc(ult.user)}`:"Entrar"}</button>
-      <div class="note" style="margin-top:14px">${CONTRACTS.length?`Base viva: <b>${CONTRACTS.length} contratos</b> del Excel maestro${edad?` · <b style="color:${edad.vieja?"var(--amber)":"inherit"}">${esc(edad.txt)}</b>`:" (actualización diaria automática)"}.`:"No se pudo cargar la base de contratos. Revisa la conexión y vuelve a abrir la página."}</div>
+      <div class="note" style="margin-top:14px">${CONTRACTS.length?`Base viva: <b>${CONTRACTS.length} contratos</b> del Excel maestro${edad?` · <b style="color:${edad.vieja?"var(--amber-t)":"inherit"}">${esc(edad.txt)}</b>`:" (actualización diaria automática)"}.`:"No se pudo cargar la base de contratos. Revisa la conexión y vuelve a abrir la página."}</div>
     </div>
   </div>`;
   let rol=rol0;
@@ -1004,7 +1052,7 @@ function barChartH(data,fmt){ /* data: [{label,value,tip}] una serie navy */
   return data.map(d=>{
     const pct=Math.max(1.5,d.value/max*100);
     return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px" data-tip="${esc(d.tip||"")}">
-      <div style="flex:0 0 128px;font-size:12px;font-weight:600;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.label)}</div>
+      <div style="flex:0 0 132px;font-size:12px;font-weight:600;color:var(--muted);text-align:right;line-height:1.2;overflow-wrap:anywhere">${esc(d.label)}</div>
       <div style="flex:1;background:var(--bg);border-radius:6px;height:20px;position:relative">
         <div class="bar" style="width:${pct}%;height:100%;background:var(--navy2);border-radius:6px"></div>
       </div>
@@ -1016,7 +1064,7 @@ function stackEstado(segs){ /* status: colores reservados + etiqueta visible + l
   const total=segs.reduce((a,s)=>a+s.n,0)||1;
   const bar=segs.filter(s=>s.n>0).map(s=>{
     const pct=s.n/total*100;
-    return `<div style="flex:${s.n};background:${s.col}" data-tip="<b>${esc(s.label)}</b>: ${s.n} (${pct.toFixed(0)}%)">${pct>=9?s.n:""}</div>`;
+    return `<div style="flex:${s.n};background:${s.col}" data-tip="<b>${esc(s.label)}</b>: ${s.n} (${pct.toFixed(0)}%)"></div>`;
   }).join("");
   const leg=segs.map(s=>`<span class="li"><span class="sw" style="background:${s.col}"></span>${esc(s.label)} · <b style="color:var(--ink)">${s.n}</b></span>`).join("");
   return `<div class="stackbar">${bar}</div><div class="legend">${leg}</div>`;
@@ -1027,9 +1075,9 @@ function stackEstado(segs){ /* status: colores reservados + etiqueta visible + l
    pool de proveedores y los avisos: si el modal dijera «Aceptable» y la ficha
    «Deficiente» para el mismo puntaje, la AC no sabría a cuál creerle. */
 function tierCalificacion(s){
-  if(s>=90)return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
-  if(s>=80)return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green)",elegible:true,cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
-  if(s>=70)return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber)",elegible:true,observado:true,cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, actualizar la calificación de inmediato."};
+  if(s>=90)return {sem:"Confiable (Preferente)",bg:"var(--greenbg)",fg:"var(--green-t)",elegible:true,cons:"Proveedor confiable. Elegible para procesos ágiles y futuras contrataciones sin observaciones."};
+  if(s>=80)return {sem:"Satisfactorio",bg:"var(--greenbg)",fg:"var(--green-t)",elegible:true,cons:"Proveedor satisfactorio. Elegible para futuras contrataciones."};
+  if(s>=70)return {sem:"Aceptable – Observado",bg:"var(--amberbg)",fg:"var(--amber-t)",elegible:true,observado:true,cons:"Debe notificarse al proveedor respecto a las observaciones. En caso de repetición, actualizar la calificación de inmediato."};
   if(s>=60)return {sem:"Deficiente – Inaceptable",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"No se considerará en próximos procesos de contratación."};
   return {sem:"No recomendado",bg:"var(--redbg)",fg:"var(--red)",elegible:false,cons:"Se subirá al sistema de FIAS como un proveedor no recomendado."};
 }
@@ -1059,7 +1107,7 @@ function indexaRegistro(filas){
 function pedirRegistro(){
   const ctl=window.AbortController?new AbortController():null;
   const reloj=setTimeout(()=>{if(ctl)ctl.abort();},8000);
-  return fetch(REG_URL,{cache:"no-store",signal:ctl?ctl.signal:undefined})
+  return fetch(REG_URL,{cache:"no-cache",signal:ctl?ctl.signal:undefined})
     .then(async r=>{
       if(r.status===404)return {estado:"sin"};
       if(!r.ok)throw new Error("HTTP "+r.status);
@@ -1199,7 +1247,7 @@ function pajarProv(p){return [p.variantes.join(" "),p.areas.join(" "),p.cats.joi
 function puntos(n){return Number(n).toFixed(2).replace(".",",");}
 /* El semáforo de una calificación. «corto» deja solo el puntaje (el resultado va
    en el title): es para columnas angostas, donde la frase completa no cabe. */
-function semChip(q,sm,corto){return q?`<span class="semaforo${sm?" sm":""}" style="background:${q.t.bg};color:${q.t.fg}"${corto?` title="${esc(q.t.sem)}"`:""}>${puntos(q.score)}${corto?"":" · "+esc(q.t.sem)}</span>`:`<span style="color:var(--muted2);font-size:12px;font-weight:600">Sin calificar</span>`;}
+function semChip(q,sm,corto){return q?`<span class="semaforo${sm?" sm":""}" style="background:${q.t.bg};color:${q.t.fg}"${corto?` title="${esc(q.t.sem)}"`:""}>${puntos(q.score)}${corto?"":" · "+esc(q.t.sem)}</span>`:`<span style="color:var(--muted);font-size:12px;font-weight:600">Sin calificar</span>`;}
 function abrirProv(clave){ST.prov=clave;go("proveedor");}
 
 /* ================= ALERTAS (motor de reglas) ================= */
@@ -1221,7 +1269,7 @@ function alertList(){
   myContracts().forEach((c,idx)=>{
     const i=CONTRACTS.indexOf(c);
     const o=ov(c),s=statusLive(c),d=diasRestantes(c);
-    if(s.key==="vencido")out.push({sev:0,icon:"⛔",col:"var(--red)",bg:"var(--redbg)",t:`Vencido hace ${Math.abs(d)}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${c.area||""}`,i,act:"Terminar",fn:"ter"});
+    if(s.key==="vencido")out.push({sev:0,icon:"⛔",bg:"var(--redbg)",t:`Vencido hace ${Math.abs(d)} día${Math.abs(d)===1?"":"s"} — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${c.area||""}`,i,act:"Terminar",fn:"ter"});
     else if(s.key==="aviso"){
       // A la AC, la alerta de un contrato que continúa por proceso nuevo la lleva
       // directo a abrirlo; a los demás, al contrato.
@@ -1232,23 +1280,23 @@ function alertList(){
       // contrato seguía diciendo «prepara el proceso nuevo» al día siguiente de
       // haberlo abierto, y la lista nunca se acortaba.
       const curso=enCurso(c);
-      if(curso)out.push({sev:3,encurso:true,icon:"📝",col:"var(--navy)",bg:"var(--tint)",t:`${curso.que} en curso — ${c.nro}`,d:`${trunc(c.detalle,90)} · ${curso.que==="Renovación"?"abierta":"abierto"} en La Mágica el ${fdate(String(curso.en).slice(0,10))} · vence en ${d} día${d===1?"":"s"}`,i,act:"Continuar",fn:curso.fn});
-      else if(d<=30)out.push({sev:1,icon:"⏰",col:"var(--red)",bg:"var(--redbg)",t:`Vence en ${d}d — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,true)}`,i,...acc});
-      else out.push({sev:2,icon:"🔔",col:"var(--amber)",bg:"var(--amberbg)",t:`Por vencer (${d}d) — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,false)}`,i,...acc});
+      if(curso)out.push({sev:3,encurso:true,icon:"📝",bg:"var(--tint)",t:`${curso.que} en curso — ${c.nro}`,d:`${trunc(c.detalle,90)} · ${curso.que==="Renovación"?"abierta":"abierto"} en La Mágica el ${fdate(String(curso.en).slice(0,10))} · vence en ${d} día${d===1?"":"s"}`,i,act:"Continuar",fn:curso.fn});
+      else if(d<=30)out.push({sev:1,icon:"⏰",bg:"var(--redbg)",t:`Vence en ${d} día${d===1?"":"s"} — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,true)}`,i,...acc});
+      else out.push({sev:2,icon:"🔔",bg:"var(--amberbg)",t:`Por vencer en ${d} días — ${c.nro}`,d:`${trunc(c.detalle,110)} · ${queSigue(c,false)}`,i,...acc});
     }
-    if(o.pendienteEnvio)out.push({sev:1,icon:"📤",col:"var(--violet)",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
+    if(o.pendienteEnvio)out.push({sev:1,icon:"📤",bg:"#EFE6FA",t:`Envío pendiente a la Unidad Operativa — ${c.nro}`,d:o.pendienteEnvio.tipoEnvio,i,act:"Enviar",fn:"env"});
     // Quien califica es la AC del contrato: a ella, una alerta por contrato. A la
     // Unidad Operativa, que ve el portafolio entero, una sola agregada (abajo).
-    if(regOk&&puedeCalificar(c)&&pideCalificacion(c))out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
+    if(regOk&&puedeCalificar(c)&&pideCalificacion(c))out.push({sev:2,icon:"⭐",bg:"#DDF3F0",t:`Proveedor sin calificar — ${c.nro}`,d:`${c.proveedor||"—"} · la calificación alimenta la base de proveedores`,i,act:"Calificar",fn:"cal"});
     // Confirmada aquí y todavía no enviada al Registro (sin señal, o el flujo aún
     // sin configurar): está hecha, pero nadie más la ve. Se dice, con «Reintentar».
     // La de antes de «Confirmar»: no se envía sola; la AC la revisa y decide.
-    if(regOk&&puedeCalificar(c)&&anteriorSinConfirmar(c))out.push({sev:1,icon:"🕘",col:"var(--amber)",bg:"var(--amberbg)",t:`Calificación anterior sin confirmar — ${c.nro}`,d:`${c.proveedor||"—"} · hecha${ov(c).fechaCalif?" el "+fdate(ov(c).fechaCalif):""} en este navegador y nunca enviada: revísala y confírmala, o descártala`,i,act:"Revisar",fn:"ant"});
-    if(SES.rol==="ac"&&sinEnviar(c))out.push({sev:1,icon:"📨",col:"var(--navy)",bg:"var(--tint)",t:`Calificación sin enviar al Registro — ${c.nro}`,d:`${c.proveedor||"—"} · ${FLOW_CALIF_URL?"no se pudo enviar (¿sin señal?); se reintenta sola al abrir el CLM":"el envío automático todavía no está configurado"}`,i,act:FLOW_CALIF_URL?"Reintentar":"Abrir",fn:FLOW_CALIF_URL?"reenv":"open"});
+    if(regOk&&puedeCalificar(c)&&anteriorSinConfirmar(c))out.push({sev:1,icon:"🕘",bg:"var(--amberbg)",t:`Calificación anterior sin confirmar — ${c.nro}`,d:`${c.proveedor||"—"} · hecha${ov(c).fechaCalif?" el "+fdate(ov(c).fechaCalif):""} en este navegador y nunca enviada: revísala y confírmala, o descártala`,i,act:"Revisar",fn:"ant"});
+    if(SES.rol==="ac"&&sinEnviar(c))out.push({sev:1,icon:"📨",bg:"var(--tint)",t:`Calificación sin enviar al Registro — ${c.nro}`,d:`${c.proveedor||"—"} · ${FLOW_CALIF_URL?"no se pudo enviar (¿sin señal?); se reintenta sola al abrir el CLM":"el envío automático todavía no está configurado"}`,i,act:FLOW_CALIF_URL?"Reintentar":"Abrir",fn:FLOW_CALIF_URL?"reenv":"open"});
   });
   if(regOk&&SES&&SES.rol==="uo"){
     const pend=myContracts().filter(pideCalificacion).length;
-    if(pend)out.push({sev:2,icon:"⭐",col:"var(--teal)",bg:"#DDF3F0",t:`${pend} contrato${pend===1?"":"s"} de ${CALIFICA_DESDE.slice(0,4)} con el proveedor sin calificar`,d:"Terminados o cerrados desde el "+fdate(CALIFICA_DESDE)+" · los califica la AC de cada contrato",i:null,act:"Ver",fn:"pcal"});
+    if(pend)out.push({sev:2,icon:"⭐",bg:"#DDF3F0",t:`${pend} contrato${pend===1?"":"s"} de ${CALIFICA_DESDE.slice(0,4)} con el proveedor sin calificar`,d:"Terminados o cerrados desde el "+fdate(CALIFICA_DESDE)+" · los califica la AC de cada contrato",i:null,act:"Ver",fn:"pcal"});
   }
   // Una sola alerta agregada, no una por contrato: lo que falta por registrar es
   // mantenimiento del portafolio, no un pendiente de cada expediente. Es de la
@@ -1256,10 +1304,10 @@ function alertList(){
   // práctica ya arrancó — antes de la primera carpeta no habría nada que decir.
   if(SES&&SES.rol==="uo"){
     const todos=myContracts(),sin=todos.filter(c=>!c.carpeta).length;
-    if(sin&&sin<todos.length)out.push({sev:2,icon:"📁",col:"var(--navy)",bg:"var(--tint)",t:`${sin} contrato${sin===1?"":"s"} sin carpeta interna registrada`,d:"El número de la carpeta se escribe en la columna «Numero de carpeta interna» del Excel maestro",i:null,act:"Ver",fn:"carp"});
+    if(sin&&sin<todos.length)out.push({sev:2,icon:"📁",bg:"var(--tint)",t:`${sin} contrato${sin===1?"":"s"} sin carpeta interna registrada`,d:"El número de la carpeta se escribe en la columna «Numero de carpeta interna» del Excel maestro",i:null,act:"Ver",fn:"carp"});
   }
   mySolicitudes().forEach(s=>{
-    if(s.estado==="borrador")out.push({sev:2,icon:"📝",col:"var(--navy)",bg:"var(--tint)",t:`Solicitud sin iniciar — ${s.objeto.slice(0,48)}`,d:`Vía sugerida: ${s.via==="contrato"?"contrato (Unidad Operativa)":"orden de compra/servicio"}`,i:null,act:"Ver",fn:"sol"});
+    if(s.estado==="borrador")out.push({sev:2,icon:"📝",bg:"var(--tint)",t:`Solicitud sin iniciar — ${s.objeto.slice(0,48)}`,d:`Vía sugerida: ${s.via==="contrato"?"contrato (Unidad Operativa)":"orden de compra/servicio"}`,i:null,act:"Ver",fn:"sol"});
   });
   return out.sort((a,b)=>a.sev-b.sev);
 }
@@ -1290,12 +1338,12 @@ function vPanel(){
   $("#view").innerHTML=`
   <div class="up panelv">
     <div class="kpis">
-      <div class="kpi" data-go2="contratos"><div class="kpi-n">${mine.length}</div><div class="kpi-l">Contratos en el portafolio</div></div>
-      <div class="kpi" data-go2="reportes"><div class="kpi-n" style="color:var(--navy)">${moneyShort(montoVivo)}</div><div class="kpi-l">Valor vigente gestionado</div></div>
-      <div class="kpi" data-f="vig"><div class="kpi-n" style="color:var(--green)">${n.vig}</div><div class="kpi-l">Vigentes</div></div>
-      <div class="kpi" data-f="avi"><div class="kpi-n" style="color:var(--amber)">${n.avi}</div><div class="kpi-l">Por vencer (≤90 d)</div></div>
-      <div class="kpi" data-f="ven"><div class="kpi-n" style="color:var(--red)">${n.ven}</div><div class="kpi-l">Vencidos</div></div>
-      <div class="kpi" data-go2="solicitudes"><div class="kpi-n" style="color:var(--violet)">${sols}</div><div class="kpi-l">Solicitudes abiertas</div></div>
+      <button class="kpi" data-go2="contratos"><span class="kpi-n">${mine.length}</span><span class="kpi-l">Contratos en el portafolio</span></button>
+      <button class="kpi" data-go2="reportes"><span class="kpi-n" style="color:var(--navy)">${moneyShort(montoVivo)}</span><span class="kpi-l">Valor vigente gestionado</span></button>
+      <button class="kpi" data-f="vig"><span class="kpi-n" style="color:var(--green-t)">${n.vig}</span><span class="kpi-l">Vigentes</span></button>
+      <button class="kpi" data-f="avi"><span class="kpi-n" style="color:var(--amber-t)">${n.avi}</span><span class="kpi-l">Por vencer (≤90 d)</span></button>
+      <button class="kpi" data-f="ven"><span class="kpi-n" style="color:var(--red)">${n.ven}</span><span class="kpi-l">Vencidos</span></button>
+      <button class="kpi" data-go2="solicitudes"><span class="kpi-n" style="color:var(--violet)">${sols}</span><span class="kpi-l">Solicitudes abiertas</span></button>
     </div>
     <div class="charts c2 atencion${hayLog?"":" solo"}">
       <div class="panel">
@@ -1338,10 +1386,13 @@ function vPanel(){
   bindAlertRows();
 }
 function alertRowHTML(a){
+  // El número del contrato no se parte en el guion («FIAS-FAP-2026-» / «006»).
+  const nro=a.i!=null&&CONTRACTS[a.i]?CONTRACTS[a.i].nro:"";
+  const t=nro&&a.t.endsWith(nro)?`${esc(a.t.slice(0,-nro.length))}<span style="white-space:nowrap">${esc(nro)}</span>`:esc(a.t);
   return `<div class="alert-row${a.encurso?" encurso":""}">
     <div class="aic" style="background:${a.bg}">${a.icon}</div>
-    <div style="min-width:0"><div class="at">${esc(a.t)}</div><div class="ad">${esc(a.d)}</div></div>
-    <button class="btn sm ${a.sev===0?"danger":"line"} go" data-i="${a.i==null?"":a.i}" data-fn="${a.fn}">${esc(a.act)}</button>
+    <div style="min-width:0"><div class="at">${t}</div><div class="ad">${esc(a.d)}</div></div>
+    <button class="btn sm line go" data-i="${a.i==null?"":a.i}" data-fn="${a.fn}">${esc(a.act)}</button>
   </div>`;
 }
 function bindAlertRows(){
@@ -1395,12 +1446,12 @@ function vPipeline(){
           ${col.key==="solicitud"
             ? (items.length?items.map(s=>`<div class="kcard" data-sol="1"><div class="a">${s.via==="contrato"?"VÍA CONTRATO":"ORDEN DE COMPRA/SERVICIO"}</div><div class="b">${esc(s.objeto)}</div><div class="c">${esc(s.area)} · ${money0(s.monto)} · ${esc(estadoSolLabel(s.estado))}</div></div>`).join("")
               :`<div class="kcard" data-new="1" style="text-align:center;color:var(--muted)">+ Nueva solicitud</div>`)
-            : items.map(({c,i})=>`<div class="kcard" data-i="${i}"><div class="a">${esc(c.nro)}</div><div class="b">${esc(trunc(c.detalle,80))}</div><div class="c">${esc(c.area||"")} · ${money0(montoDe(c))}${col.key==="aviso"?` · ${diasRestantes(c)}d`:""}</div></div>`).join("")||`<div class="kcard" style="text-align:center;color:var(--muted2);cursor:default">vacío</div>`}
+            : items.map(({c,i})=>`<div class="kcard" data-i="${i}"><div class="a">${nroLink(c)}</div><div class="b">${esc(trunc(c.detalle,80))}</div><div class="c">${esc(c.area||"")} · ${money0(montoDe(c))}${col.key==="aviso"?` · ${diasRestantes(c)}d`:""}</div></div>`).join("")||`<div class="kcard" style="text-align:center;color:var(--muted);cursor:default">vacío</div>`}
         </div>`;
       }).join("")}
     </div>
   </div>`;
-  $("#view").querySelectorAll("[data-i]").forEach(k=>k.onclick=()=>go("detalle",+k.dataset.i));
+  $("#view").querySelectorAll("[data-i]").forEach(k=>k.onclick=ev=>{if(clicFila(ev))go("detalle",+k.dataset.i);});
   $("#view").querySelectorAll("[data-sol]").forEach(k=>k.onclick=()=>go("solicitudes"));
   $("#view").querySelectorAll("[data-new]").forEach(k=>k.onclick=()=>{go("solicitudes");setTimeout(modalNuevaSolicitud,60);});
 }
@@ -1463,7 +1514,6 @@ function vContratos(){
   const cats=[...new Set(mine.map(c=>c.cat||"—"))].sort((a,b)=>a.localeCompare(b));
   const areas=[...new Set(mine.map(c=>c.area||"—"))].sort((a,b)=>a.localeCompare(b));
   const areaCount={};mine.forEach(c=>{const a=c.area||"—";areaCount[a]=(areaCount[a]||0)+1;});
-  const sel="padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer";
   const sorts=[["recientes","Más recientes"],["antiguos","Más antiguos"],["vence","Vence antes"],["monto","Mayor monto"],["area","Área (A–Z)"]];
   $("#view").innerHTML=`<div class="up">
     <div class="toolbar">
@@ -1471,11 +1521,11 @@ function vContratos(){
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <input id="q" placeholder="Buscar por contrato, proveedor, área o carpeta…" value="${esc(ST.q)}">
       </div>
-      <select id="areaSel" title="Filtrar por área protegida" style="${sel};max-width:240px">
+      <select id="areaSel" title="Filtrar por área protegida" style="max-width:240px">
         <option value="all"${ST.areaFilter==="all"?" selected":""}>📍 Todas las áreas · ${mine.length}</option>
         ${areas.map(a=>`<option value="${esc(a)}"${ST.areaFilter===a?" selected":""}>${esc(a)} · ${areaCount[a]}</option>`).join("")}
       </select>
-      <select id="sortSel" title="Ordenar la lista" style="${sel};max-width:170px">
+      <select id="sortSel" title="Ordenar la lista" style="max-width:170px">
         ${sorts.map(([k,l])=>`<option value="${k}"${ST.sort===k?" selected":""}>↕ ${l}</option>`).join("")}
       </select>
       <div class="viewtog">
@@ -1492,7 +1542,7 @@ function vContratos(){
       <button class="chip ${ST.modif==="si"?"on":""}" data-m="si">Todos · ${nMod}</button>
       ${Object.keys(MOD_CLASES).filter(k=>nClase[k]).map(k=>`<button class="chip ${ST.modif===k?"on":""}" data-m="${k}">${esc(MOD_CLASES[k].c)} · ${nClase[k]}</button>`).join("")}
     </div>`:""}
-    ${cats.length>1?`<div class="chips" style="margin:10px 0 4px">
+    ${cats.length>1?`<div class="chips" style="margin-top:10px;margin-bottom:4px">
       <button class="chip ${ST.catFilter==="all"?"on":""}" data-c="all">Todas las categorías</button>
       ${cats.map(k=>{const col=catColor(k),on=ST.catFilter===k;
         return `<button class="chip" data-c="${esc(k)}" style="background:${on?col.fg:col.bg};color:${on?"#fff":col.fg};border-color:${on?col.fg:"transparent"}">${esc(k)} · ${mine.filter(c=>(c.cat||"—")===k).length}</button>`;}).join("")}
@@ -1516,9 +1566,20 @@ function vContratos(){
   bindRows();
 }
 function bindRows(){
-  $("#view").querySelectorAll("[data-open]").forEach(el=>el.onclick=ev=>{if(ev.target.closest("a"))return;go("detalle",+el.dataset.open);});
+  $("#view").querySelectorAll("[data-open]").forEach(el=>el.onclick=ev=>{if(clicFila(ev))go("detalle",+el.dataset.open);});
   const lf=$("#limpiarFiltros");
   if(lf)lf.onclick=()=>{ST.q="";ST.filter="all";ST.catFilter="all";ST.areaFilter="all";ST.sinCarpeta=false;ST.modif="";vContratos();};
+}
+/* El número del contrato enlaza a su detalle: la fila se abre con el teclado (Tab
+   y Enter), y con Ctrl o el clic central en otra pestaña. El clic normal lo sigue
+   resolviendo la fila entera (clicFila), para que «Volver» sepa de dónde se vino. */
+function nroLink(c){return `<a class="nrolink" href="#/detalle/${encodeURIComponent(c.nro)}">${esc(c.nro)}</a>`;}
+function provLink(p){return `<a class="nrolink" href="#/proveedor/${encodeURIComponent(p.clave)}">${esc(p.nombre)}</a>`;}
+function clicFila(ev){
+  const a=ev&&ev.target.closest&&ev.target.closest("a");
+  if(!a)return true;
+  if(!a.classList.contains("nrolink")||ev.ctrlKey||ev.metaKey||ev.shiftKey||ev.altKey)return false;   // otro enlace, u otra pestaña
+  ev.preventDefault();return true;
 }
 /* Abrir el contrato firmado es lo que más se hace: desde la lista, a un clic. */
 function firmadoHTML(c){return c.link?`<a class="signed" href="${esc(c.link)}" target="_blank" rel="noopener" title="Abrir el contrato firmado">📄 Abrir</a>`:"";}
@@ -1545,7 +1606,7 @@ function cardsHTML(list){
   return `<div class="grid">`+list.map(c=>{
     const s=statusLive(c),i=CONTRACTS.indexOf(c);
     return `<div class="cc ${s.cls}" data-open="${i}">
-      <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${esc(c.nro)}${c.carpeta?` <span style="font-size:11px;color:var(--muted)">📁 ${esc(c.carpeta)}</span>`:""}</span><span class="badge ${s.b}">${esc(s.label)}</span></div>
+      <div style="display:flex;justify-content:space-between;gap:8px"><span class="cc-nro">${nroLink(c)}${c.carpeta?` <span style="font-size:11px;color:var(--muted)">📁 ${esc(c.carpeta)}</span>`:""}</span><span class="badge ${s.b}">${esc(s.label)}</span></div>
       <div class="cc-title">${esc(c.detalle)}</div>
       ${esModificado(c)?`<div style="margin:2px 0 4px">${modChip(c).replace("margin-left:6px","")}</div>`:""}
       <div class="cc-area">${esc(c.area||"")}</div>
@@ -1562,17 +1623,17 @@ function tableHTML(list){
     <thead><tr><th>N.º</th><th>Objeto</th><th class="td-area">Área</th><th>Proveedor</th><th>Monto</th>${ter?"<th>Liquidado</th><th>Cierre</th>":""}<th>Estado</th><th class="td-sig">Contrato</th></tr></thead>
     <tbody>${list.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c),L=ter?liqDe(c):null;
       return `<tr data-open="${i}">
-        <td class="td-nro">${esc(c.nro)}${c.carpeta?`<div style="font-size:11px;font-weight:700;color:var(--muted)">📁 carpeta ${esc(c.carpeta)}</div>`:""}</td>
+        <td class="td-nro">${nroLink(c)}${c.carpeta?`<div style="font-size:11px;font-weight:700;color:var(--muted)">📁 carpeta ${esc(c.carpeta)}</div>`:""}</td>
         <td class="td-obj">${esc(c.detalle)}<div class="oc">${catChip(c.cat)}${modChip(c)}</div><div class="oa">${esc(c.area||"")}</div></td>
         <td class="td-area">${esc(c.area||"—")}</td>
         <td>${esc(c.proveedor||"—")}</td>
         <td style="white-space:nowrap">${money(montoDe(c))}</td>
         ${ter?`<td style="white-space:nowrap">${(L&&L.liq!=null)
-          ?`<b style="color:var(--teal)">${money(L.liq)}</b>${(L.sal!=null&&L.sal>=0.01)?`<div style="font-size:11px;font-weight:700;color:var(--amber)">saldo ${money(L.sal)}</div>`:""}`
+          ?`<b style="color:var(--teal-t)">${money(L.liq)}</b>${(L.sal!=null&&L.sal>=0.01)?`<div style="font-size:11px;font-weight:700;color:var(--amber-t)">saldo ${money(L.sal)}</div>`:""}`
           :`<span style="color:var(--muted)">—</span>`}</td>`:""}
         ${ter?`<td style="white-space:nowrap">${fdate(c.fcierre||ov(c).fter)}</td>`:""}
         <td class="td-est"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(vigenciaText(c,true))}${(!ter&&c.fin)?`<div class="sub">${esc(finTexto(c))}</div>`:""}</td>
-        <td class="td-sig">${firmadoHTML(c)||`<span style="color:var(--muted2)">—</span>`}</td>
+        <td class="td-sig">${firmadoHTML(c)||`<span style="color:var(--muted)">—</span>`}</td>
       </tr>`;}).join("")}</tbody></table></div>`;
 }
 
@@ -1615,12 +1676,12 @@ function provTablaHTML(l){
   return `<div class="tablewrap"><table class="list prov">
     <thead><tr><th>Proveedor</th><th>Contratos</th><th>Monto contratado</th><th>Áreas</th><th>Última calificación</th><th>Por calificar</th></tr></thead>
     <tbody>${l.map(p=>`<tr data-prov="${esc(p.clave)}">
-      <td class="td-prov">${esc(p.nombre)}<div class="pc">${catsTxt(p)}</div></td>
-      <td style="white-space:nowrap"><b>${p.contratos.length}</b><div style="font-size:11.5px;color:var(--muted)">${p.activos} activo${p.activos===1?"":"s"}</div></td>
+      <td class="td-prov">${provLink(p)}<div class="pc">${catsTxt(p)}</div></td>
+      <td style="white-space:nowrap"><b>${p.contratos.length}</b><div style="font-size:12px;color:var(--muted)">${p.activos} activo${p.activos===1?"":"s"}</div></td>
       <td style="white-space:nowrap">${money(p.monto)}</td>
       <td>${areasTxt(p)}</td>
       <td>${semChip(p.ultima,true)}</td>
-      <td>${p.porCalificar?`<span class="pendn">${p.porCalificar}</span>`:`<span style="color:var(--muted2)">—</span>`}</td>
+      <td>${p.porCalificar?`<span class="pendn">${p.porCalificar}</span>`:`<span style="color:var(--muted)">—</span>`}</td>
     </tr>`).join("")}</tbody></table></div>`;
 }
 function provCardsHTML(l){
@@ -1628,7 +1689,7 @@ function provCardsHTML(l){
   return `<div class="grid">`+l.map(p=>{
     const q=p.ultima,cls=!q?"":!q.elegible?"r":q.t.observado?"a":"g";
     return `<div class="cc ${cls}" data-prov="${esc(p.clave)}">
-      <div class="cc-title" style="margin-top:0">${esc(p.nombre)}</div>
+      <div class="cc-title" style="margin-top:0">${provLink(p)}</div>
       <div class="cc-area">${catsTxt(p)}</div>
       <div class="cc-meta"><span><b>${p.contratos.length}</b> contrato${p.contratos.length===1?"":"s"} · ${p.activos} activo${p.activos===1?"":"s"}</span><span>·</span><span><b>${money(p.monto)}</b></span></div>
       <div class="cc-meta" style="margin-top:5px"><span>${areasTxt(p)}</span></div>
@@ -1637,7 +1698,6 @@ function provCardsHTML(l){
 }
 function vProveedores(){
   const todos=proveedores(),lista=provLista(todos);
-  const sel="padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer";
   const sorts=[["monto","Mayor monto"],["contratos","Más contratos"],["calif","Peor calificación"],["nombre","Nombre (A–Z)"]];
   const cuenta=l=>l.length===todos.length?`${todos.length} proveedor${todos.length===1?"":"es"}`:`Mostrando <b style="color:var(--ink)">${l.length}</b> de ${todos.length}`;
   const pinta=()=>{const l=provLista(todos);$("#provbody").innerHTML=ST.viewMode==="cards"?provCardsHTML(l):provTablaHTML(l);$("#provcount").innerHTML=cuenta(l);bindProv();};
@@ -1648,7 +1708,7 @@ function vProveedores(){
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA0B2" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <input id="pq" placeholder="Buscar proveedor, área, categoría o contrato…" value="${esc(ST.provQ)}">
       </div>
-      <select id="provSort" title="Ordenar la lista" style="${sel};max-width:190px">
+      <select id="provSort" title="Ordenar la lista" style="max-width:190px">
         ${sorts.map(([k,l])=>`<option value="${k}"${ST.provSort===k?" selected":""}>↕ ${l}</option>`).join("")}
       </select>
       <div class="viewtog">
@@ -1681,7 +1741,7 @@ function vProveedores(){
   bindProv();
 }
 function bindProv(){
-  $("#view").querySelectorAll("[data-prov]").forEach(el=>el.onclick=()=>abrirProv(el.dataset.prov));
+  $("#view").querySelectorAll("[data-prov]").forEach(el=>el.onclick=ev=>{if(clicFila(ev))abrirProv(el.dataset.prov);});
   const lp=$("#limpiarProv");if(lp)lp.onclick=()=>{ST.provQ="";ST.provFiltro="all";vProveedores();};
 }
 
@@ -1714,7 +1774,7 @@ function vProveedor(){
             <div><div class="k">Contratos</div><div class="v">${p.contratos.length} · ${p.activos} activo${p.activos===1?"":"s"}</div></div>
             <div><div class="k">Monto contratado (con modificaciones)</div><div class="v">${money(p.monto)}</div></div>
             <div><div class="k">Calificaciones</div><div class="v">${p.califs.length?`${p.califs.length} · promedio ${puntos(p.promedio)}/100`:"Ninguna todavía"}</div></div>
-            <div><div class="k">Por calificar</div><div class="v" style="${p.porCalificar?"color:var(--teal)":""}">${p.porCalificar?`${p.porCalificar} contrato${p.porCalificar===1?"":"s"}${SES.rol!=="uo"&&tuyos!==p.porCalificar?` · ${tuyos} tuyo${tuyos===1?"":"s"}`:""}`:"Nada pendiente"}</div></div>
+            <div><div class="k">Por calificar</div><div class="v" style="${p.porCalificar?"color:var(--teal-t)":""}">${p.porCalificar?`${p.porCalificar} contrato${p.porCalificar===1?"":"s"}${SES.rol!=="uo"&&tuyos!==p.porCalificar?` · ${tuyos} tuyo${tuyos===1?"":"s"}`:""}`:"Nada pendiente"}</div></div>
             <div class="full"><div class="k">Áreas protegidas</div><div class="v" style="line-height:1.5">${esc(p.areas.join(" · ")||"—")}</div></div>
             <div class="full"><div class="k">Administradoras</div><div class="v" style="line-height:1.5">${esc(p.acs.join(" · ")||"—")}</div></div>
             <div class="full"><div class="k">Categorías</div><div class="v">${p.cats.map(k=>catChip(k)).join(" ")||"—"}</div></div>
@@ -1727,10 +1787,10 @@ function vProveedor(){
             <thead><tr><th>Contrato</th><th>Calificación</th></tr></thead>
             <tbody>${cs.map(c=>{const s=statusLive(c),i=CONTRACTS.indexOf(c),q=calificacionDe(c);
               return `<tr data-open="${i}">
-                <td class="td-obj"><div class="td-nro" style="margin-bottom:2px">${esc(c.nro)}</div>${esc(c.detalle)}
+                <td class="td-obj"><div class="td-nro" style="margin-bottom:2px">${nroLink(c)}</div>${esc(c.detalle)}
                   <div class="fp-sub">${esc(c.area||"")}${mios.has(c)?"":` · de ${esc(c.ac||"otra AC")}`}</div>
                   <div class="fp-sub" style="color:var(--ink)"><span class="dot ${s.cls==="done"?"done":s.cls}"></span>${esc(s.label)} · ${money(montoDe(c))}</div></td>
-                <td>${q?semChip(q,true,true):!pideCalificacion(c)?`<span style="color:var(--muted2)">—</span>`:puedeCalificar(c)?`<button class="btn sm" data-cal="${i}">Calificar</button>`:`<span class="pendn" title="La califica la AC del contrato">pendiente</span>`}</td>
+                <td>${q?semChip(q,true,true):!pideCalificacion(c)?`<span style="color:var(--muted)">—</span>`:puedeCalificar(c)?`<button class="btn sm" data-cal="${i}">Calificar</button>`:`<span class="pendn" title="La califica la AC del contrato">pendiente</span>`}</td>
               </tr>`;}).join("")}</tbody></table></div>
         </div>
       </div>
@@ -1741,7 +1801,7 @@ function vProveedor(){
           ${p.califs.length?`
             ${indic?`<div style="margin-bottom:14px">${indic.map(x=>`<div class="histcal"><span style="flex:0 0 150px">${esc(x.n)} <span style="color:var(--muted)">(${x.w}%)</span></span><div class="bar"><div style="width:${x.pct}%;background:${col(x.pct)}"></div></div><b style="flex:0 0 44px;text-align:right">${x.pct}%</b></div>`).join("")}</div>`:""}
             <div class="secdiv">Historia</div>
-            ${p.califs.slice().reverse().map(q=>`<div class="histcal hist"><div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--navy)">${esc(q.nro)}</div><div style="font-size:11.5px;color:var(--muted)">${q.fecha?fdate(q.fecha):"sin fecha"}${(q.fuente==="local"&&REG.estado==="ok")?" · solo en este navegador":""}</div></div>${semChip(q,true)}</div>`).join("")}
+            ${p.califs.slice().reverse().map(q=>`<div class="histcal hist"><div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--navy)">${esc(q.nro)}</div><div style="font-size:12px;color:var(--muted)">${q.fecha?fdate(q.fecha):"sin fecha"}${(q.fuente==="local"&&REG.estado==="ok")?" · solo en este navegador":""}</div></div>${semChip(q,true)}</div>`).join("")}
             ${p.ultima&&(!p.ultima.elegible||p.ultima.t.observado)?`<div class="provaviso ${p.ultima.elegible?"a":"r"}" style="margin-top:12px">${esc(p.ultima.t.cons)}</div>`:""}`
           :`<div class="empty" style="padding:22px 10px">Sin calificaciones registradas.${p.porCalificar?"<br>Califícalo desde sus contratos terminados.":""}</div>`}
         </div>
@@ -1750,7 +1810,7 @@ function vProveedor(){
   </div>`;
   $("#back").onclick=()=>go("proveedores");
   $("#view").querySelectorAll("[data-cal]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();const c=CONTRACTS[+b.dataset.cal];go("detalle",+b.dataset.cal);setTimeout(()=>modalCalificar(c),80);});
-  $("#view").querySelectorAll("tr[data-open]").forEach(el=>el.onclick=()=>go("detalle",+el.dataset.open));
+  $("#view").querySelectorAll("tr[data-open]").forEach(el=>el.onclick=ev=>{if(clicFila(ev))go("detalle",+el.dataset.open);});
 }
 
 /* ================= VISTA: DETALLE ================= */
@@ -1788,12 +1848,12 @@ function vDetalle(){
   const nuevoBtn=!puedeNuevo?"":`<button class="actbtn" id="a-nue">
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M12 12v6M9 15h6"/></svg></span>
               <span><span class="at">Proceso nuevo en La Mágica</span><span class="ad">${yaNuevo?`Abierto el ${fdate(String(yaNuevo.en).slice(0,10))} · vuelve a su expediente`
-                :tocaNuevo?(urgeNuevo?`<b style="color:var(--amber)">${esc(vigenciaText(c))}</b> · `:"")+"el servicio continúa con un proceso nuevo: objeto, área y proveedor ya puestos"
+                :tocaNuevo?(urgeNuevo?`<b style="color:var(--amber-t)">${esc(vigenciaText(c))}</b> · `:"")+"el servicio continúa con un proceso nuevo: objeto, área y proveedor ya puestos"
                 :"solo si no vas a renovar: otro proveedor o comparación de precios"}</span></span>
             </button>`;
   const renovBtn=done?"":`<button class="actbtn" id="a-ren" ${puedeRenovar?"":"disabled"}>
               <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
-              <span><span class="at">Renovar en La Mágica</span><span class="ad">${puedeRenovar&&o.renov?`Abierta el ${fdate(String(o.renov.en).slice(0,10))} · vuelve a su expediente`:puedeRenovar?(urgeRenov?`<b style="color:var(--amber)">${esc(vigenciaText(c))}</b> · `:"")+"abre la renovación con n.º, fechas, monto y proveedor ya puestos":esc(motivoNoRenovable(c))}</span></span>
+              <span><span class="at">Renovar en La Mágica</span><span class="ad">${puedeRenovar&&o.renov?`Abierta el ${fdate(String(o.renov.en).slice(0,10))} · vuelve a su expediente`:puedeRenovar?(urgeRenov?`<b style="color:var(--amber-t)">${esc(vigenciaText(c))}</b> · `:"")+"abre la renovación con n.º, fechas, monto y proveedor ya puestos":esc(motivoNoRenovable(c))}</span></span>
             </button>`;
   $("#view").innerHTML=`<div class="up">
     <button class="back" id="back">← Volver ${VOLVER_A[ST.from]||"al repositorio"}</button>
@@ -1809,7 +1869,7 @@ function vDetalle(){
           ${avisoProv}
           <div class="linkbar">
             <span style="color:var(--navy)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></span>
-            <div style="flex:1"><div style="font-size:12.5px;font-weight:700">Contrato firmado</div><div style="font-size:11.5px;color:var(--muted)">${c.link?"Documento en el repositorio institucional":"Sin vínculo registrado en la base"}</div></div>
+            <div style="flex:1"><div style="font-size:12.5px;font-weight:700">Contrato firmado</div><div style="font-size:12px;color:var(--muted)">${c.link?"Documento en el repositorio institucional":"Sin vínculo registrado en la base"}</div></div>
             ${c.link?`<a class="btn sm" href="${esc(c.link)}" target="_blank" rel="noopener">Abrir</a>`:`<button class="btn sm line" disabled>No disponible</button>`}
           </div>
           <div class="expbox">
@@ -1817,7 +1877,7 @@ function vDetalle(){
             <div class="exprow"><span class="k">N.º de contrato</span><span class="v">${esc(c.nro)}</span></div>
             <div class="exprow"><span class="k">Código del proceso</span>${c.codigoProceso?`<span class="v">${esc(c.codigoProceso)}</span>`:`<span class="v none">sin registrar</span>`}</div>
             <div class="exprow"><span class="k">N.º de carpeta interna</span>${c.carpeta?`<span class="v">carpeta ${esc(c.carpeta)}</span>`:`<span class="v none">sin registrar</span>`}</div>
-            ${(!c.carpeta&&SES.rol==="uo")?`<div style="font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.45">La carpeta de este contrato no está registrada. Se escribe una sola vez, en la columna <b>Numero de carpeta interna</b> del Excel maestro, y no se vuelve a buscar.</div>`:""}
+            ${(!c.carpeta&&SES.rol==="uo")?`<div style="font-size:12px;color:var(--muted);margin-top:7px;line-height:1.45">La carpeta de este contrato no está registrada. Se escribe una sola vez, en la columna <b>Numero de carpeta interna</b> del Excel maestro, y no se vuelve a buscar.</div>`:""}
           </div>
           <div class="phase">
             <div class="step past"><span class="d">✓</span> Solicitud</div><div class="flow-line"></div>
@@ -1836,7 +1896,7 @@ function vDetalle(){
             <div><div class="k">Inicio</div><div class="v">${fdate(c.inicio)}</div></div>
             <div><div class="k">Firma</div><div class="v">${fdate(c.firma)}</div></div>
             <div><div class="k">Fin</div><div class="v">${fdate(c.fin)}</div></div>
-            <div><div class="k">Vigencia (hoy)</div><div class="v" style="color:${s.cls==="r"?"var(--red)":s.cls==="a"?"var(--amber)":"var(--ink)"}">${esc(vigenciaText(c))}</div></div>
+            <div><div class="k">Vigencia (hoy)</div><div class="v" style="color:${s.cls==="r"?"var(--red)":s.cls==="a"?"var(--amber-t)":"var(--ink)"}">${esc(vigenciaText(c))}</div></div>
             ${tieneAdenda(c)?`<div class="full"><div class="k">Modificación registrada</div><div class="v" style="line-height:1.5">${esc(c.tipoAdenda||"Modificación")}${montoAdenda(c)?` · <b style="color:var(--navy)">+${money(montoAdenda(c))} (${fpct(pctAumento(c))})</b>`:""}${c.firmaAdenda?` · firmada el ${fdate(c.firmaAdenda)}`:""}${c.modificacion?`<div style="font-size:12px;color:var(--muted)">${esc(c.modificacion)}</div>`:""}</div></div>`:""}
             ${o.terminado?`<div class="full"><div class="k">Terminación</div><div class="v" style="color:var(--navy)">${esc(o.causal||"")} · ${fdate(o.fter)}</div></div>`:""}
             ${cal?`<div class="full"><div class="k">Calificación del proveedor</div><div class="v">${puntos(cal.score)}/100 · ${esc(cal.sem)}</div></div>`:""}
@@ -1847,8 +1907,8 @@ function vDetalle(){
           <p class="psub">Cifras del cierre registradas en la base institucional.</p>
           <div class="dl" style="margin-bottom:${L.pct!=null?"16px":"0"}">
             <div><div class="k">Fecha de cierre</div><div class="v">${fdate(L.f)}</div></div>
-            <div><div class="k">Valor liquidado</div><div class="v" style="color:var(--teal)">${L.liq!=null?money(L.liq):"—"}</div></div>
-            <div><div class="k">Saldo no ejecutado</div><div class="v" style="color:${(L.sal!=null&&L.sal>=0.01)?"var(--amber)":"var(--muted)"}">${L.sal!=null?money(L.sal):"—"}</div></div>
+            <div><div class="k">Valor liquidado</div><div class="v" style="color:var(--teal-t)">${L.liq!=null?money(L.liq):"—"}</div></div>
+            <div><div class="k">Saldo no ejecutado</div><div class="v" style="color:${(L.sal!=null&&L.sal>=0.01)?"var(--amber-t)":"var(--muted)"}">${L.sal!=null?money(L.sal):"—"}</div></div>
           </div>
           ${L.pct!=null?`<div>
             <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">
@@ -1975,13 +2035,28 @@ function modalNota(c){
    perdían por rozar el fondo. Ahora, si hay algo escrito, se pregunta; si no, se
    cierra como antes. Escape hace lo mismo. «Cancelar» cierra sin preguntar:
    ahí la AC ya decidió. */
+let nModal=0,nCampo=0;
 function openModal(html){
-  const o=document.createElement("div");o.className="overlay";o.innerHTML=`<div class="modal" role="dialog" aria-modal="true">${html}</div>`;
+  // El foco entra al título (autofocus), no a un campo: en el celular un campo con
+  // foco abre el teclado encima del formulario. El título, además, le da nombre.
+  const o=document.createElement("dialog");o.className="overlay";o.innerHTML=`<div class="modal">${html}</div>`;
+  const tit=o.querySelector("h2");
+  if(tit){tit.id="modal-t"+(++nModal);tit.tabIndex=-1;tit.autofocus=true;o.setAttribute("aria-labelledby",tit.id);}
   document.body.appendChild(o);
+  if(o.showModal)o.showModal();else o.setAttribute("open","");   // jsdom y navegadores muy viejos
+  // Cada rótulo, unido a su campo: el lector de pantalla lo nombra y tocar el rótulo
+  // lleva al campo. Los formularios se escriben con <label> y el campo al lado.
+  o.querySelectorAll(".frow>label:not([for])").forEach(l=>{
+    const f=l.nextElementSibling;if(!f||!/^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName))return;
+    if(!f.id)f.id="campo-"+(++nCampo);
+    l.htmlFor=f.id;
+  });
   o._sucio=false;
   const ensucia=e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea,select"))o._sucio=true;};
   o.addEventListener("input",ensucia);o.addEventListener("change",ensucia);
   o.addEventListener("click",e=>{if(e.target===o)cerrarSiSeguro(o);});
+  // El gesto «atrás» del celular llega como «cancel»: se pregunta igual que con Esc.
+  o.addEventListener("cancel",e=>{e.preventDefault();cerrarSiSeguro(o);});
   // El cursor va al primer campo de texto, para empezar a escribir sin buscarlo.
   // En pantallas táctiles no: abriría el teclado encima del formulario.
   const fino=window.matchMedia?window.matchMedia("(pointer:fine)").matches:false;
@@ -1992,14 +2067,17 @@ function openModal(html){
 function cerrarSiSeguro(o){
   if(!o||!o.isConnected)return;
   if(o._sucio&&!confirm("¿Cerrar sin terminar?\n\nSe perderá lo que escribiste en este formulario."))return;
-  o.remove();
+  cerrarModal(o);
 }
+// preventDefault: así el navegador no dispara además su propio «cancel» y no se pregunta dos veces.
 document.addEventListener("keydown",e=>{
   if(e.key!=="Escape")return;
   const abiertos=document.querySelectorAll(".overlay");
-  if(abiertos.length)cerrarSiSeguro(abiertos[abiertos.length-1]);
+  if(abiertos.length){e.preventDefault();cerrarSiSeguro(abiertos[abiertos.length-1]);}
 });
-function closeModal(el){(el.closest&&el.closest(".overlay")||el).remove();}
+// close() devuelve el foco al botón que abrió el formulario; después se quita.
+function cerrarModal(o){if(o.open&&o.close)o.close();o.remove();}
+function closeModal(el){cerrarModal(el.closest&&el.closest(".overlay")||el);}
 /* Mientras se genera un Word o se suben los archivos, el botón queda apagado y
    dice qué está pasando. Antes seguía activo: con la señal lenta la AC volvía a
    pulsar y el envío llegaba dos veces a la Unidad Operativa. Si fn devuelve
@@ -2011,14 +2089,14 @@ async function mientras(btn,txt,fn){
   try{hecho=(await fn())===true;}
   finally{if(!hecho&&btn.isConnected){btn.disabled=false;btn.innerHTML=antes;}}
 }
-function toast(msg,ms){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),ms||3400);}
+function toast(msg,ms){const t=document.createElement("div");t.className="toast";t.setAttribute("role","status");t.popover="manual";t.textContent=msg;document.body.appendChild(t);if(t.showPopover)t.showPopover();setTimeout(()=>t.remove(),ms||3400);}
 
 /* --- Motor de plantillas .docx reales (las mismas del CRM) --- */
 function docxEngineReady(){return !!(window.PizZip&&(window.docxtemplater||window.Docxtemplater));}
 const TPL_CACHE={};
 async function loadTemplate(nombre){
   if(TPL_CACHE[nombre])return TPL_CACHE[nombre];
-  const res=await fetch(TPL_PATH+nombre,{cache:"no-store"});
+  const res=await fetch(TPL_PATH+nombre,{cache:"no-cache"});
   if(!res.ok)throw new Error(`No se encontró la plantilla ${nombre} (HTTP ${res.status})`);
   const buf=await res.arrayBuffer();TPL_CACHE[nombre]=buf;return buf;
 }
@@ -2128,11 +2206,11 @@ function modalModificar(c){
     <p class="sub">${esc(c.nro)} · ${esc(c.detalle)}</p>
     <div class="frow"><label>Tipo de modificación</label>
       <div class="radios">${opciones.map((op,i)=>`<label class="radio ${i===0?"sel":""}"><input type="radio" name="mt" value="${op.v}" data-inf="${op.informe}" ${i===0?"checked":""}><span><span class="rt">${op.t}</span><span class="rd">${op.d}</span></span></label>`).join("")}</div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:7px">Las modificaciones <b>no pueden ser del objeto</b> del contrato.</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:7px">Las modificaciones <b>no pueden ser del objeto</b> del contrato.</div>
     </div>
     <div id="montoRow">
       <div class="frow"><label>Valor del incremento (USD, incl. IVA)</label><input id="inc" type="number" min="0" step="0.01" placeholder="0.00">
-        <div style="font-size:11.5px;color:var(--muted);margin-top:5px">Monto original: <b>${money(c.monto)}</b>${montoDe(c)!==c.monto?` · vigente con modificaciones: <b>${money(montoDe(c))}</b>`:""}</div></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:5px">Monto original: <b>${money(c.monto)}</b>${montoDe(c)!==c.monto?` · vigente con modificaciones: <b>${money(montoDe(c))}</b>`:""}</div></div>
       <div class="secdiv">Datos para el informe (FAP-2026-11)</div>
       <div class="frow2"><div class="frow"><label>RUC del proveedor</label><input id="rucM" placeholder="N.º de RUC"></div>
       <div class="frow"><label>Siglas del área</label><input id="siglas" placeholder="Ej.: PNC"></div></div>
@@ -2357,7 +2435,9 @@ async function enviarCalificacion(c){
   if(!FLOW_CALIF_URL)return false;
   const p=payloadCalif(c);saveCLM();
   try{
-    const r=await fetch(FLOW_CALIF_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});
+    // Con señal muerta un fetch puede quedarse colgado minutos: a los 30 s se da por
+    // fallido, queda «pendiente» y se reintenta solo (mismo id, misma fila).
+    const r=await fetch(FLOW_CALIF_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p),signal:window.AbortSignal&&AbortSignal.timeout?AbortSignal.timeout(30000):undefined});
     if(!r.ok)throw new Error("HTTP "+r.status);
     o.envio.estado="enviada";o.envio.en=todayISO();o.envio.enISO=new Date().toISOString();delete o.envio.error;saveCLM();
     logAdd("📨",`Calificación enviada al Registro: ${puntos(p.puntaje)}/100`,c.nro);
@@ -2596,7 +2676,7 @@ function modalEnvioUO(c,ctx){
   const btnSend=$("#send",o);
   btnSend.onclick=()=>mientras(btnSend,"Enviando…",async()=>{
     const status=$("#uoStatus",o);
-    const setS=(t,col)=>{status.textContent=t;status.style.color=col||"var(--green)";};
+    const setS=(t,col)=>{status.textContent=t;status.style.color=col||"var(--green-t)";};
     const files=$("#uoFiles",o).files;
     if(!files||!files.length){setS("Adjunta al menos un archivo.","var(--red)");return;}
     if(files.length>10){setS("El límite es de 10 archivos por envío.","var(--red)");return;}
@@ -2613,7 +2693,7 @@ function modalEnvioUO(c,ctx){
     try{
       const archivos=await Promise.all([...files].map(fl=>fileToB64(fl).then(b=>({nombre:fl.name,tipo:fl.type||"application/octet-stream",tamanio:fl.size,contenido:b}))));
       const payload=Object.assign({},meta,{archivos});
-      if(!FLOW_DOCS_URL){setS("Envío preparado. Falta configurar la URL del flujo.","var(--amber)");return;}
+      if(!FLOW_DOCS_URL){setS("Envío preparado. Falta configurar la URL del flujo.","var(--amber-t)");return;}
       setS("Enviando a la Unidad Operativa…","var(--navy)");
       const r=await fetch(FLOW_DOCS_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       if(!r.ok)throw new Error("HTTP "+r.status);
@@ -3258,7 +3338,9 @@ async function boot(){
     const reloj=setTimeout(()=>{if(ctl)ctl.abort();},20000);
     let env;
     try{
-      const r=await fetch(DATA_URL,{cache:"no-store",signal:ctl?ctl.signal:undefined});
+      // «no-cache», no «no-store»: se pregunta siempre si hay base nueva, pero si el
+      // robot no publicó otra desde la última vez llega un 304 y no se bajan 160 KB.
+      const r=await fetch(DATA_URL,{cache:"no-cache",signal:ctl?ctl.signal:undefined});
       if(!r.ok)throw new Error("HTTP "+r.status);
       env=await r.json();
     }finally{clearTimeout(reloj);}
