@@ -63,6 +63,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   --peligro:#B3261E;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+/* Los controles no heredan la letra por defecto: sin esto los chips y los iconos salían en Arial. */
+button,input,select,textarea{font-family:inherit}
+/* Un solo anillo de foco para quien navega con teclado; en la cabecera azul, blanco. */
+:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+header :focus-visible{outline-color:#fff}
+.campo input:focus,.campo textarea:focus,.campo select:focus{border-color:var(--azul);outline:2px solid rgba(0,36,156,.18);outline-offset:0}
+::selection{background:#C9D3EE;color:var(--texto)}
 body{font-family:'Titillium Web',sans-serif;background:var(--fondo);color:var(--texto);height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
 /* ---------- Encabezado ---------- */
@@ -71,6 +78,7 @@ header .logo{font-weight:900;font-size:20px;letter-spacing:.5px}
 header .logo span{font-weight:300}
 header .sub{font-size:12px;opacity:.85;font-weight:300}
 header .spacer{flex:1}
+header .acc-cab{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 header button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);color:#fff;font-family:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer}
 header button:hover{background:rgba(255,255,255,.22)}
 #chip-registro.reg-ok{background:rgba(255,255,255,.25);border-color:#8FE3B4}
@@ -105,7 +113,7 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .carpeta-nom{font-weight:700;color:var(--texto);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .carpeta-n{font-size:11px;color:var(--gris)}
 .carpeta-acc{visibility:hidden;display:flex;gap:2px;flex-shrink:0}
-.mini-ico{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px;color:var(--gris);line-height:1}
+.mini-ico{background:none;border:none;cursor:pointer;font-size:12px;min-width:24px;min-height:24px;padding:2px 4px;border-radius:4px;color:var(--gris);line-height:1}
 .mini-ico:hover{background:#fff;color:var(--azul)}
 .item-pl .mini-ico{margin-left:auto}
 .picker-fila{padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13.5px}
@@ -256,7 +264,7 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .eb.abierto{border-color:var(--azul);box-shadow:0 3px 10px rgba(0,36,156,.08)}
 .eb-cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .eb-mov{display:inline-flex;flex-direction:column;gap:2px}
-.eb-mov .ic{width:22px;height:16px;font-size:9px;padding:0}
+.eb-mov .ic{width:24px;height:20px;font-size:9px;padding:0}
 .eb-num{min-width:64px;text-align:center;font-size:10px;font-weight:800;letter-spacing:.03em;border-radius:6px;padding:5px 6px;line-height:1.15}
 .eb-num small{display:block;font-size:7.5px;color:var(--gris);font-weight:700}
 .eb-num.cl{background:var(--azul-claro);color:var(--azul)}
@@ -437,7 +445,20 @@ tr:hover td{background:var(--azul-claro)}
   #tabs{flex-wrap:nowrap;padding:8px 10px 0;-webkit-overflow-scrolling:touch}
   .tab{white-space:nowrap;flex-shrink:0;padding:9px 12px}
   #contenido{padding:12px}
-  header{padding:8px 12px}
+  /* En el teléfono la cabecera ocupaba casi una cuarta parte de la pantalla:
+     sin subtítulo, y los botones en una sola fila que se desliza. */
+  header{padding:8px 12px;gap:8px}
+  header .sub{display:none}
+  header .logo{font-size:17px}
+  header .spacer{display:none}
+  header .acc-cab{flex:1 0 100%;flex-wrap:nowrap;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  header .acc-cab::-webkit-scrollbar{display:none}
+  header .acc-cab button{flex-shrink:0;white-space:nowrap}
+  .ed-meta{grid-template-columns:1fr}
+}
+/* Sin ratón no hay «pasar por encima»: los iconos de carpeta se ven siempre. */
+@media(hover:none){
+  .carpeta-acc{visibility:visible}
 }
 </style>
 </head>
@@ -450,6 +471,7 @@ tr:hover td{background:var(--azul-claro)}
     <div class="sub">Fondo de Áreas Protegidas — Unidad Legal</div>
   </div>
   <div class="spacer"></div>
+  <div class="acc-cab">
   <button id="chip-registro" onclick="clicChipRegistro()" title="Registro de contratos del CRM (Excel maestro)">📇 Registro: cargando…</button>
   <input type="file" id="reg-file" accept=".json" style="display:none" onchange="cargarRegistroArchivo(event)">
   <button onclick="abrirFijos()" title="Valores institucionales que se llenan solos en todos los documentos">⚙ Datos fijos</button>
@@ -457,13 +479,14 @@ tr:hover td{background:var(--azul-claro)}
   <button onclick="exportarBiblioteca()">⬇ Exportar biblioteca</button>
   <button onclick="document.getElementById('imp-file').click()">⬆ Importar</button>
   <input type="file" id="imp-file" accept=".json" style="display:none" onchange="importarBiblioteca(event)">
+  </div>
 </header>
 <div id="aviso-storage">⚠ El almacenamiento local no está disponible en esta vista. Los cambios se guardan en memoria; usa <b>Exportar biblioteca</b> para no perderlos. Al abrir el archivo en tu navegador, el guardado será automático.</div>
 
 <main>
   <aside>
     <div class="aside-inner">
-      <div class="busq"><input type="search" id="busqueda" placeholder="Buscar plantilla…" oninput="renderLista()"></div>
+      <div class="busq"><input type="search" id="busqueda" placeholder="Buscar plantilla…" aria-label="Buscar plantilla" oninput="renderLista()"></div>
       <div class="cats" id="cats"></div>
       <div id="lista-plantillas"></div>
       <div class="pie">
@@ -2735,29 +2758,29 @@ function renderGenerar(c, p){
   const selectoresConc = concs.map(g => {
     const idx = indiceConc(g.nombre);
     const gobernadas = Object.keys(g.tags||{}).filter(t => vars.includes(t));
-    return `<div class="campo"><label>⚥ ${esc(g.etiqueta)} <span class="tag-auto">cambia todo</span></label>
+    return `<div class="campo"><label for="conc_${esc(g.nombre)}">⚥ ${esc(g.etiqueta)} <span class="tag-auto">cambia todo</span></label>
       <select id="conc_${esc(g.nombre)}" onchange="aplicarConcordanciaUI('${esc(g.nombre)}', this.selectedIndex)">
         ${(g.opciones||[]).map((o,i)=>`<option value="${i}" ${i===idx?'selected':''}>${esc(o)}</option>`).join('')}
       </select>
-      <div class="nota">Una elección gobierna: ${gobernadas.map(t=>`<code>{{${esc(t)}}}</code>`).join(' ')||'—'}</div></div>`;
+      <div class="nota" title="${esc(gobernadas.map(t=>`{{${t}}}`).join(' '))}">${gobernadas.length ? `Ajusta ${gobernadas.length} ${gobernadas.length===1?'palabra':'palabras'} del documento` : 'No cambia nada en esta plantilla'}</div></div>`;
   }).join('');
 
   const campos = varsCampo.map(v => {
     const reg = buscarVar(v);
     if(esLetras(v)){
       const val = datosForm[v] || '';
-      return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span></label><textarea readonly rows="1" id="f_${v}" oninput="return false">${esc(val)}</textarea><div class="nota">Se calcula solo desde «${esc(origenDe(v))}»</div></div>`;
+      return `<div class="campo"><label for="f_${v}">${esc(etiqueta(v))} <span class="tag-auto">auto</span></label><textarea readonly rows="1" id="f_${v}" oninput="return false">${esc(val)}</textarea><div class="nota">Se calcula solo desde «${esc(origenDe(v))}»</div></div>`;
     }
     const der = derivadaDe(v, vars);
     if(der){
       const val = datosForm[v] ? fmtMonto(datosForm[v]) : '';
-      return `<div class="campo"><label>${esc(etiqueta(v))} <span class="tag-auto">auto</span> <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span></label><input readonly id="f_${v}" value="${esc(val)}" placeholder="Se llena al escribir las dos cifras"><div class="nota">Se calcula solo: ${esc(der.como)}</div></div>`;
+      return `<div class="campo"><label for="f_${v}">${esc(etiqueta(v))} <span class="tag-auto">auto</span> <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span></label><input readonly id="f_${v}" value="${esc(val)}" placeholder="Se llena al escribir las dos cifras"><div class="nota">Se calcula solo: ${esc(der.como)}</div></div>`;
     }
     if(esLargo(v)){
-      const phL = reg && reg.ejemplo ? ` placeholder="${esc(reg.ejemplo)}"` : ' placeholder="Escribe o pega el texto. Cada Enter es un párrafo nuevo en el documento."';
+      const phL = reg && reg.ejemplo ? ` placeholder="p. ej. ${esc(reg.ejemplo)}"` : ' placeholder="Escribe o pega el texto. Cada Enter es un párrafo nuevo en el documento."';
       const notaL = reg && reg.descripcion ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
       const astL = esRequerido(v) ? '<span class="oblig-ast" title="Obligatorio: sin este dato no se genera el documento">*</span>' : '';
-      return `<div class="campo campo-largo"><label>${esc(etiqueta(v))}${astL} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${fijos[v] ? ' <span class="tag-auto">fijo</span>' : ''}
+      return `<div class="campo campo-largo"><label for="f_${v}">${esc(etiqueta(v))}${astL} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${fijos[v] ? ' <span class="tag-auto">fijo</span>' : ''}
         <button type="button" class="btn-largo" onclick="alternarLargo('${v}')" title="Volver a una casilla de una sola línea">¶ texto largo ✕</button></label>
         <textarea class="largo" rows="3"${phL} id="f_${v}" oninput="actualizarCampo('${v}', this.value);ajustarAlturaLargo(this)">${esc(datosForm[v]||'')}</textarea>${notaL}</div>`;
     }
@@ -2767,12 +2790,12 @@ function renderGenerar(c, p){
     const cortoLibre = tipo === 'text' && !esIdVar(v);
     const btnLargo = cortoLibre ? ` <button type="button" class="btn-largo" onclick="alternarLargo('${v}')" title="Convertir en texto largo: acepta varios párrafos, y cada uno sale como párrafo en el Word">¶</button>` : '';
     const pegar = cortoLibre ? ` onpaste="pegarEnCampo(event, '${v}')"` : '';
-    const ph = reg && reg.ejemplo ? ` placeholder="${esc(reg.ejemplo)}"` : '';
+    const ph = reg && reg.ejemplo ? ` placeholder="p. ej. ${esc(reg.ejemplo)}"` : '';
     const tagFijo = fijos[v] ? ' <span class="tag-auto">fijo</span>' : '';
     const nota = reg && reg.descripcion ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
     const warn = esIdVar(v) ? `<div class="warn-txt" id="w_${v}">${avisoIdentificacion(datosForm[v])}</div>` : '';
     const ast = esRequerido(v) ? '<span class="oblig-ast" title="Obligatorio: sin este dato no se genera el documento">*</span>' : '';
-    return `<div class="campo"><label>${esc(etiqueta(v))}${ast} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${tagFijo}${btnLargo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)"${pegar}>${nota}${warn}</div>`;
+    return `<div class="campo"><label for="f_${v}">${esc(etiqueta(v))}${ast} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${tagFijo}${btnLargo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)"${pegar}>${nota}${warn}</div>`;
   }).join('');
 
   // La vista previa de Word tarda en rehacerse. Si se repinta la misma
@@ -3230,7 +3253,7 @@ async function abrirPickerRegistro(){
     <div class="m-cab"><h3>Tomar datos de un contrato del registro</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       <div class="reg-filtros">
-        <input type="search" id="pk-busq" placeholder="Buscar por número, proveedor, área…" oninput="renderPickerRegistro()">
+        <input type="search" id="pk-busq" placeholder="Buscar por número, proveedor, área…" aria-label="Buscar por número, proveedor, área…" oninput="renderPickerRegistro()">
         <select id="pk-tipo" onchange="renderPickerRegistro()"><option value="">Todos</option><option>Nuevo</option><option>Renovación</option></select>
       </div>
       <div class="reg-lista" id="pk-lista"></div>
@@ -3322,7 +3345,7 @@ function renderContrapartes(c){
     ${provEstado !== 'ok' && contrapartes.length && contrapartes.some(x => !x.identificacion) ? `<div class="nota" style="margin:-4px 0 10px">${contrapartes.filter(x => !x.identificacion).length} de ${contrapartes.length} contrapartes no tienen cédula ni RUC. El registro de contratos solo trae el nombre; el resto se completa de una vez con «Traer datos del Excel maestro».</div>` : ''}
     ${vista.length ? `
       <div class="campo" style="margin:4px 0 12px">
-        <input type="search" id="busq-cp" value="${esc(busqCp)}" placeholder="Buscar por nombre, RUC/cédula, representante o correo…" oninput="busqCp=this.value;renderContenido()">
+        <input type="search" id="busq-cp" value="${esc(busqCp)}" placeholder="Buscar por nombre, RUC/cédula, representante o correo…" aria-label="Buscar por nombre, RUC/cédula, representante o correo…" oninput="busqCp=this.value;renderContenido()">
       </div>
       ${vis.length ? `<div class="tabla-scroll"><table><thead><tr><th>Nombre</th><th>Cédula / RUC</th><th>Correo</th><th>Dirección</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
         <div class="nota" style="margin-top:8px">${vis.length > 400 ? `Se muestran 400 de ${vis.length}: busca para encontrar el resto. ` : ''}${vis.length} de ${vista.length} contrapartes${q?` que coinciden con «${esc(busqCp)}»`:''}.</div>`
@@ -3337,11 +3360,11 @@ function editarContraparte(i, j){
     <div class="m-cab"><h3>${i>=0?'Editar':e?'Editar proveedor del Excel maestro':'Nueva'} contraparte</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       ${e ? '<p class="nota" style="margin:0 0 10px">Se guarda una copia aquí, y lo que cambies manda sobre el Excel maestro. El Excel no se toca.</p>' : ''}
-      <div class="campo"><label>Nombre / Razón social</label><input id="cp-nombre" value="${esc(x.nombre)}"></div>
-      <div class="campo"><label>Cédula / RUC</label><input id="cp-id" value="${esc(x.identificacion)}" oninput="document.getElementById('cp-warn').textContent = avisoIdentificacion(this.value)"><div class="warn-txt" id="cp-warn">${avisoIdentificacion(x.identificacion)}</div></div>
-      <div class="campo"><label>Representante legal (si aplica)</label><input id="cp-rep" value="${esc(x.representante)}"></div>
-      <div class="campo"><label>Correo</label><input id="cp-email" value="${esc(x.email)}"></div>
-      <div class="campo"><label>Dirección</label><input id="cp-dir" value="${esc(x.direccion)}"></div>
+      <div class="campo"><label for="cp-nombre">Nombre / Razón social</label><input id="cp-nombre" value="${esc(x.nombre)}"></div>
+      <div class="campo"><label for="cp-id">Cédula / RUC</label><input id="cp-id" value="${esc(x.identificacion)}" oninput="document.getElementById('cp-warn').textContent = avisoIdentificacion(this.value)"><div class="warn-txt" id="cp-warn">${avisoIdentificacion(x.identificacion)}</div></div>
+      <div class="campo"><label for="cp-rep">Representante legal (si aplica)</label><input id="cp-rep" value="${esc(x.representante)}"></div>
+      <div class="campo"><label for="cp-email">Correo</label><input id="cp-email" value="${esc(x.email)}"></div>
+      <div class="campo"><label for="cp-dir">Dirección</label><input id="cp-dir" value="${esc(x.direccion)}"></div>
     </div>
     <div class="m-pie">
       <button class="btn sec" onclick="cerrarModal()">Cancelar</button>
@@ -3626,7 +3649,7 @@ function renderContrapartesExcel(){
         <label style="font-size:12.5px">Los encabezados están en la fila <input type="number" id="cpx-fila" min="1" value="${x.filaEnc + 1}" style="flex:none;min-width:0;width:64px" onchange="cambiarFilaEncCpExcel(this.value)"></label>
       </div>
       <p class="nota" style="margin:2px 0 8px">Revisa de qué columna sale cada dato. Los propuse por el rótulo; si alguno no es, cámbialo.</p>
-      <div class="cpx-mapa">${CAMPOS_CP.map(c => `<div class="campo"><label>${esc(c.rotulo)}</label><select id="cpx-col-${c.campo}" onchange="cpExcel.mapa['${c.campo}']=+this.value;renderContrapartesExcel()">${opciones(c.campo)}</select></div>`).join('')}</div>
+      <div class="cpx-mapa">${CAMPOS_CP.map(c => `<div class="campo"><label for="cpx-col-${c.campo}">${esc(c.rotulo)}</label><select id="cpx-col-${c.campo}" onchange="cpExcel.mapa['${c.campo}']=+this.value;renderContrapartesExcel()">${opciones(c.campo)}</select></div>`).join('')}</div>
       ${muestra ? `<div class="tabla-scroll" style="margin:6px 0 10px"><table><thead><tr>${CAMPOS_CP.map(c => `<th>${esc(c.rotulo)}</th>`).join('')}</tr></thead><tbody>${muestra}</tbody></table></div>` : ''}
       <div class="cpx-resumen" id="cpx-resumen">
         ${x.mapa.nombre < 0 ? '<b>Elige la columna del nombre</b>: sin ella no se puede emparejar con tus contrapartes.'
@@ -3713,7 +3736,7 @@ function abrirPickerContraparte(){
     <div class="m-cab"><h3>Usar contraparte guardada</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       ${provEstado === 'protegido' ? `<div class="prov-estado pend" style="margin-bottom:8px">🔒 Faltan los proveedores del Excel maestro. <button class="btn sec mini" onclick="desbloquearProveedores().then(ok => { if(ok) abrirPickerContraparte(); })">Abrir</button></div>` : ''}
-      <div class="reg-filtros"><input type="search" id="pc-busq" placeholder="Buscar por nombre, cédula o RUC…" oninput="renderPickerContraparte()"></div>
+      <div class="reg-filtros"><input type="search" id="pc-busq" placeholder="Buscar por nombre, cédula o RUC…" aria-label="Buscar por nombre, cédula o RUC…" oninput="renderPickerContraparte()"></div>
       <div class="reg-lista" id="pc-lista"></div>
     </div>`);
   renderPickerContraparte();
@@ -3815,7 +3838,7 @@ function abrirPickerDocumento(){
     <div class="m-cab"><h3>Tomar datos de otro documento</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       <p class="nota" style="margin:0 0 8px">Pasa a «${esc(p.nombre)}» los datos que ya escribiste en otro documento: lo que se llama igual llega tal cual, con el género y las tablas.</p>
-      <div class="reg-filtros"><input type="search" id="pd-busq" placeholder="Buscar por plantilla, archivo o dato (contrato, proveedor…)" oninput="renderPickerDocumento()"></div>
+      <div class="reg-filtros"><input type="search" id="pd-busq" placeholder="Buscar por plantilla, archivo o dato (contrato, proveedor…)" aria-label="Buscar por plantilla, archivo o dato (contrato, proveedor…)" oninput="renderPickerDocumento()"></div>
       <div class="reg-lista" id="pd-lista"></div>
       <div class="nota" style="margin-top:10px">¿Lo generó otra persona, o tú en otra computadora? Que te pase su historial (pestaña <b>Historial</b> → «Exportar historial») y
         <label class="btn sec mini" style="cursor:pointer">ábrelo aquí<input type="file" accept=".json,application/json" style="display:none" onchange="abrirHistorialAjeno(event)"></label>
@@ -3894,7 +3917,7 @@ function abrirPickerDestino(f){
     <div class="m-cab"><h3>Usar estos datos en otra plantilla</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
       <p class="nota" style="margin:0 0 8px">Datos de «${esc(f.nombre)}». Elige el documento que sigue: llega con todo lo que comparten ya escrito.</p>
-      <div class="reg-filtros"><input type="search" id="pt-busq" placeholder="Buscar plantilla…" oninput="renderPickerDestino()"></div>
+      <div class="reg-filtros"><input type="search" id="pt-busq" placeholder="Buscar plantilla…" aria-label="Buscar plantilla…" oninput="renderPickerDestino()"></div>
       <div class="reg-lista" id="pt-lista"></div>
     </div>`);
   renderPickerDestino();
@@ -3973,7 +3996,7 @@ function renderLote(c, p){
           <div style="font-size:12.5px;font-weight:700;margin-bottom:6px">Desde el registro de contratos ${registroEstado==='ok' ? `(${registro.length})` : '(sin cargar)'}</div>
           ${registroEstado==='ok' ? `
             <div class="reg-filtros">
-              <input type="search" id="lt-busq" placeholder="Buscar…" oninput="renderLoteRegistro()">
+              <input type="search" id="lt-busq" placeholder="Buscar…" aria-label="Buscar…" oninput="renderLoteRegistro()">
               <select id="lt-tipo" onchange="renderLoteRegistro()"><option value="">Todos</option><option>Nuevo</option><option>Renovación</option></select>
             </div>
             <div class="reg-lista" id="lt-lista"></div>
@@ -6918,6 +6941,9 @@ function avisar(texto, tipo){
 }
 
 /* ============ Modal genérico ============ */
+const ENFOCABLES = 'input:not([type=hidden]):not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled]),a[href],[contenteditable="true"]';
+let focoAntesDelModal = null;
+const enfocables = raiz => Array.from(raiz.querySelectorAll(ENFOCABLES)).filter(e => e.offsetParent || e === document.activeElement);
 function abrirModal(html){
   soltarPedirDatos(null);   // si el modal traía un formulario pendiente, se da por cancelado
   modalSucio = false;
@@ -6932,11 +6958,20 @@ function abrirModal(html){
   m.innerHTML = html;
   fondo.classList.add('abierto');
   if(top){ const nuevo = m.querySelector('.m-cuerpo'); if(nuevo) nuevo.scrollTop = top; }
+  // El teclado entra al cuadro y, al cerrarlo, vuelve al botón que lo abrió.
+  if(!yaAbierto){
+    focoAntesDelModal = document.activeElement;
+    const cuerpo = m.querySelector('.m-cuerpo');
+    const primero = (cuerpo && enfocables(cuerpo)[0]) || enfocables(m)[0];
+    if(primero) primero.focus();
+  }
 }
 function cerrarModal(){
   soltarPedirDatos(null);
   modalSucio = false;
   document.getElementById('modal-fondo').classList.remove('abierto');
+  if(focoAntesDelModal && document.contains(focoAntesDelModal)) focoAntesDelModal.focus();
+  focoAntesDelModal = null;
 }
 /* Un clic fuera del recuadro cierra el formulario, y cerraba también al soltar
    ahí una selección de texto: se escribe en un campo, se arrastra el ratón para
@@ -6999,7 +7034,7 @@ function campoPedirHTML(c){
     control = `<input type="number" id="${id}" value="${esc(val)}"${c.min != null ? ` min="${c.min}"` : ''}${c.max != null ? ` max="${c.max}"` : ''}>`;
   else
     control = `<input type="text" id="${id}" value="${esc(val)}"${ph}${c.lista ? ` list="${esc(c.lista)}"` : ''}>`;
-  return `<div class="campo"><label>${esc(c.etiqueta)}</label>${control}${c.datalist || ''}${c.nota ? `<div class="nota">${c.nota}</div>` : ''}</div>`;
+  return `<div class="campo"><label for="${id}">${esc(c.etiqueta)}</label>${control}${c.datalist || ''}${c.nota ? `<div class="nota">${c.nota}</div>` : ''}</div>`;
 }
 function pedirDatos(cfg){
   // abrirModal() suelta cualquier petición anterior; el resolver se guarda
@@ -7217,9 +7252,9 @@ function renderEditar(c, p){
   }).join('');
   c.innerHTML = `
     <div class="ed-meta">
-      <div class="campo"><label>Nombre de la plantilla</label><input id="ed-nombre" value="${esc(p.nombre)}"></div>
+      <div class="campo"><label for="ed-nombre">Nombre de la plantilla</label><input id="ed-nombre" value="${esc(p.nombre)}"></div>
       <div class="campo"><label>Carpeta</label><div class="carpeta-actual">📁 ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
-      <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
+      <div class="campo"><label for="ed-desc">Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
     ${(() => {
       const w = p.origenId && plantillas.find(x => x.id === p.origenId && x.tipo === 'docx');
@@ -7490,7 +7525,7 @@ function abrirModalVariables(target){
   abrirModal(`
     <div class="m-cab"><h3>{{ }} Insertar variable del repositorio</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
-      <div class="campo" style="margin-bottom:10px"><input type="search" id="busq-var" placeholder="Buscar variable… (ej. proveedor, fecha, monto)" oninput="renderModalVariables()"></div>
+      <div class="campo" style="margin-bottom:10px"><input type="search" id="busq-var" placeholder="Buscar variable… (ej. proveedor, fecha, monto)" aria-label="Buscar variable… (ej. proveedor, fecha, monto)" oninput="renderModalVariables()"></div>
       <div id="modal-variables-body"></div>
     </div>
     <div class="m-pie" style="justify-content:flex-start">
@@ -7616,7 +7651,7 @@ function renderVariables(c){
   c.innerHTML = `
     <div class="banner-edicion" style="margin-bottom:12px">Este es el diccionario único de variables del ecosistema FAP: el mismo catálogo de tags que usan las plantillas Word (docxtemplater), La Mágica y el CRM. Las plantillas y cláusulas de esta herramienta deben usar estos nombres para que todo el sistema hable el mismo idioma.</div>
     ${avisoHuerfanas}
-    <div class="campo" style="margin-bottom:8px"><input type="search" id="busq-var-tab" value="${esc(busqVarTab)}" placeholder="Buscar variable por nombre, descripción o ejemplo…" oninput="busqVarTab=this.value;renderContenido()"></div>
+    <div class="campo" style="margin-bottom:8px"><input type="search" id="busq-var-tab" value="${esc(busqVarTab)}" placeholder="Buscar variable por nombre, descripción o ejemplo…" aria-label="Buscar variable por nombre, descripción o ejemplo…" oninput="busqVarTab=this.value;renderContenido()"></div>
     <div class="cats" style="padding:0 0 10px">${gruposVar().map(g => `<button class="chip ${g===grupoVarFiltro?'activo':''}" onclick="grupoVarFiltro='${g.replace(/'/g,"\\'")}';renderContenido()">${esc(g)}</button>`).join('')}</div>
     <div class="gen-grid" style="grid-template-columns:1fr 360px">
       <div class="card" id="var-lista-scroll" style="max-height:62vh;overflow-y:auto">
@@ -7631,10 +7666,10 @@ function renderVariables(c){
         ${sel ? `
         <div class="card">
           <h3>Editar variable</h3>
-          <div class="campo"><label>Nombre (tag)</label><input id="var-ed-nombre" value="${esc(sel.nombre)}"></div>
-          <div class="campo"><label>Grupo</label><input id="var-ed-grupo" list="grupos-dl" value="${esc(sel.grupo)}"><datalist id="grupos-dl">${gruposVar().filter(x=>x!=='Todos').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
-          <div class="campo"><label>Descripción</label><textarea id="var-ed-desc" rows="3">${esc(sel.descripcion||'')}</textarea></div>
-          <div class="campo"><label>Ejemplo (se muestra como guía en el formulario)</label><input id="var-ed-ejemplo" value="${esc(sel.ejemplo||'')}"></div>
+          <div class="campo"><label for="var-ed-nombre">Nombre (tag)</label><input id="var-ed-nombre" value="${esc(sel.nombre)}"></div>
+          <div class="campo"><label for="var-ed-grupo">Grupo</label><input id="var-ed-grupo" list="grupos-dl" value="${esc(sel.grupo)}"><datalist id="grupos-dl">${gruposVar().filter(x=>x!=='Todos').map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
+          <div class="campo"><label for="var-ed-desc">Descripción</label><textarea id="var-ed-desc" rows="3">${esc(sel.descripcion||'')}</textarea></div>
+          <div class="campo"><label for="var-ed-ejemplo">Ejemplo (se muestra como guía en el formulario)</label><input id="var-ed-ejemplo" value="${esc(sel.ejemplo||'')}"></div>
           <div class="campo"><label>¿Obligatoria?</label>
             <select id="var-ed-req">
               <option value="no" ${sel.requerido?'':'selected'}>No — si falta, solo se advierte</option>
@@ -7642,7 +7677,7 @@ function renderVariables(c){
             </select>
             <div class="nota">Vale para todas las plantillas que usen <code>{{${esc(sel.nombre)}}}</code>. Márcala solo si su ausencia deja el instrumento defectuoso.</div>
           </div>
-          <div class="campo"><label>Tipo</label><select id="var-ed-tipo" onchange="document.getElementById('var-ed-origen-wrap').style.display = this.value==='letras' ? '' : 'none'">${TIPOS_VAR.map(t=>`<option value="${t}" ${sel.tipo===t?'selected':''}>${esc(ROTULO_TIPO[t])}</option>`).join('')}</select></div>
+          <div class="campo"><label for="var-ed-tipo">Tipo</label><select id="var-ed-tipo" onchange="document.getElementById('var-ed-origen-wrap').style.display = this.value==='letras' ? '' : 'none'">${TIPOS_VAR.map(t=>`<option value="${t}" ${sel.tipo===t?'selected':''}>${esc(ROTULO_TIPO[t])}</option>`).join('')}</select></div>
           <div class="campo" id="var-ed-origen-wrap" style="${sel.tipo==='letras'?'':'display:none'}">
             <label>Variable de origen (el monto en números)</label>
             <input id="var-ed-origen" list="vars-origen-dl" value="${esc(sel.origen||'')}" placeholder="${esc(baseLetras(sel.nombre)||'monto…')}">
@@ -7729,9 +7764,9 @@ function editarConcordancia(id){
   abrirModal(`
     <div class="m-cab"><h3>${id?'Editar':'Nuevo'} grupo de concordancia</h3><button onclick="abrirConcordancias()">✕</button></div>
     <div class="m-cuerpo">
-      <div class="campo"><label>Nombre corto del grupo (sin espacios)</label><input id="cc-nombre" value="${esc(g.nombre)}" placeholder="contratista"></div>
-      <div class="campo"><label>Etiqueta (lo que se lee al llenar)</label><input id="cc-etiqueta" value="${esc(g.etiqueta)}" placeholder="Contratista (persona natural o empresa)"></div>
-      <div class="campo"><label>Opciones (sepáralas con « | »)</label><input id="cc-opciones" value="${esc(opcionesTxt)}" oninput="rerenderTagsConc()" placeholder="Masculino | Femenino | Empresa"><div class="nota">El orden importa: cada tag define una palabra por cada opción, en este mismo orden.</div></div>
+      <div class="campo"><label for="cc-nombre">Nombre corto del grupo (sin espacios)</label><input id="cc-nombre" value="${esc(g.nombre)}" placeholder="contratista"></div>
+      <div class="campo"><label for="cc-etiqueta">Etiqueta (lo que se lee al llenar)</label><input id="cc-etiqueta" value="${esc(g.etiqueta)}" placeholder="Contratista (persona natural o empresa)"></div>
+      <div class="campo"><label for="cc-opciones">Opciones (sepáralas con « | »)</label><input id="cc-opciones" value="${esc(opcionesTxt)}" oninput="rerenderTagsConc()" placeholder="Masculino | Femenino | Empresa"><div class="nota">El orden importa: cada tag define una palabra por cada opción, en este mismo orden.</div></div>
       <label style="font-size:12.5px;font-weight:600">Tags gobernados y su palabra en cada opción</label>
       <div class="nota" style="margin:2px 0 6px">Cada tag es una palabra que cambia según la opción elegida. P. ej. para el grupo «Administrador/a Contador/a» con opciones Masculino | Femenino: <code>ellaadministradorcontador</code> → «el administrador contador» / «la administradora contadora».</div>
       <div id="cc-tags">${tagsRows||'<div class="nota">Añade el primer tag abajo.</div>'}</div>
@@ -7881,7 +7916,7 @@ function abrirPickerClausula(){
   abrirModal(`
     <div class="m-cab"><h3>${titulo}</h3><button onclick="cerrarModal()">✕</button></div>
     <div class="m-cuerpo">
-      <div class="campo" style="margin-bottom:10px"><input type="search" id="mc-busq" placeholder="Buscar cláusula por nombre, categoría o texto…" oninput="renderModalClausulas()"></div>
+      <div class="campo" style="margin-bottom:10px"><input type="search" id="mc-busq" placeholder="Buscar cláusula por nombre, categoría o texto…" aria-label="Buscar cláusula por nombre, categoría o texto…" oninput="renderModalClausulas()"></div>
       <div id="mc-lista"></div>
     </div>`);
   renderModalClausulas();
@@ -8050,7 +8085,7 @@ function renderRepositorio(c){
       <div>
         <div class="card" id="rep-lista-scroll" style="max-height:66vh;overflow-y:auto">
           <h3 style="display:flex;align-items:center;justify-content:space-between">Cláusulas <button class="chip" style="text-transform:none" onclick="crearSubcarpeta('cl', null)">📁＋ Carpeta</button></h3>
-          <div class="campo" style="margin-bottom:10px"><input type="search" id="rep-busq" placeholder="Buscar cláusula…" value="${esc(repoFiltro)}" oninput="repoFiltro=this.value;document.getElementById('lista-clausulas').innerHTML=listaClausulasHtml()"></div>
+          <div class="campo" style="margin-bottom:10px"><input type="search" id="rep-busq" placeholder="Buscar cláusula…" aria-label="Buscar cláusula…" value="${esc(repoFiltro)}" oninput="repoFiltro=this.value;document.getElementById('lista-clausulas').innerHTML=listaClausulasHtml()"></div>
           <div id="lista-clausulas">${listaClausulasHtml()}</div>
         </div>
         <div class="acciones-gen">
@@ -8114,7 +8149,7 @@ function renderVarianteEditorHtml(){
     <div class="card">
       <h3>Editar variante</h3>
       <div class="campo"><label>Cláusula</label><div class="carpeta-actual">${cl.carpetaId ? `📁 ${esc(rutaCarpeta('cl', cl.carpetaId))} · ` : ''}<b>${esc(cl.nombre)}</b><button class="btn sec mini" onclick="abrirMoverItem('cl','${cl.id}')">Mover…</button></div></div>
-      <div class="campo"><label>Nombre de esta variante</label><input id="rep-var-nombre" value="${esc(v.nombre)}"></div>
+      <div class="campo"><label for="rep-var-nombre">Nombre de esta variante</label><input id="rep-var-nombre" value="${esc(v.nombre)}"></div>
       <div class="campo"><label>Variables que pide esta variante</label><div id="rep-var-chips">${vars.length ? vars.map(x => `<span class="chip-var">${esc(x)}</span>`).join('') : '<span style="font-size:12px;color:var(--gris)">Ninguna (texto fijo)</span>'}</div></div>
     </div>
     ${buildToolbar('rep-editor', true, true)}
@@ -8242,9 +8277,9 @@ function renderEditarDocx(c, p){
   const sinRegistrar = est.escalares.filter(t => !buscarVar(t)).length + est.listas.filter(l => !buscarVar(l.nombre)).length;
   c.innerHTML = `
     <div class="ed-meta">
-      <div class="campo"><label>Nombre de la plantilla</label><input id="ed-nombre" value="${esc(p.nombre)}"></div>
+      <div class="campo"><label for="ed-nombre">Nombre de la plantilla</label><input id="ed-nombre" value="${esc(p.nombre)}"></div>
       <div class="campo"><label>Carpeta</label><div class="carpeta-actual">📁 ${p.carpetaId ? esc(rutaCarpeta('pl', p.carpetaId)) : 'Sin carpeta (raíz)'}<button class="btn sec mini" onclick="abrirMoverItem('pl','${p.id}')">Mover…</button></div></div>
-      <div class="campo"><label>Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
+      <div class="campo"><label for="ed-desc">Descripción</label><input id="ed-desc" value="${esc(p.descripcion||'')}"></div>
     </div>
     ${htmlTextoWord(p)}
     ${revisiones ? `<div class="aviso-tags" style="background:var(--azul-claro);border-left-color:var(--azul);color:var(--texto)"><b>ℹ Esta plantilla tiene «Control de cambios» activo en Word.</b><p style="margin:6px 0 0">La herramienta usa el <b>texto final</b> (acepta las revisiones automáticamente), así los tags se leen y se rellenan bien. <b>Recomendación:</b> en Word ve a <i>Revisar → Aceptar todos los cambios</i> y <i>Revisar → Control de cambios (desactivar)</i>, y vuelve a subir la plantilla, para evitar confusiones.</p></div>` : ''}
@@ -8519,6 +8554,16 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if(e.key !== 'Tab') return;
+  // Con un cuadro abierto, Tab da la vuelta dentro de él y no se escapa a la página.
+  if(document.getElementById('modal-fondo').classList.contains('abierto') && !(e.target.closest && e.target.closest('[contenteditable="true"]'))){
+    const lista = enfocables(document.getElementById('modal'));
+    const dentro = lista.includes(document.activeElement);
+    if(lista.length && (!dentro || document.activeElement === lista[e.shiftKey ? 0 : lista.length - 1])){
+      e.preventDefault();
+      lista[e.shiftKey ? lista.length - 1 : 0].focus();
+      return;
+    }
+  }
   const el = e.target && e.target.closest ? e.target.closest('[contenteditable="true"]') : null;
   if(!el) return;
   e.preventDefault();
