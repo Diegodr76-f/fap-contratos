@@ -65,6 +65,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 *{box-sizing:border-box;margin:0;padding:0}
 /* Los controles no heredan la letra por defecto: sin esto los chips y los iconos salían en Arial. */
 button,input,select,textarea{font-family:inherit}
+*{scrollbar-width:thin;scrollbar-color:#B8C3E3 transparent}
 /* Un solo anillo de foco para quien navega con teclado; en la cabecera azul, blanco. */
 :focus-visible{outline:2px solid var(--azul);outline-offset:2px}
 header :focus-visible{outline-color:#fff}
@@ -73,7 +74,7 @@ header :focus-visible{outline-color:#fff}
 body{font-family:'Titillium Web',sans-serif;background:var(--fondo);color:var(--texto);height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
 /* ---------- Encabezado ---------- */
-header{background:var(--azul);color:#fff;padding:10px 20px;display:flex;align-items:center;gap:10px 14px;flex-shrink:0;flex-wrap:wrap}
+header{background:var(--azul);color:#fff;padding:8px 20px;display:flex;align-items:center;gap:10px 14px;flex-shrink:0;flex-wrap:wrap}
 header .logo{font-weight:900;font-size:20px;letter-spacing:.5px}
 header .logo span{font-weight:300}
 header .sub{font-size:12px;opacity:.85;font-weight:300}
@@ -81,6 +82,9 @@ header .spacer{flex:1}
 header .acc-cab{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 header button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);color:#fff;font-family:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer}
 header button:hover{background:rgba(255,255,255,.22)}
+header .acc-cab button:not(#chip-registro){background:transparent;border-color:transparent}
+header .acc-cab button:not(#chip-registro):hover{background:rgba(255,255,255,.14)}
+header button:active{transform:translateY(1px)}
 #chip-registro.reg-ok{background:rgba(255,255,255,.25);border-color:#8FE3B4}
 #chip-registro.reg-pend{background:#FEF3C7;color:#7A4B0A;border-color:#F5D77A}
 #aviso-storage{display:none;background:#FEF3C7;color:#92400E;font-size:12px;padding:6px 20px;flex-shrink:0}
@@ -115,12 +119,14 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .carpeta-acc{visibility:hidden;display:flex;gap:2px;flex-shrink:0}
 .mini-ico{background:none;border:none;cursor:pointer;font-size:12px;min-width:24px;min-height:24px;padding:2px 4px;border-radius:4px;color:var(--gris);line-height:1}
 .mini-ico:hover{background:#fff;color:var(--azul)}
-.item-pl .mini-ico{margin-left:auto}
+.item-pl .mini-ico{margin-left:auto;opacity:0;transition:opacity .12s}
+.item-pl:hover .mini-ico,.item-pl.sel .mini-ico,.item-pl .mini-ico:focus-visible{opacity:1}
 .picker-fila{padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13.5px}
 .picker-fila:hover{background:var(--azul-claro)}
 .picker-fila.raiz{font-weight:600;border-bottom:1px solid var(--borde);border-radius:0;margin-bottom:6px;padding-bottom:10px}
 .carpeta-actual{display:flex;align-items:center;gap:8px;font-size:13px;padding:7px 0}
-.btn{font-family:inherit;font-weight:600;font-size:13px;padding:8px 14px;border-radius:7px;border:1px solid var(--azul);cursor:pointer;background:var(--azul);color:#fff}
+.btn{font-family:inherit;font-weight:600;font-size:13px;padding:8px 14px;border-radius:7px;border:1px solid var(--azul);cursor:pointer;background:var(--azul);color:#fff;transition:background-color .15s,border-color .15s,color .15s}
+.btn:active:not(:disabled){transform:translateY(1px)}
 .btn:hover{background:var(--azul-osc)}
 .btn.sec{background:#fff;color:var(--azul)}
 .btn.sec:hover{background:var(--azul-claro)}
@@ -131,12 +137,22 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 
 /* ---------- Panel principal ---------- */
 #panel{flex:1;display:flex;flex-direction:column;min-width:0}
-#tabs{display:flex;gap:2px;padding:10px 18px 0;border-bottom:1px solid var(--borde);background:#fff;flex-shrink:0;flex-wrap:wrap;max-width:100%;overflow-x:auto}
-.tab{font-family:inherit;font-size:13.5px;font-weight:600;padding:9px 16px;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;background:transparent;color:var(--gris);cursor:pointer}
-.tab.activo{background:var(--fondo);border-color:var(--borde);color:var(--azul)}
+#tabs{display:flex;gap:4px;padding:4px 18px 0;border-bottom:1px solid var(--borde);background:#fff;flex-shrink:0;flex-wrap:wrap;max-width:100%;overflow-x:auto}
+.tab{font-family:inherit;font-size:13.5px;font-weight:600;padding:10px 14px 9px;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:0;background:transparent;color:var(--gris);cursor:pointer;transition:color .15s,border-color .15s}
+.tab:hover{color:var(--texto)}
+.tab.activo{color:var(--azul);border-bottom-color:var(--azul)}
 #contenido{flex:1;overflow-y:auto;overflow-x:hidden;padding:18px}
 .vacio{color:var(--gris);text-align:center;margin-top:60px;font-size:14px;line-height:1.7}
 .vacio b{color:var(--texto)}
+/* Primera pantalla: los tres pasos como lista, no como líneas centradas */
+.bienvenida{max-width:600px;margin:48px auto 0;color:var(--texto)}
+.bienvenida h2{font-size:20px;font-weight:700;margin-bottom:18px}
+.bv-pasos{list-style:none;background:#fff;border:1px solid var(--borde);border-radius:10px;padding:6px 20px}
+.bv-pasos li{display:flex;gap:14px;align-items:flex-start;padding:14px 0;font-size:14px;line-height:1.5}
+.bv-pasos li+li{border-top:1px solid var(--borde)}
+.bv-pasos .num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--azul);color:#fff;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.bv-pasos .btn{margin-top:10px!important}
+.bv-extra{margin-top:18px;font-size:13px;line-height:1.6;color:var(--gris);display:flex;flex-direction:column;gap:8px}
 
 /* ---------- Generar ---------- */
 .gen-grid{display:grid;grid-template-columns:360px 1fr;gap:18px;align-items:start}
@@ -145,11 +161,14 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
    columna se achicara y el desborde se escapaba hasta la página al redimensionar. */
 .gen-grid>*{min-width:0}
 .card{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:16px}
-.card h3{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--azul);margin-bottom:12px;font-weight:700}
-.campo{margin-bottom:11px}
-.campo label{display:block;font-size:12px;font-weight:600;color:var(--gris);margin-bottom:3px}
+.card h3{font-size:15px;line-height:1.3;color:var(--texto);margin-bottom:12px;font-weight:700}
+.campo{margin-bottom:14px}
+.campo label{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 4px;font-size:12.5px;font-weight:600;color:var(--texto);margin-bottom:4px}
+.campo .tag-var{margin-left:auto;font:500 10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#8A93AD}
 .campo label .tag-auto{font-size:10px;font-weight:700;color:var(--ok);background:#E7F6EE;border-radius:4px;padding:0 5px;margin-left:5px;text-transform:none}
-.campo input,.campo textarea,.campo select{width:100%;padding:7px 9px;border:1px solid var(--borde);border-radius:6px;font-family:inherit;font-size:13px}
+.campo input,.campo textarea,.campo select{width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:7px;font-family:inherit;font-size:13.5px;background-color:#fff;color:var(--texto);transition:border-color .15s}
+.campo input:hover,.campo textarea:hover,.campo select:hover{border-color:#A9B6DD}
+.campo input::placeholder,.campo textarea::placeholder{color:#7C859E}
 .campo input[readonly]{background:var(--azul-claro);color:var(--azul);font-weight:600}
 .campo textarea.largo{resize:vertical;line-height:1.45;min-height:64px}
 .prov-estado{font-size:12.5px;line-height:1.55;border-radius:8px;padding:8px 12px;margin:0 0 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -168,7 +187,7 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 /* Las notas fuera de un campo (bajo la vista previa, en el lote, en los
    modales…) no tenían estilo y salían a tamaño de párrafo. */
 .nota{font-size:12px;color:var(--gris);line-height:1.45}
-.campo .nota{font-size:11px;color:var(--gris);margin-top:2px}
+.campo .nota{font-size:11.5px;color:var(--gris);margin-top:3px}
 .campo .warn-txt{font-size:11px;color:var(--warn);font-weight:600;margin-top:2px}
 /* El documento en pantalla replica el formato institucional del Word final
    (el mismo de las plantillas de La Mágica): Titillium Web 10pt negro,
@@ -209,7 +228,7 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .mb-align .btn.activo{background:var(--azul);color:#fff;border-color:var(--azul)}
 .membrete-prev.papel{border:1px solid var(--borde);border-radius:8px;padding:12px 14px;background:linear-gradient(180deg,#F7F9FF,#fff)}
 .membrete-prev.papel .pp-logos{display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:space-between;border-bottom:1px solid var(--borde);padding-bottom:8px;margin-bottom:6px}
-.card-conc{border:1px solid var(--azul);background:#F5F8FF}
+.card-conc{border:1px solid var(--borde);background:#F7F9FF}
 .card-conc select{width:100%}
 .conc-lista{display:flex;flex-direction:column;gap:6px}
 .conc-fila{display:flex;gap:8px;align-items:center;border:1px solid var(--borde);border-radius:8px;padding:8px 10px;background:#fff}
@@ -223,12 +242,15 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 #editor .cl-vinc{border-left:3px solid #C9D6F2;padding-left:10px}
 #editor .cl-vinc:hover{border-left-color:var(--azul)}
 .acciones-gen{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+/* El botón de descargar seguía al final de un formulario de 17 campos: ahora se queda abajo, a la vista. */
+.gen-grid .acciones-gen{position:sticky;bottom:-18px;z-index:5;background:var(--fondo);padding:12px 0 18px;margin-bottom:-18px;border-top:1px solid var(--borde)}
 
 /* Barra de acciones rápidas + progreso */
 .rapidas{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .rapidas .btn{font-size:12.5px;padding:7px 12px}
 .prog{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:10px 14px;margin-bottom:12px}
-.prog .txt{font-size:12.5px;font-weight:600;display:flex;justify-content:space-between;margin-bottom:6px}
+.prog .txt{font-size:12.5px;font-weight:600;display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;margin-bottom:8px}
+.prog .txt>span:first-child{font-size:13.5px;font-weight:700;white-space:nowrap}
 .prog .txt .listo{color:var(--ok)}
 .prog .barra{height:7px;background:var(--azul-claro);border-radius:6px;overflow:hidden}
 .prog .barra > div{height:100%;background:var(--azul);border-radius:6px;transition:width .25s}
@@ -265,8 +287,8 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .eb-cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .eb-mov{display:inline-flex;flex-direction:column;gap:2px}
 .eb-mov .ic{width:24px;height:20px;font-size:9px;padding:0}
-.eb-num{min-width:64px;text-align:center;font-size:10px;font-weight:800;letter-spacing:.03em;border-radius:6px;padding:5px 6px;line-height:1.15}
-.eb-num small{display:block;font-size:7.5px;color:var(--gris);font-weight:700}
+.eb-num{min-width:72px;text-align:center;font-size:10px;font-weight:800;letter-spacing:.03em;border-radius:6px;padding:5px 6px;line-height:1.15}
+.eb-num small{display:block;font-size:9px;letter-spacing:.04em;color:var(--gris);font-weight:700;margin-top:1px}
 .eb-num.cl{background:var(--azul-claro);color:var(--azul)}
 .eb-num.tx{background:#EEF1F6;color:var(--gris)}
 .eb-tit{flex:1;min-width:150px;font-family:inherit;font-size:13px;font-weight:600;border:1px solid var(--borde);border-radius:6px;padding:6px 9px;background:#fff;color:var(--texto)}
@@ -283,6 +305,11 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .eb-var{font-family:inherit;font-size:11.5px;border:1px solid var(--borde);border-radius:6px;padding:3px 6px;background:#fff;color:var(--texto)}
 .eb-avlink{margin:8px 0 0;padding:7px 10px;font-size:11.5px;color:var(--warn);background:#FDF0D2;border-radius:7px}
 .eb-tit[readonly]{background:#F5F7FB;color:var(--gris);cursor:default}
+.eb-cab .btn.peligro{border-color:transparent;color:var(--gris);background:transparent}
+.eb-cab .btn.peligro:hover{color:var(--peligro);background:#FDECEA}
+.eb{transition:border-color .15s,box-shadow .15s}
+.eb:hover{border-color:#A9B6DD}
+.ew-tit{font-size:14px}
 
 /* ---------- Editor ---------- */
 .ed-meta{display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px;margin-bottom:12px}
@@ -319,7 +346,8 @@ aside .pie{padding:10px 12px;border-top:1px solid var(--borde);display:flex;gap:
 .chip-var{display:inline-block;font-size:10.5px;font-weight:700;background:var(--azul-claro);color:var(--azul);border-radius:4px;padding:1px 6px;margin:2px 3px 0 0}
 .chip-var-warn{background:#FEF3C7;color:#92400E}
 .badge-word{background:#E7F6EE;color:var(--ok)}
-#preview.docx-prev{overflow-x:auto;padding:10px}
+#preview.docx-prev{overflow-x:auto;padding:16px;background:#E9ECF2;border-color:#DDE2EC;box-shadow:inset 0 1px 3px rgba(16,26,61,.06)}
+#preview.docx-prev>section.docx{background:#fff;margin:0 auto;box-shadow:0 1px 2px rgba(16,26,61,.10),0 6px 18px rgba(16,26,61,.08)}
 #preview.docx-prev>p,#preview.docx-prev>.aviso-tags{margin:14px}
 #preview.docx-prev p{text-align:left}
 /* Formulario y documento, cada uno con su scroll. Cuando compartían el de
@@ -364,8 +392,8 @@ tr:hover td{background:var(--azul-claro)}
 
 /* ---------- Lote ---------- */
 .lote-sec{margin-bottom:16px}
-.paso-tit{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}
-.paso-tit .num{background:var(--azul);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.paso-tit{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--texto);margin-bottom:10px}
+.paso-tit .num{background:var(--azul);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
 .reg-lista{max-height:260px;overflow-y:auto;border:1px solid var(--borde);border-radius:8px;background:#fff}
 .reg-fila{display:flex;gap:9px;align-items:flex-start;padding:7px 11px;border-bottom:1px solid var(--borde);cursor:pointer;font-size:12.5px}
 .reg-fila:hover{background:var(--azul-claro)}
@@ -455,10 +483,15 @@ tr:hover td{background:var(--azul-claro)}
   header .acc-cab::-webkit-scrollbar{display:none}
   header .acc-cab button{flex-shrink:0;white-space:nowrap}
   .ed-meta{grid-template-columns:1fr}
+  /* Las cuatro acciones rápidas, de dos en dos: apiladas ocupaban media pantalla. */
+  .rapidas{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .rapidas .btn{font-size:12px;padding:8px 9px;text-align:left;line-height:1.3}
+  .gen-grid .acciones-gen{bottom:-12px;padding-bottom:12px;margin-bottom:-12px}
 }
 /* Sin ratón no hay «pasar por encima»: los iconos de carpeta se ven siempre. */
 @media(hover:none){
   .carpeta-acc{visibility:visible}
+  .item-pl .mini-ico{opacity:1}
 }
 </style>
 </head>
@@ -2711,13 +2744,17 @@ function renderContenidoInterno(){
     const pedir = { lote: 'Para generar varios documentos a la vez, primero elige la plantilla.', editar: 'Elige la plantilla que quieres editar.' }[tabActual];
     const boton = `<button class="btn" onclick="abrirLista()" style="margin-top:14px">📂 Elegir una plantilla</button>`;
     if(pedir){ c.innerHTML = `<div class="vacio"><b>${pedir}</b><br>${boton}</div>`; return; }
-    c.innerHTML = `<div class="vacio">
-      <b>¿Cómo genero un documento?</b><br>
-      1 · Elige una plantilla en la lista${estrecha() ? '' : ' de la izquierda'}.<br>${boton}<br><br>
-      2 · Toma los datos del <b>registro de contratos</b> o de una <b>contraparte guardada</b> (se llenan solos).<br>
-      3 · Completa lo que falte, ajusta cláusulas si hace falta y descarga el Word.<br><br>
-      Para las renovaciones de inicio de año usa la pestaña <b>Lote</b>: marca varios contratos del registro<br>y descarga todos los documentos de una sola vez.<br><br>
-      En <b>Cláusulas</b> vive tu repositorio de cláusulas aprobadas, con variantes<br>(p. ej. garantía con letra de cambio vs. garantía técnica) listas para insertar en cualquier documento.
+    c.innerHTML = `<div class="bienvenida">
+      <h2>¿Cómo genero un documento?</h2>
+      <ol class="bv-pasos">
+        <li><span class="num">1</span><div>Elige una plantilla en la lista${estrecha() ? '' : ' de la izquierda'}.<br>${boton}</div></li>
+        <li><span class="num">2</span><div>Toma los datos del <b>registro de contratos</b> o de una <b>contraparte guardada</b> (se llenan solos).</div></li>
+        <li><span class="num">3</span><div>Completa lo que falte, ajusta cláusulas si hace falta y descarga el Word.</div></li>
+      </ol>
+      <div class="bv-extra">
+        <p>Para las renovaciones de inicio de año usa la pestaña <b>Lote</b>: marca varios contratos del registro y descarga todos los documentos de una sola vez.</p>
+        <p>En <b>Cláusulas</b> vive tu repositorio de cláusulas aprobadas, con variantes (p. ej. garantía con letra de cambio vs. garantía técnica) listas para insertar en cualquier documento.</p>
+      </div>
     </div>`;
     return;
   }
@@ -2727,6 +2764,7 @@ function renderContenidoInterno(){
 }
 
 /* ============ Generar (uno) ============ */
+const mismoTexto = (a, b) => normalizar(a) === normalizar(b);
 function renderGenerar(c, p){
   if(editandoDoc){
     c.innerHTML = `
@@ -2758,7 +2796,7 @@ function renderGenerar(c, p){
   const selectoresConc = concs.map(g => {
     const idx = indiceConc(g.nombre);
     const gobernadas = Object.keys(g.tags||{}).filter(t => vars.includes(t));
-    return `<div class="campo"><label for="conc_${esc(g.nombre)}">⚥ ${esc(g.etiqueta)} <span class="tag-auto">cambia todo</span></label>
+    return `<div class="campo"><label for="conc_${esc(g.nombre)}">⚥ ${esc(g.etiqueta)}</label>
       <select id="conc_${esc(g.nombre)}" onchange="aplicarConcordanciaUI('${esc(g.nombre)}', this.selectedIndex)">
         ${(g.opciones||[]).map((o,i)=>`<option value="${i}" ${i===idx?'selected':''}>${esc(o)}</option>`).join('')}
       </select>
@@ -2774,13 +2812,13 @@ function renderGenerar(c, p){
     const der = derivadaDe(v, vars);
     if(der){
       const val = datosForm[v] ? fmtMonto(datosForm[v]) : '';
-      return `<div class="campo"><label for="f_${v}">${esc(etiqueta(v))} <span class="tag-auto">auto</span> <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span></label><input readonly id="f_${v}" value="${esc(val)}" placeholder="Se llena al escribir las dos cifras"><div class="nota">Se calcula solo: ${esc(der.como)}</div></div>`;
+      return `<div class="campo"><label for="f_${v}">${esc(etiqueta(v))} <span class="tag-auto">auto</span> <span class="tag-var">{{${esc(v)}}}</span></label><input readonly id="f_${v}" value="${esc(val)}" placeholder="Se llena al escribir las dos cifras"><div class="nota">Se calcula solo: ${esc(der.como)}</div></div>`;
     }
     if(esLargo(v)){
       const phL = reg && reg.ejemplo ? ` placeholder="p. ej. ${esc(reg.ejemplo)}"` : ' placeholder="Escribe o pega el texto. Cada Enter es un párrafo nuevo en el documento."';
-      const notaL = reg && reg.descripcion ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
+      const notaL = reg && reg.descripcion && !mismoTexto(reg.descripcion, etiqueta(v)) ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
       const astL = esRequerido(v) ? '<span class="oblig-ast" title="Obligatorio: sin este dato no se genera el documento">*</span>' : '';
-      return `<div class="campo campo-largo"><label for="f_${v}">${esc(etiqueta(v))}${astL} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${fijos[v] ? ' <span class="tag-auto">fijo</span>' : ''}
+      return `<div class="campo campo-largo"><label for="f_${v}">${esc(etiqueta(v))}${astL} <span class="tag-var">{{${esc(v)}}}</span>${fijos[v] ? ' <span class="tag-auto">fijo</span>' : ''}
         <button type="button" class="btn-largo" onclick="alternarLargo('${v}')" title="Volver a una casilla de una sola línea">¶ texto largo ✕</button></label>
         <textarea class="largo" rows="3"${phL} id="f_${v}" oninput="actualizarCampo('${v}', this.value);ajustarAlturaLargo(this)">${esc(datosForm[v]||'')}</textarea>${notaL}</div>`;
     }
@@ -2792,10 +2830,10 @@ function renderGenerar(c, p){
     const pegar = cortoLibre ? ` onpaste="pegarEnCampo(event, '${v}')"` : '';
     const ph = reg && reg.ejemplo ? ` placeholder="p. ej. ${esc(reg.ejemplo)}"` : '';
     const tagFijo = fijos[v] ? ' <span class="tag-auto">fijo</span>' : '';
-    const nota = reg && reg.descripcion ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
+    const nota = reg && reg.descripcion && !mismoTexto(reg.descripcion, etiqueta(v)) ? `<div class="nota">${esc(reg.descripcion)}</div>` : '';
     const warn = esIdVar(v) ? `<div class="warn-txt" id="w_${v}">${avisoIdentificacion(datosForm[v])}</div>` : '';
     const ast = esRequerido(v) ? '<span class="oblig-ast" title="Obligatorio: sin este dato no se genera el documento">*</span>' : '';
-    return `<div class="campo"><label for="f_${v}">${esc(etiqueta(v))}${ast} <span style="font-weight:400;color:var(--gris)">{{${esc(v)}}}</span>${tagFijo}${btnLargo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)"${pegar}>${nota}${warn}</div>`;
+    return `<div class="campo"><label for="f_${v}">${esc(etiqueta(v))}${ast} <span class="tag-var">{{${esc(v)}}}</span>${tagFijo}${btnLargo}</label><input type="${tipo}"${extra}${ph} id="f_${v}" value="${esc(datosForm[v]||'')}" oninput="actualizarCampo('${v}', this.value)"${pegar}>${nota}${warn}</div>`;
   }).join('');
 
   // La vista previa de Word tarda en rehacerse. Si se repinta la misma
